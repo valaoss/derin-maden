@@ -1,0 +1,118 @@
+// Dalgalar: sakin -> alarm (yuvalar belirir) -> saldırı -> temizlendi.
+// Düşmanlar oyuncunun açtığı en derin bölgeden çıkar; açık tünel yoksa kayanın içinden kazarak gelir.
+import { COLS, ROWS, TILE, GROUND_ROW, PLAY_MIN_COL, PLAY_MAX_COL } from '../config.js';
+import { T, TD } from '../data/tiles.js';
+import { WAVES, ENEMIES } from '../data/balance.js';
+import { G } from './state.js';
+import { tileAt, setTile } from '../world/map.js';
+import { FIELD, flowAt, FLOW_INF, forceFlow } from '../world/flow.js';
+import { spawnEnemy } from './enemies.js';
+import { debris, dust, shake, ring } from './fx.js';
+import { sfx, haptic } from '../audio/audio.js';
+import { emit } from '../core/events.js';
+
+function pickNests() {
+  forceFlow();
+  const p = G.player;
+  const pc = Math.floor(p.x / TILE), pr = Math.floor(p.y / TILE);
+  const open = [];
+  let deepest = GROUND_ROW;
+  for (let r = GROUND_ROW + 2; r < ROWS - 2; r++) for (let c = PLAY_MIN_COL; c <= PLAY_MAX_COL; c++) {
+    if (tileAt(c, r) !== T.AIR || flowAt(FIELD.walk, c, r) >= FLOW_INF) continue;
+    open.push([c, r]); if (r > deepest) deepest = r;
+  }
+  const far = open.filter(([c, r]) => r >= deepest - 7 && Math.abs(c - pc) + Math.abs(r - pr) >= 6);
+  const nests = [];
+  far.sort((a, b) => b[1] - a[1]);
+  for (const n of far) {
+    if (nests.length >= 2) break;
+    if (nests.every(m => Math.abs(m[0] - n[0]) + Math.abs(m[1] - n[1]) > 4) && Math.random() < 0.6) nests.push(n);
+  }
+  if (!nests.length && far.length) nests.push(far[0]);
+  // kaya yuvası: en derin noktanın biraz altından kazarak gelirler
+  if (nests.length < 2) {
+    const baseR = Math.min(ROWS - 4, Math.max(deepest, pr) + 3 + (Math.random() * 3 | 0));
+    for (let tries = 0; tries < 20 && nests.length < 2; tries++) {
+      const c = PLAY_MIN_COL + 1 + Math.floor(Math.random() * 11);
+      const t = tileAt(c, baseR);
+      if (TD[t].solid && !TD[t].unbreakable && !TD[t].chest && !TD[t].heart) nests.push([c, baseR, true]);
+    }
+  }
+  return nests.map(([c, r, rock]) => ({ c, r, rock: !!rock, x: c * TILE + 8, y: r * TILE + 8 }));
+}
+
+function buildQueue() {
+  const w = G.wave.num, st = G.maxStratum;
+  let budget = WAVES.budget(w, st) * (G.player.carrying ? 1.35 : 1);
+  const q = [];
+  if (w % WAVES.bossEvery === 0) { q.push('boss'); budget *= 0.5; }
+  const allowed = WAVES.allowed(w, st);
+  let guard = 0;
+  while (budget > 0.5 && guard++ < 80) {
+    const opts = allowed.filter(t => ENEMIES[t].cost <= budget + 0.5);
+    if (!opts.length) break;
+    const t = opts[Math.floor(Math.random() * opts.length)];
+    q.push(t); budget -= ENEMIES[t].cost;
+  }
+  // ağır olanlar sona
+  q.sort((a, b) => ENEMIES[a].cost - ENEMIES[b].cost);
+  return q.map((type, i) => ({ type, t: 0.4 + i * 0.75 }));
+}
+
+export function updateWaves(dt) {
+  const W = G.wave;
+  if (W.phase === 'calm') {
+    W.t -= dt;
+    if (G.player.carrying && W.t > WAVES.heartCalm) W.t = WAVES.heartCalm;
+    if (W.t <= WAVES.warn) {
+      W.phase = 'warn'; W.num++;
+      W.nests = pickNests();
+      W.boss = W.num % WAVES.bossEvery === 0;
+      sfx.alarm(); haptic([30, 60, 30]);
+      emit('alarm', { num: W.num, boss: W.boss });
+    }
+  } else if (W.phase === 'warn') {
+    W.t -= dt;
+    W.rumbleT -= dt;
+    for (const n of W.nests) if (Math.random() < dt * 5) debris(n.x, n.y + 6, 'dirt', 1, 0.3);
+    if (W.rumbleT <= 0) { W.rumbleT = 2.2; sfx.rumble(); for (const n of W.nests) dust(n.x, n.y, 2, 'rgba(160,140,130,0.4)'); }
+    if (W.t <= 0) startWave();
+  } else if (W.phase === 'active') {
+    W.elapsed += dt;
+    for (const s of W.queue) {
+      if (s.done) continue;
+      s.t -= dt;
+      if (s.t <= 0) {
+        s.done = true;
+        const n = W.nests[(W.spawnIdx++) % W.nests.length];
+        if (ENEMIES[s.type].fly && n.rock) continue;
+        if (n.rock && TD[tileAt(n.c, n.r)].solid) { setTile(n.c, n.r, T.AIR); debris(n.x, n.y, 'stone', 8); }
+        spawnEnemy(s.type, n.x + (Math.random() - 0.5) * 4, n.y + (Math.random() - 0.5) * 4, W.num);
+        dust(n.x, n.y, 3, 'rgba(160,140,130,0.5)');
+      }
+    }
+    const pending = W.queue.some(s => !s.done);
+    if (!pending && G.enemies.length === 0) {
+      W.phase = 'calm'; W.t = G.player.carrying ? WAVES.heartCalm : WAVES.calm; W.nests = [];
+      G.stats.wavesCleared++;
+      sfx.waveClear();
+      emit('waveClear', W.num);
+    }
+  }
+}
+
+function startWave() {
+  const W = G.wave;
+  W.phase = 'active'; W.queue = buildQueue(); W.spawnIdx = 0; W.elapsed = 0; W.total = W.queue.length;
+  for (const n of W.nests) { ring(n.x, n.y, '#ff5a4a', 16); debris(n.x, n.y, 'dirt', 6); }
+  shake(0.25); sfx.waveStart(); haptic(60);
+  emit('waveStart', W.num);
+}
+
+export function startTutorialWaveClock() {
+  if (G.wave.t === Infinity) G.wave.t = 34;
+}
+export function enemiesRemaining() {
+  const W = G.wave;
+  return G.enemies.length + (W.queue ? W.queue.filter(s => !s.done).length : 0);
+}

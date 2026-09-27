@@ -1,0 +1,441 @@
+// DOM arayüzü: HUD, atölye, perk seçimi, menüler, bildirimler, öğretici.
+import { TILE, GROUND_Y, PAD_COLS, PAD_Y, stratumOfRow } from '../config.js';
+import { UPGRADES, UPGRADE_KEYS, BUILDS, BARRICADE, REPAIR, PERKS, META, META_KEYS, RES_KEYS, ENEMIES } from '../data/balance.js';
+import { STRATA } from '../data/palette.js';
+import { G, App } from '../game/state.js';
+import { iconURL } from '../render/sprites.js';
+import { on, emit } from '../core/events.js';
+import { bagCount, hasPerk } from '../game/run.js';
+import { canAfford, upgradeCost, buyUpgrade, buildOnPad, buyBarricade, placeBarricade, repairBase, perkChoices, applyPerk, barricadeTarget } from '../game/economy.js';
+import { enemiesRemaining, startTutorialWaveClock } from '../game/waves.js';
+import { worldToView, viewToWorld } from '../render/renderer.js';
+import { sfx, initAudio, applyAudioSettings } from '../audio/audio.js';
+import { saveMeta, saveSettings } from '../core/save.js';
+import { cancelStick } from '../input/input.js';
+
+const $ = (s, r = document) => r.querySelector(s);
+const ic = (name, cls = '') => `<i class="icon ${cls}" style="background-image:url(${iconURL(name)})"></i>`;
+let ui, hooks = {};
+
+export function initUI(root, h) {
+  hooks = h; ui = root;
+  root.innerHTML = `
+  <div id="hud" class="hidden">
+    <div class="hud-row">
+      <div class="plate meter">${ic('heart')}<div class="bar hp"><b></b><i></i></div></div>
+      <div class="plate depth"><div class="m" id="dM">0m</div><div class="s" id="dS">YÜZEY</div></div>
+      <div class="plate meter">${ic('base')}<div class="bar base"><b></b><i></i></div></div>
+      <button class="plate pausebtn" id="pauseBtn" aria-label="Duraklat">${ic('pause')}</button>
+    </div>
+    <div class="hud-row">
+      <div class="plate meter bagm" id="bagM">${ic('bag')}<div class="bar bag"><i></i></div><span class="num" id="bagN">0/12</span></div>
+      <div class="plate res" id="resBox">${RES_KEYS.map(k => `<span class="chip" id="r_${k}">${ic(k, 's')}<span>0</span></span>`).join('')}</div>
+    </div>
+    <div class="plate" id="wave">${ic('wave', 's')}<span class="l">DALGA 1</span><span class="t"></span></div>
+    <div class="plate" id="boss">${ic('skull', 's')}<span>DERİN ANA</span><div class="bar"><i></i></div></div>
+  </div>
+  <div id="indicator">${ic('base', 's')} ÜS SALDIRI ALTINDA ▲</div>
+  <div id="toasts"></div>
+  <div id="coach"><div class="hand" style="background-image:url(${iconURL('hand')})"></div><div class="plate msg"></div></div>
+  <div id="banner"><div class="k"></div><div class="n"></div><div class="rule"></div></div>
+  <button class="btn hide" id="workshopBtn">${ic('drill', 'l')}<span>ATÖLYE</span><span class="badge"></span></button>
+  <button class="btn dark hide" id="barBtn">${ic('barricade', 'l')}<span id="barN">0</span></button>
+  <div class="plate" id="pop"></div>
+  <div id="sheetBack"></div>
+  <div class="plate rivets" id="sheet">
+    <div class="head"><h2>ATÖLYE</h2><button class="close" id="sheetClose" aria-label="Kapat">✕</button></div>
+    <div class="storebar" id="sheetStore"></div>
+    <div class="body" id="sheetBody"></div>
+  </div>
+  <div class="screen" id="menu"></div>
+  <div class="screen dim" id="pause"></div>
+  <div class="screen dim" id="perk"></div>
+  <div class="screen dim" id="results"></div>
+  <div class="screen dim" id="camp"></div>
+  <div class="screen dim" id="settings"></div>
+  <div id="fade"></div>`;
+
+  tap($('#pauseBtn'), () => hooks.pause(true));
+  tap($('#workshopBtn'), openSheet);
+  tap($('#sheetClose'), closeSheet);
+  tap($('#sheetBack'), closeSheet);
+  tap($('#barBtn'), () => { if (placeBarricade()) refreshHUD(true); });
+
+  on('toast', d => toast(d.text, d.icon, d.bad));
+  on('bagPop', () => { const n = $('#bagN'); n.parentElement.classList.remove('shake'); });
+  on('bagFull', () => { const m = $('#bagM'); m.classList.remove('shake'); void m.offsetWidth; m.classList.add('shake'); toast('Çanta dolu — yüzeye dön', 'bag', true); if (G.tutorial && G.tutorial.step < 2) tutStep(2); });
+  on('storePop', k => { const c = $('#r_' + k); c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop'); });
+  on('deposit', () => { refreshSheet(); });
+  on('hurt', () => { const v = $('#vignette'); v.classList.remove('hit'); void v.offsetWidth; v.classList.add('hit'); });
+  on('stratum', s => banner('KATMAN ' + (s + 1) + ' · ' + s * 26 + 'M', STRATA[s].name.toUpperCase()));
+  on('alarm', d => {
+    banner(d.boss ? 'DERİNLİKTEN BİR ŞEY GELİYOR' : 'ALARM', d.boss ? 'DERİN ANA UYANDI' : 'DALGA ' + d.num + ' YAKLAŞIYOR', true);
+    if (G.tutorial && G.tutorial.step === 4 && !G.tutorial.alarmSeen) { G.tutorial.alarmSeen = true; coach('Düşmanlar kazdığın tünellerden gelir. Üssü koru!', '', 6); }
+  });
+  on('waveStart', () => {});
+  on('waveClear', n => {
+    toast('Dalga ' + n + ' temizlendi', 'wave');
+    if (G.tutorial && !G.tutorial.done) { G.tutorial.done = true; App.meta.tutorialDone = true; saveMeta(App.meta); coach('Harika. Derine in: yeni katmanlar, daha değerli cevherler.', '', 5); }
+  });
+  on('baseHurt', () => { lastBaseHurt = performance.now(); });
+  on('perkOffer', showPerks);
+  on('heart', () => { banner('KALP KRİSTALİ', 'YÜZEYE TAŞI!', true); toast('Dalgalar sıklaşıyor — acele et', 'heart', true); });
+  on('playerDown', has => toast(has ? 'Bayıldın — çantan düştüğün yerde' : 'Bayıldın — üste uyanıyorsun', 'skull', true));
+  on('respawn', () => {});
+  on('upgraded', () => { refreshSheet(); });
+  on('tut', ev => tutEvent(ev));
+  $('#coach').addEventListener('click', () => {});
+}
+
+function tap(el, fn) {
+  el.addEventListener('pointerdown', e => e.stopPropagation());
+  el.addEventListener('click', e => { e.stopPropagation(); initAudio(); sfx.click(); fn(e); });
+}
+
+// ---------------- HUD ----------------
+let cache = {}, lastBaseHurt = 0;
+function set(id, key, val, fn) { if (cache[key] === val) return; cache[key] = val; fn(val); }
+export function showHUD(v) { $('#hud').classList.toggle('hidden', !v); if (!v) { $('#workshopBtn').classList.add('hide'); $('#barBtn').classList.add('hide'); } cache = {}; }
+
+export function refreshHUD(force = false) {
+  if (force) cache = {};
+  const p = G.player, b = G.base;
+  set(0, 'hp', Math.ceil(p.hp) + '/' + p.maxHp, () => {
+    const f = Math.max(0, p.hp / p.maxHp) * 100;
+    const bar = $('.bar.hp'); bar.children[1].style.width = `calc(${f}% - ${f / 25}px)`; bar.children[0].style.width = `calc(${f}% - ${f / 25}px)`;
+    $('#vignette').classList.toggle('low', f < 30 && !p.dead);
+  });
+  set(0, 'base', Math.ceil(b.hp) + '/' + b.maxHp, () => {
+    const f = Math.max(0, b.hp / b.maxHp) * 100;
+    const bar = $('.bar.base'); bar.children[1].style.width = `calc(${f}% - ${f / 25}px)`; bar.children[0].style.width = `calc(${f}% - ${f / 25}px)`;
+  });
+  const bc = bagCount();
+  set(0, 'bag', bc + '/' + G.bagCap, () => {
+    const f = Math.min(1, bc / G.bagCap) * 100;
+    $('.bar.bag > i').style.width = `calc(${f}% - ${f / 25}px)`;
+    $('.bar.bag').classList.toggle('full', bc >= G.bagCap);
+    const n = $('#bagN'); n.textContent = bc + '/' + G.bagCap; n.classList.toggle('full', bc >= G.bagCap);
+  });
+  for (const k of RES_KEYS) set(0, 'r' + k, G.store[k], v => { $('#r_' + k + ' span').textContent = v; });
+  const row = Math.floor(p.y / TILE), depth = Math.max(0, row - 6);
+  set(0, 'depth', depth, v => { $('#dM').textContent = v + 'm'; });
+  const st = stratumOfRow(row);
+  set(0, 'strat', st, v => { $('#dS').textContent = v < 0 ? 'YÜZEY' : STRATA[v].short; });
+
+  const W = G.wave;
+  let wl, wt, wc;
+  if (W.phase === 'calm') {
+    wc = ''; wl = 'DALGA ' + (W.num + 1);
+    wt = W.t === Infinity ? '—' : fmt(W.t);
+  } else if (W.phase === 'warn') { wc = 'warn'; wl = W.boss ? 'BOSS' : 'DALGA ' + W.num; wt = fmt(W.t); }
+  else { wc = 'active'; wl = 'DALGA ' + W.num; wt = enemiesRemaining() + ' düşman'; }
+  if (W.t === Infinity && W.phase === 'calm') wc = 'hide';
+  set(0, 'wc', wc, v => { $('#wave').className = 'plate ' + v; });
+  set(0, 'wl', wl, v => { $('#wave .l').textContent = v; });
+  set(0, 'wt', wt, v => { $('#wave .t').textContent = v; });
+  const boss = G.enemies.find(e => e.d.boss);
+  set(0, 'boss', boss ? Math.ceil(boss.hp) : -1, v => {
+    $('#boss').classList.toggle('on', v >= 0);
+    if (boss) $('#boss .bar > i').style.width = `calc(${boss.hp / boss.maxHp * 100}% - 4px)`;
+  });
+
+  // üs saldırı altında ve ekran dışında
+  const baseOff = G.cam.y > GROUND_Y - 10;
+  set(0, 'ind', performance.now() - lastBaseHurt < 1500 && baseOff, v => $('#indicator').classList.toggle('on', v));
+
+  // atölye butonu
+  const surf = p.y < GROUND_Y && !p.dead && !(G.tutorial && G.tutorial.step < 3);
+  const any = anyAffordable();
+  set(0, 'ws', surf, v => $('#workshopBtn').classList.toggle('hide', !v));
+  set(0, 'wsb', any, v => $('#workshopBtn').classList.toggle('has', v));
+  const canBar = G.barricades > 0 && p.y >= GROUND_Y && !p.dead;
+  set(0, 'bar', canBar ? G.barricades : -1, v => { $('#barBtn').classList.toggle('hide', v < 0); if (v >= 0) $('#barN').textContent = v; });
+  set(0, 'lefty', App.settings.lefty, v => ui.parentElement.classList.toggle('lefty', v));
+}
+function fmt(t) { t = Math.max(0, Math.ceil(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); }
+function anyAffordable() {
+  for (const k of UPGRADE_KEYS) { const c = upgradeCost(k); if (c && canAfford(c)) return true; }
+  return false;
+}
+
+// ---------------- bildirimler ----------------
+export function toast(text, icon, bad) {
+  const box = $('#toasts');
+  while (box.children.length > 2) box.firstChild.remove();
+  const t = document.createElement('div');
+  t.className = 'plate toast' + (bad ? ' bad' : '');
+  t.innerHTML = (icon ? ic(icon) : '') + '<span></span>';
+  t.lastChild.textContent = text;
+  box.appendChild(t);
+  setTimeout(() => t.classList.add('out'), 1900);
+  setTimeout(() => t.remove(), 2200);
+}
+let bannerTO = 0;
+export function banner(k, n, red) {
+  const b = $('#banner');
+  b.querySelector('.k').textContent = k; b.querySelector('.n').textContent = n;
+  b.className = red ? 'red' : '';
+  void b.offsetWidth; b.classList.add('on');
+  clearTimeout(bannerTO); bannerTO = setTimeout(() => b.classList.remove('on'), 2700);
+}
+let coachTO = 0;
+export function coach(text, mode = '', secs = 0) {
+  const c = $('#coach');
+  clearTimeout(coachTO);
+  if (!text) { c.className = ''; return; }
+  c.querySelector('.msg').textContent = text;
+  c.className = 'on ' + mode;
+  if (secs) coachTO = setTimeout(() => { c.className = ''; }, secs * 1000);
+}
+
+// ---------------- öğretici (oynatarak) ----------------
+function tutStep(n) {
+  const T = G.tutorial; if (!T || T.step >= n) return;
+  T.step = n;
+  if (n === 1) coach('Parlayan cevherlere kaz — kendiliğinden toplanır.', '', 0);
+  if (n === 2) coach('Çantanı boşaltmak için yüzeye dön.', 'up', 0);
+  if (n === 3) { coach('Cevherler depoda. Atölye\'den ilk yükseltmeni al!', '', 0); $('#workshopBtn').classList.add('pulse'); startTutorialWaveClock(); }
+  if (n === 4) { coach('', ''); $('#workshopBtn').classList.remove('pulse'); }
+}
+function tutEvent(ev) {
+  const T = G.tutorial; if (!T) return;
+  if (ev === 'pickup' && T.step < 1) tutStep(1);
+  if (ev === 'pickup' && T.step === 1 && bagCount() >= 5) tutStep(2);
+  if (ev === 'deposit' && T.step < 3) tutStep(3);
+  if (ev === 'bought' && T.step === 3) tutStep(4);
+}
+export function tutorialTick(dt) {
+  const T = G.tutorial; if (!T || T.done) return;
+  T.t += dt;
+  if (T.step === 0) {
+    if (!T.shown && T.t > 0.6) { T.shown = true; coach('Aşağı sürükle ve kazmaya başla', 'drag', 0); }
+    if (G.stats.dug >= 1 && T.t > 1) { coach('Harika! Kazmaya devam et.', '', 2.5); T.step = 0.5; }
+  }
+  if (T.step === 0.5 && G.stats.dug >= 4) { T.step = 0; tutStep(1); }
+  if (T.step === 1 && T.t > 50 && bagCount() > 0) tutStep(2);
+  if (T.step === 3 && !$('#sheet').classList.contains('on') && G.player.y > GROUND_Y + 64) tutStep(4);
+}
+
+// ---------------- atölye ----------------
+function openSheet() {
+  if (G.player.y >= GROUND_Y) return;
+  hooks.pause(false, true);
+  cancelStick();
+  refreshSheet();
+  $('#sheet').classList.add('on'); $('#sheetBack').classList.add('on');
+  if (G.tutorial && G.tutorial.step === 3) coach('');
+}
+export function closeSheet() {
+  if (!$('#sheet').classList.contains('on')) return;
+  $('#sheet').classList.remove('on'); $('#sheetBack').classList.remove('on');
+  hooks.resume();
+  refreshHUD(true);
+}
+export function sheetOpen() { return $('#sheet').classList.contains('on'); }
+
+function costHTML(c) {
+  return '<span class="cost">' + Object.keys(c).map(k => `<span class="${(G.store[k] || 0) >= c[k] ? '' : 'no'}">${ic(k, 's')}${c[k]}</span>`).join('') + '</span>';
+}
+function pips(l, max) { let s = '<span class="pips">'; for (let i = 0; i < max; i++) s += `<i class="${i < l ? 'on' : ''}"></i>`; return s + '</span>'; }
+
+function refreshSheet(justKey) {
+  if (!G) return;
+  $('#sheetStore').innerHTML = RES_KEYS.map(k => `<span class="chip">${ic(k, 's')}<span>${G.store[k]}</span></span>`).join('');
+  const body = $('#sheetBody');
+  let h = '<div class="sec">YÜKSELTMELER</div>';
+  for (const k of UPGRADE_KEYS) {
+    const u = UPGRADES[k], l = G.lvl[k], max = u.costs.length, c = upgradeCost(k);
+    const eff = c ? `${u.desc(l)} → <b>${u.desc(l + 1).replace(/^[^\d×]*/, '')}</b>` : u.desc(l);
+    h += `<div class="plate row ${c ? '' : 'max'} ${justKey === k ? 'just' : ''}" data-up="${k}">
+      ${ic(u.icon, 'l')}
+      <div class="main"><div class="name">${u.name} ${pips(l, max)}</div><div class="eff">${eff}</div>${c ? costHTML(c) : ''}</div>
+      <button class="btn buy" ${c && canAfford(c) ? '' : 'disabled'}>AL</button></div>`;
+  }
+  h += '<div class="sec">SAVUNMA</div>';
+  h += `<div class="plate row" data-act="bar">${ic('barricade', 'l')}<div class="main"><div class="name">Barikat <span class="eff">× ${G.barricades}</span></div>
+    <div class="eff">Tünellere koy, düşmanı yavaşlat</div>${costHTML(BARRICADE.cost)}</div>
+    <button class="btn buy" ${canAfford(BARRICADE.cost) ? '' : 'disabled'}>AL</button></div>`;
+  const dmg = G.base.hp < G.base.maxHp;
+  h += `<div class="plate row" data-act="rep">${ic('base', 'l')}<div class="main"><div class="name">Üssü Onar</div>
+    <div class="eff">${Math.ceil(G.base.hp)}/${G.base.maxHp} → <b>+${REPAIR.amount}</b></div>${costHTML(REPAIR.cost)}</div>
+    <button class="btn buy" ${dmg && canAfford(REPAIR.cost) ? '' : 'disabled'}>ONAR</button></div>`;
+  h += `<div class="note">Taret ve onarım istasyonu kurmak için yüzeydeki <b style="color:var(--helm)">+</b> işaretlerine dokun.</div>`;
+  if (G.perks.length) {
+    h += '<div class="sec">KALINTILAR</div>';
+    for (const k of G.perks) h += `<div class="plate row">${ic(PERKS[k].icon, 'l')}<div class="main"><div class="name">${PERKS[k].name}</div><div class="eff">${PERKS[k].desc}</div></div></div>`;
+  }
+  const scroll = body.scrollTop;
+  body.innerHTML = h;
+  body.scrollTop = scroll;
+  body.querySelectorAll('[data-up] .buy').forEach(b => tap(b, () => {
+    const k = b.closest('[data-up]').dataset.up;
+    if (buyUpgrade(k)) { refreshSheet(k); refreshHUD(true); tutEvent('bought'); }
+  }));
+  body.querySelectorAll('[data-act] .buy').forEach(b => tap(b, () => {
+    const a = b.closest('[data-act]').dataset.act;
+    if (a === 'bar' ? buyBarricade() : repairBase()) { refreshSheet(); refreshHUD(true); }
+  }));
+}
+
+// ---------------- yuva inşa popover'ı ----------------
+export function handleTap(fx, fy) {
+  hidePop();
+  if (!G || G.paused) return false;
+  const w = viewToWorld(fx, fy);
+  if (G.player.y >= GROUND_Y + 30) return false;
+  for (let i = 0; i < PAD_COLS.length; i++) {
+    const x = PAD_COLS[i] * TILE + 8;
+    if (Math.abs(w.x - x) < 14 && Math.abs(w.y - (PAD_Y - 6)) < 16) {
+      if (G.structures.some(s => s.pad === i)) return true;
+      showPop(i); return true;
+    }
+  }
+  return false;
+}
+function showPop(pad) {
+  const pop = $('#pop');
+  let h = '';
+  for (const k of ['turret', 'heal']) {
+    const b = BUILDS[k];
+    h += `<button class="plate row" data-b="${k}" ${canAfford(b.cost) ? '' : 'style="opacity:.6"'}>${ic(b.icon, 'l')}<div class="main"><div class="name">${b.name}</div>${costHTML(b.cost)}</div></button>`;
+  }
+  pop.innerHTML = h;
+  const v = worldToView(PAD_COLS[pad] * TILE + 8, PAD_Y - 12);
+  const R = ui.getBoundingClientRect();
+  let left = v.x * R.width - 100, top = v.y * R.height - 150;
+  left = Math.max(8, Math.min(R.width - 208, left)); top = Math.max(110, top);
+  pop.style.left = left + 'px'; pop.style.top = top + 'px';
+  pop.classList.add('on');
+  pop.querySelectorAll('[data-b]').forEach(b => tap(b, () => {
+    if (buildOnPad(b.dataset.b, pad)) { hidePop(); refreshHUD(true); } else toast('Yetersiz kaynak', 'bag', true);
+  }));
+}
+export function hidePop() { $('#pop').classList.remove('on'); }
+
+// ---------------- perk seçimi ----------------
+function showPerks() {
+  const ch = perkChoices();
+  if (!ch.length) { toast('Sandık boş çıktı', 'chest'); return; }
+  hooks.pause(false, true); cancelStick();
+  const s = $('#perk');
+  s.innerHTML = `<div class="perkhead"><div class="k">KALINTI SANDIĞI</div><div class="n">Birini seç</div></div>
+    <div class="cards">${ch.map((k, i) => `<button class="plate card" data-k="${k}" style="animation-delay:${0.08 + i * 0.07}s">${ic(PERKS[k].icon, 'xl')}
+      <div><div class="name">${PERKS[k].name}</div><div class="desc">${PERKS[k].desc}</div></div></button>`).join('')}</div>`;
+  s.classList.add('on');
+  s.querySelectorAll('.card').forEach(c => tap(c, () => {
+    applyPerk(c.dataset.k); s.classList.remove('on'); hooks.resume(); refreshHUD(true);
+    toast(PERKS[c.dataset.k].name, PERKS[c.dataset.k].icon);
+  }));
+}
+
+// ---------------- menü ----------------
+export function showMenu(hasSave) {
+  const m = App.meta;
+  const s = $('#menu');
+  s.innerHTML = `<div class="top"><div class="title">DERİN<small>MADEN</small></div><div class="subtitle">KAZ · SAVUN · DERİNE İN</div></div>
+    <div class="stack">
+      ${hasSave ? `<button class="btn big" id="mCont">DEVAM ET</button><button class="btn dark" id="mNew">YENİ SEFER</button>` : `<button class="btn big" id="mNew">KAZMAYA BAŞLA</button>`}
+      <div style="display:flex;gap:10px"><button class="btn dark" id="mCamp" style="flex:1">${ic('oz')} KAMP</button><button class="btn dark" id="mSet" style="flex:1">AYARLAR</button></div>
+      ${matchMedia('(pointer: fine)').matches ? '<div class="foot">WASD / Oklar: hareket ve kazı · P: duraklat</div>' : ''}
+      <div class="foot">${m.runs ? `Rekor <b>${m.bestDepth}m</b> · ${m.runs} sefer${m.wins ? ' · ' + m.wins + ' zafer' : ''} · <span class="ozline">${ic('oz', 's')}${m.oz}</span>` : 'Çekirdekteki Kalp Kristali seni bekliyor.'}</div>
+    </div>`;
+  s.classList.add('on');
+  if (hasSave) tap($('#mCont'), () => hooks.continueRun());
+  tap($('#mNew'), () => hooks.newRun());
+  tap($('#mCamp'), () => showCamp(() => showMenu(hasSave)));
+  tap($('#mSet'), () => showSettings(() => showMenu(hasSave)));
+}
+export function hideScreens() { document.querySelectorAll('.screen').forEach(s => s.classList.remove('on')); hidePop(); }
+
+export function showPause() {
+  const s = $('#pause');
+  s.innerHTML = `<div class="plate rivets panel"><h2>DURAKLATILDI</h2>
+    <div class="sub">Derinlik ${G.stats.maxDepth}m · Dalga ${G.wave.num}</div>
+    <button class="btn big" id="pRes">DEVAM</button>
+    <button class="btn dark" id="pSet">AYARLAR</button>
+    <button class="btn dark" id="pEnd">SEFERİ BİTİR</button></div>`;
+  s.classList.add('on');
+  tap($('#pRes'), () => { s.classList.remove('on'); hooks.resume(); });
+  tap($('#pSet'), () => { s.classList.remove('on'); showSettings(() => showPause()); });
+  let armed = false;
+  tap($('#pEnd'), e => {
+    if (!armed) { armed = true; e.currentTarget.textContent = 'EMİN MİSİN? TEKRAR DOKUN'; e.currentTarget.classList.replace('dark', 'danger'); return; }
+    s.classList.remove('on'); hooks.endRun('abandon');
+  });
+}
+export function pauseShown() { return $('#pause').classList.contains('on') || $('#settings').classList.contains('on'); }
+
+export function showSettings(back) {
+  const S = App.settings;
+  const s = $('#settings');
+  const items = [['sfx', 'Ses efektleri'], ['music', 'Ambiyans'], ['haptics', 'Titreşim'], ['shake', 'Ekran sarsıntısı'], ['lefty', 'Solak mod']];
+  s.innerHTML = `<div class="plate rivets panel"><h2>AYARLAR</h2>
+    ${items.map(([k, n]) => `<button class="plate toggle ${S[k] ? 'on' : ''}" data-k="${k}"><span>${n}</span><span class="sw"></span></button>`).join('')}
+    <button class="btn" id="sBack">TAMAM</button></div>`;
+  hideScreens(); s.classList.add('on');
+  s.querySelectorAll('.toggle').forEach(t => tap(t, () => {
+    S[t.dataset.k] = !S[t.dataset.k]; t.classList.toggle('on', S[t.dataset.k]); saveSettings(S); applyAudioSettings();
+  }));
+  tap($('#sBack'), () => { s.classList.remove('on'); back(); });
+}
+
+export function showCamp(back) {
+  const m = App.meta;
+  const s = $('#camp');
+  const render = () => {
+    s.innerHTML = `<div class="plate rivets panel" style="max-height:100%;">
+      <h2>KAMP</h2><div class="sub">Öz kalıcıdır. Her seferi güçlendirir.</div>
+      <div class="ozgain" style="font-size:24px">${ic('oz', 'l')}${m.oz}</div>
+      <div style="overflow-y:auto;display:flex;flex-direction:column;gap:8px;max-height:52dvh">
+      ${META_KEYS.map(k => { const d = META[k], l = m.lv[k] | 0, max = l >= d.max, c = d.costs[l];
+        return `<div class="plate row ${max ? 'max' : ''}" data-k="${k}">${ic(d.icon, 'l')}<div class="main"><div class="name">${d.name} ${pips(l, d.max)}</div><div class="eff">${d.desc}</div></div>
+          <button class="btn buy" ${!max && m.oz >= c ? '' : 'disabled'}>${ic('oz', 's')}${max ? '' : c}</button></div>`; }).join('')}
+      </div>
+      <button class="btn dark" id="cBack">GERİ</button></div>`;
+    s.querySelectorAll('[data-k] .buy').forEach(b => tap(b, () => {
+      const k = b.closest('[data-k]').dataset.k, d = META[k], l = m.lv[k] | 0;
+      if (l >= d.max || m.oz < d.costs[l]) { sfx.deny(); return; }
+      m.oz -= d.costs[l]; m.lv[k] = l + 1; saveMeta(m); sfx.buy(); render();
+      s.querySelector(`[data-k="${k}"]`).classList.add('just');
+    }));
+    tap($('#cBack'), () => { s.classList.remove('on'); back(); });
+  };
+  hideScreens(); render(); s.classList.add('on');
+}
+
+export function showResults(r) {
+  const s = $('#results');
+  const win = r.victory;
+  const title = win ? 'ZAFER' : r.reason === 'abandon' ? 'SEFER BİTTİ' : 'ÜS DÜŞTÜ';
+  const rows = [
+    ['En derin nokta', r.maxDepth + 'm', r.newDepth],
+    ['Temizlenen dalga', r.wavesCleared],
+    ['Açılan sandık', r.chests],
+    ['Yok edilen düşman', r.kills],
+    ['Toplanan cevher', r.ores],
+  ];
+  s.innerHTML = `<div class="plate rivets panel">
+    <h2 style="font-size:30px;color:${win ? 'var(--helm)' : 'var(--bad)'}">${title}</h2>
+    <div class="sub">${win ? 'Kalp Kristali yüzeye ulaştı.' : 'Madenin derinlikleri seni bekliyor.'}</div>
+    <div class="stats">${rows.map(([n, v, nw]) => `<div class="stat"><span>${n}</span><b data-v="${parseInt(v) || 0}" data-s="${String(v).replace(/[\d]/g, '')}">0</b>${nw ? '<span class="new">YENİ REKOR</span>' : ''}</div>`).join('')}</div>
+    <div class="ozgain">${ic('oz', 'l')}<span id="ozN">+0</span></div>
+    <div class="goal">${r.goal}</div>
+    <div style="display:flex;gap:10px"><button class="btn dark" id="rCamp" style="flex:1">${ic('oz')} KAMP</button><button class="btn" id="rAgain" style="flex:1.4">TEKRAR KAZ</button></div>
+    </div>`;
+  s.classList.add('on');
+  // sayılar sayarak gelsin
+  const els = [...s.querySelectorAll('.stat b')];
+  const t0 = performance.now();
+  const step = () => {
+    const k = Math.min(1, (performance.now() - t0) / 900);
+    const e = 1 - Math.pow(1 - k, 3);
+    els.forEach(el => { el.textContent = Math.round(+el.dataset.v * e) + el.dataset.s; });
+    $('#ozN').textContent = '+' + Math.round(r.oz * e);
+    if (k < 1) requestAnimationFrame(step); else sfx.buy();
+  };
+  setTimeout(() => requestAnimationFrame(step), 250);
+  tap($('#rAgain'), () => hooks.newRun());
+  tap($('#rCamp'), () => showCamp(() => showResults(r)));
+}
+
+export function fade(on_) { $('#fade').classList.toggle('on', on_); }
