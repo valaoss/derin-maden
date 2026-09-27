@@ -1,5 +1,5 @@
 // Otomatik nişan alan omuz blaster'ı, mermiler, taretler, onarım istasyonları.
-import { TILE, BASE_X, BASE_Y } from '../config.js';
+import { TILE, BASE_X, BASE_Y, GROUND_Y } from '../config.js';
 import { T, TD } from '../data/tiles.js';
 import { UPGRADES, BUILDS, BASE } from '../data/balance.js';
 import { G } from './state.js';
@@ -7,7 +7,8 @@ import { tileAt } from '../world/map.js';
 import { damageEnemy, losClear, damageStructure, damageBase } from './enemies.js';
 import { damagePlayer } from './player.js';
 import { hasPerk } from './run.js';
-import { sparks, flashLight, particle } from './fx.js';
+import { sparks, flashLight, particle, ring, shake, debris } from './fx.js';
+import { igniteGas } from './hazards.js';
 import { sfx } from '../audio/audio.js';
 
 function nearestTarget(x, y, range) {
@@ -46,6 +47,7 @@ export function updatePlayerGun(dt) {
 
 function fire(x, y, ang, speed, dmg, from, pierce) {
   G.bullets.push({ x, y, px: x, py: y, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, life: 0.7, dmg, from, pierce, hit: null });
+  return G.bullets[G.bullets.length - 1];
 }
 
 export function updateBullets(dt) {
@@ -65,8 +67,9 @@ export function updateBullets(dt) {
       if (e.dead || e.emergeT > 0.3 || e === b.hit) continue;
       if (Math.abs(e.x - b.x) < e.r + 3 && Math.abs(e.y - b.y) < e.r + 3) {
         const s = Math.hypot(b.vx, b.vy) || 1;
-        damageEnemy(e, b.dmg, b.vx / s, b.vy / s, b.from === 't' ? 0.6 : 1);
-        sparks(b.x, b.y, '#fff4c2', 3, 60);
+        damageEnemy(e, b.dmg, b.vx / s, b.vy / s, b.from === 'p' ? 1 : 0.6);
+        if (b.from === 'f') { e.slowT = BUILDS.frost.slowT; sparks(b.x, b.y, '#bff4ff', 5, 50); }
+        else sparks(b.x, b.y, '#fff4c2', 3, 60);
         if (b.pierce > 0) { b.pierce--; b.hit = e; } else dead = true;
         break;
       }
@@ -110,6 +113,38 @@ function updateBaseGun(dt) {
   }
 }
 
+// havan: menzildeki, yüzeye yakın en tehlikeli (üsse en yakın) düşman
+function mortarTarget(s, b) {
+  let best = null, bd = 1e9;
+  for (const e of G.enemies) {
+    if (e.dead || e.emergeT > 0.2 || e.y > GROUND_Y + 80) continue;
+    const d = Math.hypot(e.x - s.x, e.y - s.y);
+    if (d < b.minRange || d > b.range) continue;
+    const db = Math.hypot(e.x - BASE_X, e.y - BASE_Y);
+    if (db < bd) { bd = db; best = e; }
+  }
+  return best;
+}
+
+export function updateShells(dt) {
+  const ss = G.shells; let j = 0;
+  for (const sh of ss) {
+    sh.t += dt;
+    if (sh.t < sh.T) { ss[j++] = sh; continue; }
+    const b = BUILDS.mortar;
+    for (const e of G.enemies) {
+      if (e.dead) continue;
+      const d = Math.hypot(e.x - sh.tx, e.y - sh.ty);
+      if (d < b.splash + e.r) damageEnemy(e, b.dmg * (d < 10 ? 1 : 0.7), (e.x - sh.tx) / (d || 1), (e.y - sh.ty) / (d || 1), 1.5);
+    }
+    sfx.mortarHit(); shake(0.12);
+    ring(sh.tx, sh.ty, '#ffb050', b.splash); sparks(sh.tx, sh.ty, '#ffd48a', 12, 110); debris(sh.tx, sh.ty, 'dirt', 5);
+    flashLight(sh.tx, sh.ty, 4, 0.25);
+    igniteGas(sh.tx, sh.ty, b.splash);
+  }
+  ss.length = j;
+}
+
 export function updateStructures(dt) {
   const p = G.player;
   if (G.base.hp > 0) updateBaseGun(dt);
@@ -117,21 +152,62 @@ export function updateStructures(dt) {
     if (s.buildT > 0) s.buildT -= dt;
     if (s.hurtT > 0) s.hurtT -= dt;
     if (s.recoil > 0) s.recoil -= dt * 6;
-    if (s.type === 'turret') {
-      s.cd -= dt;
-      const b = BUILDS.turret;
+    const b = BUILDS[s.type];
+    const rate = hasPerk('taretAsiri') ? 1.5 : 1;
+    s.cd -= dt;
+    if (s.type === 'turret' || s.type === 'frost') {
       const tgt = nearestTarget(s.x, s.y - 4, b.range);
       if (tgt) {
         const ang = Math.atan2(tgt.y - (s.y - 4), tgt.x - s.x);
         s.aim += Math.atan2(Math.sin(ang - s.aim), Math.cos(ang - s.aim)) * Math.min(1, dt * 14);
         if (s.cd <= 0 && s.buildT <= 0) {
-          s.cd = b.cd / (hasPerk('taretAsiri') ? 1.5 : 1);
-          fire(s.x + Math.cos(s.aim) * 7, s.y - 4 + Math.sin(s.aim) * 7, s.aim, 230, b.dmg, 't', 0);
-          s.recoil = 1; sfx.turret(); flashLight(s.x, s.y, 2, 0.06);
+          s.cd = b.cd / rate;
+          fire(s.x + Math.cos(s.aim) * 7, s.y - 4 + Math.sin(s.aim) * 7, s.aim, s.type === 'frost' ? 200 : 230, b.dmg, s.type === 'frost' ? 'f' : 't', 0);
+          s.recoil = 1; flashLight(s.x, s.y, 2, 0.06);
+          if (s.type === 'frost') sfx.frost(); else sfx.turret();
+        }
+      }
+    } else if (s.type === 'flame') {
+      const tgt = nearestTarget(s.x, s.y - 4, b.range);
+      s.firing = !!tgt && s.buildT <= 0;
+      if (tgt) {
+        const ang = Math.atan2(tgt.y - (s.y - 4), tgt.x - s.x);
+        s.aim += Math.atan2(Math.sin(ang - s.aim), Math.cos(ang - s.aim)) * Math.min(1, dt * 10);
+      }
+      if (s.firing) {
+        if (Math.random() < dt * 40) {
+          const a = s.aim + (Math.random() - 0.5) * 0.5, sp = 90 + Math.random() * 60;
+          particle(s.x + Math.cos(s.aim) * 7, s.y - 5 + Math.sin(s.aim) * 7, Math.cos(a) * sp, Math.sin(a) * sp, 0.28, Math.random() < 0.4 ? '#ffe79a' : Math.random() < 0.6 ? '#ff9a4a' : '#e0502a', 2, 1, -40);
+        }
+        if (s.cd <= 0) {
+          s.cd = 0.1 / rate;
+          for (const e of G.enemies) {
+            if (e.dead || e.emergeT > 0.2) continue;
+            const d = Math.hypot(e.x - s.x, e.y - (s.y - 4));
+            if (d > b.range + e.r) continue;
+            const ea = Math.atan2(e.y - (s.y - 4), e.x - s.x);
+            if (Math.abs(Math.atan2(Math.sin(ea - s.aim), Math.cos(ea - s.aim))) > 0.55 || !losClear(s.x, s.y - 4, e.x, e.y, true)) continue;
+            damageEnemy(e, b.dps * 0.1, Math.cos(ea), Math.sin(ea), 0.1, true);
+          }
+          sfx.flame(); flashLight(s.x + Math.cos(s.aim) * 14, s.y - 4 + Math.sin(s.aim) * 14, 3, 0.1);
+        }
+      }
+    } else if (s.type === 'mortar') {
+      const tgt = mortarTarget(s, b);
+      if (tgt) {
+        const ang = Math.atan2(tgt.y - s.y, tgt.x - s.x);
+        s.aim = ang;
+        if (s.cd <= 0 && s.buildT <= 0) {
+          s.cd = b.cd / rate; s.recoil = 1;
+          const d = Math.hypot(tgt.x - s.x, tgt.y - s.y);
+          // hedefin yürüdüğü yöne kabaca öncül
+          const lead = 0.55 + d / 400;
+          const tx = tgt.x + (tgt.x - tgt.px) * 60 * lead, ty = tgt.y + (tgt.y - tgt.py) * 60 * lead;
+          G.shells.push({ sx: s.x, sy: s.y - 8, tx, ty, t: 0, T: lead });
+          sfx.mortar(); sparks(s.x, s.y - 10, '#ffd48a', 5, 60); flashLight(s.x, s.y - 8, 3, 0.1);
         }
       }
     } else if (s.type === 'heal') {
-      const b = BUILDS.heal;
       s.pulse = (s.pulse || 0) + dt;
       if (Math.hypot(BASE_X - s.x, BASE_Y - s.y) < b.range + 20 && G.base.hp > 0) G.base.hp = Math.min(G.base.maxHp, G.base.hp + b.rate * dt);
       if (!p.dead && Math.hypot(p.x - s.x, p.y - s.y) < b.range) p.hp = Math.min(p.maxHp, p.hp + b.rate * 1.6 * dt);

@@ -1,7 +1,7 @@
 // Kare çizimi: gökyüzü -> kaya -> nesneler -> ışık -> ışık yayanlar.
 import { COLS, ROWS, TILE, GROUND_Y, GROUND_ROW, WORLD_W, WORLD_H, BASE_X, PAD_COLS, PAD_Y, stratumOfRow } from '../config.js';
 import { T, TD } from '../data/tiles.js';
-import { P, RES_COL, ORE_RAMP, STRATA } from '../data/palette.js';
+import { P, RES_COL, ORE_RAMP, STRATA, MAT_RAMP } from '../data/palette.js';
 import { G } from '../game/state.js';
 import { SPR, sprCanvas, sprEm, glowSprite } from './sprites.js';
 import { drawTiles, flushDirty } from './tiles.js';
@@ -163,6 +163,11 @@ export function render(alpha, opts = {}) {
   drawBase();
   for (const s of G.structures) drawStructure(s);
   if (G.satchel) { const s = G.satchel; spr(SPR.satchel, s.x, s.y + Math.sin(G.time * 3) * 1.5); }
+  const tf = Math.floor(G.time * 6) % 2;
+  for (const t of G.torches) if (t.r >= r0 && t.r <= r1) spr(SPR.torch[tf], t.c * TILE + 8, t.r * TILE + 7);
+  for (const m of G.mines) spr(SPR.mine, m.x, m.y);
+  for (const b of G.bombs) spr(SPR.dynamite, b.x + (b.t < 0.6 ? Math.round((Math.random() - 0.5) * 2) : 0), b.y - 4);
+  for (const k of G.rocks) drawRock(k);
   // enkaz ve toz (ışıktan etkilenir)
   for (const p of G.particles) {
     if (p.dead || p.type === 1 || p.type === 3) continue;
@@ -236,6 +241,15 @@ function drawTileOverlays(r0, r1) {
     const t = G.map[r * COLS + c];
     const x = c * TILE, y = r * TILE;
     if (t === T.BARRICADE) drawBarricade(x, y, c, r);
+    else if (t === T.LOOSE) {
+      const f = G.falls.find(q => q.c === c && q.r === r);
+      const j = f ? ((Math.floor(G.time * 30) % 2) ? 1 : -1) : 0;
+      if (f) { ctx.fillStyle = 'rgba(10,6,14,0.5)'; ctx.fillRect(x, y + 15, 16, 1); }
+      ctx.drawImage(SPR.loose, x + j, y);
+    } else if (t === T.GAS) {
+      ctx.fillStyle = '#5a7a30';
+      for (let i = 0; i < 5; i++) ctx.fillRect(x + 2 + Math.floor(hash2(c, r, 40 + i) * 12), y + 2 + Math.floor(hash2(c, r, 60 + i) * 12), 1, 1);
+    }
     else if (t === T.CHEST) spr(SPR.chest, x + 8, y + 9);
     else if (t === T.HEART) spr(SPR.heart, x + 8, y + 8 + Math.round(Math.sin(G.time * 2) * 1));
     if (TD[t].solid && G.dmg[r * COLS + c] > 0) {
@@ -306,6 +320,36 @@ function drawStructure(s) {
     ctx.fillStyle = white ? '#fff' : '#6a7898'; ctx.fillRect(hx - 3, hy - 2, 7, 5);
     ctx.fillStyle = white ? '#fff' : '#8a9ab8'; ctx.fillRect(hx - 3, hy - 2, 7, 1);
     ctx.fillStyle = '#f2c14e'; ctx.fillRect(hx - 1, hy, 3, 1);
+  } else if (s.type === 'flame') {
+    // basınçlı tank + meme
+    ctx.fillStyle = P.ink; ctx.fillRect(x - 6, y - 8 + pop, 13, 11);
+    ctx.fillStyle = white ? '#fff' : '#8a3a2a'; ctx.fillRect(x - 5, y - 7 + pop, 11, 9);
+    ctx.fillStyle = white ? '#fff' : '#c05a3a'; ctx.fillRect(x - 5, y - 7 + pop, 11, 2);
+    ctx.fillStyle = P.metalD; ctx.fillRect(x - 5, y - 2 + pop, 11, 1);
+    const ax = Math.cos(s.aim), ay = Math.sin(s.aim), hx = x, hy = y - 7 + pop;
+    pline(hx, hy, hx + ax * 8, hy + ay * 8, P.ink); pline(hx, hy - 1, hx + ax * 7, hy + ay * 7 - 1, P.metal);
+    ctx.fillStyle = '#ffb050'; ctx.fillRect(x - 1, y - 4 + pop, 3, 2);
+  } else if (s.type === 'frost') {
+    // ayak + buz kristali çanağı
+    ctx.fillStyle = P.ink; ctx.fillRect(x - 5, y - 1 + pop, 11, 4); ctx.fillRect(x - 1, y - 6 + pop, 3, 6);
+    ctx.fillStyle = P.metalD; ctx.fillRect(x - 4, y + pop, 9, 2);
+    const hy = y - 9 + pop;
+    ctx.fillStyle = P.ink; ctx.fillRect(x - 3, hy - 4, 7, 8);
+    ctx.fillStyle = white ? '#fff' : '#6fd0ff'; ctx.fillRect(x - 2, hy - 3, 5, 6);
+    ctx.fillStyle = white ? '#fff' : '#bff4ff'; ctx.fillRect(x - 1, hy - 3, 2, 3);
+    const ax = Math.cos(s.aim), ay = Math.sin(s.aim), rc = (s.recoil > 0 ? s.recoil : 0) * 2;
+    pline(x + ax * 3, hy + ay * 3, x + ax * (8 - rc), hy + ay * (8 - rc), '#bff4ff');
+  } else if (s.type === 'mortar') {
+    // kısa kalın namlu, hep yukarı-dışa bakar
+    ctx.fillStyle = P.ink; ctx.fillRect(x - 7, y - 4 + pop, 15, 7);
+    ctx.fillStyle = white ? '#fff' : '#5a6278'; ctx.fillRect(x - 6, y - 3 + pop, 13, 5);
+    ctx.fillStyle = white ? '#fff' : '#7a86a0'; ctx.fillRect(x - 6, y - 3 + pop, 13, 1);
+    const dir = Math.cos(s.aim) >= 0 ? 1 : -1, rc = (s.recoil > 0 ? s.recoil : 0) * 2;
+    for (let i = 0; i < 4; i++) {
+      const bx = x + dir * (i * 1.5) , by = y - 5 - i * 2 + pop + rc;
+      ctx.fillStyle = P.ink; ctx.fillRect(Math.round(bx) - 3, Math.round(by) - 1, 7, 3);
+      ctx.fillStyle = P.metal; ctx.fillRect(Math.round(bx) - 2, Math.round(by), 5, 1);
+    }
   } else {
     ctx.fillStyle = P.ink; ctx.fillRect(x - 6, y - 9 + pop, 13, 12);
     ctx.fillStyle = white ? '#fff' : '#3e5a58'; ctx.fillRect(x - 5, y - 8 + pop, 11, 10);
@@ -321,7 +365,15 @@ function drawStructure(s) {
   }
 }
 
-const EN_OFFSET = { rodent: 1, bug: 1, spitter: 2, flyer: -2, boomer: 1, brute: 1, boss: 0 };
+const EN_OFFSET = { rodent: 1, bug: 1, spitter: 2, flyer: -2, boomer: 1, brute: 1, worm: 0, boss: 0 };
+function drawRock(k) {
+  const R = MAT_RAMP[k.mat] || MAT_RAMP.stone, x = Math.round(k.x) - 6, y = Math.round(k.y) - 6;
+  ctx.fillStyle = R[0]; ctx.fillRect(x + 1, y, 10, 12); ctx.fillRect(x, y + 1, 12, 10);
+  ctx.fillStyle = R[2]; ctx.fillRect(x + 1, y + 1, 10, 10);
+  ctx.fillStyle = R[3]; ctx.fillRect(x + 1, y + 1, 10, 2); ctx.fillRect(x + 1, y + 1, 2, 8);
+  ctx.fillStyle = R[1]; ctx.fillRect(x + 3, y + 8, 8, 3);
+  ctx.fillStyle = R[4]; ctx.fillRect(x + 2, y + 1, 3, 1);
+}
 function drawEnemy(e, alpha, camY, vh) {
   const x = lerp(e.px, e.x, alpha), y = lerp(e.py, e.y, alpha);
   if (y < camY - 30 || y > camY + vh + 30) return;
@@ -337,7 +389,19 @@ function drawEnemy(e, alpha, camY, vh) {
     spr(f, ox, oy + k * f.h * 0.6, flip); ctx.restore();
     return;
   }
+  if (e.trail) {
+    // solucan gövdesi: kuyruktan başa
+    const seg = SPR.wormSeg;
+    for (let i = e.trail.length - 1; i >= 1; i--) {
+      const q = e.trail[i], wig = Math.round(Math.sin(e.anim * 1.3 + i) * 1);
+      spr(seg, q.x + (i === 1 ? 0 : wig), q.y + (i === 1 ? wig : 0), false, e.hitT > 0);
+    }
+  }
   spr(f, ox, oy, flip, e.hitT > 0);
+  if (e.slowT > 0) {
+    ctx.fillStyle = '#bff4ff';
+    for (let i = 0; i < 3; i++) ctx.fillRect(Math.round(ox - f.w / 2 + hash2(i, Math.floor(G.time * 5), 3) * f.w), Math.round(oy - f.h / 2 + hash2(i, Math.floor(G.time * 5), 7) * f.h), 1, 1);
+  }
   if (e.hp < e.maxHp && !e.d.boss) {
     const w = Math.max(8, f.w - 4), fr = Math.max(0, e.hp / e.maxHp);
     const bx = Math.round(ox - w / 2), by = Math.round(oy - f.h / 2 - 3);
@@ -448,7 +512,37 @@ function drawEmissive(r0, r1, alpha, opts) {
   // yapı ışıkları
   for (const s2 of G.structures) {
     if (s2.type === 'heal') glow(s2.x, s2.y - 4, 'rgba(95,224,184,0.35)', 12, 0.6 + Math.sin(t * 3) * 0.3);
+    else if (s2.type === 'frost') glow(s2.x, s2.y - 7, 'rgba(160,230,255,0.3)', 8, 0.7 + Math.sin(t * 4) * 0.2);
+    else if (s2.type === 'flame') { glow(s2.x, s2.y - 5, 'rgba(255,140,60,0.25)', 6); if (s2.firing) glow(s2.x + Math.cos(s2.aim) * 18, s2.y - 4 + Math.sin(s2.aim) * 18, 'rgba(255,150,60,0.35)', 18); }
     else glow(s2.x, s2.y - 6, 'rgba(242,193,78,0.2)', 6);
+  }
+  // meşaleler, fitil, mayın ışığı, gaz
+  const tf = Math.floor(t * 6) % 2;
+  for (const tc of G.torches) {
+    if (tc.r < r0 || tc.r > r1) continue;
+    sprE(SPR.torch[tf], tc.c * TILE + 8, tc.r * TILE + 7);
+    const fl = 0.85 + Math.sin(t * 9 + tc.c) * 0.1 + Math.sin(t * 23 + tc.r) * 0.05;
+    glow(tc.c * TILE + 8, tc.r * TILE + 4, 'rgba(255,150,60,0.16)', 30, fl);
+    glow(tc.c * TILE + 8, tc.r * TILE + 3, 'rgba(255,200,110,0.4)', 8, fl);
+  }
+  for (const b of G.bombs) { sprE(SPR.dynamite, b.x, b.y - 4); glow(b.x, b.y - 8, 'rgba(255,200,100,0.5)', 6); }
+  for (const m of G.mines) if (m.arm <= 0 && Math.floor(t * 2 + m.x) % 2 === 0) { sprE(SPR.mine, m.x, m.y); glow(m.x, m.y - 1, 'rgba(255,80,60,0.5)', 4); }
+  for (const g of G.gas) if (!g.dead) glow(g.x, g.y, 'rgba(130,200,60,0.12)', Math.max(4, Math.round(g.rad)), Math.min(1, g.t));
+  for (let r = r0; r <= r1; r++) for (let c = 0; c < COLS; c++) {
+    if (G.map[r * COLS + c] !== T.GAS) continue;
+    const L = lightAtTile(c, r);
+    if (L < 0.08) continue;
+    ctx.globalAlpha = 0.35 + Math.sin(t * 2 + c * 3 + r) * 0.2;
+    ctx.fillStyle = '#9ad050';
+    for (let i = 0; i < 3; i++) ctx.fillRect(c * TILE + 2 + Math.floor(hash2(c, r, 40 + i) * 12), r * TILE + 2 + Math.floor(hash2(c, r, 60 + i) * 12), 1, 1);
+    ctx.globalAlpha = 1;
+  }
+  // havan mermileri: yay çizer, hedefte gölge
+  for (const sh of G.shells) {
+    const k = sh.t / sh.T, x = lerp(sh.sx, sh.tx, k), y = lerp(sh.sy, sh.ty, k) - Math.sin(k * Math.PI) * (30 + Math.abs(sh.tx - sh.sx) * 0.3);
+    ctx.fillStyle = '#ffd48a'; ctx.fillRect(Math.round(x) - 1, Math.round(y) - 1, 3, 3);
+    glow(x, y, 'rgba(255,200,120,0.4)', 5);
+    if (Math.floor(t * 8) % 2) { ctx.fillStyle = 'rgba(255,90,60,0.6)'; ctx.fillRect(Math.round(sh.tx) - 3, Math.round(sh.ty), 7, 1); }
   }
   // düşman gözleri: karanlıkta görünür
   for (const e of G.enemies) {
@@ -461,8 +555,8 @@ function drawEmissive(r0, r1, alpha, opts) {
   }
   // mermiler
   for (const bl of G.bullets) {
-    const col = bl.from === 't' ? '#9fe8ff' : '#ffe79a';
-    pline(bl.px, bl.py, bl.x, bl.y, bl.from === 't' ? 'rgba(120,200,255,0.6)' : 'rgba(255,220,140,0.6)');
+    const col = bl.from === 't' ? '#9fe8ff' : bl.from === 'f' ? '#e8fbff' : '#ffe79a';
+    pline(bl.px, bl.py, bl.x, bl.y, bl.from === 't' ? 'rgba(120,200,255,0.6)' : bl.from === 'f' ? 'rgba(190,240,255,0.7)' : 'rgba(255,220,140,0.6)');
     ctx.fillStyle = col; ctx.fillRect(Math.round(bl.x) - 1, Math.round(bl.y) - 1, 2, 2);
   }
   for (const bl of G.ebullets) {

@@ -81,6 +81,29 @@ export function generate(seed, opts = {}) {
     }
   }
 
+  // tehlikeler: gevşek kaya kümeleri (tercihen mağara tavanlarında) ve gaz cepleri
+  const hz = opts.hazard || 1;
+  const plain = t => t === T.DIRT || t === T.STONE || t === T.HARD || t === T.DENSE;
+  for (let s = 0; s < STRATA_COUNT; s++) {
+    const r0 = GROUND_ROW + s * STRATUM_ROWS;
+    const minR = s === 0 ? r0 + 14 : r0 + 2;
+    const loose = Math.round((s === 0 ? 1 : 2 + s) * hz), gas = Math.round((s === 0 ? 0 : 1 + s) * hz);
+    for (let i = 0; i < loose; i++) {
+      let c = 0, r = 0;
+      for (let tries = 0; tries < 40; tries++) {
+        c = PLAY_MIN_COL + Math.floor(rnd() * 13); r = minR + Math.floor(rnd() * (r0 + STRATUM_ROWS - 2 - minR));
+        if (plain(get(c, r)) && (tries > 25 || get(c, r + 1) === T.AIR)) break;
+      }
+      const len = 2 + Math.floor(rnd() * 3);
+      for (let k = 0; k < len; k++) if (inPlay(c + k, r) && plain(get(c + k, r))) set(c + k, r, T.LOOSE);
+    }
+    for (let i = 0; i < gas; i++) {
+      const c = PLAY_MIN_COL + 1 + Math.floor(rnd() * 11), r = minR + Math.floor(rnd() * (r0 + STRATUM_ROWS - 2 - minR));
+      if (plain(get(c, r))) set(c, r, T.GAS);
+      if (rnd() < 0.5 && plain(get(c + 1, r))) set(c + 1, r, T.GAS);
+    }
+  }
+
   // kalıntı sandıkları: katmanın alt yarısında, kayaya gömülü
   const chests = [];
   for (let s = 0; s < STRATA_COUNT; s++) {

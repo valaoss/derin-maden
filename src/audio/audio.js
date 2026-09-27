@@ -190,6 +190,67 @@ export const sfx = {
     const t = ctx.currentTime;
     for (let i = 0; i < 3; i++) noise(t + i * 0.07, 0.05, { type: 'bandpass', f: 1800 + i * 300, q: 3, gain: 0.15 });
   },
+  craft() {
+    if (!ok('craft', 0.08)) return;
+    const t = ctx.currentTime;
+    noise(t, 0.05, { type: 'bandpass', f: 2600, q: 4, gain: 0.14 });
+    tone(t + 0.04, 0.08, { type: 'square', f: 784, gain: 0.05 }); tone(t + 0.1, 0.14, { type: 'square', f: 1175, gain: 0.05 });
+  },
+  torch() {
+    if (!ok('torch', 0.1)) return;
+    const t = ctx.currentTime;
+    noise(t, 0.25, { type: 'bandpass', f: 900, q: 0.8, gain: 0.18, f2: 400, a: 0.02 });
+    tone(t, 0.06, { type: 'triangle', f: 330, gain: 0.08 });
+  },
+  fuse() { if (!ok('fuse', 0.1)) return; noise(ctx.currentTime, 0.3, { type: 'highpass', f: 4000, gain: 0.08, a: 0.03 }); },
+  fuseTick() { if (!ok('fuset', 0.08)) return; tone(ctx.currentTime, 0.03, { type: 'square', f: 1400, gain: 0.03 }); },
+  heal() {
+    if (!ok('heal', 0.2)) return;
+    const t = ctx.currentTime;
+    [523, 784, 1047].forEach((f, i) => tone(t + i * 0.05, 0.18, { type: 'sine', f, gain: 0.07 }));
+  },
+  arm() { if (!ok('arm', 0.1)) return; const t = ctx.currentTime; tone(t, 0.04, { type: 'square', f: 1800, gain: 0.03 }); tone(t + 0.07, 0.04, { type: 'square', f: 1800, gain: 0.03 }); },
+  recall() {
+    if (!ok('recall', 0.5)) return;
+    tone(ctx.currentTime, 1.4, { type: 'sine', f: 220, f2: 1320, gain: 0.08, a: 0.1 });
+  },
+  warp() {
+    if (!ok('warp', 0.3)) return;
+    const t = ctx.currentTime;
+    tone(t, 0.25, { type: 'triangle', f: 1760, f2: 440, gain: 0.1 });
+    noise(t, 0.3, { type: 'bandpass', f: 3000, gain: 0.08, f2: 600 });
+  },
+  creak() {
+    if (!ok('creak', 0.4)) return;
+    const t = ctx.currentTime;
+    noise(t, 0.5, { type: 'bandpass', f: 320, q: 6, gain: 0.22, a: 0.08 });
+    tone(t, 0.4, { type: 'sawtooth', f: 70, f2: 55, gain: 0.04, a: 0.05 });
+  },
+  rockfall() {
+    if (!ok('rockfall', 0.15)) return;
+    noise(ctx.currentTime, 0.4, { type: 'lowpass', f: 600, f2: 120, gain: 0.3 });
+  },
+  gas() {
+    if (!ok('gas', 0.3)) return;
+    noise(ctx.currentTime, 0.9, { type: 'highpass', f: 2500, gain: 0.12, a: 0.05, f2: 5000 });
+  },
+  cough() { if (!ok('cough', 0.45)) return; noise(ctx.currentTime, 0.09, { type: 'bandpass', f: vary(700), q: 2, gain: 0.16 }); },
+  burrow() { if (!ok('burrow', 0.5)) return; noise(ctx.currentTime, 0.45, { type: 'lowpass', f: 220, gain: 0.2, a: 0.05 }); },
+  frost() {
+    if (!ok('frost', 0.1)) return;
+    tone(ctx.currentTime, 0.08, { type: 'triangle', f: vary(2200, 0.04), f2: 1500, gain: 0.05 });
+  },
+  flame() { if (!ok('flame', 0.12)) return; noise(ctx.currentTime, 0.14, { type: 'bandpass', f: vary(900), q: 0.7, gain: 0.08 }); },
+  mortar() {
+    if (!ok('mortar', 0.3)) return;
+    const t = ctx.currentTime;
+    tone(t, 0.18, { type: 'sine', f: 110, f2: 50, gain: 0.3 }); noise(t, 0.12, { type: 'lowpass', f: 900, gain: 0.2 });
+  },
+  mortarHit() {
+    if (!ok('mortarh', 0.1)) return;
+    const t = ctx.currentTime;
+    noise(t, 0.3, { type: 'lowpass', f: 1200, f2: 100, gain: 0.3 }); tone(t, 0.2, { type: 'sine', f: 80, f2: 35, gain: 0.25 });
+  },
   victory() {
     if (!ctx) return;
     const t = ctx.currentTime, n = [523, 659, 784, 1047, 784, 1047, 1319];

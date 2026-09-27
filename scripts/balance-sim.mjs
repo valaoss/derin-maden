@@ -5,7 +5,9 @@ import { App, G } from '../src/game/state.js';
 import { newRun, recompute } from '../src/game/run.js';
 import { updatePlayer, updateOrbs, updateDeposit, bindEnemyDamage } from '../src/game/player.js';
 import { updateEnemies, damageEnemy } from '../src/game/enemies.js';
-import { updatePlayerGun, updateBullets, updateStructures } from '../src/game/combat.js';
+import { updatePlayerGun, updateBullets, updateStructures, updateShells } from '../src/game/combat.js';
+import { updateItems } from '../src/game/items.js';
+import { updateHazards } from '../src/game/hazards.js';
 import { updateWaves } from '../src/game/waves.js';
 import { updateParticles, updateFlashes } from '../src/game/fx.js';
 import { updateFlow, forceFlow } from '../src/world/flow.js';
@@ -50,9 +52,10 @@ for (let run = 0; run < RUNS; run++) {
       G.time += STEP; t += STEP;
       if (G.hitstop > 0) { G.hitstop -= STEP; continue; }
       updateFlow(STEP); updatePlayer(STEP); updatePlayerGun(STEP); updateEnemies(STEP); updateBullets(STEP);
-      updateStructures(STEP); updateWaves(STEP); updateOrbs(STEP); updateDeposit(STEP); updateParticles(STEP); updateFlashes(STEP);
+      updateStructures(STEP); updateShells(STEP); updateItems(STEP); updateHazards(STEP); updateWaves(STEP); updateOrbs(STEP); updateDeposit(STEP); updateParticles(STEP); updateFlashes(STEP);
       if (G.wave.phase === 'calm' && t > 20) break;
     }
+    if (process.env.DEBUG && t >= +process.env.DEBUG) console.log('takılma dalga', w, 'seed', 1000 + run, G.enemies.map(e => `${e.type}@${Math.floor(e.x/16)},${Math.floor(e.y/16)}:${e.st}`).join(' '));
     const row = table[w] || (table[w] = { n: 0, lost: 0, dmg: 0, time: 0, deaths: 0 });
     row.n++; row.dmg += hp0 - G.base.hp; row.time += t; if (baseDown) row.lost++;
     if (p.dead) row.deaths++;

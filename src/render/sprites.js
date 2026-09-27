@@ -251,6 +251,37 @@ const SATCHEL = [
   '..kkkk..',
 ];
 
+const WORM_PAL = { p: '#7a3a56', P: '#c07890', Q: '#e8a8c0' };
+const WORM_HEAD_A = [
+  '...kkkkk...',
+  '..kpPPPPk..',
+  '.kpPPQPPPk.',
+  'kpPPPPPrPkk',
+  'kpPPPPPPkWk',
+  'kpPPPPPPPk.',
+  'kpPPPPPPkWk',
+  '.kpPPPPPPkk',
+  '..kppppPk..',
+  '...kkkkk...',
+];
+const WORM_HEAD_B = WORM_HEAD_A.slice(0, 4).concat(['kpPPPPPPPkW', 'kpPPPPPPPk.', 'kpPPPPPPPkW']).concat(WORM_HEAD_A.slice(7));
+const WORM_SEG = [
+  '..kkkkk..',
+  '.kPPQPPk.',
+  'kpPQPPPPk',
+  'kpPPPPPPk',
+  'kpPPPPPPk',
+  'kppPPPPPk',
+  'kpppppppk',
+  '.kpppppk.',
+  '..kkkkk..',
+];
+const FIRE_PAL = { O: '#ff9a4a', F: '#e0502a', Y: '#ffe79a' };
+const TORCH_A = ['..Y...', '.YOY..', '.OFO..', '..F...', '.kmk..', '.kMk..', '..h...', '..h...', '..h...', '.kk...'];
+const TORCH_B = ['......', '..Y...', '.YOO..', '.OFO..', '.kmk..', '.kMk..', '..h...', '..h...', '..h...', '.kk...'];
+const DYN = ['..Y..', '..k..', '.kkk.', 'kRRRk', 'kRWRk', 'kRRRk', 'kmmmk', 'kRRRk', '.kkk.'];
+const MINE_W = ['...kRk...', '.kkmmmkk.', 'kmMMMMMmk', 'kkkkkkkkk'];
+
 // ---------------- İKONLAR (UI, 10x10) ----------------
 const ICONS = {
   heart: [
@@ -319,6 +350,45 @@ const ICONS = {
   skull: [
     '..kkkkkk..', '.kWWWWWWk.', 'kWWWWWWWWk', 'kWkkWWkkWk', 'kWkkWWkkWk',
     'kWWWkkWWWk', '.kWWWWWWk.', '..kWkWkWk.', '..kkkkkkk.', '..........'],
+  torch: [
+    '.....Y....', '....YOY...', '...YOFOY..', '...OFFFO..', '....OFO...',
+    '...kmmmk..', '....khk...', '....khk...', '....khk...', '....kkk...'],
+  dynamite: [
+    '.......Y..', '......YO..', '.....k....', '..kkkkk...', '.kRRRRRk..',
+    '.kRWRRRk..', '.kRRRRRk..', '.kmmmmmk..', '.kRRRRRk..', '..kkkkk...'],
+  medkit: [
+    '..kkkkkk..', '.kWWWWWWk.', 'kWWWRRWWWk', 'kWWWRRWWWk', 'kWRRRRRRWk',
+    'kWRRRRRRWk', 'kWWWRRWWWk', 'kWWWRRWWWk', '.kWWWWWWk.', '..kkkkkk..'],
+  mine: [
+    '..........', '..........', '....RR....', '....kk....', '..kkkkkk..',
+    '.kmmmmmmk.', 'kmMMMMMMmk', 'kMMMMMMMMk', '.kkkkkkkk.', '..........'],
+  recall: [
+    '....kk....', '...kIIk...', '..kIIIIk..', '.kIIIIIIk.', 'kkkkIIkkkk',
+    '...kIIk...', '...kDDk...', '...kDDk...', '..kDDDDk..', '..kkkkkk..'],
+  flame: [
+    '....Y.....', '...YOY....', '..YOOOY.Y.', '..OFFOOYO.', '.OFFFFOOO.',
+    '.OFFFFFFO.', '.kkkkkkkk.', '.kmmmmmmk.', '.kMMMMMMk.', '.kkkkkkkk.'],
+  frost: [
+    '....I.....', '.I..I..I..', '..I.I.I...', '...III....', 'IIIIWIIII.',
+    '...III....', '..I.I.I...', '.I..I..I..', '....I.....', '..........'],
+  mortar: [
+    '......kkk.', '.....kmmmk', '....kmMMk.', '...kmMMk..', '..kmMMk...',
+    '.kkMMkk...', 'kMMMMMMk..', 'kMmmmmMk..', 'kkkkkkkk..', '..........'],
+  schematic: [
+    'kkkkkkkk..', 'kDDDDDDk..', 'kDIDDIDkk.', 'kDIIIIDkDk', 'kDDIDDDkDk',
+    'kDIIIIDkDk', 'kDDDDDDkDk', 'kkkkkkkkDk', '.kDDDDDDDk', '.kkkkkkkkk'],
+  contract: [
+    '.kkkkkkk..', 'kHHHHHHHk.', '.khhhhhhk.', '.khkkkkhk.', '.khhhhhhk.',
+    '.khkkkhhk.', '.khhhhhhk.', '.khkkkkhk.', 'kHHHHHHHk.', '.kkkkkkk..'],
+  daily: [
+    '.k....k...', 'kkkkkkkkk.', 'kRRRRRRRk.', 'kkkkkkkkk.', 'kWWWWWWWk.',
+    'kWkWkWkWk.', 'kWWWWWWWk.', 'kWkWkWWWk.', 'kWWWWWWWk.', 'kkkkkkkkk.'],
+  kademe: [
+    '..kkkkkk..', '.kRRRRRRk.', 'kRRRRRRRRk', 'kRkkRRkkRk', 'kRkkRRkkRk',
+    'kRRRkkRRRk', '.kRRRRRRk.', '..kRkRkRk.', '..kkkkkkk.', '..........'],
+  check: [
+    '..........', '........kk', '.......kGk', '......kGk.', 'kk...kGk..',
+    'kGk.kGk...', '.kGkGk....', '..kGk.....', '...k......', '..........'],
   hand: [
     '...kk.......', '..kWWk......', '..kWWk......', '..kWWkkkk...', '..kWWkWWkkk.',
     'kkkWWkWWkWWk', 'kWWWWWWWWWWk', 'kWWWWWWWWWWk', '.kWWWWWWWWk.', '..kWWWWWWWk.',
@@ -343,7 +413,7 @@ export function iconURL(name, scale = 1) {
   if (ORE_ICON_SHAPES[name]) {
     const r = ORE_RAMP[name];
     s = makeSprite(ORE_ICON_SHAPES[name], { a: r[0], b: r[1], c: r[2], d: r[3] });
-  } else s = makeSprite(ICONS[name] || ICONS.gem, { C: '#e070ff', V: '#9030c8', Y: P.helm });
+  } else s = makeSprite(ICONS[name] || ICONS.gem, { C: '#e070ff', V: '#9030c8', Y: P.helm, O: '#ff9a4a', F: '#e0502a', I: '#bff4ff', D: '#3a7ac8' });
   let cv = s.cv;
   if (scale > 1) {
     cv = document.createElement('canvas'); cv.width = s.w * scale; cv.height = s.h * scale;
@@ -366,9 +436,31 @@ export function buildSprites() {
   SPR.chest = makeSprite(CHEST, { G: '#ffd24a' }, 'G');
   SPR.heart = makeSprite(HEART, { x: '#ff3a6a', X: '#ff8aa8', Z: '#ffffff', z: '#a01a40' }, 'xXZz');
   SPR.satchel = makeSprite(SATCHEL, { G: '#ffd24a' }, 'G');
+  SPR.worm = [makeSprite(WORM_HEAD_A, WORM_PAL, 'r'), makeSprite(WORM_HEAD_B, WORM_PAL, 'r')];
+  SPR.wormSeg = makeSprite(WORM_SEG, WORM_PAL);
+  SPR.torch = [makeSprite(TORCH_A, FIRE_PAL, 'YOF'), makeSprite(TORCH_B, FIRE_PAL, 'YOF')];
+  SPR.dynamite = makeSprite(DYN, {}, 'Y');
+  SPR.mine = makeSprite(MINE_W, {}, 'R');
+  SPR.loose = buildLoose();
   SPR.cracks = buildCracks();
   SPR.base = buildBase();
   SPR.glow = {};
+}
+
+// Gevşek kaya: yatay kırık levha + alt kenarda asılı çakıllar (sabit desen, okunur)
+function buildLoose() {
+  const c = document.createElement('canvas'); c.width = 16; c.height = 16;
+  const x = c.getContext('2d');
+  const D = 'rgba(10,6,14,0.8)', L = 'rgba(255,240,220,0.22)';
+  const px = (col, a, b, w = 1, h = 1) => { x.fillStyle = col; x.fillRect(a, b, w, h); };
+  // iki yatay fay çizgisi (hafif zikzak)
+  const f1 = [5, 5, 6, 6, 6, 5, 5, 4, 4, 5, 5, 6, 6, 5, 5, 5], f2 = [11, 11, 10, 10, 11, 11, 12, 12, 11, 11, 10, 10, 11, 11, 12, 12];
+  for (let i = 1; i < 15; i++) { px(D, i, f1[i]); px(L, i, f1[i] + 1); if (i % 5) { px(D, i, f2[i]); px(L, i, f2[i] + 1); } }
+  // dikey kısa kırıklar
+  px(D, 4, 7, 1, 3); px(D, 10, 2, 1, 3); px(D, 12, 7, 1, 3); px(D, 7, 13, 1, 2);
+  // alt kenar çakılları
+  px(D, 3, 15, 2, 1); px(D, 9, 15, 3, 1); px(L, 3, 14, 2, 1); px(L, 9, 14, 3, 1);
+  return c;
 }
 
 // Kazı çatlakları: 3 aşama, deterministik

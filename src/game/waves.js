@@ -45,7 +45,7 @@ function buildQueue() {
   const w = G.wave.num, st = G.maxStratum;
   let budget = WAVES.budget(w, st) * (G.player.carrying ? 1.35 : 1);
   const q = [];
-  if (w % WAVES.bossEvery === 0) { q.push('boss'); budget *= 0.5; }
+  if (w % G.mods.bossEvery === 0) { q.push('boss'); budget *= 0.5; }
   const allowed = WAVES.allowed(w, st);
   let guard = 0;
   while (budget > 0.5 && guard++ < 80) {
@@ -67,7 +67,7 @@ export function updateWaves(dt) {
     if (W.t <= WAVES.warn) {
       W.phase = 'warn'; W.num++;
       W.nests = pickNests();
-      W.boss = W.num % WAVES.bossEvery === 0;
+      W.boss = W.num % G.mods.bossEvery === 0;
       sfx.alarm(); haptic([30, 60, 30]);
       emit('alarm', { num: W.num, boss: W.boss });
     }
@@ -93,7 +93,7 @@ export function updateWaves(dt) {
     }
     const pending = W.queue.some(s => !s.done);
     if (!pending && G.enemies.length === 0) {
-      W.phase = 'calm'; W.t = G.player.carrying ? WAVES.heartCalm : WAVES.calm; W.nests = [];
+      W.phase = 'calm'; W.t = G.player.carrying ? WAVES.heartCalm : WAVES.calm * G.mods.calm; W.nests = [];
       G.stats.wavesCleared++;
       sfx.waveClear();
       emit('waveClear', W.num);

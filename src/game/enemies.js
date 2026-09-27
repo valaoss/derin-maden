@@ -2,7 +2,7 @@
 // Kazıcılar kayayı oyar; yolu tamamen kapalı olan herkes yavaşça kazmaya başlar (asla takılmaz).
 import { TILE, GROUND_Y, GROUND_ROW, BASE_X, BASE_Y } from '../config.js';
 import { T, TD } from '../data/tiles.js';
-import { ENEMIES, WAVES, BASE, BARRICADE } from '../data/balance.js';
+import { ENEMIES, WAVES, BASE, BARRICADE, BUILDS } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, solidAt, damageTile, idx } from '../world/map.js';
 import { FIELD, flowAt, nextStep, FLOW_INF } from '../world/flow.js';
@@ -12,17 +12,18 @@ import { sparks, debris, shake, ring, flashLight, dust, hitstop } from './fx.js'
 import { sfx, haptic } from '../audio/audio.js';
 import { emit } from '../core/events.js';
 import { setTile } from '../world/map.js';
+import { igniteGas } from './hazards.js';
 
-const ENEMY_COL = { rodent: '#b07a4a', bug: '#5a9a5a', spitter: '#9a5ac0', flyer: '#7a64a0', boomer: '#e070ff', brute: '#8a7c78', boss: '#c24a64' };
+const ENEMY_COL = { rodent: '#b07a4a', bug: '#5a9a5a', spitter: '#9a5ac0', flyer: '#7a64a0', boomer: '#e070ff', brute: '#8a7c78', worm: '#c07890', boss: '#c24a64' };
 export { ENEMY_COL };
 
 export function spawnEnemy(type, x, y, wave) {
   const d = ENEMIES[type];
-  const hp = d.hp * WAVES.hpScale(wave);
+  const hp = d.hp * WAVES.hpScale(wave) * (G.mods ? G.mods.hp : 1);
   const e = {
     type, d, x, y, px: x, py: y, hp, maxHp: hp, r: d.r, face: 1, anim: Math.random() * 4,
     hitT: 0, kx: 0, ky: 0, atkCd: 0.6, fireCd: 1 + Math.random(), emergeT: 0.9, wob: Math.random() * 6,
-    summonT: 5, stuckT: 0, lastC: -1, lastR: -1,
+    summonT: 5, stuckT: 0, lastC: -1, lastR: -1, slowT: 0, trail: d.burrow ? [] : null,
   };
   G.enemies.push(e);
   return e;
@@ -51,17 +52,18 @@ export function losClear(x0, y0, x1, y1, ignoreBarricade = false) {
   return true;
 }
 
-export function damageEnemy(e, dmg, dx = 0, dy = 0, knock = 1) {
+export function damageEnemy(e, dmg, dx = 0, dy = 0, knock = 1, silent = false) {
   if (e.hp <= 0 || e.emergeT > 0.3) return;
   const real = dmg * (1 - (e.d.armor || 0));
   e.hp -= real; e.hitT = 0.09;
   const kr = 1 - (e.d.knockResist || 0);
   e.kx += dx * 55 * knock * kr; e.ky += dy * 55 * knock * kr;
-  sfx.hit();
+  if (!silent) sfx.hit();
   if (e.hp <= 0) killEnemy(e);
 }
 
-function killEnemy(e) {
+export function killEnemy(e) {
+  if (e.dead) return;
   e.hp = 0; e.dead = true;
   const col = ENEMY_COL[e.type];
   sparks(e.x, e.y, col, e.d.boss ? 30 : 10, e.d.boss ? 150 : 90);
@@ -72,7 +74,7 @@ function killEnemy(e) {
   if (e.d.boom) explode(e.x, e.y, e.d.boom, e.d.dmg);
   if (e.d.boss) { for (let i = 0; i < 5; i++) spawnOrb(e.x, e.y, 'cobalt', true); for (let i = 0; i < 3; i++) spawnOrb(e.x, e.y, 'crystal', true);
     shake(0.6); hitstop(0.15); ring(e.x, e.y, '#ff8aa8', 40); flashLight(e.x, e.y, 7, 0.6); }
-  else if (e.type === 'brute') { spawnOrb(e.x, e.y, 'iron', true); spawnOrb(e.x, e.y, 'iron', true); spawnOrb(e.x, e.y, 'cobalt', true); shake(0.25); }
+  else if (e.type === 'brute' || e.type === 'worm') { spawnOrb(e.x, e.y, 'iron', true); spawnOrb(e.x, e.y, 'iron', true); spawnOrb(e.x, e.y, 'cobalt', true); shake(0.25); }
   else if (Math.random() < 0.35) spawnOrb(e.x, e.y, Math.random() < 0.75 ? 'iron' : 'water', true);
   if (hasPerk('yasamOzu') && !G.player.dead) G.player.hp = Math.min(G.player.maxHp, G.player.hp + 3);
 }
@@ -85,6 +87,7 @@ export function explode(x, y, rad, dmg) {
   if (Math.hypot(BASE_X - x, BASE_Y - y) < rad + BASE.radius) damageBase(dmg);
   for (const s of G.structures) if (Math.hypot(s.x - x, s.y - y) < rad + 6) damageStructure(s, dmg);
   for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - x, e.y - y) < rad) damageEnemy(e, 18, 0, 0, 0);
+  igniteGas(x, y, rad);
   // barikatları da sarsar
   const c0 = Math.floor(x / TILE), r0 = Math.floor(y / TILE);
   for (let r = r0 - 1; r <= r0 + 1; r++) for (let c = c0 - 1; c <= c0 + 1; c++) if (tileAt(c, r) === T.BARRICADE) hurtBarricade(c, r, dmg);
@@ -103,7 +106,7 @@ export function damageStructure(s, d) {
   sparks(s.x, s.y, '#ffd48a', 3, 60);
   if (s.hp <= 0) {
     s.dead = true; debris(s.x, s.y, 'stone', 12); sparks(s.x, s.y, '#ffd48a', 10, 100); shake(0.2); sfx.explode();
-    emit('toast', { text: s.type === 'turret' ? 'Taret yıkıldı' : 'Onarım istasyonu yıkıldı', icon: s.type, bad: true });
+    emit('toast', { text: BUILDS[s.type].name + ' yıkıldı', icon: BUILDS[s.type].icon, bad: true });
   }
 }
 export function hurtBarricade(c, r, d) {
@@ -141,7 +144,8 @@ export function updateEnemies(dt) {
       if (Math.abs(e.kx) + Math.abs(e.ky) < 2) e.kx = e.ky = 0;
     }
     e.atkCd -= dt;
-    const sp = e.d.speed;
+    if (e.slowT > 0) e.slowT -= dt;
+    const sp = e.d.speed * (e.slowT > 0 ? 0.5 : 1);
     const dp = p.dead ? 1e9 : Math.hypot(p.x - e.x, p.y - e.y);
     const db = Math.hypot(BASE_X - e.x, BASE_Y - e.y);
 
@@ -156,12 +160,14 @@ export function updateEnemies(dt) {
       if (e.atkCd <= 0) { attack(e, s); } hitStruct = true; break;
     }
     if (hitStruct) { e.st = 'struct'; continue; }
+    if (e.d.burrow) { trackTrail(e); if (updateWorm(e, dt, sp, dp)) continue; }
 
     // --- menzilli ---
     if (e.d.ranged) {
       e.fireCd -= dt;
       let tx = null, ty = 0;
-      if (dp < e.d.range && losClear(e.x, e.y, p.x, p.y)) { tx = p.x; ty = p.y; }
+      // görüş, oyuncunun omuz silahıyla aynı noktadan: o bizi göremiyorsa biz de ona ateş etmeyiz (tek yönlü kilitlenme olmasın)
+      if (dp < e.d.range && losClear(e.x, e.y, p.x - p.face * 3, p.y - 5, true)) { tx = p.x; ty = p.y; }
       else if (db < e.d.range && losClear(e.x, e.y, BASE_X, BASE_Y - 6)) { tx = BASE_X; ty = BASE_Y - 6; }
       if (tx !== null) {
         e.face = tx > e.x ? 1 : -1;
@@ -257,6 +263,50 @@ export function updateEnemies(dt) {
   let j = 0;
   for (const e of es) if (!e.dead) es[j++] = e;
   es.length = j;
+}
+
+// ---------- Maden Solucanı: oyuncuyu kayanın içinden avlar, arkasında tünel bırakır ----------
+function trackTrail(e) {
+  const tr = e.trail, last = tr[0];
+  if (!last || Math.hypot(last.x - e.x, last.y - e.y) >= 5) { tr.unshift({ x: e.x, y: e.y }); if (tr.length > 4) tr.pop(); }
+}
+function wormCellOk(t) { const d = TD[t]; return !(d.unbreakable || d.heart || d.chest); }
+function updateWorm(e, dt, sp, dp) {
+  const p = G.player;
+  // oyuncu derindeyse ve yakınsa onu avlar; değilse normal (her şeyi kazan) akışla üsse gider
+  if (p.dead || p.y < GROUND_Y + 8 || dp > 220) { e.wc = undefined; return false; }
+  e.st = 'hunt';
+  if (dp < e.r + 8) { if (e.atkCd <= 0) attack(e, 'player'); return true; }
+  const c = Math.floor(e.x / TILE), r = Math.floor(e.y / TILE);
+  const atCenter = e.wc !== undefined && Math.abs(e.x - (e.wc * TILE + 8)) < 1.5 && Math.abs(e.y - (e.wr * TILE + 8)) < 1.5;
+  if (e.wc === undefined || atCenter || !wormCellOk(tileAt(e.wc, e.wr))) {
+    const pc = Math.floor(p.x / TILE), pr = Math.floor(p.y / TILE);
+    let best = 1e9, bc = c, br = r;
+    for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nc = c + dc, nr = r + dr, t = tileAt(nc, nr);
+      if (nr < GROUND_ROW || !wormCellOk(t)) continue;
+      const sc = Math.hypot(nc - pc, nr - pr) + (nc === e.lc && nr === e.lr ? 2.5 : 0) + (TD[t].solid ? 0.2 : 0);
+      if (sc < best) { best = sc; bc = nc; br = nr; }
+    }
+    if (bc === c && br === r) return false;
+    e.lc = c; e.lr = r; e.wc = bc; e.wr = br;
+  }
+  const nt = tileAt(e.wc, e.wr);
+  if (TD[nt].solid) {
+    if (nt === T.BARRICADE) { if (e.atkCd <= 0) { e.atkCd = 1; e.lunge = 1; hurtBarricade(e.wc, e.wr, e.d.dmg); } }
+    else {
+      if (damageTile(e.wc, e.wr, e.d.digRate * dt)) breakTile(e.wc, e.wr, false);
+      if (Math.random() < dt * 10) debris(e.wc * TILE + 8 - (e.wc - c) * 6, e.wr * TILE + 8 - (e.wr - r) * 6, 'dirt', 1, 0.4);
+      if (dp < 110) sfx.burrow();
+    }
+    e.face = e.wc > c ? 1 : e.wc < c ? -1 : e.face;
+    return true;
+  }
+  const tx = e.wc * TILE + 8, ty = e.wr * TILE + 8, d = Math.hypot(tx - e.x, ty - e.y) || 1;
+  const step = Math.min(d, sp * dt);
+  e.x += (tx - e.x) / d * step; e.y += (ty - e.y) / d * step;
+  if (Math.abs(tx - e.x) > 0.5) e.face = tx > e.x ? 1 : -1;
+  return true;
 }
 
 function attack(e, target) {

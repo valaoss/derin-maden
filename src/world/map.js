@@ -27,6 +27,8 @@ export function setTile(c, r, t) {
   G.dmg[i] = 0;
   G.mapVersion++;
   G.dirty.push(c, r);
+  // açılan hücre: üstündeki gevşek kaya düşebilir (hazards.js işler)
+  if (t === T.AIR && G.cleared) G.cleared.push(c, r);
 }
 
 // Kazı hasarı: kırıldıysa true döner

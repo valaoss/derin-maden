@@ -53,11 +53,41 @@ export const UPGRADES = {
 };
 export const UPGRADE_KEYS = ['drill', 'bag', 'blaster', 'armor', 'lamp'];
 
+// schematic: true => Kalıntı sandığından çıkan şema ile açılır (kalıcı)
 export const BUILDS = {
   turret: { name: 'Taret', icon: 'turret', cost: { iron: 10 }, hp: 80, range: 112, dmg: 12, cd: 0.6, desc: 'Yakındaki düşmanlara ateş eder' },
   heal:   { name: 'Onarım', icon: 'heal', cost: { water: 8, iron: 4 }, hp: 60, range: 56, rate: 5, desc: 'Üssü, taretleri ve seni onarır' },
+  flame:  { name: 'Alev Tareti', icon: 'flame', cost: { iron: 8, cobalt: 3 }, hp: 110, range: 46, dps: 30, schematic: true, desc: 'Kısa menzil, sürekli alan hasarı' },
+  frost:  { name: 'Buz Tareti', icon: 'frost', cost: { water: 6, crystal: 2 }, hp: 80, range: 100, dmg: 6, cd: 0.7, slowT: 2.2, schematic: true, desc: 'Vurduğu düşmanı yarı hıza düşürür' },
+  mortar: { name: 'Havan', icon: 'mortar', cost: { iron: 12, cobalt: 4 }, hp: 90, range: 160, minRange: 30, dmg: 30, splash: 26, cd: 2.6, schematic: true, desc: 'Uzak menzil, alan hasarı' },
 };
+export const BUILD_KEYS = ['turret', 'heal', 'flame', 'frost', 'mortar'];
 export const BARRICADE = { cost: { iron: 3 }, hp: 70 };
+
+// Üretilen eşyalar (Atölye > Üret). Kemerden kullanılır.
+export const ITEMS = {
+  torch:     { name: 'Meşale', icon: 'torch', cost: { iron: 1 }, max: 9, desc: 'Tünel duvarına as: kalıcı ışık.' },
+  dynamite:  { name: 'Dinamit', icon: 'dynamite', cost: { iron: 3, water: 1 }, max: 5, desc: '2 sn sonra patlar: çevresindeki kayayı kırar, düşmanlara 60 hasar.' },
+  medkit:    { name: 'Tamir Kiti', icon: 'medkit', cost: { water: 3 }, max: 3, desc: 'Anında 50 can yeniler.' },
+  barricade: { name: 'Barikat', icon: 'barricade', cost: BARRICADE.cost, max: 9, desc: 'Tünele koy: düşmanı durdurur, sen içinden geçersin.' },
+  mine:      { name: 'Mayın', icon: 'mine', cost: { iron: 2, cobalt: 1 }, max: 5, schematic: true, desc: 'Tünele göm: ilk yaklaşan düşmanda patlar (45 alan hasarı).' },
+  recall:    { name: 'Dönüş Fişeği', icon: 'recall', cost: { water: 2, cobalt: 1 }, max: 2, schematic: true, desc: '1.5 sn sonra seni yüzeye ışınlar. Kalp Kristali ile çalışmaz.' },
+};
+export const ITEM_KEYS = ['torch', 'dynamite', 'medkit', 'barricade', 'mine', 'recall'];
+export const DYNAMITE = { fuse: 2, radius: 2.2, dmg: 60, selfDmg: 14 };
+export const MINE = { arm: 0.8, trigger: 11, radius: 26, dmg: 45 };
+export const MEDKIT = { heal: 50 };
+export const RECALL = { channel: 1.5 };
+export const TORCH = { light: 4.6 };
+
+// Sandıklardan sırayla çıkan şemalar (bir kez bulunan kalıcıdır)
+export const SCHEMATICS = [
+  { key: 'recall', kind: 'item' }, { key: 'mine', kind: 'item' },
+  { key: 'flame', kind: 'build' }, { key: 'frost', kind: 'build' }, { key: 'mortar', kind: 'build' },
+];
+
+// Tehlikeler: gevşek kaya (göçük) ve gaz cepleri
+export const HAZARD = { fallDelay: 0.9, fallDmg: 22, fallEnemyDmg: 45, gasTime: 7, gasRadius: 22, gasDps: 7, gasBoom: 40 };
 export const REPAIR = { cost: { iron: 5 }, amount: 70 };
 
 // Düşmanlar: r = çarpışma yarıçapı, dig = kazabildiği maks kaya hp'si
@@ -68,6 +98,7 @@ export const ENEMIES = {
   flyer:   { name: 'Yarasa', hp: 22, speed: 62, dmg: 7, r: 4, fly: true, cost: 1.5 },
   boomer:  { name: 'Kristalböcek', hp: 24, speed: 40, dmg: 26, r: 5, boom: 26, cost: 2 },
   brute:   { name: 'Kaya Devi', hp: 140, speed: 20, dmg: 22, r: 8, armor: 0.4, dig: 99, digRate: 5, knockResist: 0.85, cost: 5 },
+  worm:    { name: 'Maden Solucanı', hp: 60, speed: 24, dmg: 10, r: 6, armor: 0.2, burrow: true, dig: 99, digRate: 7, knockResist: 0.7, cost: 3 },
   boss:    { name: 'Derin Ana', hp: 540, speed: 21, dmg: 28, r: 11, armor: 0.3, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0 },
 };
 
@@ -83,6 +114,7 @@ export const WAVES = {
     if (stratum >= 2 || wave >= 8) a.push('flyer');
     if (stratum >= 2 || wave >= 7) a.push('boomer');
     if (stratum >= 1 && wave >= 5) a.push('brute');
+    if (stratum >= 1 && wave >= 4) a.push('worm');
     return a;
   },
 };
@@ -115,6 +147,32 @@ export const META = {
   kalintiBil:{ name: 'Kalıntı Bilgisi', icon: 'chest', max: 1, costs: [120], desc: 'Kalıntı sandıkları 4 seçenek sunar.' },
 };
 export const META_KEYS = Object.keys(META);
+
+// Zafer sonrası açılan zorluk kademeleri (birikimli)
+export const KADEME = [
+  { name: 'Normal', desc: 'Standart sefer' },
+  { name: 'Kademe 1', desc: 'Düşmanlar %20 daha dayanıklı' },
+  { name: 'Kademe 2', desc: '+ Dalgalar arası %20 daha kısa' },
+  { name: 'Kademe 3', desc: '+ İki kat göçük ve gaz cebi' },
+  { name: 'Kademe 4', desc: '+ Üs sakin fazda kendini onarmaz' },
+  { name: 'Kademe 5', desc: '+ Derin Ana her 4 dalgada bir' },
+];
+export function kademeMods(k = 0) {
+  return { hp: k >= 1 ? 1.2 : 1, calm: k >= 2 ? 0.8 : 1, hazard: k >= 3 ? 2 : 1, noRegen: k >= 4, bossEvery: k >= 5 ? 4 : 6, oz: 1 + 0.25 * k };
+}
+
+// Sefer kontratları: her seferde 2 tane, tamamlanınca bonus Öz
+// vals: oyuncunun ulaştığı en derin katmana göre hedef; minStratum: sunulması için gereken katman
+export const CONTRACTS = {
+  depth:   { icon: 'depth', text: n => `${n}m derinliğe in`, vals: [30, 50, 70, 90], stat: g => g.stats.maxDepth, oz: 12 },
+  kills:   { icon: 'skull', text: n => `${n} düşman yok et`, vals: [20, 35, 50, 70], stat: g => g.stats.kills, oz: 10 },
+  waves:   { icon: 'wave', text: n => `${n} dalga temizle`, vals: [3, 5, 7, 9], stat: g => g.stats.wavesCleared, oz: 12 },
+  chests:  { icon: 'chest', text: n => `${n} kalıntı sandığı aç`, vals: [1, 2, 3, 4], stat: g => g.stats.chests, oz: 14 },
+  cobalt:  { icon: 'cobalt', text: n => `${n} kobalt depola`, vals: [6, 10, 14, 18], stat: g => g.collected.cobalt, oz: 12, minStratum: 1 },
+  crystal: { icon: 'crystal', text: n => `${n} kristal depola`, vals: [4, 4, 6, 8], stat: g => g.collected.crystal, oz: 16, minStratum: 2 },
+  blast:   { icon: 'dynamite', text: n => `Dinamitle ${n} blok kır`, vals: [8, 14, 20, 26], stat: g => g.stats.blasted, oz: 10 },
+  torches: { icon: 'torch', text: n => `${n} meşale as`, vals: [3, 5, 7, 9], stat: g => g.stats.torches, oz: 8 },
+};
 
 export function ozForRun(s) {
   return Math.round(

@@ -6,7 +6,8 @@ import { RES_COL } from '../data/palette.js';
 import { G, App } from './state.js';
 import { tileAt, solidAt, setTile, damageTile, matOf } from '../world/map.js';
 import { readMove } from '../input/input.js';
-import { hasPerk, bagCount, recompute } from './run.js';
+import { hasPerk, bagCount, recompute, unlockSchematic } from './run.js';
+import { spawnGas } from './hazards.js';
 import { debris, dust, sparks, shake, kick, hitstop, flashLight, ring, particle } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
 import { emit } from '../core/events.js';
@@ -56,6 +57,7 @@ export function updatePlayer(dt) {
   p.px = p.x; p.py = p.y;
   if (p.iframes > 0) p.iframes -= dt;
   if (p.hurtT > 0) p.hurtT -= dt;
+  if (p.gasT > 0) p.gasT -= dt;
   if (p.shockCd > 0) p.shockCd -= dt;
   if (p.digAnim > 0) p.digAnim = Math.max(0, p.digAnim - dt * 6);
   if (p.squash > 0) p.squash = Math.max(0, p.squash - dt * 5);
@@ -169,6 +171,7 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
   const t = tileAt(c, r), d = TD[t], mat = matOf(c, r);
   setTile(c, r, T.AIR);
   const x = c * TILE + 8, y = r * TILE + 8;
+  if (d.gas) spawnGas(x, y);
   if (!byPlayer) { debris(x, y, mat, 5, 0.7); return; }
   G.stats.dug++;
   debris(x, y, mat, 9);
@@ -187,6 +190,8 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
     G.stats.chests++;
     sfx.chest(); hitstop(0.08); shake(0.2);
     sparks(x, y, '#ffd24a', 14, 110); ring(x, y, '#ffd24a', 22); flashLight(x, y, 5, 0.5);
+    const sc = unlockSchematic();
+    if (sc) emit('schematic', sc);
     emit('perkOffer');
   }
   if (d.heart) {
@@ -291,6 +296,17 @@ export function damagePlayer(amount, sx, sy) {
   if (p.hp <= 0) die();
 }
 
+// gaz: iframe/savrulma yok, küçük düzenli hasar
+let poisonHurtT = 0;
+export function poisonPlayer(amount) {
+  const p = G.player;
+  if (p.dead) return;
+  p.hp -= amount; p.gasT = 0.35;
+  sfx.cough();
+  if (G.time - poisonHurtT > 1.2) { poisonHurtT = G.time; emit('hurt', amount); }
+  if (p.hp <= 0) die();
+}
+
 function die() {
   const p = G.player;
   p.hp = 0; p.dead = true; p.respawnT = PLAYER.respawn;
@@ -299,7 +315,7 @@ function die() {
     G.satchel = { x: p.x, y: p.y, bag: Object.assign({}, G.bag), heart: p.carrying };
     for (const k of RES_KEYS) G.bag[k] = 0;
   }
-  p.carrying = false;
+  p.carrying = false; p.recallT = 0;
   sparks(p.x, p.y, '#74efcf', 18, 120); ring(p.x, p.y, '#74efcf', 26);
   shake(0.5); sfx.enemyDie(true); haptic(80);
   emit('playerDown', has);

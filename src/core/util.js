@@ -45,3 +45,6 @@ export function compact(arr, keep) {
   for (let i = 0; i < arr.length; i++) { const o = arr[i]; if (keep(o)) arr[j++] = o; }
   arr.length = j;
 }
+
+// yerel tarih anahtarı (günün madeni)
+export function todayKey() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }

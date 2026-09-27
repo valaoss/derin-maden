@@ -1,10 +1,10 @@
 // Harcama: yükseltmeler, yapılar, barikatlar, onarım, perk'ler.
 import { TILE, GROUND_ROW } from '../config.js';
 import { T } from '../data/tiles.js';
-import { UPGRADES, BUILDS, BARRICADE, REPAIR, PERKS } from '../data/balance.js';
+import { UPGRADES, BUILDS, BARRICADE, REPAIR, PERKS, ITEMS } from '../data/balance.js';
 import { G, App } from './state.js';
 import { tileAt, setTile, idx } from '../world/map.js';
-import { makeStructure, recompute, hasPerk } from './run.js';
+import { makeStructure, recompute, hasPerk, isUnlocked } from './run.js';
 import { sparks, ring, dust } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
 import { emit } from '../core/events.js';
@@ -28,7 +28,7 @@ export function buyUpgrade(key) {
 
 export function buildOnPad(type, pad) {
   const b = BUILDS[type];
-  if (G.structures.some(s => s.pad === pad)) return false;
+  if (G.structures.some(s => s.pad === pad) || !isUnlocked(type)) return false;
   if (!canAfford(b.cost)) { sfx.deny(); return false; }
   pay(b.cost);
   const s = makeStructure(type, pad);
@@ -38,14 +38,24 @@ export function buildOnPad(type, pad) {
   return true;
 }
 
-export function buyBarricade() {
-  if (!canAfford(BARRICADE.cost)) { sfx.deny(); return false; }
-  pay(BARRICADE.cost); G.barricades++; sfx.buy(); return true;
+// Üretim: kaynak -> kemerdeki eşya
+export function craftState(key) {
+  const d = ITEMS[key];
+  if (!isUnlocked(key)) return 'locked';
+  if (G.items[key] >= d.max) return 'full';
+  return canAfford(d.cost) ? 'ok' : 'poor';
+}
+export function craftItem(key) {
+  if (craftState(key) !== 'ok') { sfx.deny(); return false; }
+  pay(ITEMS[key].cost); G.items[key]++; G.stats.crafted++;
+  sfx.craft(); haptic(12);
+  emit('crafted', key);
+  return true;
 }
 // Barikatı oyuncunun baktığı boş hücreye, yoksa arkasına koy
 export function barricadeTarget() {
   const p = G.player;
-  if (p.dead || G.barricades <= 0 || p.y < GROUND_ROW * TILE) return null;
+  if (p.dead || G.items.barricade <= 0 || p.y < GROUND_ROW * TILE) return null;
   const c = Math.floor(p.x / TILE), r = Math.floor(p.y / TILE);
   const vert = Math.abs(p.dy) >= Math.abs(p.dx);
   const fx = vert ? 0 : Math.sign(p.dx) || p.face, fy = vert ? Math.sign(p.dy) || 1 : 0;
@@ -62,7 +72,7 @@ export function placeBarricade() {
   const t = barricadeTarget();
   if (!t) { sfx.deny(); return false; }
   setTile(t.c, t.r, T.BARRICADE); G.bhp[idx(t.c, t.r)] = BARRICADE.hp;
-  G.barricades--;
+  G.items.barricade--;
   sfx.build(); haptic(20); dust(t.c * TILE + 8, t.r * TILE + 8, 4);
   return true;
 }
