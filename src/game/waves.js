@@ -1,19 +1,23 @@
 // Dalgalar: sakin -> alarm (yuvalar belirir) -> saldırı -> temizlendi.
 // Düşmanlar oyuncunun açtığı en derin bölgeden çıkar; açık tünel yoksa kayanın içinden kazarak gelir.
+import { rnd } from '../core/rng.js';
 import { COLS, ROWS, TILE, GROUND_ROW, PLAY_MIN_COL, PLAY_MAX_COL } from '../config.js';
 import { T, TD } from '../data/tiles.js';
 import { WAVES, ENEMIES } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, setTile } from '../world/map.js';
 import { FIELD, flowAt, FLOW_INF, forceFlow } from '../world/flow.js';
-import { spawnEnemy } from './enemies.js';
+import { spawnEnemy, aliveEnemies } from './enemies.js';
+import { anyCarrying } from './player.js';
 import { debris, dust, shake, ring } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
 import { emit } from '../core/events.js';
 
 function pickNests() {
   forceFlow();
-  const p = G.player;
+  // referans: en derindeki canlı oyuncu (yoksa ilk oyuncu)
+  let p = G.players[0];
+  for (const q of G.players) if (!q.dead && (p.dead || q.y > p.y)) p = q;
   const pc = Math.floor(p.x / TILE), pr = Math.floor(p.y / TILE);
   const open = [];
   let deepest = GROUND_ROW;
@@ -26,14 +30,14 @@ function pickNests() {
   far.sort((a, b) => b[1] - a[1]);
   for (const n of far) {
     if (nests.length >= 2) break;
-    if (nests.every(m => Math.abs(m[0] - n[0]) + Math.abs(m[1] - n[1]) > 4) && Math.random() < 0.6) nests.push(n);
+    if (nests.every(m => Math.abs(m[0] - n[0]) + Math.abs(m[1] - n[1]) > 4) && rnd() < 0.6) nests.push(n);
   }
   if (!nests.length && far.length) nests.push(far[0]);
   // kaya yuvası: en derin noktanın biraz altından kazarak gelirler
   if (nests.length < 2) {
-    const baseR = Math.min(ROWS - 4, Math.max(deepest, pr) + 3 + (Math.random() * 3 | 0));
+    const baseR = Math.min(ROWS - 4, Math.max(deepest, pr) + 3 + (rnd() * 3 | 0));
     for (let tries = 0; tries < 20 && nests.length < 2; tries++) {
-      const c = PLAY_MIN_COL + 1 + Math.floor(Math.random() * 11);
+      const c = PLAY_MIN_COL + 1 + Math.floor(rnd() * 11);
       const t = tileAt(c, baseR);
       if (TD[t].solid && !TD[t].unbreakable && !TD[t].chest && !TD[t].heart) nests.push([c, baseR, true]);
     }
@@ -43,7 +47,7 @@ function pickNests() {
 
 function buildQueue() {
   const w = G.wave.num, st = G.maxStratum;
-  let budget = WAVES.budget(w, st) * (G.player.carrying ? 1.35 : 1);
+  let budget = WAVES.budget(w, st, G.mods.budget || 1) * (anyCarrying() ? 1.35 : 1);
   const q = [];
   if (w % G.mods.bossEvery === 0) { q.push('boss'); budget *= 0.5; }
   const allowed = WAVES.allowed(w, st);
@@ -51,7 +55,7 @@ function buildQueue() {
   while (budget > 0.5 && guard++ < 80) {
     const opts = allowed.filter(t => ENEMIES[t].cost <= budget + 0.5);
     if (!opts.length) break;
-    const t = opts[Math.floor(Math.random() * opts.length)];
+    const t = opts[Math.floor(rnd() * opts.length)];
     q.push(t); budget -= ENEMIES[t].cost;
   }
   // ağır olanlar sona
@@ -63,7 +67,7 @@ export function updateWaves(dt) {
   const W = G.wave;
   if (W.phase === 'calm') {
     W.t -= dt;
-    if (G.player.carrying && W.t > WAVES.heartCalm) W.t = WAVES.heartCalm;
+    if (anyCarrying() && W.t > WAVES.heartCalm) W.t = WAVES.heartCalm;
     if (W.t <= WAVES.warn) {
       W.phase = 'warn'; W.num++;
       W.nests = pickNests();
@@ -74,7 +78,7 @@ export function updateWaves(dt) {
   } else if (W.phase === 'warn') {
     W.t -= dt;
     W.rumbleT -= dt;
-    for (const n of W.nests) if (Math.random() < dt * 5) debris(n.x, n.y + 6, 'dirt', 1, 0.3);
+    for (const n of W.nests) if (rnd() < dt * 5) debris(n.x, n.y + 6, 'dirt', 1, 0.3);
     if (W.rumbleT <= 0) { W.rumbleT = 2.2; sfx.rumble(); for (const n of W.nests) dust(n.x, n.y, 2, 'rgba(160,140,130,0.4)'); }
     if (W.t <= 0) startWave();
   } else if (W.phase === 'active') {
@@ -87,13 +91,13 @@ export function updateWaves(dt) {
         const n = W.nests[(W.spawnIdx++) % W.nests.length];
         if (ENEMIES[s.type].fly && n.rock) continue;
         if (n.rock && TD[tileAt(n.c, n.r)].solid) { setTile(n.c, n.r, T.AIR); debris(n.x, n.y, 'stone', 8); }
-        spawnEnemy(s.type, n.x + (Math.random() - 0.5) * 4, n.y + (Math.random() - 0.5) * 4, W.num);
+        spawnEnemy(s.type, n.x + (rnd() - 0.5) * 4, n.y + (rnd() - 0.5) * 4, W.num);
         dust(n.x, n.y, 3, 'rgba(160,140,130,0.5)');
       }
     }
     const pending = W.queue.some(s => !s.done);
-    if (!pending && G.enemies.length === 0) {
-      W.phase = 'calm'; W.t = G.player.carrying ? WAVES.heartCalm : WAVES.calm * G.mods.calm; W.nests = [];
+    if (!pending && aliveEnemies() === 0) {
+      W.phase = 'calm'; W.t = anyCarrying() ? WAVES.heartCalm : WAVES.calm * G.mods.calm; W.nests = [];
       G.stats.wavesCleared++;
       sfx.waveClear();
       emit('waveClear', W.num);
@@ -114,5 +118,5 @@ export function startTutorialWaveClock() {
 }
 export function enemiesRemaining() {
   const W = G.wave;
-  return G.enemies.length + (W.queue ? W.queue.filter(s => !s.done).length : 0);
+  return aliveEnemies() + (W.queue ? W.queue.filter(s => !s.done).length : 0);
 }

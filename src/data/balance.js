@@ -53,6 +53,16 @@ export const UPGRADES = {
 };
 export const UPGRADE_KEYS = ['drill', 'bag', 'blaster', 'armor', 'lamp'];
 
+// Kazma kademeleri: matkap seviyesiyle birlikte kazmanın görünümü değişir (renk, parıltı, kıvılcım)
+export const PICK_TIERS = [
+  { name: 'Odun Kazma',    head: '#8a5a2a', headL: '#b07a42', handle: '#5a3a1a', spark: '#d8b080', glow: null },
+  { name: 'Taş Kazma',     head: '#6a6166', headL: '#948a8c', handle: '#6a4a2a', spark: '#c8c0c0', glow: null },
+  { name: 'Demir Kazma',   head: '#a7b0c4', headL: '#dfe6f0', handle: '#7a5a2a', spark: '#ffe79a', glow: null },
+  { name: 'Altın Kazma',   head: '#e0a020', headL: '#ffe07a', handle: '#8a5a2a', spark: '#ffd24a', glow: 'rgba(255,200,80,0.35)' },
+  { name: 'Kobalt Kazma',  head: '#2c48c8', headL: '#8ab0ff', handle: '#3a3a5a', spark: '#8ab0ff', glow: 'rgba(90,134,255,0.45)' },
+  { name: 'Kristal Kazma', head: '#9030c8', headL: '#f0b0ff', handle: '#3a1a4a', spark: '#e070ff', glow: 'rgba(224,112,255,0.55)' },
+];
+
 // schematic: true => Kalıntı sandığından çıkan şema ile açılır (kalıcı)
 export const BUILDS = {
   turret: { name: 'Taret', icon: 'turret', cost: { iron: 10 }, hp: 80, range: 112, dmg: 12, cd: 0.6, desc: 'Yakındaki düşmanlara ateş eder' },
@@ -100,11 +110,16 @@ export const ENEMIES = {
   brute:   { name: 'Kaya Devi', hp: 140, speed: 20, dmg: 22, r: 8, armor: 0.4, dig: 99, digRate: 5, knockResist: 0.85, cost: 5 },
   worm:    { name: 'Maden Solucanı', hp: 60, speed: 24, dmg: 10, r: 6, armor: 0.2, burrow: true, dig: 99, digRate: 7, knockResist: 0.7, cost: 3 },
   boss:    { name: 'Derin Ana', hp: 540, speed: 21, dmg: 28, r: 11, armor: 0.3, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0 },
+  // derin katman yaratıkları: her biri farklı bir "sürpriz"
+  glarer:  { name: 'Parıldak', hp: 34, speed: 34, dmg: 5, r: 5, fly: true, blind: true, blindRange: 48, blindCd: 4.5, cost: 2.5 },   // kör edici parlama
+  lurker:  { name: 'Çekici', hp: 70, speed: 18, dmg: 14, r: 7, armor: 0.25, pull: true, pullRange: 80, cost: 3 },                      // dilini uzatıp çeker
+  howler:  { name: 'Uluyan', hp: 46, speed: 30, dmg: 8, r: 6, howl: true, howlRange: 90, howlCd: 6, cost: 2.5 },                      // korkutucu çığlık: yavaşlatır
+  shade:   { name: 'Gölge', hp: 26, speed: 44, dmg: 12, r: 4, phase: true, cost: 2 },                                                // karanlıkta görünmez, ışıkta belirir
 };
 
 export const WAVES = {
   firstCalm: 55, calm: 38, warn: 13, heartCalm: 16,
-  budget: (wave, stratum) => 0.6 + wave * 1.75 + stratum * 2.8 + Math.max(0, wave - 6) * 0.6,
+  budget: (wave, stratum, mult = 1) => (0.6 + wave * 1.75 + stratum * 2.8 + Math.max(0, wave - 6) * 0.6) * mult,
   hpScale: wave => 1 + 0.09 * (wave - 1),
   bossEvery: 6,
   allowed(wave, stratum) {
@@ -115,6 +130,10 @@ export const WAVES = {
     if (stratum >= 2 || wave >= 7) a.push('boomer');
     if (stratum >= 1 && wave >= 5) a.push('brute');
     if (stratum >= 1 && wave >= 4) a.push('worm');
+    if (stratum >= 2 && wave >= 4) a.push('glarer');
+    if (stratum >= 2 && wave >= 5) a.push('lurker');
+    if (stratum >= 3 || wave >= 9) a.push('howler');
+    if (stratum >= 3 && wave >= 6) a.push('shade');
     return a;
   },
 };

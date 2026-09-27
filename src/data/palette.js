@@ -31,6 +31,7 @@ export const MAT_RAMP = {
   dense:   ['#0c0714', '#1f1230', '#2f1c45', '#48306a', '#6a4a92'],
   bedrock: ['#07050b', '#110d18', '#1a1524', '#241d31', '#30283f'],
   found:   ['#0f0c16', '#2a2c3c', '#3e4256', '#5a6078', '#8a92aa'],
+  vault:   ['#0a0810', '#2a1e2e', '#3e2c44', '#5a4262', '#8a6a8e'],
 };
 // Arka duvar (kazılmış boşluk) rampaları — koyu, düşük kontrast
 export const WALL_RAMP = {
@@ -39,6 +40,7 @@ export const WALL_RAMP = {
   hard:    ['#07080f', '#0e111c', '#141a28', '#1b2334'],
   dense:   ['#06030a', '#0d0716', '#140b20', '#1c1029'],
   bedrock: ['#040306', '#08060b', '#0c0a10', '#100d15'],
+  vault:   ['#06040a', '#0c0812', '#120c1a', '#181022'],
 };
 
 export const ORE_RAMP = {

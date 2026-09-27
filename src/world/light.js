@@ -78,8 +78,9 @@ export function computeLight(r0, r1, sources, revFloor = 0.26) {
 
 export function lightSourcesFor(g, lampTiles) {
   const L = g.lightSrc; L.length = 0;
-  const p = g.player;
-  if (!p.dead) L.push({ x: p.x, y: p.y, s: lampTiles });
+  for (const p of g.players) if (!p.dead) L.push({ x: p.x, y: p.y, s: lampTiles });
+  for (const s of g.satchels) L.push({ x: s.x, y: s.y, s: 2.5 });
+  for (const e of g.enemies) { if (e.dead) continue; if (e.type === 'glarer') L.push({ x: e.x, y: e.y, s: e.flashT > 0 ? 9 : 2.6 }); else if (e.d.boom) L.push({ x: e.x, y: e.y, s: 1.6 }); }
   L.push({ x: g.base.x, y: g.base.y, s: 7 });
   for (const s of g.structures) L.push({ x: s.x, y: s.y, s: s.type === 'heal' ? 3.6 : s.type === 'flame' && s.firing ? 4.2 : 3 });
   for (const t of g.torches) L.push({ x: t.c * TILE + 8, y: t.r * TILE + 6, s: TORCH.light });

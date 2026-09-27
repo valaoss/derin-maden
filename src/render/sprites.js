@@ -66,6 +66,10 @@ const L_IDLE = ['...ktgktgk..', '...kbbkbbk..', '....kk.kk...'];
 const L_WA =   ['..ktgk.ktgk.', '..kbbk.kbbk.', '...kk...kk..'];
 const L_WB =   ['....ktggk...', '....kbbbk...', '.....kkk....'];
 const L_FLY =  ['...ktgktgk..', '...kbbkbbk..', '...k.kk.k...'];
+const L_WC =   ['..ktgk.ktgk.', '..kbbkkbbk..', '...kk..kk...'];   // yürüyüş: adım ortası
+const L_CROUCH = ['..ktggktggk.', '..kbbbkbbbk.', '...kk...kk..']; // çömelme (aşağı kazarken)
+// partner paleti: turuncu tulum, turkuaz kask
+const P2_PAL = { y: '#5fe0b8', Y: '#a8f5dc', o: '#2a8a70', t: '#e07a4a', T: '#ffb080', g: '#8a3a1a' };
 
 export const SPR = {};
 
@@ -209,6 +213,119 @@ const BOSS_B = BOSS_A.slice(0, 15).concat([
   '.kaak.kkkkkkkkkkk.kaak..',
   '.kkk...............kkk..',
 ]);
+
+// Parıldak: uçan tek göz feneri; B karesinde göz kısılır (parlamadan önce)
+const GLARE_PAL = { j: '#8a6a2a', J: '#d8b060', e: '#fff8d0', E: '#ffe79a', i: '#3a2a10' };
+const GLARE_A = [
+  '.....kkk.....',
+  '...kkJJJkk...',
+  '..kJJJJJJJk..',
+  '.kJJeeeeeJJk.',
+  '.kJeeEEEeeJk.',
+  'kJJeEEiEEeJJk',
+  'kJJeEEiEEeJJk',
+  '.kJeeEEEeeJk.',
+  '.kJJeeeeeJJk.',
+  '..kjJJJJJjk..',
+  '...kkjjjkk...',
+  '....k...k....',
+];
+const GLARE_B = [
+  '.....kkk.....',
+  '...kkJJJkk...',
+  '..kJJJJJJJk..',
+  '.kJJJJJJJJJk.',
+  '.kJJeeeeeJJk.',
+  'kJJeEEEEEeJJk',
+  'kJJeeeeeeeJJk',
+  '.kJJJJJJJJJk.',
+  '.kJJJJJJJJJk.',
+  '..kjJJJJJjk..',
+  '...kkjjjkk...',
+  '...k.....k...',
+];
+// Çekici: geniş ağızlı, yere yapışık kurbağa-böcek; B karesi ağız açık
+const LURK_PAL = { l: '#2e4a2a', L: '#4a7a44', N: '#8ab070', d: '#3a1a2a', D: '#c04a6a' };
+const LURK_A = [
+  '....kkkkkkkk....',
+  '..kkLLLLLLLLkk..',
+  '.kLLNNLLLLNNLLk.',
+  'kLLNrNLLLLNrNLLk',
+  'kLLLLLLLLLLLLLLk',
+  'kLLLLLLLLLLLLLLk',
+  'kllkkkkkkkkkkllk',
+  '.kllllllllllllk.',
+  '..kk.kk..kk.kk..',
+];
+const LURK_B = [
+  '....kkkkkkkk....',
+  '..kkLLLLLLLLkk..',
+  '.kLLNNLLLLNNLLk.',
+  'kLLNrNLLLLNrNLLk',
+  'kLLLLLLLLLLLLLLk',
+  'kLLkkkkkkkkkkLLk',
+  'kllkddDDDDddkllk',
+  '.kllkkkkkkkkllk.',
+  '..kk.kk..kk.kk..',
+];
+// Uluyan: sırtı kabarık, uzun çeneli; B karesinde ağız sonuna kadar açık
+const HOWL_PAL = { u: '#4a2a44', U: '#7a4a70', F: '#a878a0', W: '#f5ecd8' };
+const HOWL_A = [
+  '.......kk......',
+  '......kUUk..kk.',
+  '..kkkkUUUUkkUk.',
+  '.kUUUUUUUUUUUk.',
+  'kUUFFUUUUrUUUUk',
+  'kUUFFUUUUUUUUUk',
+  'kuUUUUUUkWWWWk.',
+  'kuuUUUUUkkkkk..',
+  '.kuuuuuuuuk....',
+  '..kuk.kuuk.....',
+  '..kk...kk......',
+];
+const HOWL_B = [
+  '.......kk......',
+  '......kUUk..kk.',
+  '..kkkkUUUUkkUk.',
+  '.kUUUUUUUUUUUk.',
+  'kUUFFUUUUrUUUUk',
+  'kUUFFUUUUkWWWWk',
+  'kuUUUUUUkkkkkk.',
+  'kuuUUUUUkWWWWk.',
+  '.kuuuuuuukkkk..',
+  '..kuk.kuuk.....',
+  '..kk...kk......',
+];
+// Gölge: ışıkta beliren ince siluet; sadece gözleri karanlıkta parlar
+const SHADE_PAL = { s: '#2a1e3a', S: '#4a3a6a', X: '#e8f0ff' };
+const SHADE_A = [
+  '...kkkk...',
+  '..kSSSSk..',
+  '.kSXSSXSk.',
+  '.kSSSSSSk.',
+  '..kSSSSk..',
+  '.kSSssSSk.',
+  'kSSsssSSSk',
+  'kSsssssSSk',
+  '.kssssssk.',
+  '..ks.ssk..',
+  '..k..k....',
+  '.....k....',
+];
+const SHADE_B = [
+  '...kkkk...',
+  '..kSSSSk..',
+  '.kSXSSXSk.',
+  '.kSSSSSSk.',
+  '..kSSSSk..',
+  '.kSSssSSk.',
+  'kSSsssSSSk',
+  'kSsssssSSk',
+  '.kssssssk.',
+  '..kss.sk..',
+  '....k.k...',
+  '....k.....',
+];
 
 // ---------------- DÜNYA OBJELERİ ----------------
 const CHEST = [
@@ -424,8 +541,13 @@ export function iconURL(name, scale = 1) {
 
 export function buildSprites() {
   const pTop = P_TOP;
-  const mk = legs => makeSprite(pTop.concat(legs), {}, 'w');
-  SPR.player = { idle: mk(L_IDLE), wa: mk(L_WA), wb: mk(L_WB), fly: mk(L_FLY) };
+  const mk = (legs, pal = {}) => makeSprite(pTop.concat(legs), pal, 'w');
+  SPR.player = { idle: mk(L_IDLE), wa: mk(L_WA), wb: mk(L_WB), wc: mk(L_WC), fly: mk(L_FLY), crouch: mk(L_CROUCH) };
+  SPR.player2 = { idle: mk(L_IDLE, P2_PAL), wa: mk(L_WA, P2_PAL), wb: mk(L_WB, P2_PAL), wc: mk(L_WC, P2_PAL), fly: mk(L_FLY, P2_PAL), crouch: mk(L_CROUCH, P2_PAL) };
+  SPR.glarer = [makeSprite(GLARE_A, GLARE_PAL, 'eEi'), makeSprite(GLARE_B, GLARE_PAL, 'eE')];
+  SPR.lurker = [makeSprite(LURK_A, LURK_PAL, 'r'), makeSprite(LURK_B, LURK_PAL, 'rD')];
+  SPR.howler = [makeSprite(HOWL_A, HOWL_PAL, 'r'), makeSprite(HOWL_B, HOWL_PAL, 'rW')];
+  SPR.shade = [makeSprite(SHADE_A, SHADE_PAL, 'X'), makeSprite(SHADE_B, SHADE_PAL, 'X')];
   SPR.rodent = [makeSprite(ROD_A, ROD_PAL, 'r'), makeSprite(ROD_B, ROD_PAL, 'r')];
   SPR.bug = [makeSprite(BUG_A, BUG_PAL, 'r'), makeSprite(BUG_B, BUG_PAL, 'r')];
   SPR.spitter = [makeSprite(SPIT_A, SPIT_PAL, 'rz'), makeSprite(SPIT_B, SPIT_PAL, 'rz')];
@@ -531,8 +653,8 @@ function buildBase() {
   // anten + ışık
   R(K, 48, 12, 3, 13); R('#a7b0c4', 49, 13, 1, 11);
   R(K, 47, 9, 5, 4); R('#5fe0b8', 48, 10, 3, 2); R('#5fe0b8', 48, 10, 3, 2, e);
-  // bayrak
-  R(K, 8, 10, 1, 15); R('#f2c14e', 9, 10, 8, 5); R('#a8701e', 9, 14, 8, 1);
+  // bayrak direği (bayrağın kendisi renderer'da dalgalanır)
+  R(K, 8, 10, 1, 15);
   return { cv: c, em, w: W, h: H };
 }
 

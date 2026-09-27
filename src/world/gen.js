@@ -118,6 +118,25 @@ export function generate(seed, opts = {}) {
     }
   }
 
+  // ana kaya cepleri: kenar duvarlarında kilitli kayayla kapatılmış küçük hazine odacıkları (yalnız dinamit açar)
+  for (let s = 0; s < STRATA_COUNT; s++) {
+    const r0 = GROUND_ROW + s * STRATUM_ROWS;
+    const n = s === 0 ? 1 : 2;
+    for (let i = 0; i < n; i++) {
+      const left = rnd() < 0.5;
+      const r = r0 + 4 + Math.floor(rnd() * (STRATUM_ROWS - 8));
+      const wallC = left ? PLAY_MIN_COL - 1 : PLAY_MAX_COL + 1;   // ana kaya sütunu
+      const capC = left ? PLAY_MIN_COL : PLAY_MAX_COL;            // oyun alanı kenarı: kilit kapağı
+      if (get(capC, r) === T.AIR || get(capC, r) === T.CHEST) continue;
+      set(capC, r, T.VAULT);
+      // cep içeriği: katman cevheri veya sandık; alt hücre ikinci ödül
+      const prize = rnd() < 0.3 ? T.CHEST : s >= 2 ? T.CRYSTAL : s === 1 ? T.COBALT : rnd() < 0.5 ? T.IRON : T.WATER;
+      set(wallC, r, prize);
+      if (rnd() < 0.6) set(wallC, r + 1, s >= 2 ? T.COBALT : T.IRON);
+      // cep tavanında ipucu: kırık çizgi olarak gevşek kaya değil, hemen üst hücre kapak kalır
+    }
+  }
+
   // çekirdek odası + Kalp Kristali
   const hr = GROUND_ROW + STRATUM_ROWS * STRATA_COUNT - 6;
   for (let r = hr - 3; r <= hr + 3; r++) for (let c = CENTER_COL - 4; c <= CENTER_COL + 4; c++) {

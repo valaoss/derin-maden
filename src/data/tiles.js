@@ -1,7 +1,7 @@
 // Tile tipleri ve özellikleri.
 export const T = {
   AIR: 0, DIRT: 1, STONE: 2, HARD: 3, DENSE: 4, BEDROCK: 5,
-  IRON: 6, WATER: 7, COBALT: 8, CRYSTAL: 9, CHEST: 10, HEART: 11, BARRICADE: 12, FOUNDATION: 13, LOOSE: 14, GAS: 15,
+  IRON: 6, WATER: 7, COBALT: 8, CRYSTAL: 9, CHEST: 10, HEART: 11, BARRICADE: 12, FOUNDATION: 13, LOOSE: 14, GAS: 15, VAULT: 16,
 };
 
 // mat: doku/ses/parçacık malzemesi ('host' => katmanın ana kayası)
@@ -23,6 +23,8 @@ TD[T.FOUNDATION] = { solid: true, hp: Infinity, mat: 'found', unbreakable: true 
 // tehlikeler: altı boşalınca düşen gevşek kaya; kırılınca zehirli gaz salan cep
 TD[T.LOOSE]    = { solid: true, hp: 2, mat: 'host', loose: true };
 TD[T.GAS]      = { solid: true, hp: 3, mat: 'host', gas: true };
+// kilitli kaya: ana kayadaki ceplerin kapağı; kazma işlemez, yalnız dinamit kırar
+TD[T.VAULT]    = { solid: true, hp: Infinity, mat: 'vault', unbreakable: true, blastable: true };
 
 export const isSolid = t => TD[t].solid;
 export const isMineable = t => TD[t].solid && !TD[t].unbreakable && !TD[t].built;

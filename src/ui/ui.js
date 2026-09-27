@@ -6,8 +6,11 @@ import { G, App } from '../game/state.js';
 import { iconURL } from '../render/sprites.js';
 import { on, emit } from '../core/events.js';
 import { bagCount, hasPerk, isUnlocked, contractProgress } from '../game/run.js';
-import { canAfford, upgradeCost, buyUpgrade, buildOnPad, craftItem, craftState, repairBase, perkChoices, applyPerk } from '../game/economy.js';
-import { useItem, itemUsable } from '../game/items.js';
+import { canAfford, upgradeCost, craftState } from '../game/economy.js';
+import { itemUsable } from '../game/items.js';
+import { dispatch, CMD } from '../game/commands.js';
+import { PICK_TIERS } from '../data/balance.js';
+import { net } from '../net/lockstep.js';
 import { todayKey } from '../core/util.js';
 import { enemiesRemaining, startTutorialWaveClock } from '../game/waves.js';
 import { worldToView, viewToWorld } from '../render/renderer.js';
@@ -35,7 +38,9 @@ export function initUI(root, h) {
     </div>
     <div class="plate" id="wave">${ic('wave', 's')}<span class="l">DALGA 1</span><span class="t"></span></div>
     <div class="plate" id="boss">${ic('skull', 's')}<span>DERİN ANA</span><div class="bar"><i></i></div></div>
+    <div class="plate" id="partner">${ic('heart', 's')}<span>PARTNER</span><div class="bar"><i></i></div><span class="d"></span></div>
   </div>
+  <div class="plate" id="netstall">BAĞLANTI BEKLENİYOR…</div>
   <div id="indicator">${ic('base', 's')} ÜS SALDIRI ALTINDA ▲</div>
   <div id="toasts"></div>
   <div id="coach"><div class="hand" style="background-image:url(${iconURL('hand')})"></div><div class="plate msg"></div></div>
@@ -56,6 +61,7 @@ export function initUI(root, h) {
   <div class="screen dim" id="results"></div>
   <div class="screen dim" id="camp"></div>
   <div class="screen dim" id="settings"></div>
+  <div class="screen dim" id="room"></div>
   <div id="fade"></div>`;
 
   tap($('#pauseBtn'), () => hooks.pause(true));
@@ -81,12 +87,19 @@ export function initUI(root, h) {
     if (G.tutorial && !G.tutorial.done) { G.tutorial.done = true; App.meta.tutorialDone = true; saveMeta(App.meta); coach('Harika. Derine in: yeni katmanlar, daha değerli cevherler.', '', 5); }
   });
   on('baseHurt', () => { lastBaseHurt = performance.now(); });
-  on('perkOffer', showPerks);
+  on('perkOffer', pi => { if (pi === G.localIdx) showPerks(); else toast('Partnerin bir kalıntı buldu', 'chest'); });
+  on('perkTaken', d => { if (d.pi !== G.localIdx) toast('Partner seçti: ' + PERKS[d.k].name, PERKS[d.k].icon); });
+  on('blind', () => { const f = $('#flash'); f.classList.remove('on'); void f.offsetWidth; f.classList.add('on'); });
+  on('fear', () => { const v = $('#vignette'); v.classList.add('fear'); setTimeout(() => v.classList.remove('fear'), 2400); });
+  on('pickTier', l => { const t = PICK_TIERS[Math.min(PICK_TIERS.length - 1, l)]; toast(t.name + ' hazır', 'drill'); });
+  on('cmdDone', d => { if (!d.ok && (d.cmd.t === CMD.BUILD)) toast('Yetersiz kaynak', 'bag', true); });
   on('heart', () => { banner('KALP KRİSTALİ', 'YÜZEYE TAŞI!', true); toast('Dalgalar sıklaşıyor — acele et', 'heart', true); });
   on('playerDown', has => toast(has ? 'Bayıldın — çantan düştüğün yerde' : 'Bayıldın — üste uyanıyorsun', 'skull', true));
   on('respawn', () => {});
   on('upgraded', () => { refreshSheet(); });
+  on('store', () => { if (sheetOpen()) refreshSheet(); });
   on('crafted', () => {
+    if (sheetOpen()) refreshSheet();
     if (App.meta.seenBelt) return;
     App.meta.seenBelt = true; saveMeta(App.meta);
     coach(App.settings.lefty ? 'Eşyalar sağ alttaki kemerde. Dokunarak kullan.' : 'Eşyalar sol alttaki kemerde. Dokunarak kullan.', '', 4);
@@ -114,7 +127,7 @@ function renderBelt() {
   if (p.dead) { b.innerHTML = ''; return; }
   b.innerHTML = ITEM_KEYS.filter(k => G.items[k] > 0).map(k =>
     `<button class="btn dark slot ${itemUsable(k) ? '' : 'off'} ${k === 'recall' && p.recallT > 0 ? 'busy' : ''}" data-k="${k}" aria-label="${ITEMS[k].name}">${ic(ITEMS[k].icon, 'l')}<span class="n">${G.items[k]}</span></button>`).join('');
-  b.querySelectorAll('.slot').forEach(el => tap(el, () => { useItem(el.dataset.k); refreshHUD(true); }));
+  b.querySelectorAll('.slot').forEach(el => tap(el, () => { dispatch({ t: CMD.USE, k: el.dataset.k }); refreshHUD(true); }));
 }
 
 export function refreshHUD(force = false) {
@@ -153,12 +166,18 @@ export function refreshHUD(force = false) {
   set(0, 'wc', wc, v => { $('#wave').className = 'plate ' + v; });
   set(0, 'wl', wl, v => { $('#wave .l').textContent = v; });
   set(0, 'wt', wt, v => { $('#wave .t').textContent = v; });
-  const boss = G.enemies.find(e => e.d.boss);
+  const boss = G.enemies.find(e => e.d.boss && !e.dead);
   set(0, 'boss', boss ? Math.ceil(boss.hp) : -1, v => {
     $('#boss').classList.toggle('on', v >= 0);
     if (boss) $('#boss .bar > i').style.width = `calc(${boss.hp / boss.maxHp * 100}% - 4px)`;
   });
 
+  // partner
+  const mate = G.mp ? G.players[1 - G.localIdx] : null;
+  set(0, 'mate', mate ? (mate.dead ? 'x' : Math.ceil(mate.hp) + '|' + Math.max(0, Math.floor(mate.y / TILE) - 6)) : '', v => {
+    $('#partner').classList.toggle('on', !!mate);
+    if (mate) { $('#partner .bar > i').style.width = `calc(${Math.max(0, mate.hp / mate.maxHp) * 100}% - 4px)`; $('#partner .d').textContent = mate.dead ? 'BAYGIN' : Math.max(0, Math.floor(mate.y / TILE) - 6) + 'm'; }
+  });
   // üs saldırı altında ve ekran dışında
   const baseOff = G.cam.y > GROUND_Y - 10;
   set(0, 'ind', performance.now() - lastBaseHurt < 1500 && baseOff, v => $('#indicator').classList.toggle('on', v));
@@ -230,7 +249,7 @@ export function tutorialTick(dt) {
   const T = G.tutorial; if (!T || T.done) return;
   T.t += dt;
   if (T.step === 0) {
-    if (!T.shown && T.t > 0.6) { T.shown = true; coach('Alttaki joystick\'i aşağı it ve kazmaya başla', '', 0); document.getElementById('stick').classList.add('hint'); }
+    if (!T.shown && T.t > 0.6) { T.shown = true; coach('Ekranın alt yarısına bas, aşağı sürükle: kaz!', '', 0); document.getElementById('stick').classList.add('hint'); }
     if (G.stats.dug >= 1 && T.t > 1) { coach('Harika! Kazmaya devam et.', '', 2.5); document.getElementById('stick').classList.remove('hint'); T.step = 0.5; }
   }
   if (T.step === 0.5 && G.stats.dug >= 4) { T.step = 0; tutStep(1); }
@@ -309,12 +328,12 @@ function refreshSheet(justKey) {
   body.scrollTop = scroll;
   body.querySelectorAll('[data-up] .buy').forEach(b => tap(b, () => {
     const k = b.closest('[data-up]').dataset.up;
-    if (buyUpgrade(k)) { refreshSheet(k); refreshHUD(true); tutEvent('bought'); }
+    if (dispatch({ t: CMD.BUY, k })) { refreshSheet(k); refreshHUD(true); tutEvent('bought'); }
   }));
-  body.querySelectorAll('[data-act] .buy').forEach(b => tap(b, () => { if (repairBase()) { refreshSheet(); refreshHUD(true); } }));
+  body.querySelectorAll('[data-act] .buy').forEach(b => tap(b, () => { if (dispatch({ t: CMD.REPAIR })) { refreshSheet(); refreshHUD(true); } }));
   body.querySelectorAll('[data-craft] .buy').forEach(b => tap(b, () => {
     const k = b.closest('[data-craft]').dataset.craft;
-    if (craftItem(k)) { refreshSheet(k); refreshHUD(true); }
+    if (dispatch({ t: CMD.CRAFT, k })) { refreshSheet(k); refreshHUD(true); }
   }));
 }
 
@@ -366,25 +385,63 @@ function showPop(pad) {
   pop.style.left = left + 'px'; pop.style.top = top + 'px';
   pop.classList.add('on');
   pop.querySelectorAll('[data-b]').forEach(b => tap(b, () => {
-    if (buildOnPad(b.dataset.b, pad)) { hidePop(); refreshHUD(true); } else toast('Yetersiz kaynak', 'bag', true);
+    const ok = dispatch({ t: CMD.BUILD, k: b.dataset.b, pad });
+    if (ok) { hidePop(); refreshHUD(true); } else if (!G.mp) toast('Yetersiz kaynak', 'bag', true);
   }));
 }
 export function hidePop() { $('#pop').classList.remove('on'); }
 
 // ---------------- perk seçimi ----------------
 function showPerks() {
-  const ch = perkChoices();
-  if (!ch.length) { toast('Sandık boş çıktı', 'chest'); return; }
+  const off = G.perkOffer;
+  if (!off || !off.keys.length) return;
+  const ch = off.keys;
   hooks.pause(false, true); cancelStick();
   const s = $('#perk');
-  s.innerHTML = `<div class="perkhead"><div class="k">KALINTI SANDIĞI</div><div class="n">Birini seç</div></div>
+  s.innerHTML = `<div class="perkhead"><div class="k">KALINTI SANDIĞI</div><div class="n">Birini seç</div>${G.mp ? '<div class="k" style="margin-top:6px">OYUN DEVAM EDİYOR</div>' : ''}</div>
     <div class="cards">${ch.map((k, i) => `<button class="plate card" data-k="${k}" style="animation-delay:${0.08 + i * 0.07}s">${ic(PERKS[k].icon, 'xl')}
       <div><div class="name">${PERKS[k].name}</div><div class="desc">${PERKS[k].desc}</div></div></button>`).join('')}</div>`;
   s.classList.add('on');
   s.querySelectorAll('.card').forEach(c => tap(c, () => {
-    applyPerk(c.dataset.k); s.classList.remove('on'); hooks.resume(); refreshHUD(true);
+    dispatch({ t: CMD.PERK, k: c.dataset.k }); s.classList.remove('on'); hooks.resume(); refreshHUD(true);
     toast(PERKS[c.dataset.k].name, PERKS[c.dataset.k].icon);
   }));
+}
+export function setNetStall(v) { $('#netstall').classList.toggle('on', !!v); }
+
+// ---------------- çok oyunculu oda ----------------
+export function showCoop(back) {
+  const s = $('#room');
+  s.innerHTML = `<div class="plate rivets panel"><h2>BİRLİKTE KAZ</h2>
+    <div class="sub">İki kişi, aynı maden, aynı üs. Düşmanlar daha kalabalık ve dayanıklı; Öz ×1.5.</div>
+    <button class="btn big" id="rHost">ODA KUR</button>
+    <div class="sec" style="text-align:center">VEYA ODAYA KATIL</div>
+    <input class="codein" id="rCode" maxlength="4" placeholder="KOD" autocomplete="off" autocapitalize="characters" spellcheck="false">
+    <button class="btn" id="rJoin">KATIL</button>
+    <button class="btn dark" id="rBack">GERİ</button></div>`;
+  hideScreens(); s.classList.add('on');
+  tap($('#rHost'), () => { hooks.hostRoom().catch(e => toast('Oda kurulamadı: ' + (e && e.type || e), 'skull', true)); });
+  const inp = $('#rCode');
+  inp.addEventListener('pointerdown', e => e.stopPropagation());
+  inp.addEventListener('input', () => { inp.value = inp.value.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 4); });
+  inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter' && inp.value.length === 4) hooks.joinRoom(inp.value); });
+  tap($('#rJoin'), () => { if (inp.value.length === 4) hooks.joinRoom(inp.value); else toast('4 haneli oda kodu gir', 'skull', true); });
+  tap($('#rBack'), () => { s.classList.remove('on'); back(); });
+}
+export function showRoom({ host, code, connecting, waiting, error }) {
+  App.scene = 'room';
+  const s = $('#room');
+  let body;
+  if (error) body = `<div class="sub" style="color:var(--bad)">${error}</div>`;
+  else if (host) body = `<div class="sub">Bu kodu partnerine gönder</div><div class="code">${code}</div><div class="sub waitdots">Partner bekleniyor</div>`;
+  else if (connecting) body = `<div class="code">${code}</div><div class="sub waitdots">Bağlanıyor</div>`;
+  else if (waiting) body = `<div class="code">${code}</div><div class="sub waitdots">Bağlandı · sefer başlıyor</div>`;
+  s.innerHTML = `<div class="plate rivets panel"><h2>${host ? 'ODA KURULDU' : 'ODAYA KATIL'}</h2>${body}
+    ${host && !error ? `<button class="btn dark" id="rCopy">KODU KOPYALA</button>` : ''}
+    <button class="btn dark" id="rLeave">${error ? 'GERİ' : 'İPTAL'}</button></div>`;
+  hideScreens(); s.classList.add('on');
+  if ($('#rCopy')) tap($('#rCopy'), () => { try { navigator.clipboard.writeText(code); toast('Kod kopyalandı', 'check'); } catch (e) { /* yok */ } });
+  tap($('#rLeave'), () => { s.classList.remove('on'); hooks.leaveRoom(); });
 }
 
 // ---------------- menü ----------------
@@ -396,6 +453,7 @@ export function showMenu(hasSave) {
       ${hasSave ? `<button class="btn big" id="mCont">DEVAM ET</button><button class="btn dark" id="mNew">YENİ SEFER</button>` : `<button class="btn big" id="mNew">KAZMAYA BAŞLA</button>`}
       ${m.maxKademe ? `<div class="plate kstep"><button class="kb" id="kDn" aria-label="Kademe azalt">◀</button><div class="kv">${ic('kademe', 's')}<span id="kName"></span><small id="kDesc"></small></div><button class="kb" id="kUp" aria-label="Kademe artır">▶</button></div>` : ''}
       ${m.tutorialDone ? `<button class="btn dark" id="mDaily">${ic('daily')} GÜNÜN MADENİ${dailyLine()}</button>` : ''}
+      ${m.tutorialDone ? `<button class="btn dark" id="mCoop">${ic('hand')} BİRLİKTE KAZ${m.coopWins ? `<small class="dline">${m.coopWins} ZAFER</small>` : ''}</button>` : ''}
       <div style="display:flex;gap:10px"><button class="btn dark" id="mCamp" style="flex:1">${ic('oz')} KAMP</button><button class="btn dark" id="mSet" style="flex:1">AYARLAR</button></div>
       ${matchMedia('(pointer: fine)').matches ? '<div class="foot">WASD / Oklar: hareket ve kazı · P: duraklat</div>' : ''}
       <div class="foot">${m.runs ? `Rekor <b>${m.bestDepth}m</b> · ${m.runs} sefer${m.wins ? ' · ' + m.wins + ' zafer' : ''} · <span class="ozline">${ic('oz', 's')}${m.oz}</span>` : 'Çekirdekteki Kalp Kristali seni bekliyor.'}</div>
@@ -411,6 +469,7 @@ export function showMenu(hasSave) {
   if (hasSave) tap($('#mCont'), () => hooks.continueRun());
   tap($('#mNew'), () => { m.lastKademe = k; saveMeta(m); hooks.newRun({ kademe: k }); });
   if ($('#mDaily')) tap($('#mDaily'), () => hooks.newRun({ daily: true }));
+  if ($('#mCoop')) tap($('#mCoop'), () => showCoop(() => showMenu(hasSave)));
   tap($('#mCamp'), () => showCamp(() => showMenu(hasSave)));
   tap($('#mSet'), () => showSettings(() => showMenu(hasSave)));
 }
@@ -424,7 +483,7 @@ export function hideScreens() { document.querySelectorAll('.screen').forEach(s =
 export function showPause() {
   const s = $('#pause');
   s.innerHTML = `<div class="plate rivets panel"><h2>DURAKLATILDI</h2>
-    <div class="sub">Derinlik ${G.stats.maxDepth}m · Dalga ${G.wave.num}${G.kademe ? ' · Kademe ' + G.kademe : ''}${G.daily ? ' · Günün Madeni' : ''}</div>
+    <div class="sub">Derinlik ${G.stats.maxDepth}m · Dalga ${G.wave.num}${G.kademe ? ' · Kademe ' + G.kademe : ''}${G.daily ? ' · Günün Madeni' : ''}${G.mp ? ' · Birlikte (oyun duraklamaz)' : ''}</div>
     ${G.contracts.length ? '<div class="clist">' + contractsHTML() + '</div>' : ''}
     <button class="btn big" id="pRes">DEVAM</button>
     <button class="btn dark" id="pSet">AYARLAR</button>
@@ -496,6 +555,7 @@ export function showResults(r) {
     ${r.contracts && r.contracts.length ? '<div class="clist">' + r.contracts.map(c => `<div class="cline ${c.done ? 'done' : ''}">${ic(c.done ? 'check' : 'contract', 's')}<span>${CONTRACTS[c.k].text(c.n)}</span>${c.done ? `<b>+${Math.round(CONTRACTS[c.k].oz * (1 + 0.25 * r.kademe))}</b>` : ''}</div>`).join('') + '</div>' : ''}
     <div class="ozgain">${ic('oz', 'l')}<span id="ozN">+0</span>${r.kademe ? `<small>×${(1 + 0.25 * r.kademe).toFixed(2)}</small>` : ''}</div>
     ${r.unlockedKademe ? `<div class="goal" style="color:var(--bad)">${ic('kademe', 's')} KADEME ${r.unlockedKademe} AÇILDI</div>` : ''}
+    ${r.mp ? `<div class="goal">${ic('hand', 's')} Birlikte Kaz · Öz ×1.5</div>` : ''}
     ${r.daily ? `<div class="goal">${ic('daily', 's')} Günün Madeni · ${r.dailyBest ? 'yeni günlük rekor!' : 'günün rekoru ' + (App.meta.daily ? App.meta.daily.depth : 0) + 'm'}</div>` : ''}
     <div class="goal">${r.goal}</div>
     <div style="display:flex;gap:10px"><button class="btn dark" id="rCamp" style="flex:1">${ic('oz')} KAMP</button><button class="btn" id="rAgain" style="flex:1.4">TEKRAR KAZ</button></div>
@@ -512,7 +572,7 @@ export function showResults(r) {
     if (k < 1) requestAnimationFrame(step); else sfx.buy();
   };
   setTimeout(() => requestAnimationFrame(step), 250);
-  tap($('#rAgain'), () => hooks.newRun({ kademe: r.kademe, daily: !!r.daily }));
+  tap($('#rAgain'), () => { if (r.mp) { hideScreens(); showCoop(() => showMenu(false)); } else hooks.newRun({ kademe: r.kademe, daily: !!r.daily }); });
   tap($('#rCamp'), () => showCamp(() => showResults(r)));
 }
 

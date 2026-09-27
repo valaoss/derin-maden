@@ -1,5 +1,6 @@
 // Maden tehlikeleri: altı boşalan gevşek kaya düşer (önce sallanır), gaz cepleri zehirli bulut salar.
 // Gaz bulutu patlamayla tutuşur: dinamit/mayın/bombacı böcekle kasıtlı kullanılabilir.
+import { rnd } from '../core/rng.js';
 import { TILE, GROUND_ROW } from '../config.js';
 import { T, TD } from '../data/tiles.js';
 import { HAZARD } from '../data/balance.js';
@@ -22,7 +23,7 @@ function checkAbove(c, r) {
 export function spawnGas(x, y) {
   G.gas.push({ x, y, t: HAZARD.gasTime, T: HAZARD.gasTime, rad: 8, tick: 0 });
   sfx.gas();
-  for (let i = 0; i < 6; i++) particle(x + (Math.random() - 0.5) * 10, y + (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 30, -10 - Math.random() * 20, 0.8, 'rgba(150,210,80,0.45)', 3, 2, -8);
+  for (let i = 0; i < 6; i++) particle(x + (rnd() - 0.5) * 10, y + (rnd() - 0.5) * 10, (rnd() - 0.5) * 30, -10 - rnd() * 20, 0.8, 'rgba(150,210,80,0.45)', 3, 2, -8);
 }
 
 // patlama gaz bulutuna değerse bulut alev alır (zincirlenebilir)
@@ -33,8 +34,7 @@ export function igniteGas(x, y, rad) {
   for (const g of lit) {
     const R = g.rad + 10;
     for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - g.x, e.y - g.y) < R + e.r) damageEnemy(e, HAZARD.gasBoom, 0, -1, 1);
-    const p = G.player;
-    if (!p.dead && Math.hypot(p.x - g.x, p.y - g.y) < R) damagePlayer(HAZARD.gasBoom * 0.5, g.x, g.y);
+    for (const p of G.players) if (!p.dead && Math.hypot(p.x - g.x, p.y - g.y) < R) damagePlayer(p, HAZARD.gasBoom * 0.5, g.x, g.y);
     sfx.explode(); shake(0.35);
     ring(g.x, g.y, '#ffb050', R); sparks(g.x, g.y, '#ffd48a', 18, 140); sparks(g.x, g.y, '#9af060', 8, 90);
     flashLight(g.x, g.y, 7, 0.4);
@@ -48,17 +48,19 @@ function shatter(k) {
 }
 
 export function updateHazards(dt) {
-  const p = G.player;
   // açılan hücreler: üstünde gevşek kaya var mı
   const cl = G.cleared;
   for (let i = 0; i < cl.length; i += 2) checkAbove(cl[i], cl[i + 1]);
   cl.length = 0;
   // oyuncu yakınındaki desteksiz gevşek kayalar da çöker (mağara tavanı)
   G.hazT -= dt;
-  if (G.hazT <= 0 && !p.dead && p.y > GROUND_ROW * TILE) {
+  if (G.hazT <= 0) {
     G.hazT = 0.25;
-    const pc = Math.floor(p.x / TILE), pr = Math.floor(p.y / TILE);
-    for (let r = pr - 4; r <= pr + 2; r++) for (let c = pc - 3; c <= pc + 3; c++) checkAbove(c, r + 1);
+    for (const p of G.players) {
+      if (p.dead || p.y <= GROUND_ROW * TILE) continue;
+      const pc = Math.floor(p.x / TILE), pr = Math.floor(p.y / TILE);
+      for (let r = pr - 4; r <= pr + 2; r++) for (let c = pc - 3; c <= pc + 3; c++) checkAbove(c, r + 1);
+    }
   }
 
   // sallanan kayalar
@@ -67,7 +69,7 @@ export function updateHazards(dt) {
     if (tileAt(f.c, f.r) !== T.LOOSE) continue;
     f.t -= dt;
     const x = f.c * TILE + 8, y = f.r * TILE + 15;
-    if (Math.random() < dt * 14) particle(x + (Math.random() - 0.5) * 12, y, 0, 20, 0.5, 'rgba(190,160,130,0.6)', 1, 0, 200);
+    if (rnd() < dt * 14) particle(x + (rnd() - 0.5) * 12, y, 0, 20, 0.5, 'rgba(190,160,130,0.6)', 1, 0, 200);
     if (f.t <= 0) {
       const mat = matOf(f.c, f.r);
       setTile(f.c, f.r, T.AIR);
@@ -87,7 +89,7 @@ export function updateHazards(dt) {
     const c = Math.floor(k.x / TILE), rb = Math.floor((ny + 7) / TILE);
     const tb = tileAt(c, rb);
     let hit = false;
-    if (!p.dead && Math.abs(p.x - k.x) < 9 && Math.abs(p.y - ny) < 11) { damagePlayer(HAZARD.fallDmg, k.x, k.y - 8); hit = true; }
+    for (const p of G.players) if (!p.dead && Math.abs(p.x - k.x) < 9 && Math.abs(p.y - ny) < 11) { damagePlayer(p, HAZARD.fallDmg, k.x, k.y - 8); hit = true; break; }
     for (const e of G.enemies) if (!e.dead && e.emergeT <= 0 && Math.abs(e.x - k.x) < e.r + 6 && Math.abs(e.y - ny) < e.r + 6) {
       damageEnemy(e, HAZARD.fallEnemyDmg, 0, 1, 0.5); hit = true; break;
     }
@@ -110,13 +112,14 @@ export function updateHazards(dt) {
     g.rad = HAZARD.gasRadius * Math.min(1, 0.4 + age * 0.8) * (g.t < 1 ? 0.6 + g.t * 0.4 : 1);
     // gaz yükselir, kayadan geçmez
     if (!TD[tileAt(Math.floor(g.x / TILE), Math.floor((g.y - 10) / TILE))].solid) g.y -= 4 * dt;
-    if (Math.random() < dt * 10) {
-      const a = Math.random() * Math.PI * 2, rr = Math.random() * g.rad;
-      particle(g.x + Math.cos(a) * rr, g.y + Math.sin(a) * rr * 0.7, (Math.random() - 0.5) * 6, -3 - Math.random() * 4, 1.1, 'rgba(150,210,80,0.32)', 3 + (Math.random() * 2 | 0), 2, -4);
+    if (rnd() < dt * 10) {
+      const a = rnd() * Math.PI * 2, rr = rnd() * g.rad;
+      particle(g.x + Math.cos(a) * rr, g.y + Math.sin(a) * rr * 0.7, (rnd() - 0.5) * 6, -3 - rnd() * 4, 1.1, 'rgba(150,210,80,0.32)', 3 + (rnd() * 2 | 0), 2, -4);
     }
-    if (!p.dead && Math.hypot(p.x - g.x, p.y - g.y) < g.rad) {
-      g.tick -= dt;
-      if (g.tick <= 0) { g.tick = 0.5; poisonPlayer(HAZARD.gasDps * 0.5); }
+    g.tick -= dt;
+    if (g.tick <= 0) {
+      g.tick = 0.5;
+      for (const p of G.players) if (!p.dead && Math.hypot(p.x - g.x, p.y - g.y) < g.rad) poisonPlayer(p, HAZARD.gasDps * 0.5);
     }
     for (const e of G.enemies) {
       if (e.dead || e.emergeT > 0 || Math.hypot(e.x - g.x, e.y - g.y) > g.rad) continue;

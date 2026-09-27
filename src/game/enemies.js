@@ -1,29 +1,34 @@
 // Düşmanlar derinden gelir, açık tünelleri akış alanıyla izleyerek üsse yürür.
 // Kazıcılar kayayı oyar; yolu tamamen kapalı olan herkes yavaşça kazmaya başlar (asla takılmaz).
+// Hedef seçimi: en yakın canlı oyuncu (çok oyunculu uyumlu). Ölüm animasyonu için ceset kısa süre listede kalır.
+import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y, GROUND_ROW, BASE_X, BASE_Y } from '../config.js';
 import { T, TD } from '../data/tiles.js';
 import { ENEMIES, WAVES, BASE, BARRICADE, BUILDS } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, solidAt, damageTile, idx } from '../world/map.js';
 import { FIELD, flowAt, nextStep, FLOW_INF } from '../world/flow.js';
-import { breakTile, damagePlayer, spawnOrb } from './player.js';
-import { hasPerk } from './run.js';
+import { breakTile, damagePlayer, spawnOrb, nearestPlayer, blindPlayer, scarePlayer, pullPlayer } from './player.js';
+import { hasPerk, hear } from './run.js';
 import { sparks, debris, shake, ring, flashLight, dust, hitstop } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
 import { emit } from '../core/events.js';
 import { setTile } from '../world/map.js';
 import { igniteGas } from './hazards.js';
 
-const ENEMY_COL = { rodent: '#b07a4a', bug: '#5a9a5a', spitter: '#9a5ac0', flyer: '#7a64a0', boomer: '#e070ff', brute: '#8a7c78', worm: '#c07890', boss: '#c24a64' };
+const ENEMY_COL = { rodent: '#b07a4a', bug: '#5a9a5a', spitter: '#9a5ac0', flyer: '#7a64a0', boomer: '#e070ff', brute: '#8a7c78', worm: '#c07890', boss: '#c24a64',
+  glarer: '#ffe79a', lurker: '#6a8a5a', howler: '#8a5a7a', shade: '#4a3a6a' };
 export { ENEMY_COL };
 
 export function spawnEnemy(type, x, y, wave) {
   const d = ENEMIES[type];
   const hp = d.hp * WAVES.hpScale(wave) * (G.mods ? G.mods.hp : 1);
   const e = {
-    type, d, x, y, px: x, py: y, hp, maxHp: hp, r: d.r, face: 1, anim: Math.random() * 4,
-    hitT: 0, kx: 0, ky: 0, atkCd: 0.6, fireCd: 1 + Math.random(), emergeT: 0.9, wob: Math.random() * 6,
+    type, d, x, y, px: x, py: y, hp, maxHp: hp, r: d.r, face: 1, anim: rnd() * 4,
+    hitT: 0, kx: 0, ky: 0, atkCd: 0.6, fireCd: 1 + rnd(), emergeT: 0.9, wob: rnd() * 6,
     summonT: 5, stuckT: 0, lastC: -1, lastR: -1, slowT: 0, trail: d.burrow ? [] : null,
+    wind: 0, lunge: 0, dieT: 0, lastF: 0, vx: 0, vy: 0,
+    blindCd: 2 + rnd() * 2, flashT: 0, tongue: 0, tongueCd: 1.5, tx: 0, ty: 0, howlCd: 2 + rnd() * 2, howlT: 0,
   };
   G.enemies.push(e);
   return e;
@@ -53,37 +58,39 @@ export function losClear(x0, y0, x1, y1, ignoreBarricade = false) {
 }
 
 export function damageEnemy(e, dmg, dx = 0, dy = 0, knock = 1, silent = false) {
-  if (e.hp <= 0 || e.emergeT > 0.3) return;
+  if (e.hp <= 0 || e.dead || e.emergeT > 0.3) return;
   const real = dmg * (1 - (e.d.armor || 0));
-  e.hp -= real; e.hitT = 0.09;
+  e.hp -= real; e.hitT = 0.09; e.hitDx = dx; e.hitDy = dy;
   const kr = 1 - (e.d.knockResist || 0);
   e.kx += dx * 55 * knock * kr; e.ky += dy * 55 * knock * kr;
-  if (!silent) sfx.hit();
+  if (!silent && nearLocal(e)) sfx.hit();
   if (e.hp <= 0) killEnemy(e);
 }
+function nearLocal(e) { const l = G.player; return Math.hypot(l.x - e.x, l.y - e.y) < 200; }
 
 export function killEnemy(e) {
   if (e.dead) return;
-  e.hp = 0; e.dead = true;
+  e.hp = 0; e.dead = true; e.dieT = e.d.boss ? 0.9 : 0.42;
+  e.dieDx = e.hitDx || 0; e.dieDy = e.hitDy || 0;
   const col = ENEMY_COL[e.type];
-  sparks(e.x, e.y, col, e.d.boss ? 30 : 10, e.d.boss ? 150 : 90);
+  sparks(e.x, e.y, col, e.d.boss ? 30 : 8, e.d.boss ? 150 : 80);
   sparks(e.x, e.y, '#ff5a4a', 3, 50);
   dust(e.x, e.y, e.d.boss ? 6 : 2, 'rgba(120,90,110,0.5)');
-  sfx.enemyDie(e.d.boss || e.type === 'brute');
+  if (nearLocal(e) || e.d.boss) sfx.enemyDie(e.d.boss || e.type === 'brute');
   G.stats.kills++;
   if (e.d.boom) explode(e.x, e.y, e.d.boom, e.d.dmg);
   if (e.d.boss) { for (let i = 0; i < 5; i++) spawnOrb(e.x, e.y, 'cobalt', true); for (let i = 0; i < 3; i++) spawnOrb(e.x, e.y, 'crystal', true);
     shake(0.6); hitstop(0.15); ring(e.x, e.y, '#ff8aa8', 40); flashLight(e.x, e.y, 7, 0.6); }
-  else if (e.type === 'brute' || e.type === 'worm') { spawnOrb(e.x, e.y, 'iron', true); spawnOrb(e.x, e.y, 'iron', true); spawnOrb(e.x, e.y, 'cobalt', true); shake(0.25); }
-  else if (Math.random() < 0.35) spawnOrb(e.x, e.y, Math.random() < 0.75 ? 'iron' : 'water', true);
-  if (hasPerk('yasamOzu') && !G.player.dead) G.player.hp = Math.min(G.player.maxHp, G.player.hp + 3);
+  else if (e.type === 'brute' || e.type === 'worm' || e.type === 'lurker') { spawnOrb(e.x, e.y, 'iron', true); spawnOrb(e.x, e.y, 'iron', true); spawnOrb(e.x, e.y, 'cobalt', true); shake(0.25); }
+  else if (e.type === 'glarer' && rnd() < 0.6) spawnOrb(e.x, e.y, 'crystal', true);
+  else if (rnd() < 0.35) spawnOrb(e.x, e.y, rnd() < 0.75 ? 'iron' : 'water', true);
+  if (hasPerk('yasamOzu')) for (const p of G.players) if (!p.dead) p.hp = Math.min(p.maxHp, p.hp + 3);
 }
 
 export function explode(x, y, rad, dmg) {
   sfx.explode(); shake(0.35); haptic(40);
   ring(x, y, '#e070ff', rad); sparks(x, y, '#e070ff', 16, 140); sparks(x, y, '#ffd8ff', 6, 90); flashLight(x, y, 5, 0.3);
-  const p = G.player;
-  if (!p.dead && Math.hypot(p.x - x, p.y - y) < rad + 4) damagePlayer(dmg, x, y);
+  for (const p of G.players) if (!p.dead && Math.hypot(p.x - x, p.y - y) < rad + 4) damagePlayer(p, dmg, x, y);
   if (Math.hypot(BASE_X - x, BASE_Y - y) < rad + BASE.radius) damageBase(dmg);
   for (const s of G.structures) if (Math.hypot(s.x - x, s.y - y) < rad + 6) damageStructure(s, dmg);
   for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - x, e.y - y) < rad) damageEnemy(e, 18, 0, 0, 0);
@@ -98,7 +105,7 @@ export function damageBase(d) {
   if (b.hp <= 0) return;
   b.hp -= d * (1 - BASE.armor); b.hurtT = 0.25;
   sfx.baseHurt(); emit('baseHurt');
-  sparks(b.x + (Math.random() - 0.5) * 30, b.y - Math.random() * 20, '#ffb080', 4, 70);
+  sparks(b.x + (rnd() - 0.5) * 30, b.y - rnd() * 20, '#ffb080', 4, 70);
   if (b.hp <= 0) { b.hp = 0; emit('baseDown'); }
 }
 export function damageStructure(s, d) {
@@ -118,17 +125,20 @@ export function hurtBarricade(c, r, d) {
   if (G.bhp[i] <= 0) { delete G.bhp[i]; setTile(c, r, T.AIR); debris(c * TILE + 8, r * TILE + 8, 'dirt', 10); sfx.breakBlock('stone'); }
 }
 
+export function aliveEnemies() { let n = 0; for (const e of G.enemies) if (!e.dead) n++; return n; }
+
 // ---------- güncelleme ----------
 export function updateEnemies(dt) {
-  const p = G.player;
   for (const e of G.enemies) {
-    if (e.dead) continue;
+    if (e.dead) { e.dieT -= dt; continue; }
     e.px = e.x; e.py = e.y;
     e.anim += dt * (e.d.fly ? 12 : 7);
     if (e.hitT > 0) e.hitT -= dt;
+    if (e.flashT > 0) e.flashT -= dt;
+    if (e.howlT > 0) e.howlT -= dt;
     if (e.emergeT > 0) {
       e.emergeT -= dt;
-      if (Math.random() < 0.4) debris(e.x, e.y + 4, 'dirt', 1, 0.4);
+      if (rnd() < 0.4) debris(e.x, e.y + 4, 'dirt', 1, 0.4);
       continue;
     }
     // sıkışma kurtarma: kutusu kayaya taşmışsa hücre merkezine kay (doğuş/savrulma kenar durumları)
@@ -144,38 +154,90 @@ export function updateEnemies(dt) {
       if (Math.abs(e.kx) + Math.abs(e.ky) < 2) e.kx = e.ky = 0;
     }
     e.atkCd -= dt;
-    if (e.slowT > 0) e.slowT -= dt;
-    const sp = e.d.speed * (e.slowT > 0 ? 0.5 : 1);
-    const dp = p.dead ? 1e9 : Math.hypot(p.x - e.x, p.y - e.y);
+    e.wind = 0;
+    if (e.slowT > 0) e.slowT -= dt; else if (e.slowT < 0) e.slowT = Math.min(0, e.slowT + dt);
+    const sp = e.d.speed * (e.slowT > 0 ? 0.5 : e.slowT < 0 ? 1.35 : 1);
+    const p = nearestPlayer(e.x, e.y);
+    const dp = p ? Math.hypot(p.x - e.x, p.y - e.y) : 1e9;
     const db = Math.hypot(BASE_X - e.x, BASE_Y - e.y);
+
+    // Kaya Devi adımları: kare değişiminde toz ve yer sarsıntısı
+    if (e.type === 'brute' || e.d.boss) {
+      const f = Math.floor(e.anim) % 2;
+      if (f !== e.lastF && (Math.abs(e.x - e.px) > 0.05 || Math.abs(e.y - e.py) > 0.05)) { dust(e.x, e.y + e.r, 1, 'rgba(160,140,130,0.45)'); if (nearLocal(e)) shake(e.d.boss ? 0.08 : 0.04); }
+      e.lastF = f;
+    }
 
     // --- üsse vardı mı ---
     if (db < BASE.radius + e.r && e.y < GROUND_Y + 4) {
-      e.st = 'base'; if (e.atkCd <= 0) attack(e, 'base');
+      e.st = 'base'; e.wind = windup(e); if (e.atkCd <= 0) attack(e, 'base');
       continue;
     }
     // --- yol üstündeki yapı ---
     let hitStruct = false;
     for (const s of G.structures) if (!s.dead && Math.hypot(s.x - e.x, s.y - e.y) < 9 + e.r) {
-      if (e.atkCd <= 0) { attack(e, s); } hitStruct = true; break;
+      e.wind = windup(e); if (e.atkCd <= 0) { attack(e, s); } hitStruct = true; break;
     }
     if (hitStruct) { e.st = 'struct'; continue; }
-    if (e.d.burrow) { trackTrail(e); if (updateWorm(e, dt, sp, dp)) continue; }
+    if (e.d.burrow) { trackTrail(e); if (updateWorm(e, dt, sp, p, dp)) continue; }
+
+    // --- özel yetenekler ---
+    if (e.d.blind && p) {
+      e.blindCd -= dt;
+      if (e.blindCd <= 0 && dp < e.d.blindRange && losClear(e.x, e.y, p.x, p.y)) {
+        e.blindCd = e.d.blindCd; e.flashT = 0.35;
+        for (const q of G.players) if (!q.dead && Math.hypot(q.x - e.x, q.y - e.y) < e.d.blindRange + 10 && losClear(e.x, e.y, q.x, q.y)) blindPlayer(q, 1.5);
+        flashLight(e.x, e.y, 9, 0.35); ring(e.x, e.y, '#ffe79a', 30); sparks(e.x, e.y, '#fff8d0', 10, 90);
+        if (nearLocal(e)) sfx.glare();
+      }
+    }
+    if (e.d.howl && p) {
+      e.howlCd -= dt;
+      if (e.howlCd <= 0 && dp < e.d.howlRange && losClear(e.x, e.y, p.x, p.y)) {
+        e.howlCd = e.d.howlCd; e.howlT = 0.9;
+        for (const q of G.players) if (!q.dead && Math.hypot(q.x - e.x, q.y - e.y) < e.d.howlRange + 10) scarePlayer(q, 2.4);
+        ring(e.x, e.y, '#8a5a7a', 40); ring(e.x, e.y, '#c08ab0', 24);
+        // çığlık yakındaki düşmanları cesaretlendirir: kısa hız artışı
+        for (const o of G.enemies) if (!o.dead && o !== e && Math.hypot(o.x - e.x, o.y - e.y) < 70) o.slowT = -1.5;
+        if (nearLocal(e) || dp < 140) sfx.howl();
+      }
+      if (e.howlT > 0) { e.st = 'howl'; continue; }
+    }
+    if (e.d.pull && p) {
+      if (e.tongue > 0) {
+        // dil dışarıda: oyuncuyu kendine çek
+        e.tongue -= dt;
+        const d = dp || 1;
+        if (dp < e.d.pullRange + 12 && losClear(e.x, e.y, p.x, p.y)) { pullPlayer(p, (e.x - p.x) / d * 5.5, (e.y - p.y) / d * 5.5); e.tx = p.x; e.ty = p.y; }
+        else e.tongue = 0;
+        e.face = p.x > e.x ? 1 : -1;
+        e.st = 'pull';
+        if (dp > e.r + 7) continue;
+      } else {
+        e.tongueCd -= dt;
+        if (e.tongueCd <= 0 && dp < e.d.pullRange && dp > 20 && losClear(e.x, e.y, p.x, p.y)) {
+          e.tongueCd = 3.2; e.tongue = 0.7; e.tx = p.x; e.ty = p.y;
+          if (nearLocal(e)) sfx.tongue();
+        }
+      }
+    }
 
     // --- menzilli ---
     if (e.d.ranged) {
       e.fireCd -= dt;
       let tx = null, ty = 0;
       // görüş, oyuncunun omuz silahıyla aynı noktadan: o bizi göremiyorsa biz de ona ateş etmeyiz (tek yönlü kilitlenme olmasın)
-      if (dp < e.d.range && losClear(e.x, e.y, p.x - p.face * 3, p.y - 5, true)) { tx = p.x; ty = p.y; }
+      if (p && dp < e.d.range && losClear(e.x, e.y, p.x - p.face * 3, p.y - 5, true)) { tx = p.x; ty = p.y; }
       else if (db < e.d.range && losClear(e.x, e.y, BASE_X, BASE_Y - 6)) { tx = BASE_X; ty = BASE_Y - 6; }
       if (tx !== null) {
         e.face = tx > e.x ? 1 : -1;
+        e.wind = e.fireCd < 0.35 ? 1 - e.fireCd / 0.35 : 0;
         if (e.fireCd <= 0) {
-          e.fireCd = e.d.fireCd;
+          e.fireCd = e.d.fireCd; e.lunge = 0.6;
           const d = Math.hypot(tx - e.x, ty - e.y) || 1;
           G.ebullets.push({ x: e.x + e.face * 4, y: e.y - 2, vx: (tx - e.x) / d * 105, vy: (ty - e.y) / d * 105, life: 1.4, dmg: e.d.dmg });
           sparks(e.x + e.face * 5, e.y - 2, '#9af060', 3, 40);
+          if (nearLocal(e)) sfx.spit();
         }
         e.st = 'ranged';
         // yalnızca hedefe gerçekten yakınken durur; aksi halde ateş ederken yürür (tüneli tıkamasın)
@@ -184,9 +246,9 @@ export function updateEnemies(dt) {
     }
 
     // --- oyuncuya saldırı (yakında ve görüşte) ---
-    if (dp < 60 && losClear(e.x, e.y, p.x, p.y)) {
+    if (p && dp < 60 && losClear(e.x, e.y, p.x, p.y)) {
       e.st = 'chase';
-      if (dp < e.r + 7) { if (e.atkCd <= 0) attack(e, 'player'); continue; }
+      if (dp < e.r + 7) { e.wind = windup(e); e.face = p.x >= e.x ? 1 : -1; if (e.atkCd <= 0) attack(e, p); continue; }
       const d = dp || 1;
       let vx = (p.x - e.x) / d * sp, vy = (p.y - e.y) / d * sp;
       if (e.d.fly) { vx += Math.cos(e.anim * 0.7) * 18; vy += Math.sin(e.anim * 0.9) * 18; }
@@ -204,7 +266,6 @@ export function updateEnemies(dt) {
     e.st = 'flow';
     if (!nx) {
       e.st = 'tobase';
-      // üs hizasında: doğrudan üsse yürü
       const d = db || 1;
       moveE(e, (BASE_X - e.x) / d * sp * dt, (BASE_Y - e.y) / d * sp * dt);
       e.face = BASE_X > e.x ? 1 : -1;
@@ -213,14 +274,13 @@ export function updateEnemies(dt) {
     const nt = tileAt(nx.c, nx.r);
     if (TD[nt].solid) {
       e.st = 'dig';
-      // önündeki bloğu kaz / barikatı döv
       e.face = nx.c > c ? 1 : nx.c < c ? -1 : e.face;
-      if (nt === T.BARRICADE) { if (e.atkCd <= 0) { e.atkCd = 1; e.lunge = 1; hurtBarricade(nx.c, nx.r, e.d.dmg); } }
+      if (nt === T.BARRICADE) { e.wind = windup(e); if (e.atkCd <= 0) { e.atkCd = 1; e.lunge = 1; hurtBarricade(nx.c, nx.r, e.d.dmg); } }
       else {
-        if (damageTile(nx.c, nx.r, digRate * dt)) breakTile(nx.c, nx.r, false);
-        if (Math.random() < dt * 6) debris(nx.c * TILE + 8 - (nx.c - c) * 6, nx.r * TILE + 8 - (nx.r - r) * 6, 'dirt', 1, 0.3);
+        if (damageTile(nx.c, nx.r, digRate * dt)) breakTile(nx.c, nx.r, null);
+        if (rnd() < dt * 6) debris(nx.c * TILE + 8 - (nx.c - c) * 6, nx.r * TILE + 8 - (nx.r - r) * 6, 'dirt', 1, 0.3);
+        e.lunge = 0.3 + Math.abs(Math.sin(e.anim * 2)) * 0.5;
       }
-      // hücre merkezine yaslan
       const cx = c * TILE + 8, cy = r * TILE + 8;
       moveE(e, Math.sign(cx - e.x) * Math.min(Math.abs(cx - e.x), sp * dt), Math.sign(cy - e.y) * Math.min(Math.abs(cy - e.y), sp * dt));
       continue;
@@ -258,12 +318,19 @@ export function updateEnemies(dt) {
       ring(e.x, e.y, '#c24a64', 24); sfx.rumble();
     }
   }
-  for (const e of es) if (e.lunge) e.lunge = Math.max(0, e.lunge - dt * 5);
-  // ölüleri temizle
+  for (const e of es) {
+    if (e.lunge) e.lunge = Math.max(0, e.lunge - dt * 5);
+    // hız (çizimde ezilme/uzama için)
+    e.vx = (e.x - e.px) / dt; e.vy = (e.y - e.py) / dt;
+  }
+  // ölüleri temizle (ölüm animasyonu bittikten sonra)
   let j = 0;
-  for (const e of es) if (!e.dead) es[j++] = e;
+  for (const e of es) if (!e.dead || e.dieT > 0) es[j++] = e;
   es.length = j;
 }
+
+// saldırıdan hemen önce geri çekilme miktarı (0..1)
+function windup(e) { return e.atkCd > 0 && e.atkCd < 0.3 ? 1 - e.atkCd / 0.3 : 0; }
 
 // ---------- Maden Solucanı: oyuncuyu kayanın içinden avlar, arkasında tünel bırakır ----------
 function trackTrail(e) {
@@ -271,12 +338,11 @@ function trackTrail(e) {
   if (!last || Math.hypot(last.x - e.x, last.y - e.y) >= 5) { tr.unshift({ x: e.x, y: e.y }); if (tr.length > 4) tr.pop(); }
 }
 function wormCellOk(t) { const d = TD[t]; return !(d.unbreakable || d.heart || d.chest); }
-function updateWorm(e, dt, sp, dp) {
-  const p = G.player;
+function updateWorm(e, dt, sp, p, dp) {
   // oyuncu derindeyse ve yakınsa onu avlar; değilse normal (her şeyi kazan) akışla üsse gider
-  if (p.dead || p.y < GROUND_Y + 8 || dp > 220) { e.wc = undefined; return false; }
+  if (!p || p.y < GROUND_Y + 8 || dp > 220) { e.wc = undefined; return false; }
   e.st = 'hunt';
-  if (dp < e.r + 8) { if (e.atkCd <= 0) attack(e, 'player'); return true; }
+  if (dp < e.r + 8) { e.wind = windup(e); if (e.atkCd <= 0) attack(e, p); return true; }
   const c = Math.floor(e.x / TILE), r = Math.floor(e.y / TILE);
   const atCenter = e.wc !== undefined && Math.abs(e.x - (e.wc * TILE + 8)) < 1.5 && Math.abs(e.y - (e.wr * TILE + 8)) < 1.5;
   if (e.wc === undefined || atCenter || !wormCellOk(tileAt(e.wc, e.wr))) {
@@ -295,9 +361,9 @@ function updateWorm(e, dt, sp, dp) {
   if (TD[nt].solid) {
     if (nt === T.BARRICADE) { if (e.atkCd <= 0) { e.atkCd = 1; e.lunge = 1; hurtBarricade(e.wc, e.wr, e.d.dmg); } }
     else {
-      if (damageTile(e.wc, e.wr, e.d.digRate * dt)) breakTile(e.wc, e.wr, false);
-      if (Math.random() < dt * 10) debris(e.wc * TILE + 8 - (e.wc - c) * 6, e.wr * TILE + 8 - (e.wr - r) * 6, 'dirt', 1, 0.4);
-      if (dp < 110) sfx.burrow();
+      if (damageTile(e.wc, e.wr, e.d.digRate * dt)) breakTile(e.wc, e.wr, null);
+      if (rnd() < dt * 10) debris(e.wc * TILE + 8 - (e.wc - c) * 6, e.wr * TILE + 8 - (e.wr - r) * 6, 'dirt', 1, 0.4);
+      if (dp < 110 && nearLocal(e)) sfx.burrow();
     }
     e.face = e.wc > c ? 1 : e.wc < c ? -1 : e.face;
     return true;
@@ -309,10 +375,11 @@ function updateWorm(e, dt, sp, dp) {
   return true;
 }
 
+// target: oyuncu nesnesi | 'base' | yapı
 function attack(e, target) {
-  e.atkCd = 1; e.lunge = 1;
+  e.atkCd = 1; e.lunge = 1; e.wind = 0;
   if (e.d.boom) { e.hp = 0; killEnemy(e); return; }
-  if (target === 'player') damagePlayer(e.d.dmg, e.x, e.y);
-  else if (target === 'base') damageBase(e.d.dmg);
+  if (target === 'base') damageBase(e.d.dmg);
+  else if (target.bag) damagePlayer(target, e.d.dmg, e.x, e.y);
   else damageStructure(target, e.d.dmg);
 }

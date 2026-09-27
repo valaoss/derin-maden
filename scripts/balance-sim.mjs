@@ -35,7 +35,7 @@ for (let run = 0; run < RUNS; run++) {
     { wave: 9, depth: 80, lvl: { blaster: 4, armor: 3 }, turrets: 4 },
   ];
   let dug = 0;
-  const p = G.player;
+  const p = G.player; p.inp = p.inp || { x: 0, y: 0, mag: 0 };
   for (let w = 1; w <= 12 && !baseDown; w++) {
     const stage = plan.filter(s => s.wave <= w).pop();
     Object.assign(G.lvl, stage.lvl); recompute();

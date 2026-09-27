@@ -18,7 +18,7 @@ for (const k in MAT_RAMP) ramp('m_' + k, MAT_RAMP[k]);
 for (const k in WALL_RAMP) ramp('w_' + k, WALL_RAMP[k]);
 for (const k in ORE_RAMP) ramp('o_' + k, ORE_RAMP[k]);
 ramp('grass', [P.ink, P.grass0, P.grass1, P.grass2]);
-const MAT_SEED = { dirt: 11, stone: 23, hard: 37, dense: 53, bedrock: 71, found: 83 };
+const MAT_SEED = { dirt: 11, stone: 23, hard: 37, dense: 53, bedrock: 71, found: 83, vault: 97 };
 
 // görsel olarak katı mı (barikat arka duvar üzerinde sprite olarak çizilir)
 function vSolid(c, r) {
@@ -71,6 +71,17 @@ function baseShade(mat, wx, wy, s) {
       if (h < 0.022) return 4;
       if (h < 0.06) return 3;
       return n > 0.6 ? 2 : 1;
+    }
+    case 'vault': {
+      // kilitli kaya: çapraz bantlı, ortasında kilit rozeti; "buraya kazma işlemez" okunur
+      const lx = ((wx % 16) + 16) % 16, ly = ((wy % 16) + 16) % 16;
+      if (lx === 0 || ly === 0 || lx === 15 || ly === 15) return 1;
+      const cx = lx - 7.5, cy = ly - 7.5, d2 = cx * cx + cy * cy;
+      if (d2 < 3) return 4;
+      if (d2 < 9) return 0;
+      if (d2 < 13) return 3;
+      if (((lx + ly) & 3) === 0) return 3;
+      return h < 0.05 ? 1 : 2;
     }
     case 'found': {
       // çelik temel plakaları: 16px levhalar, köşe perçinleri, üst kenar parlaklığı
@@ -155,7 +166,7 @@ function paintTile(img, c, r, oy) {
   const mN = !eN ? nm(c, r - 1) : null, mS = !eS ? nm(c, r + 1) : null;
   const mW = !eW && c > 0 ? nm(c - 1, r) : null, mE = !eE && c < COLS - 1 ? nm(c + 1, r) : null;
   // çelik temel düz kenarlı kalır (insan yapımı)
-  const blend = m => m && m !== mat0 && m !== 'found' && mat0 !== 'found';
+  const blend = m => m && m !== mat0 && m !== 'found' && mat0 !== 'found' && m !== 'vault' && mat0 !== 'vault';
   const dN = blend(mN), dS = blend(mS), dW = blend(mW), dE = blend(mE);
   const grass = eN && r === GROUND_ROW && mat0 === 'dirt';
   const ore = TD[t].ore;

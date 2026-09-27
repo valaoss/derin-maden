@@ -1,11 +1,13 @@
-// Girdi: ekranın altında sabit duran joystick + klavye.
-// Joystick dışındaki kısa ve hareketsiz dokunuş "tap" olarak iletilir (yuvalara inşa vb).
+// Girdi: dinamik (yüzen) joystick + klavye.
+// Ekranın alt bölgesine nereye basılırsa joystick merkezi orası olur; parmağın doğal durduğu yer kontrol noktasıdır.
+// Joystick bölgesi dışındaki kısa ve hareketsiz dokunuş "tap" olarak iletilir (yuvalara inşa vb).
 export const input = { x: 0, y: 0, mag: 0, active: false, taps: [], keyboard: false };
 
 const keys = {};
 let stickId = null, ox = 0, oy = 0, sx = 0, sy = 0, t0 = 0, moved = 0;
 let stickEl, knobEl, surface;
-const RADIUS = 46, DEAD = 7, GRAB = 88; // GRAB: merkezden bu uzaklığa kadar dokunuş joystick'i tutar
+const RADIUS = 46, DEAD = 6;
+const ZONE_TOP = 0.42; // ekranın bu oranından aşağısı joystick bölgesi
 
 export function initInput(el, stick, knob) {
   surface = el; stickEl = stick; knobEl = knob;
@@ -22,23 +24,22 @@ export function initInput(el, stick, knob) {
   window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; release(); });
 }
 
-function center() {
-  const r = stickEl.getBoundingClientRect();
-  return { x: r.left, y: r.top };
-}
+let tapId = null, tx = 0, ty = 0, stickTap = false;
 function down(e) {
   e.preventDefault();
-  const c = center();
-  if (stickId === null && Math.hypot(e.clientX - c.x, e.clientY - c.y) <= GRAB) {
-    stickId = e.pointerId; ox = c.x; oy = c.y;
+  const r = surface.getBoundingClientRect();
+  const fy = (e.clientY - r.top) / r.height;
+  if (stickId === null && fy >= ZONE_TOP) {
+    // joystick burada doğar
+    stickId = e.pointerId; ox = e.clientX; oy = e.clientY; t0 = performance.now(); moved = 0; stickTap = true;
+    stickEl.style.left = (e.clientX - r.left) + 'px'; stickEl.style.top = (e.clientY - r.top) + 'px';
     stickEl.classList.add('on');
     move(e);
     return;
   }
-  // joystick dışı dokunuş: sadece tap adayı
+  // üst bölge: yalnızca tap adayı
   tapId = e.pointerId; tx = e.clientX; ty = e.clientY; t0 = performance.now(); moved = 0;
 }
-let tapId = null, tx = 0, ty = 0;
 function move(e) {
   if (e.pointerId === tapId) { moved = Math.max(moved, Math.hypot(e.clientX - tx, e.clientY - ty)); return; }
   if (e.pointerId !== stickId) return;
@@ -46,6 +47,7 @@ function move(e) {
   sx = e.clientX; sy = e.clientY;
   const dx = sx - ox, dy = sy - oy;
   const dd = Math.hypot(dx, dy);
+  if (dd > 10) stickTap = false;
   const kx = dd > RADIUS ? dx / dd * RADIUS : dx, ky = dd > RADIUS ? dy / dd * RADIUS : dy;
   knobEl.style.transform = `translate(${kx}px, ${ky}px)`;
   if (dd < DEAD) { input.x = input.y = input.mag = 0; input.active = false; return; }
@@ -56,17 +58,20 @@ function move(e) {
 function up(e) {
   if (e.pointerId === tapId) {
     tapId = null;
-    if (performance.now() - t0 < 260 && moved < 12) {
-      const r = surface.getBoundingClientRect();
-      input.taps.push({ x: (tx - r.left) / r.width, y: (ty - r.top) / r.height });
-    }
+    if (performance.now() - t0 < 260 && moved < 12) pushTap(tx, ty);
     return;
   }
   if (e.pointerId !== stickId) return;
+  // joystick bölgesinde kısa, hareketsiz dokunuş da tap sayılır (yüzeydeki yuvalar için)
+  if (stickTap && performance.now() - t0 < 220) pushTap(ox, oy);
   release();
 }
+function pushTap(x, y) {
+  const r = surface.getBoundingClientRect();
+  input.taps.push({ x: (x - r.left) / r.width, y: (y - r.top) / r.height });
+}
 function release() {
-  stickId = null; input.x = input.y = input.mag = 0; input.active = false;
+  stickId = null; stickTap = false; input.x = input.y = input.mag = 0; input.active = false;
   if (stickEl) { stickEl.classList.remove('on'); knobEl.style.transform = 'translate(0px,0px)'; }
 }
 export function setStickVisible(v) { if (stickEl) stickEl.classList.toggle('show', v); }

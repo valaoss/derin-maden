@@ -69,14 +69,17 @@ const DIG = {
   hard:    { f: 2100, q: 2.4, g: 0.22, d: 0.05, ping: 1850 },
   dense:   { f: 900, q: 3, g: 0.24, d: 0.08, ping: 640 },
   bedrock: { f: 700, q: 2, g: 0.2, d: 0.05, ping: 300 },
+  metal:   { f: 1800, q: 4, g: 0.16, d: 0.09, ping: 2600 },
 };
 export const sfx = {
-  dig(mat) {
+  dig(mat, tier = 0) {
     if (!ok('dig', 0.05)) return;
     const t = ctx.currentTime, m = DIG[mat] || DIG.dirt;
     noise(t, m.d, { type: 'bandpass', f: vary(m.f), q: m.q, gain: m.g });
     tone(t, 0.05, { type: 'triangle', f: vary(170), f2: 70, gain: 0.22 });
     if (m.ping) tone(t, 0.09, { type: 'square', f: vary(m.ping, 0.05), gain: 0.035 });
+    // kazma kademesi: odun tok, metal çınlar, kristal tınlar
+    if (tier >= 2) tone(t, 0.07 + tier * 0.02, { type: 'sine', f: vary(2200 + tier * 500, 0.04), gain: 0.02 + tier * 0.006 });
   },
   breakBlock(mat) {
     if (!ok('break', 0.04)) return;
@@ -236,6 +239,37 @@ export const sfx = {
   },
   cough() { if (!ok('cough', 0.45)) return; noise(ctx.currentTime, 0.09, { type: 'bandpass', f: vary(700), q: 2, gain: 0.16 }); },
   burrow() { if (!ok('burrow', 0.5)) return; noise(ctx.currentTime, 0.45, { type: 'lowpass', f: 220, gain: 0.2, a: 0.05 }); },
+  // Parıldak: kör edici parlama - tiz çınlama + hava basıncı
+  glare() {
+    if (!ok('glare', 0.4)) return;
+    const t = ctx.currentTime;
+    tone(t, 0.5, { type: 'sine', f: 2400, f2: 3600, gain: 0.12, a: 0.01 });
+    tone(t, 0.7, { type: 'triangle', f: 4800, f2: 6200, gain: 0.05, a: 0.02 });
+    noise(t, 0.25, { type: 'highpass', f: 3000, gain: 0.12 });
+  },
+  // Uluyan: korkutucu çığlık - iki detune testere, aşağı kayan + titrek gürültü
+  howl() {
+    if (!ok('howl', 0.8)) return;
+    const t = ctx.currentTime;
+    tone(t, 0.9, { type: 'sawtooth', f: 620, f2: 180, gain: 0.11, a: 0.06 });
+    tone(t + 0.02, 0.85, { type: 'sawtooth', f: 660, f2: 200, gain: 0.08, a: 0.06 });
+    tone(t + 0.1, 0.6, { type: 'square', f: 95, f2: 55, gain: 0.09, a: 0.05 });
+    noise(t, 0.9, { type: 'bandpass', f: 900, f2: 300, q: 1.2, gain: 0.12, a: 0.08 });
+  },
+  // Çekici: yapışkan dil fırlatır
+  tongue() {
+    if (!ok('tongue', 0.3)) return;
+    const t = ctx.currentTime;
+    tone(t, 0.18, { type: 'triangle', f: 300, f2: 1200, gain: 0.09 });
+    noise(t + 0.12, 0.12, { type: 'bandpass', f: 600, q: 3, gain: 0.12 });
+  },
+  spit() { if (!ok('spit', 0.15)) return; const t = ctx.currentTime; noise(t, 0.09, { type: 'bandpass', f: vary(1100), q: 1.5, gain: 0.1 }); tone(t, 0.08, { type: 'triangle', f: 500, f2: 900, gain: 0.05 }); },
+  // iniş: kısa tok darbe
+  land() { if (!ok('land', 0.15)) return; const t = ctx.currentTime; noise(t, 0.06, { type: 'lowpass', f: 500, gain: 0.16 }); tone(t, 0.06, { type: 'sine', f: 140, f2: 70, gain: 0.12 }); },
+  // Gölge belirdiğinde: soğuk fısıltı
+  shade() { if (!ok('shade', 0.6)) return; noise(ctx.currentTime, 0.4, { type: 'bandpass', f: 2600, f2: 900, q: 4, gain: 0.07, a: 0.08 }); },
+  // eşleşme/bağlantı
+  connect() { if (!ok('conn', 0.3)) return; const t = ctx.currentTime; tone(t, 0.1, { type: 'triangle', f: 660, gain: 0.08 }); tone(t + 0.1, 0.16, { type: 'triangle', f: 990, gain: 0.08 }); },
   frost() {
     if (!ok('frost', 0.1)) return;
     tone(ctx.currentTime, 0.08, { type: 'triangle', f: vary(2200, 0.04), f2: 1500, gain: 0.05 });

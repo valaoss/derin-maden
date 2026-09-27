@@ -1,4 +1,5 @@
 // Otomatik nişan alan omuz blaster'ı, mermiler, taretler, onarım istasyonları.
+import { rnd } from '../core/rng.js';
 import { TILE, BASE_X, BASE_Y, GROUND_Y } from '../config.js';
 import { T, TD } from '../data/tiles.js';
 import { UPGRADES, BUILDS, BASE } from '../data/balance.js';
@@ -6,7 +7,7 @@ import { G } from './state.js';
 import { tileAt } from '../world/map.js';
 import { damageEnemy, losClear, damageStructure, damageBase } from './enemies.js';
 import { damagePlayer } from './player.js';
-import { hasPerk } from './run.js';
+import { hasPerk, hear } from './run.js';
 import { sparks, flashLight, particle, ring, shake, debris } from './fx.js';
 import { igniteGas } from './hazards.js';
 import { sfx } from '../audio/audio.js';
@@ -23,8 +24,8 @@ function nearestTarget(x, y, range) {
 
 export function shoulderPos(p) { return { x: p.x - p.face * 3, y: p.y - 5 }; }
 
-export function updatePlayerGun(dt) {
-  const p = G.player;
+export function updatePlayerGun(dt) { for (const p of G.players) updateGun(p, dt); }
+function updateGun(p, dt) {
   if (p.dead) return;
   p.fireCd -= dt;
   if (p.aimT > 0) p.aimT -= dt;
@@ -42,7 +43,7 @@ export function updatePlayerGun(dt) {
   p.recoil = 1;
   sparks(sp.x + Math.cos(ang) * 7, sp.y + Math.sin(ang) * 7, '#ffe79a', 2, 40);
   flashLight(sp.x, sp.y, 2.2, 0.06);
-  sfx.shoot();
+  if (hear(p)) sfx.shoot();
 }
 
 function fire(x, y, ang, speed, dmg, from, pierce) {
@@ -79,12 +80,13 @@ export function updateBullets(dt) {
   bs.length = j;
 
   const eb = G.ebullets; j = 0;
-  const p = G.player;
   for (const b of eb) {
     b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
-    if (Math.random() < 0.5) particle(b.x, b.y, 0, 0, 0.18, '#9af060', 1, 1, 0);
+    if (rnd() < 0.5) particle(b.x, b.y, 0, 0, 0.18, '#9af060', 1, 1, 0);
     if (TD[tileAt(Math.floor(b.x / TILE), Math.floor(b.y / TILE))].solid) { sparks(b.x, b.y, '#9af060', 4, 40); continue; }
-    if (!p.dead && Math.abs(b.x - p.x) < 6 && Math.abs(b.y - p.y) < 7) { damagePlayer(b.dmg, b.x, b.y); sparks(b.x, b.y, '#9af060', 5, 50); continue; }
+    let hitP = false;
+    for (const p of G.players) if (!p.dead && Math.abs(b.x - p.x) < 6 && Math.abs(b.y - p.y) < 7) { damagePlayer(p, b.dmg, b.x, b.y); sparks(b.x, b.y, '#9af060', 5, 50); hitP = true; break; }
+    if (hitP) continue;
     if (Math.abs(b.x - BASE_X) < 22 && Math.abs(b.y - (BASE_Y - 8)) < 16) {
       damageBase(b.dmg * 0.6); sparks(b.x, b.y, '#9af060', 5, 50); continue;
     }
@@ -146,7 +148,6 @@ export function updateShells(dt) {
 }
 
 export function updateStructures(dt) {
-  const p = G.player;
   if (G.base.hp > 0) updateBaseGun(dt);
   for (const s of G.structures) {
     if (s.buildT > 0) s.buildT -= dt;
@@ -175,9 +176,9 @@ export function updateStructures(dt) {
         s.aim += Math.atan2(Math.sin(ang - s.aim), Math.cos(ang - s.aim)) * Math.min(1, dt * 10);
       }
       if (s.firing) {
-        if (Math.random() < dt * 40) {
-          const a = s.aim + (Math.random() - 0.5) * 0.5, sp = 90 + Math.random() * 60;
-          particle(s.x + Math.cos(s.aim) * 7, s.y - 5 + Math.sin(s.aim) * 7, Math.cos(a) * sp, Math.sin(a) * sp, 0.28, Math.random() < 0.4 ? '#ffe79a' : Math.random() < 0.6 ? '#ff9a4a' : '#e0502a', 2, 1, -40);
+        if (rnd() < dt * 40) {
+          const a = s.aim + (rnd() - 0.5) * 0.5, sp = 90 + rnd() * 60;
+          particle(s.x + Math.cos(s.aim) * 7, s.y - 5 + Math.sin(s.aim) * 7, Math.cos(a) * sp, Math.sin(a) * sp, 0.28, rnd() < 0.4 ? '#ffe79a' : rnd() < 0.6 ? '#ff9a4a' : '#e0502a', 2, 1, -40);
         }
         if (s.cd <= 0) {
           s.cd = 0.1 / rate;
@@ -210,7 +211,7 @@ export function updateStructures(dt) {
     } else if (s.type === 'heal') {
       s.pulse = (s.pulse || 0) + dt;
       if (Math.hypot(BASE_X - s.x, BASE_Y - s.y) < b.range + 20 && G.base.hp > 0) G.base.hp = Math.min(G.base.maxHp, G.base.hp + b.rate * dt);
-      if (!p.dead && Math.hypot(p.x - s.x, p.y - s.y) < b.range) p.hp = Math.min(p.maxHp, p.hp + b.rate * 1.6 * dt);
+      for (const p of G.players) if (!p.dead && Math.hypot(p.x - s.x, p.y - s.y) < b.range) p.hp = Math.min(p.maxHp, p.hp + b.rate * 1.6 * dt);
       for (const o of G.structures) if (o !== s && Math.hypot(o.x - s.x, o.y - s.y) < b.range) o.hp = Math.min(o.maxHp, o.hp + b.rate * dt);
     }
   }
