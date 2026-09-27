@@ -1,11 +1,11 @@
-// Girdi: ekranın herhangi bir yerinde beliren yüzen joystick + klavye.
-// Kısa ve hareketsiz dokunuş "tap" olarak iletilir (yuvalara inşa vb).
+// Girdi: ekranın altında sabit duran joystick + klavye.
+// Joystick dışındaki kısa ve hareketsiz dokunuş "tap" olarak iletilir (yuvalara inşa vb).
 export const input = { x: 0, y: 0, mag: 0, active: false, taps: [], keyboard: false };
 
 const keys = {};
 let stickId = null, ox = 0, oy = 0, sx = 0, sy = 0, t0 = 0, moved = 0;
 let stickEl, knobEl, surface;
-const RADIUS = 46, DEAD = 7;
+const RADIUS = 46, DEAD = 7, GRAB = 88; // GRAB: merkezden bu uzaklığa kadar dokunuş joystick'i tutar
 
 export function initInput(el, stick, knob) {
   surface = el; stickEl = stick; knobEl = knob;
@@ -22,28 +22,29 @@ export function initInput(el, stick, knob) {
   window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; release(); });
 }
 
-function down(e) {
-  if (stickId !== null) return;
-  e.preventDefault();
-  stickId = e.pointerId; ox = sx = e.clientX; oy = sy = e.clientY; t0 = performance.now(); moved = 0;
-  const r = surface.getBoundingClientRect();
-  stickEl.style.transform = `translate(${ox - r.left}px, ${oy - r.top}px)`;
-  knobEl.style.transform = 'translate(0px,0px)';
-  stickEl.classList.add('on');
+function center() {
+  const r = stickEl.getBoundingClientRect();
+  return { x: r.left, y: r.top };
 }
+function down(e) {
+  e.preventDefault();
+  const c = center();
+  if (stickId === null && Math.hypot(e.clientX - c.x, e.clientY - c.y) <= GRAB) {
+    stickId = e.pointerId; ox = c.x; oy = c.y;
+    stickEl.classList.add('on');
+    move(e);
+    return;
+  }
+  // joystick dışı dokunuş: sadece tap adayı
+  tapId = e.pointerId; tx = e.clientX; ty = e.clientY; t0 = performance.now(); moved = 0;
+}
+let tapId = null, tx = 0, ty = 0;
 function move(e) {
+  if (e.pointerId === tapId) { moved = Math.max(moved, Math.hypot(e.clientX - tx, e.clientY - ty)); return; }
   if (e.pointerId !== stickId) return;
   e.preventDefault();
   sx = e.clientX; sy = e.clientY;
-  let dx = sx - ox, dy = sy - oy;
-  const d = Math.hypot(dx, dy);
-  moved = Math.max(moved, d);
-  // joystick merkezi parmağı takip eder (uzun sürüklemelerde geri dönmek kolay olsun)
-  if (d > RADIUS * 1.35) {
-    const k = (d - RADIUS * 1.35) / d; ox += dx * k; oy += dy * k; dx = sx - ox; dy = sy - oy;
-    const r = surface.getBoundingClientRect();
-    stickEl.style.transform = `translate(${ox - r.left}px, ${oy - r.top}px)`;
-  }
+  const dx = sx - ox, dy = sy - oy;
   const dd = Math.hypot(dx, dy);
   const kx = dd > RADIUS ? dx / dd * RADIUS : dx, ky = dd > RADIUS ? dy / dd * RADIUS : dy;
   knobEl.style.transform = `translate(${kx}px, ${ky}px)`;
@@ -53,18 +54,22 @@ function move(e) {
   input.active = true;
 }
 function up(e) {
-  if (e.pointerId !== stickId) return;
-  const dt = performance.now() - t0;
-  if (dt < 260 && moved < 12) {
-    const r = surface.getBoundingClientRect();
-    input.taps.push({ x: (sx - r.left) / r.width, y: (sy - r.top) / r.height });
+  if (e.pointerId === tapId) {
+    tapId = null;
+    if (performance.now() - t0 < 260 && moved < 12) {
+      const r = surface.getBoundingClientRect();
+      input.taps.push({ x: (tx - r.left) / r.width, y: (ty - r.top) / r.height });
+    }
+    return;
   }
+  if (e.pointerId !== stickId) return;
   release();
 }
 function release() {
   stickId = null; input.x = input.y = input.mag = 0; input.active = false;
-  if (stickEl) stickEl.classList.remove('on');
+  if (stickEl) { stickEl.classList.remove('on'); knobEl.style.transform = 'translate(0px,0px)'; }
 }
+export function setStickVisible(v) { if (stickEl) stickEl.classList.toggle('show', v); }
 export function cancelStick() { release(); }
 
 export function readMove() {

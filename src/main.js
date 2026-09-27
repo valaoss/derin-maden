@@ -15,7 +15,7 @@ import { updateFlow, forceFlow } from './world/flow.js';
 import { buildSprites } from './render/sprites.js';
 import { resetTiles, prebuildTiles } from './render/tiles.js';
 import { initRenderer, resize, render, updateCamera, view } from './render/renderer.js';
-import { initInput, input, cancelStick, keyPressed } from './input/input.js';
+import { initInput, input, cancelStick, keyPressed, setStickVisible } from './input/input.js';
 import { initAudio, sfx, setAmbience, stopAmbience, suspendAudio, haptic } from './audio/audio.js';
 import { on } from './core/events.js';
 import { ozForRun } from './data/balance.js';
@@ -209,8 +209,11 @@ function frame(now) {
     const key = st + '|' + surf + '|' + (G.wave.phase === 'active');
     if (key !== lastAmb) { lastAmb = key; setAmbience(st, surf, G.wave.phase === 'active'); }
   }
+  const sv = App.scene === 'play' && !G.paused && !G.over;
+  if (sv !== stickShown) { stickShown = sv; setStickVisible(sv); }
   render(App.scene === 'play' ? Math.min(1, acc / STEP) : 1);
 }
+let stickShown = null;
 
 function autosave() {
   if (App.scene === 'play' && G && !G.over && G.wave.phase === 'calm') {

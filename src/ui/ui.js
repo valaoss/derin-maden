@@ -193,7 +193,7 @@ function tutStep(n) {
   const T = G.tutorial; if (!T || T.step >= n) return;
   T.step = n;
   if (n === 1) coach('Parlayan cevherlere kaz — kendiliğinden toplanır.', '', 0);
-  if (n === 2) coach('Çantanı boşaltmak için yüzeye dön.', 'up', 0);
+  if (n === 2) coach('Çantanı boşaltmak için yüzeye dön.', '', 0);
   if (n === 3) { coach('Cevherler depoda. Atölye\'den ilk yükseltmeni al!', '', 0); $('#workshopBtn').classList.add('pulse'); startTutorialWaveClock(); }
   if (n === 4) { coach('', ''); $('#workshopBtn').classList.remove('pulse'); }
 }
@@ -208,8 +208,8 @@ export function tutorialTick(dt) {
   const T = G.tutorial; if (!T || T.done) return;
   T.t += dt;
   if (T.step === 0) {
-    if (!T.shown && T.t > 0.6) { T.shown = true; coach('Aşağı sürükle ve kazmaya başla', 'drag', 0); }
-    if (G.stats.dug >= 1 && T.t > 1) { coach('Harika! Kazmaya devam et.', '', 2.5); T.step = 0.5; }
+    if (!T.shown && T.t > 0.6) { T.shown = true; coach('Alttaki joystick\'i aşağı it ve kazmaya başla', '', 0); document.getElementById('stick').classList.add('hint'); }
+    if (G.stats.dug >= 1 && T.t > 1) { coach('Harika! Kazmaya devam et.', '', 2.5); document.getElementById('stick').classList.remove('hint'); T.step = 0.5; }
   }
   if (T.step === 0.5 && G.stats.dug >= 4) { T.step = 0; tutStep(1); }
   if (T.step === 1 && T.t > 50 && bagCount() > 0) tutStep(2);
