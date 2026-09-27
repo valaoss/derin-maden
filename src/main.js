@@ -357,7 +357,7 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
 
 // geliştirme/test erişimi
 if (import.meta.env.DEV) window.__dm = {
-  get G() { return G; }, App, UI, step, render, view, input, net, link,
+  get G() { return G; }, App, UI, hooks, step, render, view, input, net, link,
   spawn(type, c, r) { const e = spawnEnemy(type, c * TILE + 8, r * TILE + 8, Math.max(1, G.wave.num)); e.emergeT = 0; return e; },
   put(c, r, t) { const i = r * 17 + c; G.map[i] = t; G.dmg[i] = 0; G.dirty.push(c, r); G.mapVersion++; },
   tick(sec) {

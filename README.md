@@ -15,6 +15,23 @@ npm run build      # dist/ — statik olarak herhangi bir yerde yayınlanabilir
   (`AWAY=1` ile oyuncu derindeyken sadece taretlerin savunduğu senaryo).
 - `legacy/index.html` — ilk prototip (karşılaştırma için).
 
+## v3 içeriği
+
+- **Kazma kademeleri:** Odun, Taş, Demir, Altın, Kobalt, Kristal. Matkap seviyesiyle kazma rengi, kıvılcımı ve
+  vuruş sesi değişir; Altın ve üstü parlar. Kazma her zaman eldedir: omuzda taşınır, kazarken kaldır-vur döngüsüyle sallanır.
+- **Yeni yaratıklar:** Parıldak (kör edici parlama), Çekici (dil uzatıp çeker), Uluyan (korkutan çığlık, sürüyü hızlandırır),
+  Gölge (karanlıkta görünmez). Derin katmanlarda çıkar; her birinin kendi sesi vardır.
+- **Düşman animasyonları:** hıza göre ezilme/gerilme, saldırı öncesi geri çekilme, flaş + yayılma ölümü, gölgeler.
+- **Ana kaya cepleri:** Kenar duvarlarında kilitli kayayla kapalı odacıklar; yalnız dinamit açar, içinde cevher veya sandık.
+- **Dinamik joystick:** Ekranın alt yarısında nereye basılırsa merkez orasıdır.
+- **Ortam:** Parlayan mantar ve kristaller, damlayan su, üs bacası dumanı, dönen makara, dalgalanan bayrak, alarmda kızaran gök.
+- **Birlikte Kaz (2 kişi, çevrim içi):** Menüden oda kurulur, 4 haneli kod paylaşılır, misafir kodla katılır.
+  Bağlantı PeerJS/WebRTC ile doğrudan cihazlar arasındadır (sunucu gerekmez, eşleşme PeerJS bulutu üzerinden).
+  Simülasyon deterministik lockstep ile iki tarafta aynı çalışır; ara özet karşılaştırmasıyla senkron kaybı bildirilir.
+  Zorluk tek kişiye göre yüksektir: düşman bütçesi 1.7x, can 1.3x, kısa sakin süre, yarı üs onarımı, Öz 1.5x;
+  ortaklar 20 kareden uzaklaşırsa dalga sayacı hızlanır. Duraklatma ve kayıt kapalıdır.
+  Kendi PeerJS sunucun için `.env`: `VITE_PEER_HOST`, `VITE_PEER_PORT`, `VITE_PEER_SECURE`, `VITE_PEER_PATH`.
+
 ## v2 içeriği
 
 - **Üretim (Atölye > Üret):** Meşale, Dinamit, Tamir Kiti, Barikat, Mayın, Dönüş Fişeği. Üretilen eşyalar
@@ -31,7 +48,9 @@ npm run build      # dist/ — statik olarak herhangi bir yerde yayınlanabilir
 |---|---|
 | `src/data/` | Tüm denge sayıları (`balance.js`), tile tanımları, tek renk paleti |
 | `src/world/` | Dünya üretimi, harita, ışık yayılımı, düşman akış alanları |
-| `src/game/` | Oyuncu/kazı, düşmanlar, savaş, dalgalar, ekonomi, eşyalar (`items.js`), tehlikeler (`hazards.js`), efektler, kayıt |
+| `src/game/` | Oyuncu/kazı, düşmanlar, savaş, dalgalar, ekonomi, eşyalar (`items.js`), tehlikeler (`hazards.js`), komutlar (`commands.js`), efektler, kayıt |
+| `src/net/` | PeerJS oda bağlantısı (`peer.js`) ve deterministik lockstep (`lockstep.js`) |
+| `src/core/` | Olay yayını ve tohumlu RNG (`rng.js`, tüm oyun rastgeleliği buradan) |
 | `src/render/` | Prosedürel tile "shader"ı + chunk önbelleği, sprite'lar, kare çizimi |
 | `src/ui/` | DOM arayüzü (HUD, atölye, menüler, öğretici) ve stil |
 | `src/audio/` | WebAudio ile sentezlenen tüm sesler ve ambiyans |
