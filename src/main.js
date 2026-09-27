@@ -167,7 +167,7 @@ function step(dt) {
   // yukarı çıkarken sırt motoru
   if (p.up && !p.dead && Math.random() < dt * 30) particle(p.x - p.face * 4 + (Math.random() - 0.5) * 2, p.y + 6, (Math.random() - 0.5) * 10, 40, 0.18, Math.random() < 0.5 ? '#ffd48a' : '#ff9a5a', 1, 1, 0);
   // sakin fazda üs yavaşça kendini onarır (oyuncu yüzeydeyse daha hızlı)
-  if (G.wave.phase === 'calm' && G.base.hp > 0 && G.base.hp < G.base.maxHp) G.base.hp = Math.min(G.base.maxHp, G.base.hp + (p.y < GROUND_Y ? 2.5 : 1) * dt);
+  if (G.wave.phase === 'calm' && G.base.hp > 0 && G.base.hp < G.base.maxHp) G.base.hp = Math.min(G.base.maxHp, G.base.hp + (p.y < GROUND_Y ? 2 : 0.6) * dt);
   UI.tutorialTick(dt);
   updateCamera(dt);
 }

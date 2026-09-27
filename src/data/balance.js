@@ -13,7 +13,7 @@ export const PLAYER = {
   surfaceRegen: 10, respawn: 4,
 };
 
-export const BASE = { hp: 400, calmRegen: 1.2, radius: 22, armor: 0.4, gun: { range: 76, dmg: 8, cd: 0.65 } };
+export const BASE = { hp: 400, calmRegen: 0.9, radius: 22, armor: 0.4, gun: { range: 76, dmg: 8, cd: 0.65 } };
 
 // Seviye 0..max. effect[lvl] mevcut seviyedeki değer.
 export const UPGRADES = {
@@ -62,25 +62,25 @@ export const REPAIR = { cost: { iron: 5 }, amount: 70 };
 
 // Düşmanlar: r = çarpışma yarıçapı, dig = kazabildiği maks kaya hp'si
 export const ENEMIES = {
-  rodent:  { name: 'Kemirgen', hp: 16, speed: 46, dmg: 5, r: 4, dig: 1, digRate: 1.3, cost: 1 },
+  rodent:  { name: 'Kemirgen', hp: 18, speed: 48, dmg: 6, r: 4, dig: 1, digRate: 1.3, cost: 1 },
   bug:     { name: 'Kabukbiti', hp: 50, speed: 26, dmg: 10, r: 6, armor: 0.35, cost: 2.5 },
-  spitter: { name: 'Tükürgen', hp: 26, speed: 30, dmg: 8, r: 5, ranged: true, range: 72, fireCd: 1.7, cost: 2 },
+  spitter: { name: 'Tükürgen', hp: 28, speed: 30, dmg: 9, r: 5, ranged: true, range: 72, fireCd: 1.7, cost: 2 },
   flyer:   { name: 'Yarasa', hp: 22, speed: 62, dmg: 7, r: 4, fly: true, cost: 1.5 },
   boomer:  { name: 'Kristalböcek', hp: 24, speed: 40, dmg: 26, r: 5, boom: 26, cost: 2 },
   brute:   { name: 'Kaya Devi', hp: 140, speed: 20, dmg: 22, r: 8, armor: 0.4, dig: 99, digRate: 5, knockResist: 0.85, cost: 5 },
-  boss:    { name: 'Derin Ana', hp: 460, speed: 21, dmg: 28, r: 11, armor: 0.3, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0 },
+  boss:    { name: 'Derin Ana', hp: 540, speed: 21, dmg: 28, r: 11, armor: 0.3, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0 },
 };
 
 export const WAVES = {
-  firstCalm: 55, calm: 42, warn: 14, heartCalm: 16,
-  budget: (wave, stratum) => 1 + wave * 1.4 + stratum * 2.2,
-  hpScale: wave => 1 + 0.07 * (wave - 1),
+  firstCalm: 55, calm: 38, warn: 13, heartCalm: 16,
+  budget: (wave, stratum) => 0.6 + wave * 1.75 + stratum * 2.8 + Math.max(0, wave - 6) * 0.6,
+  hpScale: wave => 1 + 0.09 * (wave - 1),
   bossEvery: 6,
   allowed(wave, stratum) {
     const a = ['rodent'];
     if (wave >= 3 || stratum >= 1) a.push('bug');
-    if (stratum >= 1) a.push('spitter');
-    if (stratum >= 2) a.push('flyer');
+    if (stratum >= 1 || wave >= 5) a.push('spitter');
+    if (stratum >= 2 || wave >= 8) a.push('flyer');
     if (stratum >= 2 || wave >= 7) a.push('boomer');
     if (stratum >= 1 && wave >= 5) a.push('brute');
     return a;
