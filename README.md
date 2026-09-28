@@ -75,3 +75,8 @@ npm run build      # dist/ — statik olarak herhangi bir yerde yayınlanabilir
 
 Simülasyon sabit 60 Hz adımla çalışır (ekran yenileme hızından bağımsız); geliştirme modunda
 `window.__dm.tick(saniye)` simülasyonu elle ilerletir.
+
+## Test
+
+- `npm test` — DOM'suz oyun testleri (`tests/sim.test.mjs`): dünya üretimi, taş düşürmeleri, ekonomi, dalga kuyrukları, yaratıklar, determinizm, kayıt/yükleme, 10 biyomluk derin sefer, performans.
+- `npm run sim` — dalga dengesi simülasyonu (üs kaybı / hasar tablosu).

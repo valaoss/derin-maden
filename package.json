@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite --host --port 8765",
     "build": "vite build",
-    "preview": "vite preview --port 8765"
+    "preview": "vite preview --port 8765",
+    "test": "node tests/sim.test.mjs",
+    "sim": "node scripts/balance-sim.mjs"
   },
   "devDependencies": {
     "vite": "^5.4.0"
