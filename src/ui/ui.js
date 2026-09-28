@@ -49,6 +49,8 @@ export function initUI(root, h) {
   <div id="banner"><div class="k"></div><div class="n"></div><div class="rule"></div></div>
   <button class="btn hide" id="workshopBtn">${ic('drill', 'l')}<span>ATÖLYE</span><span class="badge"></span></button>
   <div id="belt"></div>
+  <button class="btn dark" id="chatBtn" aria-label="Hızlı mesaj">${ic('hand', 'l')}</button>
+  <div id="chat"></div>
   <div id="mods"></div>
   <div class="plate" id="pop"></div>
   <div id="sheetBack"></div>
@@ -68,6 +70,7 @@ export function initUI(root, h) {
   <div id="fade"></div>`;
 
   tap($('#pauseBtn'), () => hooks.pause(true));
+  tap($('#chatBtn'), toggleChat);
   tap($('#workshopBtn'), openSheet);
   tap($('#sheetClose'), closeSheet);
   tap($('#sheetBack'), closeSheet);
@@ -100,6 +103,7 @@ export function initUI(root, h) {
   on('bossDown', () => banner('DERİN ANA DÜŞTÜ', 'MADEN SUSUYOR'));
   on('bossWarn', () => { banner('DERİN ANA UYANIYOR', 'HEMEN SUS YA DA KAÇ', true); });
   on('revived', () => toast('Ayaktasın', 'heart'));
+  on('ping', d => { if (!G.mp) return; const p = G.players[d.pi]; if (d.pi !== G.localIdx) { toast((p && p.name || 'Partner') + ' işaret bıraktı', 'hand'); sfx.ping(); } else sfx.click(); });
   on('deployed', () => refreshHUD(true));
   on('perkOffer', pi => { if (pi === G.localIdx) showPerks(); else toast('Partnerin bir kalıntı buldu', 'chest'); });
   on('perkTaken', d => { if (d.pi !== G.localIdx) toast('Partner seçti: ' + PERKS[d.k].name, PERKS[d.k].icon); });
@@ -135,7 +139,19 @@ function tap(el, fn) {
 // ---------------- HUD ----------------
 let cache = {};
 function set(id, key, val, fn) { if (cache[key] === val) return; cache[key] = val; fn(val); }
-export function showHUD(v) { coach(''); $('#hud').classList.toggle('hidden', !v); if (!v) { $('#workshopBtn').classList.add('hide'); $('#belt').innerHTML = ''; $('#mods').innerHTML = ''; } cache = {}; }
+export function showHUD(v) { coach(''); $('#hud').classList.toggle('hidden', !v); $('#chatBtn').classList.toggle('on', v && !!(G && G.mp)); $('#chat').classList.remove('on'); if (!v) { $('#workshopBtn').classList.add('hide'); $('#belt').innerHTML = ''; $('#mods').innerHTML = ''; } cache = {}; }
+// hızlı mesaj çipleri (co-op): simülasyon dışı, anında iletilir
+export const CHAT = { here: 'Buraya gel!', help: 'Yardım!', camp: 'Kampa dönelim', gj: 'İyi iş!', nest: 'Yuva buldum', quiet: 'Sessiz ol' };
+function toggleChat() {
+  const c = $('#chat');
+  if (c.classList.contains('on')) { c.classList.remove('on'); return; }
+  c.innerHTML = Object.keys(CHAT).map(k => `<button class="plate chip" data-k="${k}">${CHAT[k]}</button>`).join('');
+  c.classList.add('on');
+  c.querySelectorAll('.chip').forEach(b => tap(b, () => { hooks.chat(b.dataset.k); c.classList.remove('on'); }));
+}
+const bubbles = {};
+export function chatBubble(pi, k) { bubbles[pi] = { text: CHAT[k] || '…', t: performance.now() }; }
+export function bubbleFor(pi) { const b = bubbles[pi]; return b && performance.now() - b.t < 2600 ? b.text : ''; }
 // sağ kenar: takılı blaster eklentileri (aktifler dokunulabilir, bekleme süresi dolgu olarak)
 function renderMods() {
   const box = $('#mods'), p = G.player, g = G.gear;

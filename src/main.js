@@ -12,11 +12,12 @@ import { updatePlayerGun, updateBullets, updateStructures, updateShells } from '
 import { updateItems } from './game/items.js';
 import { updateHazards } from './game/hazards.js';
 import { updateThreat, LEVEL_NAMES } from './game/threat.js';
+import { updatePings } from './game/pings.js';
 import { updateParticles, updateFlashes, particle } from './game/fx.js';
 import { updateFlow, forceFlow } from './world/flow.js';
 import { buildSprites } from './render/sprites.js';
 import { resetTiles, prebuildTiles } from './render/tiles.js';
-import { initRenderer, resize, render, updateCamera, view } from './render/renderer.js';
+import { initRenderer, resize, render, updateCamera, view, viewToWorld } from './render/renderer.js';
 import { initInput, input, cancelStick, keyPressed, setStickVisible, readMove } from './input/input.js';
 import { initAudio, sfx, setAmbience, stopAmbience, suspendAudio, haptic } from './audio/audio.js';
 import { on, emit } from './core/events.js';
@@ -259,7 +260,9 @@ bindEnemyDamage(damageEnemy);
 function handleTaps() {
   while (input.taps.length) {
     const t = input.taps.shift();
-    if (App.scene === 'play' && G && !G.paused) UI.handleTap(t.x, t.y);
+    if (App.scene !== 'play' || !G || G.paused) continue;
+    if (t.long) { if (G.mp) { const w = viewToWorld(t.x, t.y); dispatch({ t: CMD.PING, x: w.x, y: w.y }); } continue; }
+    UI.handleTap(t.x, t.y);
   }
 }
 
@@ -278,6 +281,7 @@ function step(dt) {
   updateItems(dt);
   updateHazards(dt);
   updateThreat(dt);
+  updatePings(dt);
   updateOrbs(dt);
   updateDeposit(dt);
   updateParticles(dt);
@@ -366,6 +370,7 @@ function tick(now, bg) {
   if (App.scene === 'play' && !G.paused && !G.over) {
     if (keyPressed('escape') || keyPressed('p')) { hooks.pause(true); }
     for (let i = 0; i < ITEM_KEYS.length; i++) if (keyPressed(String(i + 1))) { dispatch({ t: CMD.USE, k: ITEM_KEYS[i] }); UI.refreshHUD(true); }
+    if (G.mp && keyPressed('x')) dispatch({ t: CMD.PING, x: G.player.x, y: G.player.y - 10 });
     if (keyPressed('q') || keyPressed('e')) { const act = G.gear.eq.filter(k => MODS[k].active); const k = act[keyPressed('e') ? 1 : 0] || act[0]; if (k) { dispatch({ t: CMD.MODUSE, k }); UI.refreshHUD(true); } }
     acc += dt; let n = 0;
     if (G.mp) {
@@ -411,6 +416,8 @@ function startBgTick() {
 }
 function stopBgTick() { if (bgWorker) { bgWorker.terminate(); bgWorker = null; } }
 on('netMsg', d => { if (d.t === 'away') mateAway = !!d.v; });
+on('netMsg', d => { if (d.t === 'chat' && App.scene === 'play' && G && G.mp) { const m = G.players[1 - G.localIdx]; UI.chatBubble(1 - G.localIdx, d.k); UI.toast((m && m.name || 'Partner') + ': ' + (UI.CHAT[d.k] || '…'), 'hand'); sfx.ping(); } });
+hooks.chat = k => { if (!G || !G.mp) return; send({ t: 'chat', k }); UI.chatBubble(G.localIdx, k); };
 let stickShown = null;
 
 function autosave() {

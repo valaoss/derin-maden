@@ -241,6 +241,18 @@ section('Düşme, kaldırma, aletler');
   ok('nöbetçi düşmana ateş eder', e.dead || e.hp < e.maxHp, `hp ${e.hp}/${e.maxHp}`);
 }
 
+// ---------- 4c. partner işareti ----------
+section('Partner işareti');
+{
+  const g = newRun({ seed: 700, mp: true }); for (const q of g.players) q.inp = { x: 0, y: 0, mag: 0 };
+  const { addPing, updatePings } = await import('../src/game/pings.js');
+  ok('işaret eklenir', addPing(1, 100, 200) && G.pings.length === 1 && G.pings[0].pi === 1);
+  addPing(1, 120, 220); ok('oyuncu başına tek işaret', G.pings.length === 1 && G.pings[0].x === 120);
+  addPing(0, 50, 50); ok('iki oyuncu iki işaret', G.pings.length === 2);
+  for (let i = 0; i < 60 * 8; i++) updatePings(STEP);
+  ok('işaret söner', G.pings.length === 0);
+}
+
 // ---------- 5. yaratıklar ----------
 section('Yaratıklar');
 {

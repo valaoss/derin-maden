@@ -2,6 +2,8 @@
 // Ekranın alt bölgesine nereye basılırsa joystick merkezi orası olur; parmağın doğal durduğu yer kontrol noktasıdır.
 // Joystick bölgesi dışındaki kısa ve hareketsiz dokunuş "tap" olarak iletilir (yuvalara inşa vb).
 export const input = { x: 0, y: 0, mag: 0, active: false, taps: [], keyboard: false };
+const HOLD_MS = 480; // basılı tutma: partner işareti
+let holdTO = 0;
 
 const keys = {};
 let stickId = null, ox = 0, oy = 0, sx = 0, sy = 0, t0 = 0, moved = 0;
@@ -22,6 +24,8 @@ export function initInput(el, stick, knob) {
   });
   window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
   window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; release(); });
+  // masaüstü: sağ tık = işaret
+  el.addEventListener('contextmenu', e => { e.preventDefault(); pushTap(e.clientX, e.clientY, true); });
 }
 
 let tapId = null, tx = 0, ty = 0, stickTap = false;
@@ -35,10 +39,20 @@ function down(e) {
     stickEl.style.left = (e.clientX - r.left) + 'px'; stickEl.style.top = (e.clientY - r.top) + 'px';
     stickEl.classList.add('on');
     move(e);
+    armHold(e.pointerId, ox, oy, true);
     return;
   }
   // üst bölge: yalnızca tap adayı
   tapId = e.pointerId; tx = e.clientX; ty = e.clientY; t0 = performance.now(); moved = 0;
+  armHold(e.pointerId, tx, ty, false);
+}
+// basılı tutma: parmak kıpırdamadıysa işaret bırak (joystick bölgesinde de çalışır: çubuk itilmediyse)
+function armHold(id, x, y, stick) {
+  clearTimeout(holdTO);
+  holdTO = setTimeout(() => {
+    if (stick) { if (stickId === id && stickTap) { pushTap(x, y, true); stickTap = false; } }
+    else if (tapId === id && moved < 12) { pushTap(x, y, true); tapId = null; }
+  }, HOLD_MS);
 }
 function move(e) {
   if (e.pointerId === tapId) { moved = Math.max(moved, Math.hypot(e.clientX - tx, e.clientY - ty)); return; }
@@ -66,11 +80,12 @@ function up(e) {
   if (stickTap && performance.now() - t0 < 220) pushTap(ox, oy);
   release();
 }
-function pushTap(x, y) {
+function pushTap(x, y, long = false) {
   const r = surface.getBoundingClientRect();
-  input.taps.push({ x: (x - r.left) / r.width, y: (y - r.top) / r.height });
+  input.taps.push({ x: (x - r.left) / r.width, y: (y - r.top) / r.height, long });
 }
 function release() {
+  clearTimeout(holdTO);
   stickId = null; stickTap = false; input.x = input.y = input.mag = 0; input.active = false;
   if (stickEl) { stickEl.classList.remove('on'); knobEl.style.transform = 'translate(0px,0px)'; }
 }

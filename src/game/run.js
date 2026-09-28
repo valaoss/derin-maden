@@ -82,7 +82,7 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
     kademe, mods, daily, contracts: [],
     torches: [], mines: [], bombs: [], rocks: [], falls: [], gas: [], shells: [], hazT: 0,
     structures: [], enemies: [], bullets: [], ebullets: [], orbs: [], particles: [], pIdx: 0, flashes: [], lightSrc: [],
-    satchels: [], zaps: [],
+    satchels: [], zaps: [], pings: [],
     // uyanış: dalga yok; G.wave yalnızca gök rengi/ambiyans uyumu için türetilir
     wave: { num: 0, phase: 'calm', t: Infinity, nests: [], boss: false },
     threat: makeThreat(), nests: [], nestTotal: [], beacons: [], selfRevive: (ml.sigorta | 0) ? 1 : 0, allDownT: 0,

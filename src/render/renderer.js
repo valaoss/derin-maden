@@ -5,10 +5,11 @@ import { T, TD } from '../data/tiles.js';
 import { P, RES_COL, ORE_RAMP, STRATA, MAT_RAMP } from '../data/palette.js';
 import { PICK_TIERS } from '../data/balance.js';
 import { G } from '../game/state.js';
-import { SPR, sprCanvas, sprEm, glowSprite, playerSprites } from './sprites.js';
+import { SPR, sprCanvas, sprEm, glowSprite, playerSprites, HELMETS } from './sprites.js';
 import { drawTiles, flushDirty } from './tiles.js';
 import { computeLight, lightWin, lightSourcesFor, glowTileSources } from '../world/light.js';
 import { lampTiles, hasPerk, hasMod } from '../game/run.js';
+import { bubbleFor } from '../ui/ui.js';
 import { shoulderPos } from '../game/combat.js';
 import { barricadeTarget } from '../game/economy.js';
 import { tileDamage01 } from '../world/map.js';
@@ -217,7 +218,7 @@ export function render(alpha, opts = {}) {
   drawEmissive(r0, r1, alpha, opts);
   ctx.restore();
   if (!opts.hidePlayer) drawNestArrows(camX, camY);
-  if (!opts.hidePlayer) drawPartnerArrow(camX, camY, alpha);
+  if (!opts.hidePlayer) { drawPartnerArrow(camX, camY, alpha); drawPings(camX, camY); drawBubbles(camX, camY, alpha); }
   // kör edici parlama sonrası: görüş bulanık (beyaz perde)
   const lp = G.player;
   if (!opts.hidePlayer && lp.blindT > 0) { ctx.fillStyle = `rgba(255,248,224,${Math.min(0.85, lp.blindT * 0.6)})`; ctx.fillRect(0, 0, vw, vh); }
@@ -239,6 +240,49 @@ function drawNestArrows(camX, camY) {
     for (let i = 0; i < 8; i++) ctx.fillRect(sx - 8 + i, sy + dir * (i - 4) + bob * dir, 17 - i * 2, 2);
     ctx.fillStyle = '#ff5a4a';
     for (let i = 0; i < 6; i++) ctx.fillRect(sx - 5 + i, sy + dir * (i - 3) + bob * dir, 11 - i * 2, 1);
+  }
+}
+// partner işaretleri: elmas + kask rengi; ekran dışındaysa kenar oku
+function drawPings(camX, camY) {
+  const vw = view.vw, vh = view.vh, t = G.time;
+  for (const q of G.pings) {
+    const col = HELMETS[(G.players[q.pi] ? G.players[q.pi].helm : 0) % HELMETS.length].c;
+    const sx = q.x - camX, sy = q.y - camY;
+    const off = sx < 6 || sx > vw - 6 || sy < 44 || sy > vh - 12;
+    if (!off) {
+      const bob = Math.round(Math.sin(t * 5) * 2), s = q.born < 0.25 ? 1 + (0.25 - q.born) * 6 : 1;
+      const x = Math.round(sx), y = Math.round(sy) - 10 + bob;
+      ctx.fillStyle = P.ink;
+      for (let i = -4; i <= 4; i++) ctx.fillRect(x - (4 - Math.abs(i)) - 1, y + i, (4 - Math.abs(i)) * 2 + 3, 1);
+      ctx.fillStyle = col;
+      for (let i = -3; i <= 3; i++) ctx.fillRect(x - (3 - Math.abs(i)), y + i, (3 - Math.abs(i)) * 2 + 1, 1);
+      ctx.fillStyle = '#fff'; ctx.fillRect(x - 1, y - 1, 1, 1);
+      ctx.fillStyle = P.ink; ctx.fillRect(x, y + 5, 1, 4);
+      if (s > 1) { ctx.strokeStyle = col; ctx.globalAlpha = 0.6; ctx.strokeRect(x - 6 * s, y - 6 * s, 12 * s, 12 * s); ctx.globalAlpha = 1; }
+      if (q.t < 1.5 && Math.floor(t * 8) % 2) continue;
+    } else {
+      const ax = Math.round(clamp(sx, 10, vw - 10)), dir = sy < 44 ? -1 : sy > vh - 12 ? 1 : 0;
+      const ay = dir < 0 ? 58 : dir > 0 ? vh - 16 : Math.round(clamp(sy, 60, vh - 20));
+      const bob = Math.floor(t * 3) % 2;
+      ctx.fillStyle = P.ink;
+      if (dir) for (let i = 0; i < 6; i++) ctx.fillRect(ax - 6 + i, ay + dir * (i - 3) + bob * dir, 13 - i * 2, 2);
+      ctx.fillStyle = col;
+      if (dir) for (let i = 0; i < 4; i++) ctx.fillRect(ax - 3 + i, ay + dir * (i - 2) + bob * dir, 7 - i * 2, 1);
+      ctx.fillStyle = P.ink; ctx.fillRect(ax - 4, ay - dir * 9 - 4, 9, 9); ctx.fillStyle = col; ctx.fillRect(ax - 3, ay - dir * 9 - 3, 7, 7);
+    }
+  }
+}
+// hızlı mesaj baloncuğu (kozmetik, yerel zamanla)
+function drawBubbles(camX, camY, alpha) {
+  if (!G.mp) return;
+  for (const p of G.players) {
+    const text = bubbleFor(p.i); if (!text) continue;
+    const x = Math.round(lerp(p.px, p.x, alpha) - camX), y = Math.round(lerp(p.py, p.y, alpha) - camY) - 22;
+    ctx.font = '8px Tiny5, monospace'; const w = Math.ceil(ctx.measureText(text).width) + 6;
+    const bx = Math.round(clamp(x - w / 2, 2, view.vw - w - 2));
+    ctx.fillStyle = P.ink; ctx.fillRect(bx - 1, y - 9, w + 2, 12); ctx.fillRect(x - 1, y + 3, 3, 2);
+    ctx.fillStyle = '#f5ecd8'; ctx.fillRect(bx, y - 8, w, 10);
+    ctx.fillStyle = P.ink; ctx.textBaseline = 'alphabetic'; ctx.fillText(text, bx + 3, y);
   }
 }
 // partner ekran dışındaysa kenarda turuncu ok + kask
