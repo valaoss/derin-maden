@@ -21,7 +21,7 @@ import { updateFlow, forceFlow } from './world/flow.js';
 import { buildSprites } from './render/sprites.js';
 import { resetTiles, prebuildTiles } from './render/tiles.js';
 import { initRenderer, resize, render, updateCamera, view, viewToWorld } from './render/renderer.js';
-import { initInput, input, cancelStick, keyPressed, setStickVisible, readMove } from './input/input.js';
+import { initInput, input, cancelStick, keyPressed, setStickVisible, setStickMode, readMove } from './input/input.js';
 import { initAudio, sfx, setAmbience, stopAmbience, suspendAudio, haptic } from './audio/audio.js';
 import { on, emit } from './core/events.js';
 import { ozForRun, CONTRACTS, ITEM_KEYS, MODS, PERKS, ROLES } from './data/balance.js';
@@ -41,6 +41,7 @@ const canvas = document.getElementById('cv');
 buildSprites();
 initRenderer(canvas);
 initInput(document.getElementById('touch'), document.getElementById('stick'), document.querySelector('#stick .knob'));
+setStickMode(App.settings.stickFixed, App.settings.lefty);
 
 // ---------- çözünürlük: tam sayı ölçekli pixel-art ----------
 function fit() {

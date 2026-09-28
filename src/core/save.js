@@ -20,7 +20,7 @@ export function loadMeta() {
 export const saveMeta = m => write(META_KEY, m);
 
 export function loadSettings() {
-  return Object.assign({ sfx: true, music: true, haptics: true, shake: true, lefty: false, name: '', helm: 0, role: 'kazici' }, read(SET_KEY) || {});
+  return Object.assign({ sfx: true, music: true, haptics: true, shake: true, lefty: false, name: '', helm: 0, role: 'kazici', stickFixed: true }, read(SET_KEY) || {});
 }
 export const saveSettings = s => write(SET_KEY, s);
 

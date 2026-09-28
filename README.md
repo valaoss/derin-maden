@@ -41,6 +41,8 @@ npm run build      # dist/ — statik olarak herhangi bir yerde yayınlanabilir
   **Gaz sızıntısı** (yakın boşluklara bulut), **Karartma** (18 sn fener yarı menzil). Deterministik; iki tarafta da aynı anda olur.
 - **Maden kanaryası (Kamp):** yerel oyuncuyu izleyen kuş; 11 blok içindeki gizli yuvayı sezip ok gösterir, gürültü eşiğe yaklaşınca öter.
 - **Ölüm yankısı:** Tek oyunculuda bayılıp cevherli çantan kaldıysa, sonraki seferde aynı derinlikte parlayan çanta olarak bekler.
+- **Kontrol hissi:** Ayarlar > **Sabit joystick** (varsayılan; solak modda sol altta) ya da yüzen joystick (taban parmağı izler).
+  Kardinale yakın itişte eksen kilidi, köşede kaydırma (bloke olunca açık şeride hızla kayıp aynı karede ilerler), kutu 9×11.
 - **Fotoğraf modu:** Duraklat > Fotoğraf Çek; HUD'suz kare + filigran, telefonda paylaşım menüsü, masaüstünde PNG indirme.
 
 ## Birlikte Kaz (2 kişi, çevrim içi)

@@ -18,7 +18,7 @@ import { STRATA_COUNT } from '../config.js';
 import { worldToView, viewToWorld } from '../render/renderer.js';
 import { sfx, initAudio, applyAudioSettings } from '../audio/audio.js';
 import { saveMeta, saveSettings } from '../core/save.js';
-import { cancelStick } from '../input/input.js';
+import { cancelStick, setStickMode } from '../input/input.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const ic = (name, cls = '') => `<i class="icon ${cls}" style="background-image:url(${iconURL(name)})"></i>`;
@@ -663,7 +663,7 @@ export function pauseShown() { return $('#pause').classList.contains('on') || $(
 export function showSettings(back) {
   const S = App.settings;
   const s = $('#settings');
-  const items = [['sfx', 'Ses efektleri'], ['music', 'Ambiyans'], ['haptics', 'Titreşim'], ['shake', 'Ekran sarsıntısı'], ['lefty', 'Solak mod']];
+  const items = [['sfx', 'Ses efektleri'], ['music', 'Ambiyans'], ['haptics', 'Titreşim'], ['shake', 'Ekran sarsıntısı'], ['lefty', 'Solak mod'], ['stickFixed', 'Sabit joystick']];
   s.innerHTML = `<div class="plate rivets panel"><h2>AYARLAR</h2>
     ${items.map(([k, n]) => `<button class="plate toggle ${S[k] ? 'on' : ''}" data-k="${k}"><span>${n}</span><span class="sw"></span></button>`).join('')}
     <button class="plate toggle" id="sProfile"><span>Madenci kartı</span><span style="display:flex;align-items:center;gap:6px;color:var(--dim)">${esc(S.name)} ${helmDot(S.helm)}</span></button>
@@ -671,7 +671,7 @@ export function showSettings(back) {
   hideScreens(); s.classList.add('on');
   tap($('#sProfile'), () => { s.classList.remove('on'); showProfile(() => showSettings(back)); });
   s.querySelectorAll('.toggle').forEach(t => tap(t, () => {
-    S[t.dataset.k] = !S[t.dataset.k]; t.classList.toggle('on', S[t.dataset.k]); saveSettings(S); applyAudioSettings();
+    S[t.dataset.k] = !S[t.dataset.k]; t.classList.toggle('on', S[t.dataset.k]); saveSettings(S); applyAudioSettings(); setStickMode(S.stickFixed, S.lefty);
   }));
   tap($('#sBack'), () => { s.classList.remove('on'); back(); });
 }

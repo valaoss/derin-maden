@@ -10,7 +10,7 @@ export const RES = {
 export const RES_KEYS = ['iron', 'water', 'cobalt', 'crystal', 'gold'];
 
 export const PLAYER = {
-  speed: 62, hp: 100, hitW: 10, hitH: 12, iframes: 0.55,
+  speed: 62, hp: 100, hitW: 9, hitH: 11, iframes: 0.55,
   surfaceRegen: 10,
   downTime: 25,      // baygın kalma süresi (partner bu sürede kaldırmalı)
   reviveTime: 1.6,   // partnerin yanında durma süresi

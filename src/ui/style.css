@@ -43,11 +43,16 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 #stick.show { visibility: visible; }
 #stick.show.on { opacity: 1; }
 #stick.show.hint { opacity: .5; }
+/* sabit joystick: sağ altta (solakta sol altta), düğmelerin üstünde */
+#stick.fixed { left: auto; top: auto; right: calc(var(--sar) + 78px); bottom: calc(var(--sab) + 262px); }
+.lefty #stick.fixed { right: auto; left: calc(var(--sal) + 78px); }
+#stick.show.fixed { opacity: .4; }
+#stick.show.fixed.on { opacity: 1; }
 #stick.hint .ring { animation: stickHint 1s steps(2) infinite; }
 @keyframes stickHint { 50% { border-color: rgba(242,193,78,.85); } }
 #stick .knob { transition: transform .08s; }
 #stick.on .knob { transition: none; }
-#stick .ring { position: absolute; width: 104px; height: 104px; left: -52px; top: -52px; border-radius: 50%;
+#stick .ring { position: absolute; width: 124px; height: 124px; left: -62px; top: -62px; border-radius: 50%;
   border: 3px solid rgba(245,236,216,.34); background: rgba(20,12,28,.34); }
 #stick .knob { position: absolute; width: 44px; height: 44px; left: -22px; top: -22px; border-radius: 50%;
   background: rgba(245,236,216,.55); border: 3px solid rgba(20,12,28,.6); }

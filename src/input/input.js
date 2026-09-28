@@ -1,5 +1,6 @@
-// Girdi: dinamik (yüzen) joystick + klavye.
-// Ekranın alt bölgesine nereye basılırsa joystick merkezi orası olur; parmağın doğal durduğu yer kontrol noktasıdır.
+// Girdi: joystick (sabit ya da yüzen) + klavye.
+// Sabit: taban hep aynı yerde, alt bölgede kendi tarafına basınca yön sabit merkeze göre.
+// Yüzen: basılan yerde doğar; parmak yarıçapı aşınca taban parmağı izler.
 // Joystick bölgesi dışındaki kısa ve hareketsiz dokunuş "tap" olarak iletilir (yuvalara inşa vb).
 export const input = { x: 0, y: 0, mag: 0, active: false, taps: [], keyboard: false };
 const HOLD_MS = 480; // basılı tutma: partner işareti
@@ -8,11 +9,19 @@ let holdTO = 0;
 const keys = {};
 let stickId = null, ox = 0, oy = 0, sx = 0, sy = 0, t0 = 0, moved = 0;
 let stickEl, knobEl, surface;
-const RADIUS = 46, DEAD = 6;
+const RADIUS = 56, DEAD = 6;
+let fixed = true, lefty = false;
 const ZONE_TOP = 0.42; // ekranın bu oranından aşağısı joystick bölgesi
 
+export function setStickMode(fix, left) {
+  fixed = !!fix; lefty = !!left;
+  if (!stickEl) return;
+  stickEl.classList.toggle('fixed', fixed);
+  stickEl.style.left = stickEl.style.top = '';
+}
 export function initInput(el, stick, knob) {
   surface = el; stickEl = stick; knobEl = knob;
+  setStickMode(fixed, lefty);
   el.addEventListener('pointerdown', down, { passive: false });
   window.addEventListener('pointermove', move, { passive: false });
   window.addEventListener('pointerup', up);
@@ -32,11 +41,12 @@ let tapId = null, tx = 0, ty = 0, stickTap = false;
 function down(e) {
   e.preventDefault();
   const r = surface.getBoundingClientRect();
-  const fy = (e.clientY - r.top) / r.height;
-  if (stickId === null && fy >= ZONE_TOP) {
-    // joystick burada doğar
-    stickId = e.pointerId; ox = e.clientX; oy = e.clientY; t0 = performance.now(); moved = 0; stickTap = true;
-    stickEl.style.left = (e.clientX - r.left) + 'px'; stickEl.style.top = (e.clientY - r.top) + 'px';
+  const fy = (e.clientY - r.top) / r.height, fx = (e.clientX - r.left) / r.width;
+  const zone = fy >= ZONE_TOP && (!fixed || (fx >= 0.5) !== lefty);
+  if (stickId === null && zone) {
+    stickId = e.pointerId; t0 = performance.now(); moved = 0; stickTap = true;
+    if (fixed) { const b = stickEl.getBoundingClientRect(); ox = b.left; oy = b.top; }
+    else { ox = e.clientX; oy = e.clientY; stickEl.style.left = (ox - r.left) + 'px'; stickEl.style.top = (oy - r.top) + 'px'; }
     stickEl.classList.add('on');
     move(e);
     armHold(e.pointerId, ox, oy, true);
@@ -59,9 +69,15 @@ function move(e) {
   if (e.pointerId !== stickId) return;
   e.preventDefault();
   sx = e.clientX; sy = e.clientY;
-  const dx = sx - ox, dy = sy - oy;
-  const dd = Math.hypot(dx, dy);
+  let dx = sx - ox, dy = sy - oy, dd = Math.hypot(dx, dy);
   if (dd > 10) stickTap = false;
+  if (!fixed && dd > RADIUS) {
+    // yüzen taban parmağı izler: kontrol ekran kenarında kaybolmaz
+    const k = (dd - RADIUS) / dd; ox += dx * k; oy += dy * k;
+    const r = surface.getBoundingClientRect();
+    stickEl.style.left = (ox - r.left) + 'px'; stickEl.style.top = (oy - r.top) + 'px';
+    dx = sx - ox; dy = sy - oy; dd = RADIUS;
+  }
   const kx = dd > RADIUS ? dx / dd * RADIUS : dx, ky = dd > RADIUS ? dy / dd * RADIUS : dy;
   knobEl.style.transform = `translate(${kx}px, ${ky}px)`;
   if (dd < DEAD) { input.x = input.y = input.mag = 0; input.active = false; return; }
@@ -99,7 +115,12 @@ export function readMove() {
   if (keys.w || keys.arrowup) ky -= 1;
   if (keys.s || keys.arrowdown) ky += 1;
   if (kx || ky) { const m = Math.hypot(kx, ky); return { x: kx / m, y: ky / m, mag: 1 }; }
-  if (input.active) return { x: input.x, y: input.y, mag: input.mag };
+  if (input.active) {
+    // eksen kilidi: kardinale yakın itişte zayıf eksen sıfır (köşelere sürtünme azalır)
+    let x = input.x, y = input.y; const ax = Math.abs(x), ay = Math.abs(y);
+    if (Math.min(ax, ay) < Math.max(ax, ay) * 0.5) { if (ax > ay) { x = Math.sign(x); y = 0; } else { y = Math.sign(y); x = 0; } }
+    return { x, y, mag: input.mag };
+  }
   return { x: 0, y: 0, mag: 0 };
 }
 export function keyPressed(k) { if (keys[k]) { keys[k] = false; return true; } return false; }

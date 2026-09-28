@@ -32,22 +32,31 @@ function blockedAt(x, y) {
   return y - HH < PLAYER_MIN_Y - HH;
 }
 
-// eksen bazlı hareket + köşe yumuşatma (tünel ağzına hafif hizalama)
+// eksen bazlı hareket + köşe kaydırma: bloke olunca en yakın açık şeride hızla kay, aynı karede ileri devam et
 export function moveAxis(p, mx, my) {
   if (!mx && !my) return true;
   const nx = p.x + mx, ny = p.y + my;
   if (!blockedAt(nx, ny)) { p.x = nx; p.y = ny; return true; }
+  const lim = Math.abs(mx || my) * 1.5;
   if (mx) {
     const rowC = Math.floor(p.y / TILE) * TILE + TILE / 2;
     for (const cy of [rowC, rowC - TILE, rowC + TILE]) {
       const off = cy - p.y;
-      if (Math.abs(off) < 7 && !blockedAt(nx, cy)) { p.y += clamp(off, -Math.abs(mx), Math.abs(mx)); return false; }
+      if (Math.abs(off) <= TILE / 2 && !blockedAt(nx, cy)) {
+        p.y += clamp(off, -lim, lim);
+        if (!blockedAt(nx, p.y)) p.x = nx;
+        return false;
+      }
     }
   } else {
     const colC = Math.floor(p.x / TILE) * TILE + TILE / 2;
     for (const cx of [colC, colC - TILE, colC + TILE]) {
       const off = cx - p.x;
-      if (Math.abs(off) < 7 && !blockedAt(cx, ny)) { p.x += clamp(off, -Math.abs(my), Math.abs(my)); return false; }
+      if (Math.abs(off) <= TILE / 2 && !blockedAt(cx, ny)) {
+        p.x += clamp(off, -lim, lim);
+        if (!blockedAt(p.x, ny)) p.y = ny;
+        return false;
+      }
     }
   }
   return false;
