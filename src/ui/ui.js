@@ -1,6 +1,6 @@
 // DOM arayüzü: HUD, atölye, perk seçimi, menüler, bildirimler, öğretici.
 import { TILE, GROUND_Y, stratumOfRow, STRATUM_ROWS } from '../config.js';
-import { UPGRADES, UPGRADE_KEYS, PICK_KEYS, MODS, MOD_KEYS, BUILDS, BUILD_KEYS, PERKS, META, META_KEYS, RES_KEYS, ENEMIES, ITEMS, ITEM_KEYS, CONTRACTS, KADEME, DEPLOY_MAX } from '../data/balance.js';
+import { UPGRADES, UPGRADE_KEYS, PICK_KEYS, MODS, MOD_KEYS, BUILDS, BUILD_KEYS, PERKS, META, META_KEYS, RES_KEYS, ENEMIES, ITEMS, ITEM_KEYS, CONTRACTS, KADEME, DEPLOY_MAX, ROLES, ROLE_KEYS, EVENTS } from '../data/balance.js';
 import { STRATA } from '../data/palette.js';
 import { G, App } from '../game/state.js';
 import { iconURL, HELMETS } from '../render/sprites.js';
@@ -102,6 +102,7 @@ export function initUI(root, h) {
   on('beacon', s => { banner('BİYOM TEMİZ', 'FENER DİKİLDİ · ' + STRATA[s].name.toUpperCase()); setTimeout(() => toast('Sonraki seferde asansör buraya iner', 'base'), 2800); });
   on('bossDown', () => banner('DERİN ANA DÜŞTÜ', 'MADEN SUSUYOR'));
   on('bossWarn', () => { banner('DERİN ANA UYANIYOR', 'HEMEN SUS YA DA KAÇ', true); });
+  on('event', d => { const e = EVENTS[d.k]; if (!e) return; if (d.phase === 'warn') banner(e.name, e.sub, true); else if (d.k === 'karanlik') toast('Fenerin kısıldı · ' + e.t + ' sn', 'lamp', true); });
   on('revived', () => toast('Ayaktasın', 'heart'));
   on('ping', d => { if (!G.mp) return; const p = G.players[d.pi]; if (d.pi !== G.localIdx) { toast((p && p.name || 'Partner') + ' işaret bıraktı', 'hand'); sfx.ping(); } else sfx.click(); });
   on('deployed', () => refreshHUD(true));
@@ -499,7 +500,7 @@ export function showCoop(back) {
   const s = $('#room'), S = App.settings;
   s.innerHTML = `<div class="lobby">
     <div class="lhead"><div class="k">BİRLİKTE KAZ</div><div class="n">İki madenci · aynı maden · Öz ×1.5</div></div>
-    <button class="plate lcard me" id="rMe">${helmDot(S.helm, true)}<div class="main"><div class="name">${esc(S.name)}</div><div class="eff">Ad ve kask rengini değiştir</div></div><span class="chev">›</span></button>
+    <button class="plate lcard me" id="rMe">${helmDot(S.helm, true)}<div class="main"><div class="name">${esc(S.name)}</div><div class="eff">${ROLES[S.role] ? ROLES[S.role].name + ' · ' : ''}Ad, kask ve rolünü değiştir</div></div><span class="chev">›</span></button>
     <button class="plate lcard primary" id="rQuick">${ic('hand', 'xl')}<div class="main"><div class="name">HIZLI EŞLEŞ</div><div class="eff">Bekleyen bir madenci bul. Yoksa sen bekle, biri gelir.</div></div></button>
     <button class="plate lcard" id="rHost">${ic('base', 'xl')}<div class="main"><div class="name">ODA KUR</div><div class="eff">Arkadaşına davet linki gönder. Tıklayan doğrudan odaya düşer.</div></div></button>
     <details class="lmore"><summary>Kodla katıl</summary>
@@ -526,6 +527,9 @@ export function showProfile(back) {
     <div class="plate lcard me">${helmDot(S.helm, true)}<div class="main"><input class="namein" id="pName" maxlength="14" value="${esc(S.name)}" placeholder="Adın" autocomplete="off" spellcheck="false"><div class="eff">En fazla 14 karakter</div></div></div>
     <div class="sec">KASK RENGİ</div>
     <div class="helms" id="pHelms">${HELMETS.map((h, i) => `<button class="hb ${i === (S.helm | 0) ? 'on' : ''}" data-i="${i}" aria-label="${h.name}"><span class="helm big" style="background:${h.c}"><i></i></span><small>${h.name}</small></button>`).join('')}</div>
+    <div class="sec">ROL</div>
+    <div class="helms" id="pRoles">${ROLE_KEYS.map(k => `<button class="hb ${k === S.role ? 'on' : ''}" data-r="${k}">${ic(ROLES[k].icon, 'l')}<small>${ROLES[k].name}</small></button>`).join('')}</div>
+    <div class="eff" id="pRoleDesc">${ROLES[S.role] ? ROLES[S.role].desc : 'Bir rol seç.'}</div>
     <button class="btn big" id="pOk">TAMAM</button></div>`;
   hideScreens(); s.classList.add('on');
   const inp = $('#pName');
@@ -533,12 +537,13 @@ export function showProfile(back) {
   inp.addEventListener('keydown', e => e.stopPropagation());
   const commit = () => { const v = inp.value.trim().slice(0, 14); if (v) S.name = v; saveSettings(S); };
   inp.addEventListener('change', commit);
-  s.querySelectorAll('.hb').forEach(b => tap(b, () => { S.helm = +b.dataset.i; saveSettings(S); s.querySelectorAll('.hb').forEach(x => x.classList.toggle('on', x === b)); $('.lcard.me .helm').style.background = HELMETS[S.helm].c; }));
+  s.querySelectorAll('.hb[data-i]').forEach(b => tap(b, () => { S.helm = +b.dataset.i; saveSettings(S); s.querySelectorAll('.hb[data-i]').forEach(x => x.classList.toggle('on', x === b)); $('.lcard.me .helm').style.background = HELMETS[S.helm].c; }));
+  s.querySelectorAll('[data-r]').forEach(b => tap(b, () => { S.role = b.dataset.r; saveSettings(S); s.querySelectorAll('[data-r]').forEach(x => x.classList.toggle('on', x === b)); $('#pRoleDesc').textContent = ROLES[S.role].desc; sfx.click(); }));
   tap($('#pOk'), () => { commit(); s.classList.remove('on'); back(); });
 }
 
 const seat = (p, label) => p
-  ? `<div class="plate seat ${p.ready ? 'ready' : ''}">${helmDot(p.helm, true)}<div class="sname">${esc(p.name)}</div><div class="sstate">${p.ready ? 'HAZIR' : label}</div></div>`
+  ? `<div class="plate seat ${p.ready ? 'ready' : ''}">${helmDot(p.helm, true)}<div class="sname">${esc(p.name)}</div>${ROLES[p.role] ? `<div class="srole">${ic(ROLES[p.role].icon, 's')}${ROLES[p.role].name}</div>` : ''}<div class="sstate">${p.ready ? 'HAZIR' : label}</div></div>`
   : `<div class="plate seat empty"><span class="helm big ghost"><i></i></span><div class="sname">—</div><div class="sstate waitdots">${label}</div></div>`;
 
 export function showRoom(L) {
@@ -587,6 +592,7 @@ export function showMenu(hasSave) {
       ${m.tutorialDone ? `<button class="btn dark" id="mDaily">${ic('daily')} GÜNÜN MADENİ${dailyLine()}</button>` : ''}
       ${m.tutorialDone ? `<button class="btn dark" id="mCoop">${ic('hand')} BİRLİKTE KAZ${m.coopWins ? `<small class="dline">${m.coopWins} ZAFER</small>` : ''}</button>` : ''}
       <div style="display:flex;gap:10px"><button class="btn dark" id="mCamp" style="flex:1">${ic('oz')} KAMP</button><button class="btn dark" id="mSet" style="flex:1">AYARLAR</button></div>
+      ${m.tutorialDone ? `<button class="plate toggle" id="mRole"><span>${ic(ROLES[App.settings.role] ? ROLES[App.settings.role].icon : 'drill', 's')} Rol · ${ROLES[App.settings.role] ? ROLES[App.settings.role].name : 'Seç'}</span><span class="chev">›</span></button>` : ''}
       ${matchMedia('(pointer: fine)').matches ? '<div class="foot">WASD / Oklar: hareket ve kazı · P: duraklat</div>' : ''}
       ${(m.beacons || []).length ? `<button class="plate toggle ${m.elevatorOff ? '' : 'on'}" id="mElev"><span>${ic('base', 's')} Fener asansörü · ${m.beacons.length}/${STRATA_COUNT} biyom</span><span class="sw"></span></button>` : ''}
       <div class="foot">${m.runs ? `Rekor <b>${m.bestDepth}m</b> · ${m.runs} sefer${m.wins ? ' · ' + m.wins + ' zafer' : ''} · <span class="ozline">${ic('oz', 's')}${m.oz}</span>` : 'Yuvaları yık, fenerleri dik, çekirdeğe in.'}</div>
@@ -599,6 +605,7 @@ export function showMenu(hasSave) {
     tap($('#kDn'), () => { k = Math.max(0, k - 1); showK(); });
     tap($('#kUp'), () => { k = Math.min(m.maxKademe, k + 1); showK(); });
   }
+  if ($('#mRole')) tap($('#mRole'), () => { s.classList.remove('on'); showProfile(() => showMenu(hasSave)); });
   if ($('#mElev')) tap($('#mElev'), () => { m.elevatorOff = !m.elevatorOff; saveMeta(m); $('#mElev').classList.toggle('on', !m.elevatorOff); });
   if (hasSave) tap($('#mCont'), () => hooks.continueRun());
   tap($('#mNew'), () => { m.lastKademe = k; saveMeta(m); hooks.newRun({ kademe: k }); });
@@ -621,10 +628,12 @@ export function showPause() {
     ${G.contracts.length ? '<div class="clist">' + contractsHTML() + '</div>' : ''}
     <button class="btn big" id="pRes">DEVAM</button>
     <button class="btn dark" id="pSet">AYARLAR</button>
+    <button class="btn dark" id="pPhoto">${ic('daily')} FOTOĞRAF ÇEK</button>
     <button class="btn dark" id="pEnd">SEFERİ BİTİR</button></div>`;
   s.classList.add('on');
   tap($('#pRes'), () => { s.classList.remove('on'); hooks.resume(); });
   tap($('#pSet'), () => { s.classList.remove('on'); showSettings(() => showPause()); });
+  tap($('#pPhoto'), () => hooks.photo());
   let armed = false;
   tap($('#pEnd'), e => {
     if (!armed) { armed = true; e.currentTarget.textContent = 'EMİN MİSİN? TEKRAR DOKUN'; e.currentTarget.classList.replace('dark', 'danger'); return; }

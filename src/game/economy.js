@@ -5,7 +5,7 @@ import { T } from '../data/tiles.js';
 import { UPGRADES, BUILDS, BARRICADE, PERKS, ITEMS, MODS, DEPLOY_MAX } from '../data/balance.js';
 import { G, App } from './state.js';
 import { tileAt, setTile, idx } from '../world/map.js';
-import { makeStructure, recompute, hasPerk, isUnlocked, isLocal, modSlots } from './run.js';
+import { makeStructure, recompute, hasPerk, isUnlocked, isLocal, modSlots, teamHas } from './run.js';
 import { sparks, ring, dust } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
 import { emit } from '../core/events.js';
@@ -48,7 +48,7 @@ export function toggleMod(k, p = G.player) {
   return true;
 }
 
-export function deployLimit() { return DEPLOY_MAX + (hasPerk('ucuncuAlet') ? 1 : 0); }
+export function deployLimit() { return DEPLOY_MAX + (hasPerk('ucuncuAlet') ? 1 : 0) + (teamHas('muhendis') ? 1 : 0); }
 // aleti durduğun hücreye kur; sınır doluysa en eski alet kemere geri döner
 export function placeBuild(type, p = G.player) {
   if (!BUILDS[type] || p.dead || (G.items[type] | 0) <= 0) return false;

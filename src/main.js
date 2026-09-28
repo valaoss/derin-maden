@@ -2,7 +2,7 @@ import '@fontsource/tiny5/latin-400.css';
 import '@fontsource/tiny5/latin-ext-400.css';
 import './ui/style.css';
 
-import { STEP, TILE, GROUND_Y, WORLD_H, CENTER_COL, GROUND_ROW, STRATUM_ROWS, STRATA_COUNT, stratumOfRow } from './config.js';
+import { STEP, TILE, GROUND_Y, WORLD_H, CENTER_COL, GROUND_ROW, STRATUM_ROWS, STRATA_COUNT, stratumOfRow, depthOfY } from './config.js';
 import { G, App, setG } from './game/state.js';
 import { loadMeta, saveMeta, loadSettings, saveSettings, loadRun, saveRun, clearRun } from './core/save.js';
 import { newRun, serialize, deserialize, bagCount, contractProgress, metaSnapshot, stratumGroup } from './game/run.js';
@@ -13,6 +13,8 @@ import { updateItems } from './game/items.js';
 import { updateHazards } from './game/hazards.js';
 import { updateThreat, LEVEL_NAMES } from './game/threat.js';
 import { updatePings } from './game/pings.js';
+import { updateEvents } from './game/events.js';
+import { updateCanary } from './game/canary.js';
 import { updateParticles, updateFlashes, particle } from './game/fx.js';
 import { updateFlow, forceFlow } from './world/flow.js';
 import { buildSprites } from './render/sprites.js';
@@ -21,7 +23,7 @@ import { initRenderer, resize, render, updateCamera, view, viewToWorld } from '.
 import { initInput, input, cancelStick, keyPressed, setStickVisible, readMove } from './input/input.js';
 import { initAudio, sfx, setAmbience, stopAmbience, suspendAudio, haptic } from './audio/audio.js';
 import { on, emit } from './core/events.js';
-import { ozForRun, CONTRACTS, ITEM_KEYS, MODS, PERKS } from './data/balance.js';
+import { ozForRun, CONTRACTS, ITEM_KEYS, MODS, PERKS, ROLES } from './data/balance.js';
 import { STRATA } from './data/palette.js';
 import { todayKey } from './core/util.js';
 import { dispatch, CMD } from './game/commands.js';
@@ -101,7 +103,7 @@ const hooks = {
 const lobby = { host: false, quick: false, status: 'idle', code: '', error: '', me: null, mate: null, starting: false };
 function lobbyReset(o) {
   Object.assign(lobby, { host: false, quick: false, status: 'idle', code: '', error: '', mate: null, starting: false }, o);
-  lobby.me = { name: App.settings.name, helm: App.settings.helm | 0, ready: false };
+  lobby.me = { name: App.settings.name, helm: App.settings.helm | 0, role: ROLES[App.settings.role] ? App.settings.role : '', ready: false };
 }
 function bindLobbyLink() {
   link.onOpen = onLobbyOpen;
@@ -111,21 +113,21 @@ function bindLobbyLink() {
 function onLobbyOpen() {
   sfx.connect();
   lobby.status = 'open'; lobby.code = link.code; lobby.host = link.host;
-  send({ t: 'hello', name: lobby.me.name, helm: lobby.me.helm });
+  send({ t: 'hello', name: lobby.me.name, helm: lobby.me.helm, role: lobby.me.role });
   UI.showRoom(lobby);
 }
 function maybeStart() {
   if (!lobby.host || !lobby.mate || !lobby.me.ready || !lobby.mate.ready || lobby.starting) return;
   const seed = (Math.random() * 1e9) | 0;
   const meta = metaSnapshot();
-  const names = [lobby.me.name, lobby.mate.name], helms = [lobby.me.helm, lobby.mate.helm];
+  const names = [lobby.me.name, lobby.mate.name], helms = [lobby.me.helm, lobby.mate.helm], roles = [lobby.me.role, lobby.mate.role];
   const startStratum = elevatorStratum(App.meta);
-  send({ t: 'start', seed, meta, names, helms, startStratum });
-  beginCoop({ seed, meta, names, helms, localIdx: 0, startStratum });
+  send({ t: 'start', seed, meta, names, helms, roles, startStratum });
+  beginCoop({ seed, meta, names, helms, roles, localIdx: 0, startStratum });
 }
 function beginCoop(o) {
   lobby.starting = true; UI.showRoom(lobby);
-  setTimeout(() => startRun(false, { mp: true, seed: o.seed, meta: o.meta, localIdx: o.localIdx, names: o.names, helms: o.helms, startStratum: o.startStratum | 0 }), 900);
+  setTimeout(() => startRun(false, { mp: true, seed: o.seed, meta: o.meta, localIdx: o.localIdx, names: o.names, helms: o.helms, roles: o.roles, startStratum: o.startStratum | 0 }), 900);
 }
 // fener asansörü: ardışık temizlenmiş biyomların sonrasından başla (menüde kapatılabilir)
 function elevatorStratum(m) {
@@ -141,9 +143,9 @@ link.onMessage = defaultOnMessage;
 
 on('netMsg', d => {
   if (App.scene === 'room') {
-    if (d.t === 'hello') { lobby.mate = { name: String(d.name || 'Madenci').slice(0, 14), helm: d.helm | 0, ready: false }; UI.showRoom(lobby); }
+    if (d.t === 'hello') { lobby.mate = { name: String(d.name || 'Madenci').slice(0, 14), helm: d.helm | 0, role: ROLES[d.role] ? d.role : '', ready: false }; UI.showRoom(lobby); }
     else if (d.t === 'ready' && lobby.mate) { lobby.mate.ready = !!d.v; UI.showRoom(lobby); maybeStart(); }
-    else if (d.t === 'start' && !link.host) beginCoop({ seed: d.seed, meta: d.meta, names: d.names, helms: d.helms, localIdx: 1, startStratum: d.startStratum | 0 });
+    else if (d.t === 'start' && !link.host) beginCoop({ seed: d.seed, meta: d.meta, names: d.names, helms: d.helms, roles: Array.isArray(d.roles) ? d.roles : null, localIdx: 1, startStratum: d.startStratum | 0 });
   }
 });
 function onPeerGone() {
@@ -188,7 +190,9 @@ function startRun(cont, opts = {}) {
       clearRun();
       const daily = opts.daily ? todayKey() : null;
       newRun({ tutorial: !App.meta.tutorialDone && !daily && !opts.mp, kademe: opts.kademe | 0, daily, seed: daily ? seedOf('derin' + daily) : opts.seed,
-        mp: !!opts.mp, meta: opts.meta || null, localIdx: opts.localIdx | 0, names: opts.names || null, helms: opts.helms || null, startStratum: daily ? 0 : opts.startStratum | 0 });
+        mp: !!opts.mp, meta: opts.meta || null, localIdx: opts.localIdx | 0, names: opts.names || null, helms: opts.helms || null, roles: opts.roles || null, startStratum: daily ? 0 : opts.startStratum | 0 });
+      // ölüm yankısı tek kullanımlık
+      if (App.meta.echo && !G.mp && !daily) { delete App.meta.echo; saveMeta(App.meta); }
     }
     if (G.mp) { startLockstep(G.localIdx); mateAway = false; if (document.hidden) startBgTick(); } else if (net.on) stopLockstep();
     resetTiles(); prebuildTiles(); forceFlow();
@@ -230,6 +234,16 @@ function endRun(reason) {
     m.daily = d;
   }
   m.tutorialDone = true;
+  // ölüm yankısı: bayılınca düşen çanta sonraki seferde aynı derinlikte bekler
+  let echo = null;
+  if (!victory && !G.mp && !G.daily) {
+    const lost = G.satchels.filter(x => x.owner === 0 && !x.heart);
+    if (lost.length) {
+      const bag = {}; let n = 0;
+      for (const x of lost) for (const k in x.bag) { bag[k] = (bag[k] | 0) + (x.bag[k] | 0); n += x.bag[k] | 0; }
+      if (n > 0) echo = m.echo = { c: Math.floor(lost[0].x / TILE), r: Math.floor(lost[0].y / TILE), bag, n };
+    }
+  }
   saveMeta(m); clearRun();
   const ores = Object.values(collected).reduce((a, b) => a + b, 0);
   let goal;
@@ -238,6 +252,7 @@ function endRun(reason) {
   else if (nextBeacon !== undefined && nextBeacon <= G.maxStratum) goal = `Sonraki hedef: <b>${STRATA[nextBeacon].name}</b> yuvalarını yık, Fener dik.`;
   else if (G.maxStratum < STRATA_COUNT - 1) goal = `Sonraki hedef: <b>${STRATA[G.maxStratum + 1].name}</b> (${(G.maxStratum + 1) * STRATUM_ROWS}m)`;
   else goal = 'Çekirdek çok yakın. Kalp Kristali\'ni yüzeye taşı!';
+  if (echo) goal += `<br><span style="color:var(--helm)">Ölüm yankısı: ${echo.n} cevherlik çantan ${depthOfY(echo.r * TILE)}m derinde seni bekliyor.</span>`;
   if (!victory && m.oz >= 20) goal += '<br><span style="color:var(--good)">Kampta harcayacak Öz\'ün var.</span>';
   if (victory) sfx.victory(); else sfx.defeat();
   stopAmbience();
@@ -281,6 +296,7 @@ function step(dt) {
   updateItems(dt);
   updateHazards(dt);
   updateThreat(dt);
+  updateEvents(dt);
   updatePings(dt);
   updateOrbs(dt);
   updateDeposit(dt);
@@ -389,6 +405,7 @@ function tick(now, bg) {
       while (acc >= STEP && n++ < 6) { feedLocalInput(); step(STEP); acc -= STEP; }
       if (n >= 6) acc = 0;
     }
+    updateCanary(dt);
     UI.refreshHUD();
     saveT += dt;
     if (saveT > 8) { saveT = 0; autosave(); }
@@ -417,6 +434,23 @@ function startBgTick() {
 function stopBgTick() { if (bgWorker) { bgWorker.terminate(); bgWorker = null; } }
 on('netMsg', d => { if (d.t === 'away') mateAway = !!d.v; });
 on('netMsg', d => { if (d.t === 'chat' && App.scene === 'play' && G && G.mp) { const m = G.players[1 - G.localIdx]; UI.chatBubble(1 - G.localIdx, d.k); UI.toast((m && m.name || 'Partner') + ': ' + (UI.CHAT[d.k] || '…'), 'hand'); sfx.ping(); } });
+// fotoğraf modu: kare (HUD'suz) + filigran; paylaşım menüsü yoksa indirir
+hooks.photo = () => {
+  if (!G) return;
+  const c = document.createElement('canvas'); c.width = canvas.width; c.height = canvas.height;
+  const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(canvas, 0, 0);
+  const txt = 'DERİN MADEN · ' + G.stats.maxDepth + 'M' + (G.mp ? ' · ' + G.players.map(p => (p.name || 'MADENCİ').toUpperCase()).join(' & ') : '');
+  x.font = '8px Tiny5, monospace'; x.textBaseline = 'bottom';
+  x.fillStyle = 'rgba(0,0,0,0.7)'; x.fillText(txt, 5, c.height - 4); x.fillStyle = '#ffe79a'; x.fillText(txt, 4, c.height - 5);
+  c.toBlob(async b => {
+    if (!b) return;
+    const f = new File([b], 'derin-maden.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [f] })) { try { await navigator.share({ files: [f], title: 'Derin Maden' }); return; } catch (e) { /* iptal */ } }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = f.name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    UI.toast('Fotoğraf kaydedildi', 'check');
+  });
+};
 hooks.chat = k => { if (!G || !G.mp) return; send({ t: 'chat', k }); UI.chatBubble(G.localIdx, k); };
 let stickShown = null;
 

@@ -10,6 +10,7 @@ import { drawTiles, flushDirty } from './tiles.js';
 import { computeLight, lightWin, lightSourcesFor, glowTileSources } from '../world/light.js';
 import { lampTiles, hasPerk, hasMod } from '../game/run.js';
 import { bubbleFor } from '../ui/ui.js';
+import { canary } from '../game/canary.js';
 import { shoulderPos } from '../game/combat.js';
 import { barricadeTarget } from '../game/economy.js';
 import { tileDamage01 } from '../world/map.js';
@@ -184,7 +185,11 @@ export function render(alpha, opts = {}) {
   if (G.players.some(p => !p.dead && p.y > GROUND_Y + 32)) wheelA += dtR * 4;
   drawBase();
   for (const s of G.structures) drawStructure(s);
-  for (const s of G.satchels) spr(SPR.satchel, s.x, s.y + Math.sin(G.time * 3) * 1.5);
+  for (const s of G.satchels) {
+    if (s.echo) { ctx.globalAlpha = 0.55 + 0.35 * Math.sin(G.time * 4); ctx.strokeStyle = '#74efcf'; ctx.beginPath(); ctx.arc(s.x, s.y, 9 + Math.sin(G.time * 4) * 2, 0, Math.PI * 2); ctx.stroke(); }
+    spr(SPR.satchel, s.x, s.y + Math.sin(G.time * 3) * 1.5);
+    ctx.globalAlpha = 1;
+  }
   const tf = Math.floor(G.time * 6) % 2;
   for (const t of G.torches) if (t.r >= r0 && t.r <= r1) spr(SPR.torch[tf], t.c * TILE + 8, t.r * TILE + 7);
   for (const m of G.mines) spr(SPR.mine, m.x, m.y);
@@ -199,6 +204,7 @@ export function render(alpha, opts = {}) {
   }
   for (const e of G.enemies) drawEnemy(e, alpha, camY, vh);
   if (!opts.hidePlayer) for (const p of G.players) drawPlayer(p, alpha);
+  if (!opts.hidePlayer && canary.on) drawCanary();
   ctx.restore();
 
   // ---- ışık ----
@@ -708,6 +714,22 @@ function drawPlayer(p, alpha) {
 }
 
 // baygın oyuncu: yerde yatar, kask yanıp söner; partner yaklaşınca kaldırma halkası
+// maden kanaryası: küçük sarı kuş; yuva sezince ona doğru titreyen ok
+function drawCanary() {
+  const x = Math.round(canary.x), y = Math.round(canary.y);
+  const w = Math.sin(canary.flap) > 0;
+  ctx.fillStyle = '#ffd24a'; ctx.fillRect(x - 2, y - 1, 4, 3);
+  ctx.fillStyle = '#e0a020'; ctx.fillRect(x - 1, w ? y - 3 : y, 2, 2);
+  ctx.fillStyle = '#ff9a4a'; ctx.fillRect(G.player.face > 0 ? x + 2 : x - 3, y, 1, 1);
+  ctx.fillStyle = P.ink; ctx.fillRect(G.player.face > 0 ? x + 1 : x - 2, y - 1, 1, 1);
+  const t = canary.target;
+  if (t) {
+    const a = Math.atan2(t.y - y, t.x - x), d = 7 + Math.sin(G.time * 8) * 1.5;
+    ctx.save(); ctx.translate(x + Math.cos(a) * d, y + Math.sin(a) * d); ctx.rotate(a);
+    ctx.fillStyle = '#ffd24a'; ctx.beginPath(); ctx.moveTo(3, 0); ctx.lineTo(-2, -2); ctx.lineTo(-2, 2); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+}
 function drawDowned(p, alpha) {
   if (p.gone) return;
   const x = Math.round(p.x), y = Math.round(p.y);

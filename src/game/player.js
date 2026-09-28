@@ -7,7 +7,7 @@ import { PLAYER, UPGRADES, PERKS, RES_KEYS, PICK_TIERS } from '../data/balance.j
 import { RES_COL } from '../data/palette.js';
 import { G, App } from './state.js';
 import { tileAt, solidAt, setTile, damageTile, matOf } from '../world/map.js';
-import { hasPerk, bagCount, recompute, unlockSchematic, hear, isLocal, pickDmg, pickInterval } from './run.js';
+import { hasPerk, bagCount, recompute, unlockSchematic, hear, isLocal, pickDmg, pickInterval, roleOf } from './run.js';
 import { HAZARD } from '../data/balance.js';
 import { perkChoices } from './economy.js';
 import { spawnGas } from './hazards.js';
@@ -149,7 +149,7 @@ function updateOne(p, dt) {
     p.digDir = [target.dx, target.dy];
     if (target.dx) p.face = target.dx;
     p.digT -= dt;
-    p.digInt = pickInterval();
+    p.digInt = pickInterval() * (roleOf(p).dig || 1);
     if (p.digT <= 0) { digHit(p, target); p.digT = p.digInt; }
   } else {
     p.dig = null;
@@ -187,7 +187,7 @@ function updateOne(p, dt) {
       if (s.heart) { p.carrying = true; emit('heart'); }
       G.satchels.splice(i, 1); i--;
       if (hear(p)) sfx.chest();
-      if (isLocal(p)) emit('toast', { text: 'Çantanı geri aldın', icon: 'bag' });
+      if (isLocal(p)) emit('toast', { text: s.echo ? 'Ölüm yankısı: kaybettiğin çanta geri geldi' : 'Çantanı geri aldın', icon: 'bag' });
     }
   }
 }
@@ -201,7 +201,7 @@ function digHit(p, t) {
   p.hitTile = { c: t.c, r: t.r, t: 0.12 };
   const hx = t.c * TILE + 8 - t.dx * 7, hy = t.r * TILE + 8 - t.dy * 7;
   if (hear(p)) sfx.dig(mat, G.lvl.drill);
-  addNoise(THREAT.noise.dig * (d.hp >= 6 ? 1.4 : 1), hx, hy);
+  addNoise(THREAT.noise.dig * (d.hp >= 6 ? 1.4 : 1) * (roleOf(p).digNoise || 1), hx, hy);
   debris(hx, hy, mat, 3, 0.6);
   // kazma ucu kıvılcımı: kademe rengi
   const tier = PICK_TIERS[Math.min(PICK_TIERS.length - 1, G.lvl.drill)];
@@ -234,7 +234,7 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
   if (!byPlayer) { debris(x, y, mat, 5, 0.7); return; }
   const p = byPlayer, near = hear(p, x, y), local = isLocal(p);
   G.stats.dug++;
-  addNoise(THREAT.noise.brk + (d.ore ? THREAT.noise.ore : 0), x, y);
+  addNoise((THREAT.noise.brk + (d.ore ? THREAT.noise.ore : 0)) * (roleOf(p).digNoise || 1), x, y);
   if (d.nest) nestDestroyed(c, r, p);
   debris(x, y, mat, 9);
   dust(x, y, 3);

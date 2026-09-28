@@ -230,6 +230,23 @@ export const PERKS = {
   dorduncuYuva: { name: 'Dördüncü Yuva', icon: 'nova', desc: 'Blaster eklenti yuvası +1.' },
 };
 
+// Roller: madenci kartında seçilir, ekipte birbirini tamamlar
+export const ROLES = {
+  kazici:   { name: 'Kazıcı', icon: 'drill', desc: 'Kazma %20 daha hızlı, kazı gürültüsü %25 daha az.', dig: 0.8, digNoise: 0.75 },
+  nisanci:  { name: 'Nişancı', icon: 'blaster', desc: 'Blaster hasarı +%25, menzil +12.', dmg: 1.25, range: 12 },
+  muhendis: { name: 'Mühendis', icon: 'turret', desc: 'Kurulu alet sınırı +1, aletler %40 daha dayanıklı.', deploy: 1, buildHp: 1.4 },
+};
+export const ROLE_KEYS = Object.keys(ROLES);
+
+// Dinamik maden olayları: yeraltındayken ve ölçer sessiz değilken, uyarıdan birkaç saniye sonra vurur
+export const EVENTS = {
+  first: 40, cd: [55, 95], minLevel: 1, warn: 2.5,
+  sarsinti: { name: 'SARSINTI', sub: 'TAVANDAN UZAKLAŞ', rocks: 5, noise: 6 },
+  gaz:      { name: 'GAZ SIZINTISI', sub: 'ATEŞ ETME, UZAKLAŞ', clouds: 3 },
+  karanlik: { name: 'KARARTMA', sub: 'FENERİN KISILIYOR', t: 18 },
+};
+export const EVENT_KEYS = ['sarsinti', 'gaz', 'karanlik'];
+
 // Kalıcı Kamp yükseltmeleri (Öz ile)
 export const META = {
   erzak:     { name: 'Erzak', icon: 'iron', max: 3, costs: [20, 45, 80], desc: 'Sefere +8 demirle başla (seviye başına).' },
@@ -239,6 +256,7 @@ export const META = {
   ayarliBl:  { name: 'Ayarlı Blaster', icon: 'blaster', max: 2, costs: [40, 100], desc: 'Blaster bir seviye yukarıda başlar.' },
   hazirTaret:{ name: 'Hazır Nöbetçi', icon: 'turret', max: 1, costs: [70], desc: 'Sefere kemerinde bir Nöbetçi ile başla.' },
   sigorta:   { name: 'Sağlık Sigortası', icon: 'medkit', max: 1, costs: [90], desc: 'Her seferde bir kez bayıldığında kendin kalkarsın.' },
+  kanarya:   { name: 'Maden Kanaryası', icon: 'wave', max: 1, costs: [50], desc: 'Kanarya seninle iner: yakındaki gizli yuvayı sezer, gürültü eşiğe yaklaşınca öter.' },
   kalintiBil:{ name: 'Kalıntı Bilgisi', icon: 'chest', max: 1, costs: [120], desc: 'Kalıntı sandıkları 4 seçenek sunar.' },
   altinKese: { name: 'Altın Kese', icon: 'gold', max: 2, costs: [60, 140], desc: 'Sefere +4 altınla başla (seviye başına).' },
 };

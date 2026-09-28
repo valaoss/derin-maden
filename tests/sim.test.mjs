@@ -9,6 +9,10 @@ import { buyUpgrade, buyMod, toggleMod, upgradeCost } from '../src/game/economy.
 import { updateItems } from '../src/game/items.js';
 import { updateHazards } from '../src/game/hazards.js';
 import { updateThreat, addNoise, nestsInStratum } from '../src/game/threat.js';
+import { updateEvents } from '../src/game/events.js';
+import { roleOf, lampTiles, metaSnapshot } from '../src/game/run.js';
+import { deployLimit } from '../src/game/economy.js';
+import { DEPLOY_MAX, EVENTS } from '../src/data/balance.js';
 import { updateParticles, updateFlashes } from '../src/game/fx.js';
 import { updateFlow, forceFlow } from '../src/world/flow.js';
 import { setTile, tileAt } from '../src/world/map.js';
@@ -24,7 +28,7 @@ App.settings = { sfx: false, music: false, haptics: false, shake: false };
 App.meta = { lv: {}, tutorialDone: true };
 bindEnemyDamage(damageEnemy);
 let allDown = false; on('allDown', () => { allDown = true; });
-const events = {}; for (const n of ['heart', 'web', 'chill', 'stratum', 'modChanged', 'modUsed', 'perkOffer', 'toast', 'threat', 'nestDown', 'beacon', 'bossDown', 'revived']) on(n, () => { events[n] = (events[n] || 0) + 1; });
+const events = {}; for (const n of ['heart', 'web', 'chill', 'stratum', 'modChanged', 'modUsed', 'perkOffer', 'toast', 'threat', 'nestDown', 'beacon', 'bossDown', 'revived', 'event']) on(n, () => { events[n] = (events[n] || 0) + 1; });
 
 const STEP = 1 / 60;
 let fails = 0, checks = 0;
@@ -35,7 +39,7 @@ function step(dt = STEP) {
   G.time += dt; G.stats.time += dt; G.frame++;
   if (G.hitstop > 0) { G.hitstop -= dt; return; }
   updateFlow(dt); updatePlayer(dt); updatePlayerGun(dt); updateEnemies(dt); updateBullets(dt); updateStructures(dt); updateShells(dt);
-  updateItems(dt); updateHazards(dt); updateThreat(dt); updateOrbs(dt); updateDeposit(dt); updateParticles(dt); updateFlashes(dt);
+  updateItems(dt); updateHazards(dt); updateThreat(dt); updateEvents(dt); updateOrbs(dt); updateDeposit(dt); updateParticles(dt); updateFlashes(dt);
 }
 const run = sec => { for (let i = 0, n = Math.round(sec / STEP); i < n; i++) step(); };
 const fresh = (seed = 1) => { const g = newRun({ seed }); allDown = false; g.player.inp = { x: 0, y: 0, mag: 0 }; return g; };
@@ -348,6 +352,39 @@ section('Derin sefer (10 biyom, ~12 dk sim)');
   ok('derin türler sahada görüldü', deep.length <= 3, 'görülmedi: ' + deep.join(','));
   ok('yuvalar düşman üretti', Object.keys(spawnedBy).length >= 6, Object.keys(spawnedBy).join(','));
   ok('kalp satırı ulaşılabilir', tileAt(8, G.heartRow) !== undefined && TD[tileAt(8, G.heartRow)] && G.heartRow < ROWS - 1);
+}
+
+// ---------- 8b. roller, olaylar, ölüm yankısı ----------
+section('Roller, olaylar, yankı');
+{
+  newRun({ seed: 5, roles: ['kazici', ''] });
+  ok('rol atanır', G.player.role === 'kazici' && roleOf(G.player).dig === 0.8);
+  ok('geçersiz rol boş kalır', newRun({ seed: 5, roles: ['yok'] }).player.role === '');
+  const base = deployLimit();
+  newRun({ seed: 5, roles: ['muhendis'] });
+  ok('mühendis alet sınırı +1', deployLimit() === base + 1, `${deployLimit()} vs ${base}`);
+  ok('mühendis aletleri dayanıklı', makeStructure('turret', 8, GROUND_ROW + 5).hp > BUILDS.turret.hp);
+  // olaylar: yeraltında ve sessiz değilken uyarı, sonra vuruş
+  fresh(21); const p = G.player; shaft(8, GROUND_ROW + 12); p.x = 8 * TILE + 8; p.y = (GROUND_ROW + 10) * TILE + 8; p.px = p.x; p.py = p.y;
+  G.threat.noise = 40; const e0 = events.event | 0;
+  G.evt.t = 0.05; run(0.2);
+  ok('olay uyarısı geldi', (events.event | 0) > e0 && G.evt.k, `${G.evt.k}`);
+  G.evt.k = 'sarsinti'; G.evt.warnT = 0.05; run(0.2);
+  ok('sarsıntı tavanı gevşetir', G.falls.length > 0 || G.rocks.length > 0, `${G.falls.length}/${G.rocks.length}`);
+  ok('sarsıntı sonrası bekleme', G.evt.t >= EVENTS.cd[0] - 0.5, `${G.evt.t}`);
+  const lamp0 = lampTiles();
+  G.evt.k = 'karanlik'; G.evt.warnT = 0.05; run(0.2);
+  ok('karartma feneri kısar', G.evt.darkT > 0 && lampTiles() < lamp0, `${lampTiles()} vs ${lamp0}`);
+  run(EVENTS.karanlik.t + 1);
+  ok('karartma geçer', G.evt.darkT <= 0 && lampTiles() === lamp0);
+  G.threat.noise = 40; G.evt.k = 'gaz'; G.evt.warnT = 0.05; const g0 = G.gas.length; run(0.2);
+  ok('gaz sızıntısı bulut salar', G.gas.length > g0, `${G.gas.length}`);
+  // ölüm yankısı: meta'daki çanta seferde aynı hücrede bekler
+  const m = metaSnapshot(); m.echo = { c: 8, r: GROUND_ROW + 9, bag: { iron: 5, cobalt: 2 } };
+  newRun({ seed: 9, meta: m });
+  const s = G.satchels.find(x => x.echo);
+  ok('yankı çantası yerleşir', s && s.bag.iron === 5 && s.bag.cobalt === 2 && tileAt(8, GROUND_ROW + 9) === T.AIR, JSON.stringify(s && s.bag));
+  ok('yankı çok oyunculuda yok', !newRun({ seed: 9, meta: m, mp: true }).satchels.some(x => x.echo));
 }
 
 // ---------- 9. performans ----------

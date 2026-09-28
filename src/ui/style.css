@@ -399,3 +399,8 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .lefty #chat { right: auto; left: calc(var(--sal) + 62px); }
 .chip { padding: 8px 12px 10px; font-size: 14px; font-weight: 700; white-space: nowrap; text-align: left; }
 .chip:active { transform: translateY(2px); }
+
+/* rol */
+.srole { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--helm); }
+#pRoles .icon.l { width: 24px; height: 24px; }
+#pRoleDesc { text-align: center; font-size: 13px; color: var(--dim); min-height: 18px; }

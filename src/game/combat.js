@@ -8,7 +8,7 @@ import { tileAt, damageTile } from '../world/map.js';
 import { damageEnemy, losClear, damageStructure, burnEnemy } from './enemies.js';
 import { damagePlayer, webPlayer, breakTile } from './player.js';
 import { addNoise } from './threat.js';
-import { hasPerk, hear, hasMod, isLocal } from './run.js';
+import { hasPerk, hear, hasMod, isLocal, roleOf } from './run.js';
 import { sparks, flashLight, particle, ring, shake, debris, hitstop } from './fx.js';
 import { igniteGas } from './hazards.js';
 import { sfx } from '../audio/audio.js';
@@ -68,7 +68,7 @@ function updateGun(p, dt) {
   if (p.dead) return;
   p.fireCd -= dt;
   if (p.aimT > 0) p.aimT -= dt;
-  const lv = G.lvl.blaster, range = UPGRADES.blaster.range[lv];
+  const lv = G.lvl.blaster, range = UPGRADES.blaster.range[lv] + (roleOf(p).range || 0);
   const sp = shoulderPos(p);
   const tgt = nearestTarget(sp.x, sp.y, range);
   if (!tgt) return;
@@ -79,7 +79,7 @@ function updateGun(p, dt) {
   if (hasMod('rapid')) cd *= 0.7;
   if ((G.gear.active.overdrive || 0) > 0) cd /= 3;
   p.fireCd = cd;
-  const dmg = UPGRADES.blaster.dmg[lv];
+  const dmg = UPGRADES.blaster.dmg[lv] * (roleOf(p).dmg || 1);
   const shots = hasPerk('ciftNamlu') ? [-0.09, 0.09] : [0];
   const pierce = hasPerk('delici') ? 1 : 0;
   for (const o of shots) tagBullet(fire(sp.x + Math.cos(ang) * 6, sp.y + Math.sin(ang) * 6, ang + o, 250, dmg, 'p', pierce, p.i));

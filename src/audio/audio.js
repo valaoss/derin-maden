@@ -275,6 +275,7 @@ export const sfx = {
   // Boşluk Gözü ışınlanır
   blink() { if (!ok('blink', 0.2)) return; const t = ctx.currentTime; tone(t, 0.16, { type: 'sine', f: 1400, f2: 300, gain: 0.08 }); tone(t + 0.08, 0.16, { type: 'sine', f: 300, f2: 1600, gain: 0.07 }); },
   // sekme: metalik tınlama
+  chirp() { if (!ok('chirp', 0.3)) return; const t = ctx.currentTime; tone(t, 0.07, { type: 'sine', f: 3200, f2: 4300, gain: 0.05 }); tone(t + 0.1, 0.08, { type: 'sine', f: 3700, f2: 2900, gain: 0.05 }); },
   ping() { if (!ok('ping', 0.06)) return; tone(ctx.currentTime, 0.06, { type: 'square', f: vary(2600, 0.05), f2: 1800, gain: 0.04 }); },
   // yıldırım sıçraması
   zap() { if (!ok('zap', 0.08)) return; const t = ctx.currentTime; noise(t, 0.06, { type: 'highpass', f: 3500, gain: 0.1 }); tone(t, 0.05, { type: 'square', f: 900, f2: 2400, gain: 0.04 }); },

@@ -31,6 +31,13 @@ npm run build      # dist/ — statik olarak herhangi bir yerde yayınlanabilir
   Alev/Buz Kulesi, Havan üretilir; kemerden durduğun yere (tünel içi dahil) kurulur, dokunup geri alınır. Aynı anda en fazla 2 (perk ile 3);
   sınırda en eski alet kemere döner.
 - **Öz:** yıkılan yuva ×6, fener ×20, derinlik, sandık, cevher. Kontratlar: `waves` yerine `nests` (yuva yık).
+- **Roller:** Madenci kartında seçilir; Kazıcı (kazma %20 hızlı, kazı gürültüsü %25 az), Nişancı (blaster hasarı +%25, menzil +12),
+  Mühendis (alet sınırı +1, aletler %40 dayanıklı). Co-op'ta partnerin rolü koltuk kartında görünür.
+- **Maden olayları:** Yeraltında ve ölçer sessiz değilken 55-95 sn'de bir olay: **Sarsıntı** (uyarıdan 2.5 sn sonra tavan çöker),
+  **Gaz sızıntısı** (yakın boşluklara bulut), **Karartma** (18 sn fener yarı menzil). Deterministik; iki tarafta da aynı anda olur.
+- **Maden kanaryası (Kamp):** yerel oyuncuyu izleyen kuş; 11 blok içindeki gizli yuvayı sezip ok gösterir, gürültü eşiğe yaklaşınca öter.
+- **Ölüm yankısı:** Tek oyunculuda bayılıp cevherli çantan kaldıysa, sonraki seferde aynı derinlikte parlayan çanta olarak bekler.
+- **Fotoğraf modu:** Duraklat > Fotoğraf Çek; HUD'suz kare + filigran, telefonda paylaşım menüsü, masaüstünde PNG indirme.
 
 ## Birlikte Kaz (2 kişi, çevrim içi)
 
