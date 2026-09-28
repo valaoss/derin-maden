@@ -448,17 +448,281 @@ const VOID_B = [
 ];
 // Obsidyen Devi: Kaya Devi şekli, obsidyen paleti, mor gözler
 const OGOLEM_PAL = { q: '#120e1a', Q: '#2c2440', U: '#4a3e68', r: '#c0a0ff' };
-// v5 derin biyom imza düşmanları: mevcut gövdeler, biyom paletleri
-const QUICK_PAL = { c: '#2a3038', C: '#c8d8e4', Q: '#ffffff' };
-const VOLT_PAL = { B: '#3a8aff', X: '#16304e' };
+// ---------------- v5 DERİN BİYOM YARATIKLARI (özgün gövdeler) ----------------
+// Cıva Damlası: titreyen sıvı metal damlası; B karesinde yayılır
+const QUICK_PAL = { c: '#3a4048', C: '#8a96a0', Q: '#d8e4ec' };
+const QUICK_A = [
+  '.....kk.....',
+  '....kQCk....',
+  '...kQCCCk...',
+  '..kQCCCCCk..',
+  '.kQQCCCCCCk.',
+  'kQWQCCcCCCCk',
+  'kQQCCCcCCcCk',
+  'kCCCrCCCrCCk',
+  'kCCCCCCCCCck',
+  '.kCCcccccck.',
+  '..kkkkkkkk..',
+];
+const QUICK_B = [
+  '............',
+  '............',
+  '....kkkk....',
+  '..kkQCCCkk..',
+  '.kQQCCCCCCk.',
+  'kQWQCCcCCCCk',
+  'kQQCCcCCcCCk',
+  'kCCrCCCCCrCk',
+  'kCCCCCCCCCck',
+  '.kCCcccccck.',
+  '..kkkkkkkk..',
+];
+// Yıldırım Yarasası: çentikli şimşek kanatlar, beyaz çekirdek
+const VOLT_PAL = { B: '#3a8aff', X: '#16304e', Z: '#9ad8ff' };
+const VOLT_A = [
+  'kk....kk....kk',
+  'kZk..kBBk..kZk',
+  '.kZkkBWWBkkZk.',
+  '..kZZBrrBZZk..',
+  '...kkBWWBkk...',
+  '....kZBBZk....',
+  '.....kkkk.....',
+  '....k....k....',
+  '...kZ....Zk...',
+];
+const VOLT_B = [
+  '......kk......',
+  '.....kBBk.....',
+  '....kBWWBk....',
+  '..kkkBrrBkkk..',
+  '.kZZZBWWBZZZk.',
+  'kZk.kZBBZk.kZk',
+  'kk...kkkk...kk',
+  '.....k..k.....',
+  '....kZ..Zk....',
+];
+// Altın Muhafız: sorguçlu miğfer, vizör gözler, kalkan ve topuz
 const GILD_PAL = { q: '#4a3010', Q: '#b88a2a', U: '#ffd870' };
-const SPORE_PAL = { a: '#2e1a34', A: '#6a3e6a', L: '#a8f070', u: '#120a14' };
+const GILD_A = [
+  '......kRRk......',
+  '.....kRRRRk.....',
+  '....kkUUUUkk....',
+  '...kUQQQQQQUk...',
+  '...kQQkkkkQQk...',
+  '...kQkrkkrkQk...',
+  '..kkQQQQQQQQkk..',
+  '.kUQkQUUUUQkQUk.',
+  'kUQQkQQUUQQkQQUk',
+  'kUqQkQQQQQQkqqqk',
+  'kqqQkqQQQQqkkkk.',
+  '.kkkkqqQQqqk....',
+  '....kqqkkqqk....',
+  '...kqqqk.kqqqk..',
+  '...kkkkk.kkkkk..',
+];
+const GILD_B = GILD_A.slice(0, 11).concat([
+  '....kqqqkqqk....',
+  '.....kqqk.kqqk..',
+  '....kqqqk.kqqqk.',
+  '....kkkkk.kkkkk.',
+]);
+// Spor Böceği: benekli mantar şapkalı böcek, yan tarafta spor deliği
+const SPORE_PAL = { a: '#2e1a34', A: '#6a3e6a', L: '#a8f070', u: '#120a14', m: '#c890e8', M: '#f0d0ff' };
+const SPORE_A = [
+  '....kkkkk....',
+  '..kkmMmmmkk..',
+  '.kmmmmMmmmmk.',
+  'kmMmmmmmmMmmk',
+  'kkkkkkkkkkkkk',
+  '.kAAAAaAAAAk.',
+  'kLAAArAAArAAk',
+  'kAaAAAAaAAAak',
+  '.kaaaaaaaaak.',
+  '..kukukukuk..',
+  '.k.k.k.k.k...',
+];
+const SPORE_B = SPORE_A.slice(0, 10).concat(['...k.k.k.k.k.']);
+// Cam Gölgesi: köşeli cam kıymık gövde, yüzeyleri değişen yansımalar
 const MIRROR_PAL = { s: '#2e5a68', S: '#5a98a8', X: '#d8f8ff' };
-const TITAN_PAL = { q: '#1e2a22', Q: '#4a6250', U: '#7a9a78' };
-const CHRONO_PAL = { v: '#2a2010', V: '#7a6030', e: '#ffd890', E: '#ffffff', p: '#c8a860' };
+const MIRROR_A = [
+  '....kk....',
+  '...kXSk...',
+  '..kSXSSk..',
+  '.kSSrSrSk.',
+  '..kSSSSk..',
+  '.kXSSSSSk.',
+  'kSSXssSSSk',
+  'kSsssXssSk',
+  'kSssssssSk',
+  '.kssXsssk.',
+  '..kss.sk..',
+  '..kX.kXk..',
+  '...k..k...',
+];
+const MIRROR_B = [
+  '....kk....',
+  '...kSXk...',
+  '..kSSXSk..',
+  '.kSSrSrSk.',
+  '..kSSSSk..',
+  '.kSSSSXSk.',
+  'kSSSssXSSk',
+  'kSsXsssssk',
+  'kSssssssSk',
+  '.kssssXsk.',
+  '..ks.ssk..',
+  '..kXk.Xk..',
+  '...k..k...',
+];
+// Dev Parçası: yosunlu kaya yumruğu, tek parlayan çatlak göz
+const TITAN_PAL = { q: '#1e2a22', Q: '#4a6250', U: '#7a9a78', g: '#a8c850' };
+const TITAN_A = [
+  '.....kkkkkkk.....',
+  '...kkUUgUUUUkk...',
+  '..kUUQQQQQQQUUk..',
+  '.kUQQQkkkkkQQQUk.',
+  '.kQQQkrrrrrkQQQk.',
+  'kkQQQkkkkkkkQQQkk',
+  'kUQkQQQQgQQQQkQUk',
+  'kQQkQQQQQQQQQkQQk',
+  'kQqkqQQQQQQQqkQqk',
+  'kqqkqqqQQQqqqkqqk',
+  '.kk.kqqqqqqqqk.kk',
+  '....kqqqkqqqqk...',
+  '...kqqqk.kqqqk...',
+  '...kkkkk.kkkkk...',
+];
+const TITAN_B = TITAN_A.slice(0, 11).concat([
+  '....kqqqqkqqqk...',
+  '....kqqqk.kqqk...',
+  '....kkkkk.kkkkk..',
+]);
+// Zaman Gözü: kum saati gövde, ortasında göz, etrafında süzülen kum taneleri
+const CHRONO_PAL = { v: '#2a2010', V: '#7a6030', b: '#c8a860', e: '#ffd890', E: '#ffffff' };
+const CHRONO_A = [
+  '.kkkkkkkkk.',
+  '.kbVVVVVbk.',
+  '..kVeeeVk..',
+  '..kVeeeVk..',
+  '...kVeVk...',
+  '....kek....',
+  '...kVEVk...',
+  '..kVErEVk..',
+  '..kVEEEVk..',
+  '..kVVeVVk..',
+  '.kbVeeeVbk.',
+  '.kkkkkkkkk.',
+  '.e...e...e.',
+];
+const CHRONO_B = [
+  '.kkkkkkkkk.',
+  '.kbVVVVVbk.',
+  '..kVeeeVk..',
+  '..kVVeVVk..',
+  '...kVeVk...',
+  '....kek....',
+  '...kVeVk...',
+  '..kVErEVk..',
+  '..kVEEEVk..',
+  '..kVeeeVk..',
+  '.kbVeeeVbk.',
+  '.kkkkkkkkk.',
+  'e..e...e..e',
+];
+// Kan Sülüğü: halka dişli emici ağız, kızıl halkalı gövde
 const LEECH_PAL = { p: '#4e0c12', P: '#c02a30', Q: '#ff6a70' };
-const ECHOER_PAL = { u: '#262234', U: '#3a3450', F: '#5e5880', W: '#f5ecd8' };
-const SERAPH_PAL = { j: '#a898b0', J: '#fff4e8', e: '#ffffff', E: '#ffe79a', i: '#3a2e3a' };
+const LEECH_A = [
+  '...kkkkk...',
+  '..kpPPPPkk.',
+  '.kpPQPPPkWk',
+  'kpPPPPPPkkk',
+  'kpPQPPPPkrk',
+  'kpPPPPPPkkk',
+  'kpPQPPPPkrk',
+  '.kpPPPPPkkk',
+  '..kppPPPkWk',
+  '...kkkkkkk.',
+];
+const LEECH_B = [
+  '...kkkkk...',
+  '..kpPPPPkkk',
+  '.kpPQPPPkWk',
+  'kpPPPPPPkkk',
+  'kpPQPPPPkrk',
+  'kpPPPPPPkWk',
+  'kpPQPPPPkrk',
+  '.kpPPPPPkkk',
+  '..kppPPPkWk',
+  '...kkkkkkk.',
+];
+const LEECH_SEG = [
+  '..kkkkk..',
+  '.kpPPPPk.',
+  'kpPQPPPPk',
+  'kPPPPPpPk',
+  'kpPPPPPPk',
+  'kpPQPPPPk',
+  '.kppPPPk.',
+  '..kkkkk..',
+];
+// Yankıcı: çan gövdeli, eş merkezli halkalı ağız; ulurken halkalar genişler
+const ECHOER_PAL = { u: '#262234', U: '#3a3450', F: '#5e5880', n: '#8a86b0', W: '#f5ecd8' };
+const ECHOER_A = [
+  '...kkkkkk....',
+  '..kUUUUUUk...',
+  '.kUFrFFrFUk..',
+  '.kUUUUUUUUkk.',
+  'kkUnUUUUUnUUk',
+  'kUnUnUUUnUnUk',
+  'kUnUnUWUnUnUk',
+  'kUnUnUUUnUnUk',
+  'kkUnUUUUUnUUk',
+  '.kuUUUUUUUuk.',
+  '..kuuuuuuuk..',
+  '...kk...kk...',
+];
+const ECHOER_B = [
+  '...kkkkkk....',
+  '..kUUUUUUk...',
+  '.kUFrFFrFUk..',
+  '.kUUUUUUUUkk.',
+  'kkUnnnnnnnUUk',
+  'kUnUUUUUUUnUk',
+  'kUnUWWWWWUnUk',
+  'kUnUUUUUUUnUk',
+  'kkUnnnnnnnUUk',
+  '.kuUUUUUUUuk.',
+  '..kuuuuuuuk..',
+  '..kk.....kk..',
+];
+// Işık Bekçisi: haleli kanatlı göz; kanatlar çırpar
+const SERAPH_PAL = { j: '#a898b0', J: '#fff4e8', e: '#ffffff', E: '#ffe79a', i: '#3a2e3a', H: '#ffd870' };
+const SERAPH_A = [
+  '.....HHHHH.....',
+  '....H.....H....',
+  'kk...kkkkk...kk',
+  'kJk.kJEEEJk.kJk',
+  'kJJkJEeeeEJkJJk',
+  'kJJJJEeieEJJJJk',
+  '.kJJkJEeeeEJJk.',
+  '..kk.kJEEEJk.kk',
+  '......kkkkk....',
+  '.....J.....J...',
+  '....J.......J..',
+];
+const SERAPH_B = [
+  '.....HHHHH.....',
+  '....H.....H....',
+  '.....kkkkk.....',
+  '....kJEEEJk....',
+  '..kkJEeeeEJkk..',
+  '.kJJJEeieEJJJk.',
+  'kJJkJEeeeEJkJJk',
+  'kk..kkJEEEJkk.kk',
+  '......kkkkk....',
+  '.....J.....J...',
+  '......J...J....',
+];
 
 // ---------------- DÜNYA OBJELERİ ----------------
 const CHEST = [
@@ -749,22 +1013,22 @@ export function buildSprites() {
   SPR.magmite = [makeSprite(MAGMITE_A, MAGMITE_PAL, 'rOo'), makeSprite(MAGMITE_B, MAGMITE_PAL, 'rOo')];
   SPR.voidling = [makeSprite(VOID_A, VOID_PAL, 'eEp'), makeSprite(VOID_B, VOID_PAL, 'eEp')];
   SPR.ogolem = [makeSprite(BRUTE_A, OGOLEM_PAL, 'r'), makeSprite(BRUTE_B, OGOLEM_PAL, 'r')];
-  SPR.quickling = [makeSprite(BOOM_A, QUICK_PAL, 'rCQ'), makeSprite(BOOM_B, QUICK_PAL, 'rCQ')];
-  SPR.voltbat = [makeSprite(BAT_A, VOLT_PAL, 'rB'), makeSprite(BAT_B, VOLT_PAL, 'rB')];
-  SPR.gilded = [makeSprite(BRUTE_A, GILD_PAL, 'rU'), makeSprite(BRUTE_B, GILD_PAL, 'rU')];
-  SPR.sporeling = [makeSprite(BUG_A, SPORE_PAL, 'rL'), makeSprite(BUG_B, SPORE_PAL, 'rL')];
-  SPR.mirrorling = [makeSprite(SHADE_A, MIRROR_PAL, 'X'), makeSprite(SHADE_B, MIRROR_PAL, 'X')];
-  SPR.titanling = [makeSprite(BRUTE_A, TITAN_PAL, 'r'), makeSprite(BRUTE_B, TITAN_PAL, 'r')];
-  SPR.chronoling = [makeSprite(VOID_A, CHRONO_PAL, 'eEp'), makeSprite(VOID_B, CHRONO_PAL, 'eEp')];
-  SPR.leech = [makeSprite(WORM_HEAD_A, LEECH_PAL, 'r'), makeSprite(WORM_HEAD_B, LEECH_PAL, 'r')];
-  SPR.echoer = [makeSprite(HOWL_A, ECHOER_PAL, 'r'), makeSprite(HOWL_B, ECHOER_PAL, 'rW')];
-  SPR.seraph = [makeSprite(GLARE_A, SERAPH_PAL, 'eEi'), makeSprite(GLARE_B, SERAPH_PAL, 'eE')];
+  SPR.quickling = [makeSprite(QUICK_A, QUICK_PAL, 'rW'), makeSprite(QUICK_B, QUICK_PAL, 'rW')];
+  SPR.voltbat = [makeSprite(VOLT_A, VOLT_PAL, 'rWZ'), makeSprite(VOLT_B, VOLT_PAL, 'rWZ')];
+  SPR.gilded = [makeSprite(GILD_A, GILD_PAL, 'r'), makeSprite(GILD_B, GILD_PAL, 'r')];
+  SPR.sporeling = [makeSprite(SPORE_A, SPORE_PAL, 'rL'), makeSprite(SPORE_B, SPORE_PAL, 'rL')];
+  SPR.mirrorling = [makeSprite(MIRROR_A, MIRROR_PAL, 'r'), makeSprite(MIRROR_B, MIRROR_PAL, 'r')];
+  SPR.titanling = [makeSprite(TITAN_A, TITAN_PAL, 'r'), makeSprite(TITAN_B, TITAN_PAL, 'r')];
+  SPR.chronoling = [makeSprite(CHRONO_A, CHRONO_PAL, 'rEe'), makeSprite(CHRONO_B, CHRONO_PAL, 'rEe')];
+  SPR.leech = [makeSprite(LEECH_A, LEECH_PAL, 'r'), makeSprite(LEECH_B, LEECH_PAL, 'r')];
+  SPR.echoer = [makeSprite(ECHOER_A, ECHOER_PAL, 'rW'), makeSprite(ECHOER_B, ECHOER_PAL, 'rW')];
+  SPR.seraph = [makeSprite(SERAPH_A, SERAPH_PAL, 'eEH'), makeSprite(SERAPH_B, SERAPH_PAL, 'eEH')];
   SPR.chest = makeSprite(CHEST, { G: '#ffd24a' }, 'G');
   SPR.heart = makeSprite(HEART, { x: '#ff3a6a', X: '#ff8aa8', Z: '#ffffff', z: '#a01a40' }, 'xXZz');
   SPR.satchel = makeSprite(SATCHEL, { G: '#ffd24a' }, 'G');
   SPR.worm = [makeSprite(WORM_HEAD_A, WORM_PAL, 'r'), makeSprite(WORM_HEAD_B, WORM_PAL, 'r')];
   SPR.wormSeg = makeSprite(WORM_SEG, WORM_PAL);
-  SPR.leechSeg = makeSprite(WORM_SEG, LEECH_PAL);
+  SPR.leechSeg = makeSprite(LEECH_SEG, LEECH_PAL);
   SPR.torch = [makeSprite(TORCH_A, FIRE_PAL, 'YOF'), makeSprite(TORCH_B, FIRE_PAL, 'YOF')];
   SPR.dynamite = makeSprite(DYN, {}, 'Y');
   SPR.mine = makeSprite(MINE_W, {}, 'R');
