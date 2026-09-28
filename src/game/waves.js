@@ -3,11 +3,11 @@
 import { rnd } from '../core/rng.js';
 import { COLS, ROWS, TILE, GROUND_ROW, PLAY_MIN_COL, PLAY_MAX_COL } from '../config.js';
 import { T, TD } from '../data/tiles.js';
-import { WAVES, ENEMIES } from '../data/balance.js';
+import { WAVES, ENEMIES, ELITE } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, setTile } from '../world/map.js';
 import { FIELD, flowAt, FLOW_INF, forceFlow } from '../world/flow.js';
-import { spawnEnemy, aliveEnemies } from './enemies.js';
+import { spawnEnemy, aliveEnemies, makeElite } from './enemies.js';
 import { anyCarrying } from './player.js';
 import { debris, dust, shake, ring } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
@@ -29,14 +29,14 @@ function pickNests() {
   const nests = [];
   far.sort((a, b) => b[1] - a[1]);
   for (const n of far) {
-    if (nests.length >= 2) break;
+    if (nests.length >= WAVES.nests) break;
     if (nests.every(m => Math.abs(m[0] - n[0]) + Math.abs(m[1] - n[1]) > 4) && rnd() < 0.6) nests.push(n);
   }
   if (!nests.length && far.length) nests.push(far[0]);
   // kaya yuvası: en derin noktanın biraz altından kazarak gelirler
-  if (nests.length < 2) {
+  if (nests.length < WAVES.nests) {
     const baseR = Math.min(ROWS - 4, Math.max(deepest, pr) + 3 + (rnd() * 3 | 0));
-    for (let tries = 0; tries < 20 && nests.length < 2; tries++) {
+    for (let tries = 0; tries < 30 && nests.length < WAVES.nests; tries++) {
       const c = PLAY_MIN_COL + 1 + Math.floor(rnd() * 11);
       const t = tileAt(c, baseR);
       if (TD[t].solid && !TD[t].unbreakable && !TD[t].chest && !TD[t].heart) nests.push([c, baseR, true]);
@@ -58,9 +58,11 @@ function buildQueue() {
     const t = opts[Math.floor(rnd() * opts.length)];
     q.push(t); budget -= ENEMIES[t].cost;
   }
-  // ağır olanlar sona
+  // ağır olanlar sona; dalga 3'ten sonra en pahalı sıradan düşman elit olur
   q.sort((a, b) => ENEMIES[a].cost - ENEMIES[b].cost);
-  return q.map((type, i) => ({ type, t: 0.4 + i * 0.75 }));
+  const out = q.map((type, i) => ({ type, t: 0.4 + i * WAVES.spawnGap }));
+  if (w >= ELITE.fromWave) { const cand = out.filter(s => s.type !== 'boss' && !ENEMIES[s.type].small); if (cand.length) cand[cand.length - 1].elite = true; }
+  return out;
 }
 
 export function updateWaves(dt) {
@@ -91,7 +93,8 @@ export function updateWaves(dt) {
         const n = W.nests[(W.spawnIdx++) % W.nests.length];
         if (ENEMIES[s.type].fly && n.rock) continue;
         if (n.rock && TD[tileAt(n.c, n.r)].solid) { setTile(n.c, n.r, T.AIR); debris(n.x, n.y, 'stone', 8); }
-        spawnEnemy(s.type, n.x + (rnd() - 0.5) * 4, n.y + (rnd() - 0.5) * 4, W.num);
+        const e = spawnEnemy(s.type, n.x + (rnd() - 0.5) * 4, n.y + (rnd() - 0.5) * 4, W.num);
+        if (s.elite) makeElite(e);
         dust(n.x, n.y, 3, 'rgba(160,140,130,0.5)');
       }
     }

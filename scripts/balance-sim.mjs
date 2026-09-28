@@ -41,7 +41,7 @@ for (let run = 0; run < RUNS; run++) {
     Object.assign(G.lvl, stage.lvl); recompute();
     while (G.structures.length < stage.turrets) G.structures.push(makeStructure('turret', G.structures.length));
     for (; dug < stage.depth; dug++) setTile(11, 6 + dug, 0);
-    G.maxStratum = Math.min(3, Math.floor(stage.depth / 26));
+    G.maxStratum = Math.min(9, Math.floor(stage.depth / 36));
     // oyuncu üs yanında
     if (process.env.AWAY) { p.x = 40; p.y = 104 * 16; } else { p.x = 170; p.y = 86; } p.dead = false;
     G.wave.t = 14.1; G.wave.phase = 'calm';

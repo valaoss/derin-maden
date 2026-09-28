@@ -2,10 +2,10 @@ import '@fontsource/tiny5/latin-400.css';
 import '@fontsource/tiny5/latin-ext-400.css';
 import './ui/style.css';
 
-import { STEP, TILE, GROUND_Y, WORLD_H, CENTER_COL, GROUND_ROW } from './config.js';
+import { STEP, TILE, GROUND_Y, WORLD_H, CENTER_COL, GROUND_ROW, STRATUM_ROWS, STRATA_COUNT, stratumOfRow } from './config.js';
 import { G, App, setG } from './game/state.js';
 import { loadMeta, saveMeta, loadSettings, loadRun, saveRun, clearRun } from './core/save.js';
-import { newRun, serialize, deserialize, bagCount, contractProgress, metaSnapshot, MP_MODS } from './game/run.js';
+import { newRun, serialize, deserialize, bagCount, contractProgress, metaSnapshot, MP_MODS, stratumGroup } from './game/run.js';
 import { updatePlayer, updateOrbs, updateDeposit, bindEnemyDamage } from './game/player.js';
 import { updateEnemies, damageEnemy, spawnEnemy } from './game/enemies.js';
 import { updatePlayerGun, updateBullets, updateStructures, updateShells } from './game/combat.js';
@@ -20,7 +20,7 @@ import { initRenderer, resize, render, updateCamera, view } from './render/rende
 import { initInput, input, cancelStick, keyPressed, setStickVisible, readMove } from './input/input.js';
 import { initAudio, sfx, setAmbience, stopAmbience, suspendAudio, haptic } from './audio/audio.js';
 import { on, emit } from './core/events.js';
-import { ozForRun, CONTRACTS, ITEM_KEYS } from './data/balance.js';
+import { ozForRun, CONTRACTS, ITEM_KEYS, MODS } from './data/balance.js';
 import { STRATA } from './data/palette.js';
 import { todayKey } from './core/util.js';
 import { dispatch, CMD } from './game/commands.js';
@@ -178,7 +178,7 @@ function endRun(reason) {
   const ores = Object.values(collected).reduce((a, b) => a + b, 0);
   let goal;
   if (victory) goal = 'Kalp Kristali senin. Şimdi daha hızlı yapabilir misin?';
-  else if (G.maxStratum < 3) goal = `Sonraki hedef: <b>${STRATA[G.maxStratum + 1].name}</b> (${(G.maxStratum + 1) * 26}m)`;
+  else if (G.maxStratum < STRATA_COUNT - 1) goal = `Sonraki hedef: <b>${STRATA[G.maxStratum + 1].name}</b> (${(G.maxStratum + 1) * STRATUM_ROWS}m)`;
   else goal = 'Çekirdek çok yakın. Kalp Kristali\'ni yüzeye taşı!';
   if (!victory && m.oz >= 20) goal += '<br><span style="color:var(--good)">Kampta harcayacak Öz\'ün var.</span>';
   if (victory) sfx.victory(); else sfx.defeat();
@@ -243,6 +243,21 @@ function step(dt) {
     const c = Math.floor(lp.x / TILE) + Math.floor((Math.random() - 0.5) * 9), r = Math.floor(lp.y / TILE) - 1 - Math.floor(Math.random() * 6);
     if (r > GROUND_ROW && G.map[r * 17 + c] === 0 && G.map[(r - 1) * 17 + c] !== 0) particle(c * TILE + 4 + Math.floor(Math.random() * 8), r * TILE + 1, 0, 30, 0.9, 'rgba(140,200,255,0.75)', 1, 0, 260);
   }
+  // biyom atmosferi (kozmetik): spor, kar, kor, kül, yıldız tozu
+  if (!lp.dead && lp.y > GROUND_Y + 16) {
+    const fx = STRATA[Math.max(0, stratumOfRow(Math.floor(lp.y / TILE)))].fx;
+    if (fx && Math.random() < dt * (fx === 'snow' ? 6 : 3.5)) {
+      const x = lp.x + (Math.random() - 0.5) * 120, y = lp.y + (Math.random() - 0.5) * 160;
+      const c = Math.floor(x / TILE), r = Math.floor(y / TILE);
+      if (r > GROUND_ROW && c >= 0 && c < 17 && G.map[r * 17 + c] === 0) {
+        if (fx === 'spore') particle(x, y, (Math.random() - 0.5) * 6, -3 - Math.random() * 4, 2.5, 'rgba(150,230,120,0.6)', 1, 1, 0);
+        else if (fx === 'snow') particle(x, y - 40, (Math.random() - 0.5) * 8, 12 + Math.random() * 10, 2.4, 'rgba(230,245,255,0.8)', 1, 2, 0);
+        else if (fx === 'ember') particle(x, y + 30, (Math.random() - 0.5) * 8, -14 - Math.random() * 14, 1.8, Math.random() < 0.5 ? '#ff9a4a' : '#ffd24a', 1, 1, -6);
+        else if (fx === 'ash') particle(x, y - 30, (Math.random() - 0.5) * 5, 5 + Math.random() * 5, 3, 'rgba(180,170,160,0.5)', 1, 2, 0);
+        else if (fx === 'star') particle(x, y, (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 3, 3.5, Math.random() < 0.3 ? '#ffffff' : 'rgba(150,140,255,0.8)', 1, 1, 0);
+      }
+    }
+  }
   // üs bacası dumanı (kozmetik)
   if (Math.random() < dt * 4) particle(G.base.x + 22, GROUND_Y - 44, (Math.random() - 0.5) * 6 + 3, -10 - Math.random() * 8, 1.6 + Math.random(), 'rgba(120,110,130,0.45)', 2 + (Math.random() * 2 | 0), 2, -6);
   // sakin fazda üs yavaşça kendini onarır (oyuncu yüzeydeyse daha hızlı; çok oyunculuda yarı hız)
@@ -295,6 +310,7 @@ function frame(now) {
   if (App.scene === 'play' && !G.paused && !G.over) {
     if (keyPressed('escape') || keyPressed('p')) { hooks.pause(true); }
     for (let i = 0; i < ITEM_KEYS.length; i++) if (keyPressed(String(i + 1))) { dispatch({ t: CMD.USE, k: ITEM_KEYS[i] }); UI.refreshHUD(true); }
+    if (keyPressed('q') || keyPressed('e')) { const act = G.gear.eq.filter(k => MODS[k].active); const k = act[keyPressed('e') ? 1 : 0] || act[0]; if (k) { dispatch({ t: CMD.MODUSE, k }); UI.refreshHUD(true); } }
     acc += dt; let n = 0;
     if (G.mp) {
       // lockstep: karşı girdi yoksa bekle; geri kaldıysak hızlan
@@ -315,7 +331,7 @@ function frame(now) {
     saveT += dt;
     if (saveT > 8) { saveT = 0; autosave(); }
     const surf = G.player.y < GROUND_Y;
-    const st = Math.max(0, Math.floor((G.player.y / TILE - GROUND_ROW) / 26));
+    const st = stratumGroup(stratumOfRow(Math.floor(G.player.y / TILE)));
     const key = st + '|' + surf + '|' + (G.wave.phase === 'active');
     if (key !== lastAmb) { lastAmb = key; setAmbience(st, surf, G.wave.phase === 'active'); }
   } else if (App.scene === 'play' && G.paused && G.mp) {

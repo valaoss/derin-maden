@@ -4,20 +4,21 @@
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y, GROUND_ROW, BASE_X, BASE_Y } from '../config.js';
 import { T, TD } from '../data/tiles.js';
-import { ENEMIES, WAVES, BASE, BARRICADE, BUILDS } from '../data/balance.js';
+import { ENEMIES, WAVES, BASE, BARRICADE, BUILDS, ELITE, BURN } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, solidAt, damageTile, idx } from '../world/map.js';
 import { FIELD, flowAt, nextStep, FLOW_INF } from '../world/flow.js';
-import { breakTile, damagePlayer, spawnOrb, nearestPlayer, blindPlayer, scarePlayer, pullPlayer } from './player.js';
+import { breakTile, damagePlayer, spawnOrb, nearestPlayer, blindPlayer, scarePlayer, pullPlayer, chillPlayer } from './player.js';
 import { hasPerk, hear } from './run.js';
-import { sparks, debris, shake, ring, flashLight, dust, hitstop } from './fx.js';
+import { sparks, debris, shake, ring, flashLight, dust, hitstop, particle } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
 import { emit } from '../core/events.js';
 import { setTile } from '../world/map.js';
 import { igniteGas } from './hazards.js';
 
 const ENEMY_COL = { rodent: '#b07a4a', bug: '#5a9a5a', spitter: '#9a5ac0', flyer: '#7a64a0', boomer: '#e070ff', brute: '#8a7c78', worm: '#c07890', boss: '#c24a64',
-  glarer: '#ffe79a', lurker: '#6a8a5a', howler: '#8a5a7a', shade: '#4a3a6a' };
+  glarer: '#ffe79a', lurker: '#6a8a5a', howler: '#8a5a7a', shade: '#4a3a6a',
+  spider: '#6a4a8a', spiderling: '#8a6aaa', broodmother: '#5a2a6a', frostbat: '#9ad8ff', skitter: '#d0c0a0', magmite: '#ff7a3a', voidling: '#7a6aff', ogolem: '#4a3e68' };
 export { ENEMY_COL };
 
 export function spawnEnemy(type, x, y, wave) {
@@ -29,8 +30,14 @@ export function spawnEnemy(type, x, y, wave) {
     summonT: 5, stuckT: 0, lastC: -1, lastR: -1, slowT: 0, trail: d.burrow ? [] : null,
     wind: 0, lunge: 0, dieT: 0, lastF: 0, vx: 0, vy: 0,
     blindCd: 2 + rnd() * 2, flashT: 0, tongue: 0, tongueCd: 1.5, tx: 0, ty: 0, howlCd: 2 + rnd() * 2, howlT: 0,
+    burnT: 0, burnTick: 0, blinkCd: 1.5 + rnd() * 2, blinkT: 0, broodT: d.brood || 0, elite: false, scale: 1, dmgMul: 1, breathe: rnd() * 6,
   };
   G.enemies.push(e);
+  return e;
+}
+// Elit: daha dayanıklı, daha büyük, altın düşürür; çizimde altın aura
+export function makeElite(e) {
+  e.elite = true; e.hp *= ELITE.hp; e.maxHp = e.hp; e.scale = ELITE.scale; e.r = e.r * 1.2; e.dmgMul = ELITE.dmg;
   return e;
 }
 
@@ -66,6 +73,7 @@ export function damageEnemy(e, dmg, dx = 0, dy = 0, knock = 1, silent = false) {
   if (!silent && nearLocal(e)) sfx.hit();
   if (e.hp <= 0) killEnemy(e);
 }
+export function burnEnemy(e, t) { if (!e.dead) e.burnT = Math.max(e.burnT, t); }
 function nearLocal(e) { const l = G.player; return Math.hypot(l.x - e.x, l.y - e.y) < 200; }
 
 export function killEnemy(e) {
@@ -78,7 +86,17 @@ export function killEnemy(e) {
   dust(e.x, e.y, e.d.boss ? 6 : 2, 'rgba(120,90,110,0.5)');
   if (nearLocal(e) || e.d.boss) sfx.enemyDie(e.d.boss || e.type === 'brute');
   G.stats.kills++;
-  if (e.d.boom) explode(e.x, e.y, e.d.boom, e.d.dmg);
+  if (e.elite) {
+    G.stats.elites++;
+    const n = ELITE.gold * (hasPerk('altinDamar') ? 2 : 1);
+    for (let i = 0; i < n; i++) spawnOrb(e.x, e.y, 'gold', true);
+    ring(e.x, e.y, '#ffd24a', 30); sparks(e.x, e.y, '#ffd24a', 14, 120); flashLight(e.x, e.y, 5, 0.4); shake(0.2);
+    emit('toast', { text: 'Elit ' + e.d.name + ' düştü', icon: 'elite' });
+  }
+  if (e.d.spawnOnDeath && rnd() < e.d.spawnOnDeath[2]) {
+    for (let i = 0; i < e.d.spawnOnDeath[1]; i++) spawnEnemy(e.d.spawnOnDeath[0], e.x + (i ? 4 : -4), e.y, G.wave.num).emergeT = 0.25;
+  }
+  if (e.d.boom) explode(e.x, e.y, e.d.boom, e.d.dmg * e.dmgMul);
   if (e.d.boss) { for (let i = 0; i < 5; i++) spawnOrb(e.x, e.y, 'cobalt', true); for (let i = 0; i < 3; i++) spawnOrb(e.x, e.y, 'crystal', true);
     shake(0.6); hitstop(0.15); ring(e.x, e.y, '#ff8aa8', 40); flashLight(e.x, e.y, 7, 0.6); }
   else if (e.type === 'brute' || e.type === 'worm' || e.type === 'lurker') { spawnOrb(e.x, e.y, 'iron', true); spawnOrb(e.x, e.y, 'iron', true); spawnOrb(e.x, e.y, 'cobalt', true); shake(0.25); }
@@ -135,6 +153,15 @@ export function updateEnemies(dt) {
     e.anim += dt * (e.d.fly ? 12 : 7);
     if (e.hitT > 0) e.hitT -= dt;
     if (e.flashT > 0) e.flashT -= dt;
+    if (e.blinkT > 0) e.blinkT -= dt;
+    // yanma: periyodik hasar + alev parçacığı
+    if (e.burnT > 0) {
+      e.burnT -= dt; e.burnTick -= dt;
+      if (rnd() < dt * 14) particle(e.x + (rnd() - 0.5) * e.r * 2, e.y - rnd() * e.r, (rnd() - 0.5) * 10, -25 - rnd() * 20, 0.25, rnd() < 0.5 ? '#ffe79a' : '#ff9a4a', 1, 1, 0);
+      if (e.burnTick <= 0) { e.burnTick = 0.25; damageEnemy(e, BURN.dps * 0.25, 0, 0, 0, true); if (e.dead) continue; }
+    }
+    // Kor Böceği arkasında kor izi bırakır (kozmetik)
+    if (e.d.burnTrail && rnd() < dt * 8) particle(e.x + (rnd() - 0.5) * 6, e.y + e.r - 1, (rnd() - 0.5) * 6, -6 - rnd() * 8, 0.6, '#ff7a3a', 1, 1, -10);
     if (e.howlT > 0) e.howlT -= dt;
     if (e.emergeT > 0) {
       e.emergeT -= dt;
@@ -182,6 +209,33 @@ export function updateEnemies(dt) {
     if (e.d.burrow) { trackTrail(e); if (updateWorm(e, dt, sp, p, dp)) continue; }
 
     // --- özel yetenekler ---
+    if (e.d.brood) {
+      e.broodT -= dt;
+      if (e.broodT <= 0) {
+        e.broodT = e.d.brood;
+        for (let k = 0; k < 2; k++) spawnEnemy('spiderling', e.x + (k ? 5 : -5), e.y + 2, G.wave.num).emergeT = 0.3;
+        ring(e.x, e.y, '#8a6aaa', 20); if (nearLocal(e)) sfx.brood();
+        e.lunge = 1;
+      }
+    }
+    if (e.d.blink && p) {
+      e.blinkCd -= dt;
+      if (e.blinkCd <= 0 && dp > 34 && dp < 170) {
+        // oyuncunun yanına ışınlan: boş bir hücre bul
+        let tx = null, ty = null;
+        for (let tries = 0; tries < 10; tries++) {
+          const a = rnd() * Math.PI * 2, rr = 22 + rnd() * 14;
+          const nx = p.x + Math.cos(a) * rr, ny = p.y + Math.sin(a) * rr;
+          if (!blocked(e, nx, ny) && ny > GROUND_Y - 20) { tx = nx; ty = ny; break; }
+        }
+        if (tx !== null) {
+          sparks(e.x, e.y, '#7a6aff', 8, 80); ring(e.x, e.y, '#7a6aff', 14);
+          e.px = e.x = tx; e.py = e.y = ty; e.blinkCd = e.d.blinkCd; e.blinkT = 0.3; e.atkCd = Math.max(e.atkCd, 0.5);
+          sparks(e.x, e.y, '#c0b8ff', 10, 90); ring(e.x, e.y, '#c0b8ff', 20); flashLight(e.x, e.y, 4, 0.2);
+          if (nearLocal(e)) sfx.blink();
+        }
+      }
+    }
     if (e.d.blind && p) {
       e.blindCd -= dt;
       if (e.blindCd <= 0 && dp < e.d.blindRange && losClear(e.x, e.y, p.x, p.y)) {
@@ -235,9 +289,15 @@ export function updateEnemies(dt) {
         if (e.fireCd <= 0) {
           e.fireCd = e.d.fireCd; e.lunge = 0.6;
           const d = Math.hypot(tx - e.x, ty - e.y) || 1;
-          G.ebullets.push({ x: e.x + e.face * 4, y: e.y - 2, vx: (tx - e.x) / d * 105, vy: (ty - e.y) / d * 105, life: 1.4, dmg: e.d.dmg });
-          sparks(e.x + e.face * 5, e.y - 2, '#9af060', 3, 40);
-          if (nearLocal(e)) sfx.spit();
+          if (e.d.web) {
+            G.ebullets.push({ x: e.x + e.face * 4, y: e.y - 2, vx: (tx - e.x) / d * 120, vy: (ty - e.y) / d * 120, life: 1.2, dmg: e.d.dmg * 0.4 * e.dmgMul, web: true });
+            sparks(e.x + e.face * 5, e.y - 2, '#f0f0ff', 3, 40);
+            if (nearLocal(e)) sfx.web();
+          } else {
+            G.ebullets.push({ x: e.x + e.face * 4, y: e.y - 2, vx: (tx - e.x) / d * 105, vy: (ty - e.y) / d * 105, life: 1.4, dmg: e.d.dmg * e.dmgMul });
+            sparks(e.x + e.face * 5, e.y - 2, '#9af060', 3, 40);
+            if (nearLocal(e)) sfx.spit();
+          }
         }
         e.st = 'ranged';
         // yalnızca hedefe gerçekten yakınken durur; aksi halde ateş ederken yürür (tüneli tıkamasın)
@@ -300,7 +360,7 @@ export function updateEnemies(dt) {
     const a = es[i]; if (a.dead || a.emergeT > 0 || a.y > sepY) continue;
     for (let j = i + 1; j < es.length; j++) {
       const b = es[j]; if (b.dead || b.emergeT > 0 || b.y > sepY) continue;
-      const dx = b.x - a.x, dy = b.y - a.y, min = (a.r + b.r) * 0.8, d2 = dx * dx + dy * dy;
+      const dx = b.x - a.x, dy = b.y - a.y, min = (a.r + b.r) * (a.d.small || b.d.small ? 0.6 : 0.8), d2 = dx * dx + dy * dy;
       if (d2 > 0.01 && d2 < min * min) {
         const d = Math.sqrt(d2), push = (min - d) * 0.5;
         const ux = dx / d, uy = dy / d;
@@ -377,9 +437,10 @@ function updateWorm(e, dt, sp, p, dp) {
 
 // target: oyuncu nesnesi | 'base' | yapı
 function attack(e, target) {
-  e.atkCd = 1; e.lunge = 1; e.wind = 0;
+  e.atkCd = e.d.small ? 0.7 : 1; e.lunge = 1; e.wind = 0;
+  const dmg = e.d.dmg * e.dmgMul;
   if (e.d.boom) { e.hp = 0; killEnemy(e); return; }
-  if (target === 'base') damageBase(e.d.dmg);
-  else if (target.bag) damagePlayer(target, e.d.dmg, e.x, e.y);
-  else damageStructure(target, e.d.dmg);
+  if (target === 'base') damageBase(dmg);
+  else if (target.bag) { damagePlayer(target, dmg, e.x, e.y); if (e.d.chill) { chillPlayer(target, 1.8); sparks(target.x, target.y, '#bff4ff', 6, 50); } }
+  else damageStructure(target, dmg);
 }

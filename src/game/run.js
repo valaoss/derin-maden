@@ -1,12 +1,14 @@
 // Sefer oluşturma, türetilmiş değerler ve kayıt/yükleme.
-import { COLS, ROWS, TILE, GROUND_ROW, BASE_X, BASE_Y, CENTER_COL, PAD_COLS, PAD_Y } from '../config.js';
-import { UPGRADES, PLAYER, BASE, WAVES, BUILDS, ITEMS, ITEM_KEYS, SCHEMATICS, CONTRACTS, kademeMods } from '../data/balance.js';
+import { COLS, ROWS, TILE, GROUND_ROW, BASE_X, BASE_Y, CENTER_COL, PAD_COLS, PAD_Y, STRATA_COUNT } from '../config.js';
+import { UPGRADES, PLAYER, BASE, WAVES, BUILDS, ITEMS, ITEM_KEYS, SCHEMATICS, CONTRACTS, kademeMods, MOD_SLOTS, PICK_TIERS } from '../data/balance.js';
 import { generate } from '../world/gen.js';
 import { createFields } from '../world/flow.js';
 import { G, setG, App } from './state.js';
 import { seedRng } from '../core/rng.js';
 
-const emptyRes = () => ({ iron: 0, water: 0, cobalt: 0, crystal: 0 });
+const emptyRes = () => ({ iron: 0, water: 0, cobalt: 0, crystal: 0, gold: 0 });
+// biyom grubu (0..3): kontrat hedefleri ve ambiyans için
+export const stratumGroup = s => Math.min(3, Math.floor(Math.max(0, s) * 4 / STRATA_COUNT));
 const emptyItems = () => Object.fromEntries(ITEM_KEYS.map(k => [k, 0]));
 
 // ---------- şemalar (kalıcı, meta'da) ----------
@@ -31,7 +33,7 @@ export function unlockSchematic() {
 function pickContracts(seed) {
   let x = (seed ^ 0x5bd1e995) >>> 0;
   const rnd = () => ((x = (x * 1664525 + 1013904223) >>> 0) / 4294967296);
-  const st = Math.min(3, G.meta.maxStratum | 0);
+  const st = stratumGroup(G.meta.maxStratum | 0);
   const pool = Object.keys(CONTRACTS).filter(k => (CONTRACTS[k].minStratum || 0) <= st);
   const out = [];
   while (out.length < 2 && pool.length) {
@@ -50,7 +52,7 @@ export function makePlayer(i) {
     face: i ? -1 : 1, dx: 0, dy: 1, hp: 0, maxHp: 0, iframes: 0, dead: false, respawnT: 0,
     dig: null, digT: 0, digAnim: 0, digDir: [0, 1], walkT: 0, moving: false, up: false, upT: 0,
     fireCd: 0, aim: 0, aimT: 0, carrying: false, hurtT: 0, shockCd: 0, squash: 0, recallT: 0, gasT: 0,
-    bag: emptyRes(), inp: { x: 0, y: 0, mag: 0 }, landT: 0, airT: 0, blindT: 0, fearT: 0, pullX: 0, pullY: 0,
+    bag: emptyRes(), inp: { x: 0, y: 0, mag: 0 }, landT: 0, airT: 0, blindT: 0, fearT: 0, pullX: 0, pullY: 0, slowT: 0, webT: 0, burnT: 0,
   };
 }
 
@@ -72,14 +74,15 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
     player: null, players: [],
     base: { x: BASE_X, y: BASE_Y, hp: 0, maxHp: 0, hurtT: 0 },
     store: emptyRes(), collected: emptyRes(),
-    lvl: { drill: Math.min(2, ml.keskinUc | 0), bag: 0, armor: 0, blaster: Math.min(2, ml.ayarliBl | 0), lamp: 0 },
+    lvl: { drill: Math.min(2, ml.keskinUc | 0), sharp: 0, swing: 0, bag: 0, armor: 0, blaster: Math.min(2, ml.ayarliBl | 0), lamp: 0 },
     perks: [], items: emptyItems(), perkOffer: null,
+    gear: { owned: [], eq: [], cd: {}, active: {} },
     kademe, mods, daily, contracts: [],
     torches: [], mines: [], bombs: [], rocks: [], falls: [], gas: [], shells: [], hazT: 0,
     structures: [], enemies: [], bullets: [], ebullets: [], orbs: [], particles: [], pIdx: 0, flashes: [], lightSrc: [],
-    satchels: [],
+    satchels: [], zaps: [],
     wave: { num: 0, phase: 'calm', t: tutorial ? Infinity : WAVES.firstCalm * mods.calm, nests: [], queue: [], rumbleT: 0 },
-    stats: { maxDepth: 0, wavesCleared: 0, chests: 0, kills: 0, dug: 0, victory: false, time: 0, blasted: 0, torches: 0, crafted: 0 },
+    stats: { maxDepth: 0, wavesCleared: 0, chests: 0, kills: 0, dug: 0, victory: false, time: 0, blasted: 0, torches: 0, crafted: 0, elites: 0 },
     maxStratum: 0,
     tutorial: tutorial ? { step: 0, t: 0, done: false } : null,
     cam: { x: 0, y: 0, px: 0, py: 0, trauma: 0, kx: 0, ky: 0 },
@@ -88,6 +91,7 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
     paused: false, over: false,
   };
   g.store.iron = 8 * (ml.erzak | 0);
+  g.store.gold = 4 * (ml.altinKese | 0);
   g.players = [makePlayer(0)];
   if (mp) g.players.push(makePlayer(1));
   for (const p of g.players) { p.px = p.x; p.py = p.y; }
@@ -125,10 +129,16 @@ export function recompute(fill = false) {
   G.base.hp = fill ? bmax : Math.min(bmax, G.base.hp + Math.max(0, bd));
 }
 
+// kazma: kademe + keskinlik + hızlı sallama
+export function pickDmg() { return PICK_TIERS[G.lvl.drill].dmg * UPGRADES.sharp.mult[G.lvl.sharp]; }
+export function pickInterval() { return PICK_TIERS[G.lvl.drill].interval * UPGRADES.swing.mult[G.lvl.swing]; }
+export function modSlots() { return MOD_SLOTS + (hasPerk('dorduncuYuva') ? 1 : 0); }
+export function hasMod(k) { return G.gear.eq.includes(k); }
+
 export function lampTiles() {
   return UPGRADES.lamp.radius[G.lvl.lamp] + (hasPerk('parlakFener') ? 2 : 0);
 }
-export function bagCount(p = G.player) { const b = p.bag; return b.iron + b.water + b.cobalt + b.crystal; }
+export function bagCount(p = G.player) { const b = p.bag; return b.iron + b.water + b.cobalt + b.crystal + (b.gold || 0); }
 export function isLocal(p) { return p === G.player; }
 // ses için: yerel oyuncuya yakın mı (partnerin uzaktaki kazısı sessiz kalır)
 export function hear(p, x = p.x, y = p.y) { const l = G.player; return p === l || Math.hypot(l.x - x, l.y - y) < 170; }
@@ -140,7 +150,7 @@ function unb64(s) { const b = atob(s), u = new Uint8Array(b.length); for (let i 
 export function serialize() {
   const g = G;
   return {
-    v: 5, seed: g.seed, rng: g.rng, heartRow: g.heartRow, map: b64(g.map), rev: b64(g.rev), bhp: g.bhp,
+    v: 6, seed: g.seed, rng: g.rng, heartRow: g.heartRow, map: b64(g.map), rev: b64(g.rev), bhp: g.bhp, gear: { owned: g.gear.owned, eq: g.gear.eq },
     base: { hp: g.base.hp }, bag: g.player.bag, store: g.store, collected: g.collected, lvl: g.lvl, perks: g.perks,
     items: g.items, structures: g.structures.map(s => ({ type: s.type, pad: s.pad, hp: s.hp })),
     torches: g.torches, mines: g.mines.map(m => ({ x: m.x, y: m.y })), kademe: g.kademe, daily: g.daily, contracts: g.contracts,
@@ -155,6 +165,7 @@ export function deserialize(d) {
   g.map = unb64(d.map); g.rev = unb64(d.rev); g.bhp = d.bhp || {}; g.heartRow = d.heartRow;
   Object.assign(g.player.bag, d.bag); Object.assign(g.store, d.store); Object.assign(g.collected, d.collected);
   Object.assign(g.lvl, d.lvl); g.perks = d.perks || [];
+  if (d.gear) { g.gear.owned = d.gear.owned || []; g.gear.eq = d.gear.eq || []; }
   Object.assign(g.items, d.items || {}); if (d.barricades) g.items.barricade += d.barricades | 0;
   g.torches = d.torches || []; g.mines = (d.mines || []).map(m => ({ x: m.x, y: m.y, arm: 0 }));
   if (d.contracts) g.contracts = d.contracts;

@@ -7,7 +7,8 @@ import { PLAYER, UPGRADES, PERKS, RES_KEYS, PICK_TIERS } from '../data/balance.j
 import { RES_COL } from '../data/palette.js';
 import { G, App } from './state.js';
 import { tileAt, solidAt, setTile, damageTile, matOf } from '../world/map.js';
-import { hasPerk, bagCount, recompute, unlockSchematic, hear, isLocal } from './run.js';
+import { hasPerk, bagCount, recompute, unlockSchematic, hear, isLocal, pickDmg, pickInterval } from './run.js';
+import { HAZARD } from '../data/balance.js';
 import { perkChoices } from './economy.js';
 import { spawnGas } from './hazards.js';
 import { debris, dust, sparks, shake, kick, hitstop, flashLight, ring, particle } from './fx.js';
@@ -50,7 +51,7 @@ function moveAxis(p, mx, my) {
 }
 
 export function playerSpeed(p) {
-  return PLAYER.speed * (hasPerk('hafifBot') ? 1.2 : 1) * (p.carrying ? 0.85 : 1) * (p.fearT > 0 ? 0.6 : 1);
+  return PLAYER.speed * (hasPerk('hafifBot') ? 1.2 : 1) * (p.carrying ? 0.85 : 1) * (p.fearT > 0 ? 0.6 : 1) * (p.slowT > 0 ? 0.55 : 1) * (p.webT > 0 ? 0.35 : 1);
 }
 
 export function alivePlayers() { return G.players.filter(p => !p.dead); }
@@ -84,6 +85,9 @@ function updateOne(p, dt) {
   if (p.blindT > 0) p.blindT -= dt;
   if (p.fearT > 0) p.fearT -= dt;
   if (p.landT > 0) p.landT -= dt;
+  if (p.slowT > 0) p.slowT -= dt;
+  if (p.webT > 0) p.webT -= dt;
+  if (p.burnT > 0) { p.burnT -= dt; p.burnTick = (p.burnTick || 0) - dt; if (p.burnTick <= 0) { p.burnTick = 0.5; poisonPlayer(p, 2); } }
   if (p.hitTile && (p.hitTile.t -= dt) <= 0) p.hitTile = null;
   if (p.digAnim > 0) p.digAnim = Math.max(0, p.digAnim - dt * 6);
   if (p.squash > 0) p.squash = Math.max(0, p.squash - dt * 5);
@@ -138,7 +142,7 @@ function updateOne(p, dt) {
     p.digDir = [target.dx, target.dy];
     if (target.dx) p.face = target.dx;
     p.digT -= dt;
-    p.digInt = UPGRADES.drill.interval[G.lvl.drill];
+    p.digInt = pickInterval();
     if (p.digT <= 0) { digHit(p, target); p.digT = p.digInt; }
   } else {
     p.dig = null;
@@ -183,8 +187,9 @@ function updateOne(p, dt) {
 
 function digHit(p, t) {
   const tile = tileAt(t.c, t.r), mat = matOf(t.c, t.r), d = TD[tile];
-  const dmg = UPGRADES.drill.dmg[G.lvl.drill];
+  const dmg = pickDmg();
   p.digAnim = 1;
+  p.swingN = (p.swingN | 0) + 1;
   p.squash = 0.6;
   p.hitTile = { c: t.c, r: t.r, t: 0.12 };
   const hx = t.c * TILE + 8 - t.dx * 7, hy = t.r * TILE + 8 - t.dy * 7;
@@ -217,6 +222,7 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
   setTile(c, r, T.AIR);
   const x = c * TILE + 8, y = r * TILE + 8;
   if (d.gas) spawnGas(x, y);
+  if (d.ember) { sparks(x, y, '#ff9a4a', 10, 90); flashLight(x, y, 4, 0.3); if (byPlayer && Math.hypot(byPlayer.x - x, byPlayer.y - y) < 22) { byPlayer.burnT = 2; damagePlayer(byPlayer, HAZARD.emberBurn, x, y); } }
   if (!byPlayer) { debris(x, y, mat, 5, 0.7); return; }
   const p = byPlayer, near = hear(p, x, y), local = isLocal(p);
   G.stats.dug++;
@@ -228,7 +234,7 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
   if (d.hp >= 6 || d.ore) { hitstop(0.035); if (local) shake(0.12); } else if (local) shake(d.hp >= 3 ? 0.07 : 0.04);
   if (d.ore) {
     if (near) sfx.oreReveal();
-    const n = d.amt + (hasPerk('damar') ? 1 : 0);
+    const n = d.amt + (hasPerk('damar') && !d.iceDrop ? 1 : 0);
     for (let i = 0; i < n; i++) spawnOrb(x, y, d.ore);
     sparks(x, y, RES_COL[d.ore], 6, 70);
     flashLight(x, y, 3, 0.25);
@@ -367,6 +373,9 @@ export function poisonPlayer(p, amount) {
 export function blindPlayer(p, t) { if (!p.dead) { p.blindT = Math.max(p.blindT, t); if (isLocal(p)) { G.flashWhite = Math.max(G.flashWhite, t); emit('blind'); } } }
 export function scarePlayer(p, t) { if (!p.dead) { p.fearT = Math.max(p.fearT, t); if (isLocal(p)) { shake(0.3); emit('fear'); } } }
 export function pullPlayer(p, fx, fy) { if (!p.dead) { p.pullX += fx; p.pullY += fy; } }
+// ağ (örümcek) ve soğuk (Kırağı): yavaşlatma
+export function webPlayer(p, t) { if (!p.dead) { p.webT = Math.max(p.webT, t); if (isLocal(p)) emit('web'); } }
+export function chillPlayer(p, t) { if (!p.dead) { p.slowT = Math.max(p.slowT, t); if (isLocal(p)) emit('chill'); } }
 
 function die(p) {
   p.hp = 0; p.dead = true;

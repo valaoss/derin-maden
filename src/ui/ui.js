@@ -1,11 +1,11 @@
 // DOM arayüzü: HUD, atölye, perk seçimi, menüler, bildirimler, öğretici.
-import { TILE, GROUND_Y, PAD_COLS, PAD_Y, stratumOfRow } from '../config.js';
-import { UPGRADES, UPGRADE_KEYS, BUILDS, BUILD_KEYS, REPAIR, PERKS, META, META_KEYS, RES_KEYS, ENEMIES, ITEMS, ITEM_KEYS, CONTRACTS, KADEME } from '../data/balance.js';
+import { TILE, GROUND_Y, PAD_COLS, PAD_Y, stratumOfRow, STRATUM_ROWS } from '../config.js';
+import { UPGRADES, UPGRADE_KEYS, PICK_KEYS, MODS, MOD_KEYS, BUILDS, BUILD_KEYS, REPAIR, PERKS, META, META_KEYS, RES_KEYS, ENEMIES, ITEMS, ITEM_KEYS, CONTRACTS, KADEME } from '../data/balance.js';
 import { STRATA } from '../data/palette.js';
 import { G, App } from '../game/state.js';
 import { iconURL } from '../render/sprites.js';
 import { on, emit } from '../core/events.js';
-import { bagCount, hasPerk, isUnlocked, contractProgress } from '../game/run.js';
+import { bagCount, hasPerk, isUnlocked, contractProgress, pickDmg, pickInterval, modSlots } from '../game/run.js';
 import { canAfford, upgradeCost, craftState } from '../game/economy.js';
 import { itemUsable } from '../game/items.js';
 import { dispatch, CMD } from '../game/commands.js';
@@ -47,11 +47,12 @@ export function initUI(root, h) {
   <div id="banner"><div class="k"></div><div class="n"></div><div class="rule"></div></div>
   <button class="btn hide" id="workshopBtn">${ic('drill', 'l')}<span>ATÖLYE</span><span class="badge"></span></button>
   <div id="belt"></div>
+  <div id="mods"></div>
   <div class="plate" id="pop"></div>
   <div id="sheetBack"></div>
   <div class="plate rivets" id="sheet">
     <div class="head"><h2>ATÖLYE</h2><button class="close" id="sheetClose" aria-label="Kapat">✕</button></div>
-    <div class="tabs"><button class="tab on" data-tab="up">GELİŞTİR</button><button class="tab" data-tab="craft">ÜRET<span class="dot"></span></button></div>
+    <div class="tabs"><button class="tab on" data-tab="up">GELİŞTİR</button><button class="tab" data-tab="pick">KAZMA</button><button class="tab" data-tab="mods">BLASTER</button><button class="tab" data-tab="craft">ÜRET<span class="dot"></span></button></div>
     <div class="storebar" id="sheetStore"></div>
     <div class="body" id="sheetBody"></div>
   </div>
@@ -76,7 +77,11 @@ export function initUI(root, h) {
   on('storePop', k => { const c = $('#r_' + k); c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop'); });
   on('deposit', () => { refreshSheet(); });
   on('hurt', () => { const v = $('#vignette'); v.classList.remove('hit'); void v.offsetWidth; v.classList.add('hit'); });
-  on('stratum', s => banner('KATMAN ' + (s + 1) + ' · ' + s * 26 + 'M', STRATA[s].name.toUpperCase()));
+  on('stratum', s => banner('BİYOM ' + (s + 1) + ' · ' + s * STRATUM_ROWS + 'M', STRATA[s].name.toUpperCase()));
+  on('modChanged', () => { if (sheetOpen()) refreshSheet(); refreshHUD(true); });
+  on('modUsed', () => refreshHUD(true));
+  on('web', () => toast('Ağa yakalandın', 'skull', true));
+  on('chill', () => { const v = $('#vignette'); v.classList.add('cold'); setTimeout(() => v.classList.remove('cold'), 1800); });
   on('alarm', d => {
     banner(d.boss ? 'DERİNLİKTEN BİR ŞEY GELİYOR' : 'ALARM', d.boss ? 'DERİN ANA UYANDI' : 'DALGA ' + d.num + ' YAKLAŞIYOR', true);
     if (G.tutorial && G.tutorial.step === 4 && !G.tutorial.alarmSeen) { G.tutorial.alarmSeen = true; coach('Düşmanlar kazdığın tünellerden gelir. Üssü koru!', '', 6); }
@@ -121,7 +126,19 @@ function tap(el, fn) {
 // ---------------- HUD ----------------
 let cache = {}, lastBaseHurt = 0;
 function set(id, key, val, fn) { if (cache[key] === val) return; cache[key] = val; fn(val); }
-export function showHUD(v) { $('#hud').classList.toggle('hidden', !v); if (!v) { $('#workshopBtn').classList.add('hide'); $('#belt').innerHTML = ''; } cache = {}; }
+export function showHUD(v) { $('#hud').classList.toggle('hidden', !v); if (!v) { $('#workshopBtn').classList.add('hide'); $('#belt').innerHTML = ''; $('#mods').innerHTML = ''; } cache = {}; }
+// sağ kenar: takılı blaster eklentileri (aktifler dokunulabilir, bekleme süresi dolgu olarak)
+function renderMods() {
+  const box = $('#mods'), p = G.player, g = G.gear;
+  if (p.dead || !g.eq.length) { box.innerHTML = ''; return; }
+  box.innerHTML = g.eq.map(k => {
+    const m = MODS[k];
+    if (!m.active) return `<div class="btn dark mod passive" aria-label="${m.name}">${ic(m.icon, 'l')}</div>`;
+    const cd = Math.max(0, g.cd[k] || 0), on = (g.active[k] || 0) > 0;
+    return `<button class="btn dark mod ${cd <= 0 && !on ? 'ready' : ''} ${on ? 'on' : ''}" data-k="${k}" aria-label="${m.name}">${ic(m.icon, 'l')}<div class="cd" style="height:${Math.round(cd / m.cd * 100)}%"></div></button>`;
+  }).join('');
+  box.querySelectorAll('.mod[data-k]').forEach(el => tap(el, () => { dispatch({ t: CMD.MODUSE, k: el.dataset.k }); refreshHUD(true); }));
+}
 function renderBelt() {
   const b = $('#belt'), p = G.player;
   if (p.dead) { b.innerHTML = ''; return; }
@@ -191,11 +208,15 @@ export function refreshHUD(force = false) {
   let bk = '';
   if (!p.dead) for (const k of ITEM_KEYS) if (G.items[k] > 0) bk += k + G.items[k] + (itemUsable(k) ? '+' : '-') + (k === 'recall' && p.recallT > 0 ? 'r' : '');
   set(0, 'belt', bk, () => renderBelt());
+  const g = G.gear;
+  let mk = p.dead ? '' : g.eq.map(k => k + (MODS[k].active ? Math.ceil(Math.max(0, g.cd[k] || 0)) + ((g.active[k] || 0) > 0 ? 'a' : '') : '')).join(',');
+  set(0, 'mods', mk, () => renderMods());
   set(0, 'lefty', App.settings.lefty, v => ui.parentElement.classList.toggle('lefty', v));
 }
 function fmt(t) { t = Math.max(0, Math.ceil(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); }
 function anyAffordable() {
-  for (const k of UPGRADE_KEYS) { const c = upgradeCost(k); if (c && canAfford(c)) return true; }
+  for (const k of UPGRADE_KEYS.concat(PICK_KEYS)) { const c = upgradeCost(k); if (c && canAfford(c)) return true; }
+  for (const k of MOD_KEYS) if (!G.gear.owned.includes(k) && canAfford(MODS[k].cost)) return true;
   return false;
 }
 
@@ -287,7 +308,39 @@ function refreshSheet(justKey) {
   $('#sheet .tab[data-tab="craft"]').classList.toggle('new', !App.meta.seenCraft);
   const body = $('#sheetBody');
   let h = '';
-  if (sheetTab === 'up') {
+  const upRow = k => {
+    const u = UPGRADES[k], l = G.lvl[k], max = u.costs.length, c = upgradeCost(k);
+    const eff = c ? `${u.desc(l)} → <b>${u.desc(l + 1).replace(/^[^\d×]*/, '')}</b>` : u.desc(l);
+    return `<div class="plate row ${c ? '' : 'max'} ${justKey === k ? 'just' : ''}" data-up="${k}">
+      ${ic(u.icon, 'l')}
+      <div class="main"><div class="name">${u.name} ${pips(l, max)}</div><div class="eff">${eff}</div>${c ? costHTML(c) : ''}</div>
+      <button class="btn buy" ${c && canAfford(c) ? '' : 'disabled'}>AL</button></div>`;
+  };
+  if (sheetTab === 'pick') {
+    const t = PICK_TIERS[G.lvl.drill], next = PICK_TIERS[G.lvl.drill + 1], c = upgradeCost('drill');
+    h += '<div class="sec">KAZMAN</div>';
+    h += `<div class="plate pickcard"><img class="sw" src="${pickIconURL(G.lvl.drill)}" alt=""><div class="main"><div class="name">${t.name}</div><div class="eff">Kazı gücü <b>${pickDmg().toFixed(1)}</b> · vuruş aralığı <b>${pickInterval().toFixed(2)} sn</b></div></div></div>`;
+    h += '<div class="sec">SATIN AL</div>';
+    if (next) h += `<div class="plate row ${justKey === 'drill' ? 'just' : ''}" data-up="drill"><img class="sw" style="width:28px;height:28px;image-rendering:pixelated" src="${pickIconURL(G.lvl.drill + 1)}" alt="">
+      <div class="main"><div class="name">${next.name}</div><div class="eff">Güç ×${next.dmg} · aralık ${next.interval} sn${next.glow ? ' · parlar' : ''}</div>${costHTML(c)}</div>
+      <button class="btn buy" ${canAfford(c) ? '' : 'disabled'}>AL</button></div>`;
+    else h += '<div class="note">En güçlü kazma sende. Boşluk bile sana dayanamaz.</div>';
+    h += '<div class="sec">GELİŞTİR</div>';
+    h += upRow('sharp') + upRow('swing');
+    h += `<div class="note">Derin kayalar sert: Kor 18, Obsidyen 40, Boşluk 60 dayanıklılık. Kademe atla.</div>`;
+  } else if (sheetTab === 'mods') {
+    h += '<div class="sec">BLASTER</div>' + upRow('blaster');
+    const slots = modSlots();
+    h += `<div class="sec">EKLENTİLER · ${G.gear.eq.length}/${slots} YUVA</div>`;
+    for (const k of MOD_KEYS) {
+      const m = MODS[k], owned = G.gear.owned.includes(k), eq = G.gear.eq.includes(k);
+      if (owned) h += `<div class="plate row owned ${eq ? 'eq' : ''}" data-mod="${k}">${ic(m.icon, 'l')}<div class="main"><div class="name">${m.name}${m.active ? ' <span class="have">' + m.cd + ' sn</span>' : ''}</div><div class="eff">${m.desc}</div></div>
+        <button class="btn buy">${eq ? 'ÇIKAR' : 'TAK'}</button></div>`;
+      else h += `<div class="plate row ${justKey === k ? 'just' : ''}" data-modbuy="${k}">${ic(m.icon, 'l')}<div class="main"><div class="name">${m.name}</div><div class="eff">${m.desc}</div>${costHTML(m.cost)}</div>
+        <button class="btn buy" ${canAfford(m.cost) ? '' : 'disabled'}>AL</button></div>`;
+    }
+    h += '<div class="note">Aktif eklentiler ekranın sağındaki düğmelerden (klavyede Q / E) kullanılır.</div>';
+  } else if (sheetTab === 'up') {
     h += '<div class="sec">YÜKSELTMELER</div>';
     for (const k of UPGRADE_KEYS) {
       const u = UPGRADES[k], l = G.lvl[k], max = u.costs.length, c = upgradeCost(k);
@@ -331,10 +384,28 @@ function refreshSheet(justKey) {
     if (dispatch({ t: CMD.BUY, k })) { refreshSheet(k); refreshHUD(true); tutEvent('bought'); }
   }));
   body.querySelectorAll('[data-act] .buy').forEach(b => tap(b, () => { if (dispatch({ t: CMD.REPAIR })) { refreshSheet(); refreshHUD(true); } }));
+  body.querySelectorAll('[data-modbuy] .buy').forEach(b => tap(b, () => { const k = b.closest('[data-modbuy]').dataset.modbuy; if (dispatch({ t: CMD.MODBUY, k })) { refreshSheet(k); refreshHUD(true); } }));
+  body.querySelectorAll('[data-mod] .buy').forEach(b => tap(b, () => { const k = b.closest('[data-mod]').dataset.mod; if (dispatch({ t: CMD.MODEQ, k })) { refreshSheet(); refreshHUD(true); } }));
   body.querySelectorAll('[data-craft] .buy').forEach(b => tap(b, () => {
     const k = b.closest('[data-craft]').dataset.craft;
     if (dispatch({ t: CMD.CRAFT, k })) { refreshSheet(k); refreshHUD(true); }
   }));
+}
+
+// kademe renkli küçük kazma ikonu (atölye kartı için)
+const pickIconCache = {};
+function pickIconURL(l) {
+  if (pickIconCache[l]) return pickIconCache[l];
+  const t = PICK_TIERS[Math.min(PICK_TIERS.length - 1, l)];
+  const c = document.createElement('canvas'); c.width = 12; c.height = 12; const x = c.getContext('2d');
+  const px = (col, a, b, w = 1, h = 1) => { x.fillStyle = col; x.fillRect(a, b, w, h); };
+  // sap: sol alttan sağ üste
+  for (let i = 0; i < 8; i++) { px('#140c1c', 1 + i, 10 - i, 3, 1); }
+  for (let i = 0; i < 8; i++) { px(t.handle, 2 + i, 10 - i, 1, 1); }
+  // baş: üst sağda yatay kavis
+  px('#140c1c', 4, 0, 8, 4); px(t.head, 5, 1, 6, 2); px(t.headL, 5, 1, 6, 1); px('#ffffff', 10, 1, 1, 1);
+  if (t.glow) { px('rgba(255,255,255,0.5)', 6, 2, 1, 1); }
+  return (pickIconCache[l] = c.toDataURL());
 }
 
 function contractsHTML() {

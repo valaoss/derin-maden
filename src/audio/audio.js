@@ -268,6 +268,22 @@ export const sfx = {
   land() { if (!ok('land', 0.15)) return; const t = ctx.currentTime; noise(t, 0.06, { type: 'lowpass', f: 500, gain: 0.16 }); tone(t, 0.06, { type: 'sine', f: 140, f2: 70, gain: 0.12 }); },
   // Gölge belirdiğinde: soğuk fısıltı
   shade() { if (!ok('shade', 0.6)) return; noise(ctx.currentTime, 0.4, { type: 'bandpass', f: 2600, f2: 900, q: 4, gain: 0.07, a: 0.08 }); },
+  // v4: örümcek ağı fırlatma
+  web() { if (!ok('web', 0.2)) return; const t = ctx.currentTime; noise(t, 0.12, { type: 'highpass', f: 2500, gain: 0.09 }); tone(t, 0.1, { type: 'triangle', f: 1800, f2: 600, gain: 0.05 }); },
+  // Örümcek Ana yumurtlar
+  brood() { if (!ok('brood', 0.5)) return; const t = ctx.currentTime; tone(t, 0.3, { type: 'sawtooth', f: 180, f2: 90, gain: 0.08, a: 0.03 }); noise(t, 0.25, { type: 'bandpass', f: 700, q: 2, gain: 0.1 }); },
+  // Boşluk Gözü ışınlanır
+  blink() { if (!ok('blink', 0.2)) return; const t = ctx.currentTime; tone(t, 0.16, { type: 'sine', f: 1400, f2: 300, gain: 0.08 }); tone(t + 0.08, 0.16, { type: 'sine', f: 300, f2: 1600, gain: 0.07 }); },
+  // sekme: metalik tınlama
+  ping() { if (!ok('ping', 0.06)) return; tone(ctx.currentTime, 0.06, { type: 'square', f: vary(2600, 0.05), f2: 1800, gain: 0.04 }); },
+  // yıldırım sıçraması
+  zap() { if (!ok('zap', 0.08)) return; const t = ctx.currentTime; noise(t, 0.06, { type: 'highpass', f: 3500, gain: 0.1 }); tone(t, 0.05, { type: 'square', f: 900, f2: 2400, gain: 0.04 }); },
+  // Aşırı Yük: yükselen şarj
+  overdrive() { if (!ok('od', 0.5)) return; const t = ctx.currentTime; tone(t, 0.5, { type: 'sawtooth', f: 200, f2: 1400, gain: 0.09, a: 0.02 }); tone(t + 0.3, 0.25, { type: 'square', f: 1400, gain: 0.05 }); },
+  // Nova: patlama halkası
+  nova() { if (!ok('nova', 0.4)) return; const t = ctx.currentTime; noise(t, 0.3, { type: 'lowpass', f: 1500, f2: 200, gain: 0.25 }); tone(t, 0.25, { type: 'sine', f: 900, f2: 120, gain: 0.14 }); },
+  // elit doğuşu
+  elite() { if (!ok('elite', 0.6)) return; const t = ctx.currentTime; tone(t, 0.18, { type: 'square', f: 330, gain: 0.06 }); tone(t + 0.18, 0.28, { type: 'square', f: 495, gain: 0.06 }); },
   // eşleşme/bağlantı
   connect() { if (!ok('conn', 0.3)) return; const t = ctx.currentTime; tone(t, 0.1, { type: 'triangle', f: 660, gain: 0.08 }); tone(t + 0.1, 0.16, { type: 'triangle', f: 990, gain: 0.08 }); },
   frost() {
@@ -318,7 +334,7 @@ export function setAmbience(stratum, surface, inWave) {
     amb.pulse.connect(amb.pg); amb.pg.connect(musBus);
     amb.o1.start(); amb.o2.start(); amb.wind.start(); amb.pulse.start(); amb.lfo.start();
   }
-  const t = ctx.currentTime, n = AMB_NOTES[Math.max(0, stratum)];
+  const t = ctx.currentTime, n = AMB_NOTES[Math.max(0, Math.min(AMB_NOTES.length - 1, stratum))];
   amb.o1.frequency.setTargetAtTime(n[0], t, 1.5);
   amb.o2.frequency.setTargetAtTime(n[1] * 1.003, t, 1.5);
   amb.g.gain.setTargetAtTime(surface ? 0.0 : 0.05, t, 1.2);

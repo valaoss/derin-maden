@@ -2,10 +2,10 @@
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_ROW } from '../config.js';
 import { T } from '../data/tiles.js';
-import { UPGRADES, BUILDS, BARRICADE, REPAIR, PERKS, ITEMS } from '../data/balance.js';
+import { UPGRADES, BUILDS, BARRICADE, REPAIR, PERKS, ITEMS, MODS } from '../data/balance.js';
 import { G, App } from './state.js';
 import { tileAt, setTile, idx } from '../world/map.js';
-import { makeStructure, recompute, hasPerk, isUnlocked, isLocal } from './run.js';
+import { makeStructure, recompute, hasPerk, isUnlocked, isLocal, modSlots } from './run.js';
 import { sparks, ring, dust } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
 import { emit } from '../core/events.js';
@@ -25,6 +25,26 @@ export function buyUpgrade(key, p = G.player) {
   ring(p.x, p.y, '#f2c14e', 18); sparks(p.x, p.y, '#ffe79a', 10, 70);
   if (key === 'drill') emit('pickTier', G.lvl.drill);
   emit('upgraded', key);
+  return true;
+}
+
+// Blaster eklentileri: satın al (bir kez), tak/çıkar (yuva sınırı)
+export function buyMod(k, p = G.player) {
+  const m = MODS[k];
+  if (!m || G.gear.owned.includes(k) || !canAfford(m.cost)) { if (isLocal(p)) sfx.deny(); return false; }
+  pay(m.cost); G.gear.owned.push(k);
+  if (G.gear.eq.length < modSlots()) G.gear.eq.push(k);
+  sfx.buy(); if (isLocal(p)) haptic(15);
+  ring(p.x, p.y, '#9fe8ff', 18); sparks(p.x, p.y, '#bff4ff', 10, 70);
+  emit('modChanged', k);
+  return true;
+}
+export function toggleMod(k, p = G.player) {
+  if (!G.gear.owned.includes(k)) return false;
+  const i = G.gear.eq.indexOf(k);
+  if (i >= 0) G.gear.eq.splice(i, 1);
+  else { if (G.gear.eq.length >= modSlots()) { if (isLocal(p)) sfx.deny(); return false; } G.gear.eq.push(k); }
+  sfx.click(); emit('modChanged', k);
   return true;
 }
 

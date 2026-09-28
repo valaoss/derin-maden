@@ -327,6 +327,118 @@ const SHADE_B = [
   '....k.....',
 ];
 
+// ---------------- v4 BİYOM YARATIKLARI ----------------
+// Örümcek: geniş karın, 4 çift bacak; B karesinde bacaklar değişir
+const SPIDER_PAL = { i: '#3a2650', I: '#6a4a8a', L: '#9a7ac0', f: '#e8e0ff' };
+const SPIDER_A = [
+  'k....kkkkk....k',
+  '.k..kIIIIIk..k.',
+  '..kkILLIILIkk..',
+  '.kIIIIrIrIIIIk.',
+  'kIiIIIIIIIIIiIk',
+  'k.kiiiIIIiiik.k',
+  'k..kk.kkk.kk..k',
+  'k.k...k.k...k.k',
+];
+const SPIDER_B = [
+  '.k...kkkkk...k.',
+  'k.k.kIIIIIk.k.k',
+  '.k.kILLIILIk.k.',
+  '..kIIIIrIrIIIk.',
+  '.kIiIIIIIIIIiIk',
+  'k.kiiiIIIiiik.k',
+  '.k.kk.kkk.kk.k.',
+  'k....k...k....k',
+];
+const SPIDERLING_A = ['k.kkk.k', '.kIrIk.', 'k.kkk.k', '.k...k.'];
+const SPIDERLING_B = ['.kkkk.k', 'kkIrIk.', '..kkkkk', '.k..k..'];
+// Örümcek Ana: dev karın, sırtta yumurta kesesi (beyaz noktalar), B karesi karın nabzı
+const BROOD_PAL = { i: '#2a1a3e', I: '#4a2a6a', L: '#7a4aa0', E: '#f0e8ff', e: '#c8b8e0' };
+const BROOD_A = [
+  '.......kkkkkkkk.......',
+  '.....kkIIEeEeIIkk.....',
+  'k...kIIIeEeEeEIIIk...k',
+  '.k.kIIIIIIIIIIIIIIk.k.',
+  '..kIILLIIIIIIIIIIIIk..',
+  '.kIIIIIIkkIrIrIIIIIIk.',
+  'kIiIIIIIkIIIIIIIIIIiIk',
+  'k.kiiiIIIIIIIIIIiiik.k',
+  'k..kkiiiiiiiiiiiikk..k',
+  'k.k..kkkkkkkkkkkk..k.k',
+  '.k.k..k.k....k.k..k.k.',
+  'k..k.k..k....k..k.k..k',
+];
+const BROOD_B = [
+  '.......kkkkkkkk.......',
+  '.....kkIIeEeEIIkk.....',
+  '.k..kIIIEeEeEeIIIk..k.',
+  'k.k.kIIIIIIIIIIIIIk.k.',
+  '.kkIILLIIIIIIIIIIIIkk.',
+  '..kIIIIIkkIrIrIIIIIIk.',
+  '.kIiIIIIkIIIIIIIIIIiIk',
+  'k.kiiiIIIIIIIIIIiiik.k',
+  'k..kkiiiiiiiiiiiikk..k',
+  '.k.k.kkkkkkkkkkkk.k.k.',
+  'k.k...k.k....k.k...k.k',
+  '.k..k...k....k...k..k.',
+];
+// Kırağı: buz yarasası (Yarasa şekli, soğuk palet, beyaz göz)
+const FROSTBAT_PAL = { B: '#9ad8ff', X: '#4a8ab0', r: '#e8f8ff' };
+// Kemikçi: kemik zırhlı hızlı böcek, çok bacaklı
+const SKIT_PAL = { n: '#8a7a5a', N: '#d0c0a0', W: '#f0e8d8', d: '#5a4a3a' };
+const SKIT_A = [
+  '....kkkkkkkk...',
+  '..kkNNNNNNNNkk.',
+  '.kNWNNNNNNNNNNk',
+  'kNNNNNNNrNNNNkk',
+  'kdnNNNNNNNNNNdk',
+  '.kdddnnnnnnddk.',
+  '..kkdkdkdkdkk..',
+  '..k.k.k.k.k.k..',
+];
+const SKIT_B = SKIT_A.slice(0, 6).concat(['..kdkdkdkdkdk..', '...k.k.k.k.k...']);
+// Kor Böceği: kara kabuk, kor damarları (emissive O), kırılan kabuk çatlakları
+const MAGMITE_PAL = { c: '#3a1410', C: '#5a2018', O: '#ff9a4a', o: '#d05a2a' };
+const MAGMITE_A = [
+  '....kkkkk....',
+  '..kkCCCCCkk..',
+  '.kCCOoCCoOCk.',
+  'kCCoCCCCCCoCk',
+  'kCcCCCrCCCCck',
+  'kccOccccccOck',
+  '.kccccccccck.',
+  '..kk.kk.kk...',
+];
+const MAGMITE_B = MAGMITE_A.slice(0, 7).concat(['...kk.kk.kk..']);
+// Boşluk Gözü: tek dev göz, etrafında yüzen mor tentakeller; B karesi göz kısık
+const VOID_PAL = { v: '#1c1840', V: '#3a3080', e: '#c0b8ff', E: '#ffffff', p: '#7a6aff' };
+const VOID_A = [
+  '.p...kkk...p.',
+  '..p.kVVVk.p..',
+  '...kVeeeVk...',
+  '.kkVeEEEeVkk.',
+  'kVVVeEkEeVVVk',
+  'kVVVeEEEeVVVk',
+  '.kkVVeeeVVkk.',
+  '..pkVVVVVkp..',
+  '.p..kkkkk..p.',
+  'p....p.p....p',
+];
+const VOID_B = [
+  '..p..kkk..p..',
+  '.p..kVVVk..p.',
+  '...kVVVVVk...',
+  '.kkVVeeeVVkk.',
+  'kVVVeEkEeVVVk',
+  'kVVVVeeeVVVVk',
+  '.kkVVVVVVVkk.',
+  '...kVVVVVk...',
+  '..p.kkkkk.p..',
+  '.p...p.p...p.',
+];
+// Obsidyen Devi: Kaya Devi şekli, obsidyen paleti, mor gözler
+const OGOLEM_PAL = { q: '#120e1a', Q: '#2c2440', U: '#4a3e68', r: '#c0a0ff' };
+
 // ---------------- DÜNYA OBJELERİ ----------------
 const CHEST = [
   '..kkkkkkkk..',
@@ -506,12 +618,41 @@ const ICONS = {
   check: [
     '..........', '........kk', '.......kGk', '......kGk.', 'kk...kGk..',
     'kGk.kGk...', '.kGkGk....', '..kGk.....', '...k......', '..........'],
+  sharp: [
+    '........kk', '.......kWk', '......kWWk', '.....kWWk.', '....kWWk..',
+    '...kWWk...', 'kk.kWk....', 'kHkkk.....', '.kHk......', '..kk......'],
+  swing: [
+    '...kkkk...', '..kWWWWk..', '.kWk..kWkk', '.kk....kWk', '.......kkk',
+    'kkk.......', 'kWk....kk.', 'kkWk..kWk.', '..kWWWWk..', '...kkkk...'],
+  ricochet: [
+    'kk........', 'kWk.......', 'kWWk......', 'kWWWk.....', 'kWWWWk....',
+    'kWWk.k....', 'kWkkWk.kk.', 'kk..kWkWk.', '.....kWWk.', '......kkk.'],
+  split: [
+    'k...k...k.', 'kWk.kWk.kW', 'kWk.kWk.kW', '.kWkWWkWk.', '..kWWWWk..',
+    '...kWWk...', '...kWWk...', '...kWWk...', '...kkkk...', '..........'],
+  boom: [
+    '....k.....', '.k.kOk.k..', '..kOFOk...', 'kkOFYFOkk.', '.kFYYYFk..',
+    'kkOFYFOkk.', '..kOFOk...', '.k.kOk.k..', '....k.....', '..........'],
+  rapid: [
+    '..........', 'kkk.kkk.kk', 'kYYkYYkYYk', 'kkk.kkk.kk', '..........',
+    '.kkk.kkk..', '.kYYkYYk..', '.kkk.kkk..', '..........', '..........'],
+  overdrive: [
+    '...kkkk...', '..kYYYYk..', '.kYYkkYYk.', 'kYYkWkYYYk', 'kYkWWkkYYk',
+    'kYkWWWWkYk', 'kYYkkWkYYk', '.kYYkkYYk.', '..kYYYYk..', '...kkkk...'],
+  nova: [
+    '....k.....', '.k.kIk.k..', '..kIWIk...', 'kkIWWWIkk.', '.kWWWWWk..',
+    'kkIWWWIkk.', '..kIWIk...', '.k.kIk.k..', '....k.....', '..........'],
+  elite: [
+    '..........', 'k...k...k.', 'kY.kYk.Yk.', 'kYkYYYkYk.', 'kYYYYYYYk.',
+    'kYYYYYYYk.', 'kYYkYkYYk.', 'kkkkkkkkk.', '..........', '..........'],
   hand: [
     '...kk.......', '..kWWk......', '..kWWk......', '..kWWkkkk...', '..kWWkWWkkk.',
     'kkkWWkWWkWWk', 'kWWWWWWWWWWk', 'kWWWWWWWWWWk', '.kWWWWWWWWk.', '..kWWWWWWWk.',
     '...kWWWWWk..', '...kkkkkkk..'],
 };
 const ORE_ICON_SHAPES = {
+  gold: ['..........', '..kkkkkk..', '.kddccbbk.', 'kdccccbbak', 'kcccbbbaak',
+    'kccbbbaaak', '.kbbbaaak.', '..kkkkkk..', '..........', '..........'],
   iron: ['..........', '...kkkk...', '..kcddck..', '.kccdcbbk.', 'kcccbbbbak',
     'kbcbbbbaak', 'kbbbbaaak.', '.kkaaakk..', '...kkk....', '..........'],
   water: ['....kk....', '...kdck...', '...kcck...', '..kcdcbk..', '.kcdccbbk.',
@@ -555,6 +696,14 @@ export function buildSprites() {
   SPR.boomer = [makeSprite(BOOM_A, BOOM_PAL, 'rCQ'), makeSprite(BOOM_B, BOOM_PAL, 'rCQ')];
   SPR.brute = [makeSprite(BRUTE_A, BRUTE_PAL, 'r'), makeSprite(BRUTE_B, BRUTE_PAL, 'r')];
   SPR.boss = [makeSprite(BOSS_A, BOSS_PAL, 'r'), makeSprite(BOSS_B, BOSS_PAL, 'r')];
+  SPR.spider = [makeSprite(SPIDER_A, SPIDER_PAL, 'r'), makeSprite(SPIDER_B, SPIDER_PAL, 'r')];
+  SPR.spiderling = [makeSprite(SPIDERLING_A, SPIDER_PAL, 'r'), makeSprite(SPIDERLING_B, SPIDER_PAL, 'r')];
+  SPR.broodmother = [makeSprite(BROOD_A, BROOD_PAL, 'rE'), makeSprite(BROOD_B, BROOD_PAL, 'rE')];
+  SPR.frostbat = [makeSprite(BAT_A, FROSTBAT_PAL, 'r'), makeSprite(BAT_B, FROSTBAT_PAL, 'r')];
+  SPR.skitter = [makeSprite(SKIT_A, SKIT_PAL, 'r'), makeSprite(SKIT_B, SKIT_PAL, 'r')];
+  SPR.magmite = [makeSprite(MAGMITE_A, MAGMITE_PAL, 'rOo'), makeSprite(MAGMITE_B, MAGMITE_PAL, 'rOo')];
+  SPR.voidling = [makeSprite(VOID_A, VOID_PAL, 'eEp'), makeSprite(VOID_B, VOID_PAL, 'eEp')];
+  SPR.ogolem = [makeSprite(BRUTE_A, OGOLEM_PAL, 'r'), makeSprite(BRUTE_B, OGOLEM_PAL, 'r')];
   SPR.chest = makeSprite(CHEST, { G: '#ffd24a' }, 'G');
   SPR.heart = makeSprite(HEART, { x: '#ff3a6a', X: '#ff8aa8', Z: '#ffffff', z: '#a01a40' }, 'xXZz');
   SPR.satchel = makeSprite(SATCHEL, { G: '#ffd24a' }, 'G');

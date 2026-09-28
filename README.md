@@ -15,6 +15,24 @@ npm run build      # dist/ — statik olarak herhangi bir yerde yayınlanabilir
   (`AWAY=1` ile oyuncu derindeyken sadece taretlerin savunduğu senaryo).
 - `legacy/index.html` — ilk prototip (karşılaştırma için).
 
+## v4 içeriği
+
+- **10 biyom, ~360 m:** Toprak, Taş, Kök Ormanı, Kobalt, Buz, Kemik Çukuru, Kor, Kristal, Obsidyen, Boşluk Çekirdeği.
+  Her biyomun kendi ana kayası, arka duvar rengi, süsleri (kök sarkıtı, buz sarkıtı, kemik, kor, obsidyen kıymığı, ışık zerresi)
+  ve atmosfer parçacığı (spor, kar, kor, kül, yıldız tozu) var. Kalp Kristali en dipte.
+- **Yeni taşlar:** Yosun (2), Buz (5, kırılınca su verir), Kemik (7), Kor Taşı (12, parlar, kırılınca yakar), Kor (18), Obsidyen (40), Boşluk (60).
+  Yeni cevher **Altın**: 2. biyomdan itibaren; kazma ve eklenti alımlarının anahtarı.
+- **Kazma dükkânı (Atölye > Kazma):** 8 kademe sırayla satın alınır: Odun, Taş, Demir, Altın, Kobalt, Kristal, Obsidyen, Boşluk.
+  Üstüne Keskinlik (güç ×1.75'e kadar) ve Hızlı Sallama (aralık ×0.74'e kadar) yükseltmeleri.
+- **Blaster eklentileri (Atölye > Blaster):** 3 yuva (Kalıntı perki ile 4). Pasif: Sekme, Çatal Namlu, Buz Ucu, Yakıcı, Yıldırım, Patlayıcı, Hızlı Ateş.
+  Aktif: Aşırı Yük (4 sn üç kat atış), Nova (14 mermilik halka). Aktifler ekranın sağındaki panelden (klavyede Q/E) kullanılır.
+- **Dalgalar:** bütçe yaklaşık iki kat, dalgalar arası daha kısa, 3 yuva, doğuş aralığı 0.42 sn, boss her 5 dalgada.
+  Dalga 3'ten sonra her dalgada bir **elit** (can ×2.2, taçlı, altın düşürür).
+- **Yeni yaratıklar:** Örümcek (ağ atar, yavaşlatır), Örümcekçik (sürü), Örümcek Ana (yumurtlar), Kırağı (dondurur),
+  Kemikçi (zırhlı ve hızlı), Kor Böceği (patlar, kor izi), Boşluk Gözü (yanına ışınlanır), Obsidyen Devi.
+- **Animasyon:** düşmanlarda nefes alma ve vuruş ezilmesi, kazma iz efekti, elit aurası ve tacı, ışınlanma halkası,
+  ağ/soğuk/yanma durum efektleri, yıldırım sıçramaları, biyom renk tonu.
+
 ## v3 içeriği
 
 - **Kazma kademeleri:** Odun, Taş, Demir, Altın, Kobalt, Kristal. Matkap seviyesiyle kazma rengi, kıvılcımı ve

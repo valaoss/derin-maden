@@ -18,7 +18,7 @@ for (const k in MAT_RAMP) ramp('m_' + k, MAT_RAMP[k]);
 for (const k in WALL_RAMP) ramp('w_' + k, WALL_RAMP[k]);
 for (const k in ORE_RAMP) ramp('o_' + k, ORE_RAMP[k]);
 ramp('grass', [P.ink, P.grass0, P.grass1, P.grass2]);
-const MAT_SEED = { dirt: 11, stone: 23, hard: 37, dense: 53, bedrock: 71, found: 83, vault: 97 };
+const MAT_SEED = { dirt: 11, stone: 23, hard: 37, dense: 53, bedrock: 71, found: 83, vault: 97, moss: 101, ice: 113, bone: 127, magma: 131, obsidian: 139, void: 149 };
 
 // görsel olarak katı mı (barikat arka duvar üzerinde sprite olarak çizilir)
 function vSolid(c, r) {
@@ -91,6 +91,55 @@ function baseShade(mat, wx, wy, s) {
       if (ly === 1) return 3;
       if (lx === 15 || ly === 15) return 1;
       return h < 0.04 ? 1 : 2;
+    }
+    case 'moss': {
+      // yumuşak toprak + üstte yosun lekeleri, ince kök çizgileri
+      const m = vnoise(wx / 9, wy / 6, s + 5);
+      const root = ((wx + Math.floor(vnoise(0, wy / 7, s + 8) * 5)) % 11) === 0 && hash2(wx, wy >> 2, s + 9) < 0.6;
+      if (root) return 1;
+      if (h < 0.02) return 4;
+      return m > 0.66 ? 3 : m < 0.3 ? 1 : 2;
+    }
+    case 'ice': {
+      // buz: geniş açık levhalar, çapraz çatlaklar, seyrek parlak nokta
+      const crack = (((wx - wy) & 15) === 0 && hash2((wx - wy) >> 4, wy >> 3, s + 2) < 0.5) || (((wx + wy) & 21) === 0 && hash2((wx + wy), 0, s + 3) < 0.4);
+      if (crack) return 1;
+      if (h < 0.02) return 4;
+      const f = vnoise(wx / 8, wy / 8, s + 4);
+      return f > 0.62 ? 3 : f > 0.3 ? 2 : 3;
+    }
+    case 'bone': {
+      // kemik yığını: yatay uzun kemikler ve eklem yumruları
+      const by = (wy + Math.floor(vnoise(wx / 13, 0, s + 6) * 4)) % 7;
+      const bx = (wx + Math.floor(hash2(0, wy / 7 | 0, s + 7) * 9)) % 13;
+      if (by === 0) return 1;
+      if (by === 1 && bx > 1 && bx < 11) return 4;
+      if (by === 2 && (bx === 1 || bx === 11)) return 3;
+      if (by >= 4 && by <= 5 && (bx < 2 || bx > 10)) return 3;
+      return h < 0.04 ? 1 : 2;
+    }
+    case 'magma': {
+      // kor kayası: koyu kabuk, arasında parlayan kırmızı damarlar
+      const v = vnoise(wx / 6, wy / 6, s + 3);
+      const vein = Math.abs(v - 0.5) < 0.035;
+      if (vein) return 4;
+      if (Math.abs(v - 0.5) < 0.07) return 3;
+      return n > 0.6 ? 2 : 1;
+    }
+    case 'obsidian': {
+      // obsidyen: cam gibi keskin kırıklar, nadir parlak kenar
+      const f = vnoise(wx / 5, wy / 5, s + 9);
+      const edge = (((wx * 3 + wy * 2) % 17) === 0) && hash2(wx >> 1, wy >> 1, s) < 0.5;
+      if (edge) return 4;
+      if (h < 0.012) return 4;
+      return f > 0.66 ? 3 : f > 0.42 ? 2 : 1;
+    }
+    case 'void': {
+      // boşluk: koyu, içinde seyrek yıldız noktaları ve mor girdap izleri
+      const sw = vnoise(wx / 10, wy / 10, s + 2);
+      if (h < 0.01) return 4;
+      if (Math.abs(sw - 0.5) < 0.03) return 3;
+      return sw > 0.62 ? 2 : 1;
     }
     default: // bedrock
       return n > 0.72 ? 3 : n > 0.4 ? 2 : 1;
@@ -169,6 +218,7 @@ function paintTile(img, c, r, oy) {
   const blend = m => m && m !== mat0 && m !== 'found' && mat0 !== 'found' && m !== 'vault' && mat0 !== 'vault';
   const dN = blend(mN), dS = blend(mS), dW = blend(mW), dE = blend(mE);
   const grass = eN && r === GROUND_ROW && mat0 === 'dirt';
+  const ember = TD[t].ember;
   const ore = TD[t].ore;
   const OR = ore ? rgb['o_' + ore] : null;
   for (let py = 0; py < TILE; py++) for (let px = 0; px < TILE; px++) {
@@ -196,6 +246,10 @@ function paintTile(img, c, r, oy) {
     if (OR) {
       const g = gemAt(c, r, px, py);
       if (g) { put(px, py, OR[g - 1]); continue; }
+    }
+    if (ember) {
+      const g = gemAt(c, r, px, py);
+      if (g) { put(px, py, [[120, 30, 10], [220, 90, 30], [255, 170, 60], [255, 240, 180]][g - 1]); continue; }
     }
     // kenar ışığı: yukarıdan gelir
     if (eN) { if (py === 0) i = 0; else if (py === 1) i = 4; else if (py === 2) i = Math.max(i, 3); }

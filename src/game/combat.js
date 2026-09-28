@@ -2,15 +2,16 @@
 import { rnd } from '../core/rng.js';
 import { TILE, BASE_X, BASE_Y, GROUND_Y } from '../config.js';
 import { T, TD } from '../data/tiles.js';
-import { UPGRADES, BUILDS, BASE } from '../data/balance.js';
+import { UPGRADES, BUILDS, BASE, MODS, BURN } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt } from '../world/map.js';
-import { damageEnemy, losClear, damageStructure, damageBase } from './enemies.js';
-import { damagePlayer } from './player.js';
-import { hasPerk, hear } from './run.js';
-import { sparks, flashLight, particle, ring, shake, debris } from './fx.js';
+import { damageEnemy, losClear, damageStructure, damageBase, burnEnemy } from './enemies.js';
+import { damagePlayer, webPlayer } from './player.js';
+import { hasPerk, hear, hasMod, isLocal } from './run.js';
+import { sparks, flashLight, particle, ring, shake, debris, hitstop } from './fx.js';
 import { igniteGas } from './hazards.js';
 import { sfx } from '../audio/audio.js';
+import { emit } from '../core/events.js';
 
 function nearestTarget(x, y, range) {
   let best = null, bd = range * range;
@@ -24,7 +25,43 @@ function nearestTarget(x, y, range) {
 
 export function shoulderPos(p) { return { x: p.x - p.face * 3, y: p.y - 5 }; }
 
-export function updatePlayerGun(dt) { for (const p of G.players) updateGun(p, dt); }
+export function updatePlayerGun(dt) {
+  // eklenti bekleme süreleri ve aktif etkiler (ortak: iki oyuncu aynı blaster'ı paylaşır)
+  const g = G.gear;
+  for (const k in g.cd) if (g.cd[k] > 0) g.cd[k] -= dt;
+  for (const k in g.active) if (g.active[k] > 0) g.active[k] -= dt;
+  for (const p of G.players) updateGun(p, dt);
+  // yıldırım çizgileri (kozmetik)
+  let j = 0; for (const z of G.zaps) { z.t -= dt; if (z.t > 0) G.zaps[j++] = z; } G.zaps.length = j;
+}
+// Aktif eklenti kullanımı (komut): Aşırı Yük, Nova
+export function useMod(k, p = G.player) {
+  const m = MODS[k], g = G.gear;
+  if (!m || !m.active || !hasMod(k) || p.dead) { if (isLocal(p)) sfx.deny(); return false; }
+  if ((g.cd[k] || 0) > 0) { if (isLocal(p)) sfx.deny(); return false; }
+  g.cd[k] = m.cd;
+  if (k === 'overdrive') {
+    g.active.overdrive = m.dur;
+    ring(p.x, p.y, '#ffe79a', 22); sparks(p.x, p.y, '#ffe79a', 12, 90); flashLight(p.x, p.y, 4, 0.3);
+    if (hear(p)) sfx.overdrive();
+  } else if (k === 'nova') {
+    const lv = G.lvl.blaster, dmg = UPGRADES.blaster.dmg[lv] * 0.8;
+    for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2; const b = fire(p.x + Math.cos(a) * 6, p.y - 4 + Math.sin(a) * 6, a, 230, dmg, 'p', 0); tagBullet(b); }
+    ring(p.x, p.y - 4, '#bff4ff', 30); sparks(p.x, p.y - 4, '#bff4ff', 16, 120); flashLight(p.x, p.y, 6, 0.3);
+    hitstop(0.03); if (isLocal(p)) shake(0.3);
+    if (hear(p)) sfx.nova();
+  }
+  emit('modUsed', k);
+  return true;
+}
+function tagBullet(b) {
+  if (hasMod('ricochet')) b.bounce = 1;
+  if (hasMod('frost')) b.frost = true;
+  if (hasMod('fire')) b.fire = true;
+  if (hasMod('chain')) b.chain = true;
+  if (hasMod('boom')) b.boom = true;
+  return b;
+}
 function updateGun(p, dt) {
   if (p.dead) return;
   p.fireCd -= dt;
@@ -36,10 +73,16 @@ function updateGun(p, dt) {
   const ang = Math.atan2(tgt.y - sp.y, tgt.x - sp.x);
   p.aim = ang; p.aimT = 0.6;
   if (p.fireCd > 0) return;
-  p.fireCd = UPGRADES.blaster.cd[lv];
+  let cd = UPGRADES.blaster.cd[lv];
+  if (hasMod('rapid')) cd *= 0.7;
+  if ((G.gear.active.overdrive || 0) > 0) cd /= 3;
+  p.fireCd = cd;
   const dmg = UPGRADES.blaster.dmg[lv];
   const shots = hasPerk('ciftNamlu') ? [-0.09, 0.09] : [0];
-  for (const o of shots) fire(sp.x + Math.cos(ang) * 6, sp.y + Math.sin(ang) * 6, ang + o, 250, dmg, 'p', hasPerk('delici') ? 1 : 0);
+  const pierce = hasPerk('delici') ? 1 : 0;
+  for (const o of shots) tagBullet(fire(sp.x + Math.cos(ang) * 6, sp.y + Math.sin(ang) * 6, ang + o, 250, dmg, 'p', pierce));
+  if (hasMod('split')) for (const o of [-0.3, 0.3]) tagBullet(fire(sp.x + Math.cos(ang) * 6, sp.y + Math.sin(ang) * 6, ang + o, 230, dmg * 0.5, 'p', pierce));
+  if ((G.gear.active.overdrive || 0) > 0) sparks(sp.x, sp.y, '#ffe79a', 1, 30);
   p.recoil = 1;
   sparks(sp.x + Math.cos(ang) * 7, sp.y + Math.sin(ang) * 7, '#ffe79a', 2, 40);
   flashLight(sp.x, sp.y, 2.2, 0.06);
@@ -58,9 +101,19 @@ export function updateBullets(dt) {
     // iki alt adım: köşe kıyılarından sızmasın / takılmasın (LOS kontrolüyle aynı hassasiyet)
     let wall = false;
     for (let k = 0; k < 2 && !wall; k++) {
+      const ox = b.x, oy = b.y;
       b.x += b.vx * dt * 0.5; b.y += b.vy * dt * 0.5;
-      const t = tileAt(Math.floor(b.x / TILE), Math.floor(b.y / TILE));
-      if (TD[t].solid && t !== T.BARRICADE) wall = true;
+      const solid = (x, y) => { const t = tileAt(Math.floor(x / TILE), Math.floor(y / TILE)); return TD[t].solid && t !== T.BARRICADE; };
+      if (solid(b.x, b.y)) {
+        if (b.bounce > 0) {
+          // sekme: hangi eksen engellendiyse o hızı ters çevir
+          b.bounce--;
+          const hx = solid(b.x, oy), hy = solid(ox, b.y);
+          if (hx || !hy) b.vx = -b.vx; if (hy || !hx) b.vy = -b.vy;
+          b.x = ox; b.y = oy; b.life += 0.25;
+          sparks(b.x, b.y, '#ffd48a', 4, 70); if (hear(G.player, b.x, b.y)) sfx.ping();
+        } else wall = true;
+      }
     }
     if (wall) { sparks(b.x - b.vx * dt * 0.5, b.y - b.vy * dt * 0.5, '#ffd48a', 3, 50); continue; }
     let dead = b.life <= 0;
@@ -71,6 +124,18 @@ export function updateBullets(dt) {
         damageEnemy(e, b.dmg, b.vx / s, b.vy / s, b.from === 'p' ? 1 : 0.6);
         if (b.from === 'f') { e.slowT = BUILDS.frost.slowT; sparks(b.x, b.y, '#bff4ff', 5, 50); }
         else sparks(b.x, b.y, '#fff4c2', 3, 60);
+        if (b.frost) { e.slowT = Math.max(e.slowT, 1.2); sparks(b.x, b.y, '#bff4ff', 3, 40); }
+        if (b.fire) { burnEnemy(e, BURN.t); sparks(b.x, b.y, '#ff9a4a', 3, 40); }
+        if (b.chain) {
+          let best = null, bd = 44 * 44;
+          for (const o of G.enemies) { if (o === e || o.dead || o.emergeT > 0.3) continue; const d2 = (o.x - e.x) ** 2 + (o.y - e.y) ** 2; if (d2 < bd) { bd = d2; best = o; } }
+          if (best) { damageEnemy(best, b.dmg * 0.5, 0, 0, 0.3, true); G.zaps.push({ x0: e.x, y0: e.y - 2, x1: best.x, y1: best.y - 2, t: 0.12 }); sparks(best.x, best.y, '#bff4ff', 4, 60); if (hear(G.player, e.x, e.y)) sfx.zap(); }
+        }
+        if (b.boom) {
+          ring(b.x, b.y, '#ffb050', 14); sparks(b.x, b.y, '#ffd48a', 6, 80); flashLight(b.x, b.y, 2.5, 0.12);
+          for (const o of G.enemies) { if (o === e || o.dead || o.emergeT > 0.3) continue; const d = Math.hypot(o.x - b.x, o.y - b.y); if (d < 14 + o.r) damageEnemy(o, b.dmg * 0.6, (o.x - b.x) / (d || 1), (o.y - b.y) / (d || 1), 0.5, true); }
+          igniteGas(b.x, b.y, 14);
+        }
         if (b.pierce > 0) { b.pierce--; b.hit = e; } else dead = true;
         break;
       }
@@ -82,10 +147,10 @@ export function updateBullets(dt) {
   const eb = G.ebullets; j = 0;
   for (const b of eb) {
     b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
-    if (rnd() < 0.5) particle(b.x, b.y, 0, 0, 0.18, '#9af060', 1, 1, 0);
-    if (TD[tileAt(Math.floor(b.x / TILE), Math.floor(b.y / TILE))].solid) { sparks(b.x, b.y, '#9af060', 4, 40); continue; }
+    if (rnd() < 0.5) particle(b.x, b.y, 0, 0, 0.18, b.web ? '#f0f0ff' : '#9af060', 1, 1, 0);
+    if (TD[tileAt(Math.floor(b.x / TILE), Math.floor(b.y / TILE))].solid) { sparks(b.x, b.y, b.web ? '#f0f0ff' : '#9af060', 4, 40); continue; }
     let hitP = false;
-    for (const p of G.players) if (!p.dead && Math.abs(b.x - p.x) < 6 && Math.abs(b.y - p.y) < 7) { damagePlayer(p, b.dmg, b.x, b.y); sparks(b.x, b.y, '#9af060', 5, 50); hitP = true; break; }
+    for (const p of G.players) if (!p.dead && Math.abs(b.x - p.x) < 6 && Math.abs(b.y - p.y) < 7) { damagePlayer(p, b.dmg, b.x, b.y); if (b.web) { webPlayer(p, 1.6); sparks(b.x, b.y, '#f0f0ff', 6, 40); } else sparks(b.x, b.y, '#9af060', 5, 50); hitP = true; break; }
     if (hitP) continue;
     if (Math.abs(b.x - BASE_X) < 22 && Math.abs(b.y - (BASE_Y - 8)) < 16) {
       damageBase(b.dmg * 0.6); sparks(b.x, b.y, '#9af060', 5, 50); continue;
