@@ -2,7 +2,7 @@
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_ROW } from '../config.js';
 import { T } from '../data/tiles.js';
-import { UPGRADES, BUILDS, BARRICADE, REPAIR, PERKS, ITEMS, MODS } from '../data/balance.js';
+import { UPGRADES, BUILDS, BARRICADE, PERKS, ITEMS, MODS, DEPLOY_MAX } from '../data/balance.js';
 import { G, App } from './state.js';
 import { tileAt, setTile, idx } from '../world/map.js';
 import { makeStructure, recompute, hasPerk, isUnlocked, isLocal, modSlots } from './run.js';
@@ -48,15 +48,35 @@ export function toggleMod(k, p = G.player) {
   return true;
 }
 
-export function buildOnPad(type, pad, p = G.player) {
-  const b = BUILDS[type];
-  if (G.structures.some(s => s.pad === pad) || !isUnlocked(type)) return false;
-  if (!canAfford(b.cost)) { if (isLocal(p)) sfx.deny(); return false; }
-  pay(b.cost);
-  const s = makeStructure(type, pad);
+export function deployLimit() { return DEPLOY_MAX + (hasPerk('ucuncuAlet') ? 1 : 0); }
+// aleti durduğun hücreye kur; sınır doluysa en eski alet kemere geri döner
+export function placeBuild(type, p = G.player) {
+  if (!BUILDS[type] || p.dead || (G.items[type] | 0) <= 0) return false;
+  const c = Math.floor(p.x / TILE), r = Math.floor(p.y / TILE);
+  if (tileAt(c, r) !== T.AIR) { if (isLocal(p)) sfx.deny(); return false; }
+  if (G.structures.some(s => s.c === c && s.r === r)) { if (isLocal(p)) sfx.deny(); return false; }
+  while (G.structures.length >= deployLimit()) {
+    const old = G.structures.shift();
+    if ((G.items[old.type] | 0) < ITEMS[old.type].max) G.items[old.type]++;
+    dust(old.x, old.y, 3); emit('toast', { text: old.type === type ? 'Eski alet kemere döndü' : BUILDS[old.type].name + ' kemere döndü', icon: BUILDS[old.type].icon });
+  }
+  G.items[type]--;
+  const s = makeStructure(type, c, r);
   G.structures.push(s);
   sfx.build(); if (isLocal(p)) haptic(20);
   dust(s.x, s.y, 5); sparks(s.x, s.y, '#ffe79a', 8, 60);
+  emit('deployed', type);
+  return true;
+}
+// aleti geri al (dokunarak): kemere döner
+export function pickupBuild(i, p = G.player) {
+  const s = G.structures[i];
+  if (!s || p.dead || Math.hypot(s.x - p.x, s.y - p.y) > 40) return false;
+  G.structures.splice(i, 1);
+  if ((G.items[s.type] | 0) < ITEMS[s.type].max) G.items[s.type]++;
+  sfx.click(); if (isLocal(p)) haptic(10);
+  dust(s.x, s.y, 3); sparks(s.x, s.y, '#ffe79a', 5, 40);
+  emit('deployed', s.type);
   return true;
 }
 
@@ -98,14 +118,6 @@ export function placeBarricade(p = G.player) {
   return true;
 }
 
-export function repairBase(p = G.player) {
-  const b = G.base;
-  if (b.hp >= b.maxHp || !canAfford(REPAIR.cost)) { if (isLocal(p)) sfx.deny(); return false; }
-  pay(REPAIR.cost); b.hp = Math.min(b.maxHp, b.hp + REPAIR.amount);
-  sfx.buy(); sparks(b.x, b.y - 10, '#5fe0b8', 12, 60);
-  return true;
-}
-
 export function perkChoices() {
   const n = (G.meta.lv.kalintiBil ? 4 : 3);
   const pool = Object.keys(PERKS).filter(k => !G.perks.includes(k));
@@ -116,7 +128,7 @@ export function perkChoices() {
 export function applyPerk(k, p = G.player) {
   if (G.perks.includes(k) || !PERKS[k]) return false;
   G.perks.push(k);
-  if (k === 'kaleUs') { recompute(); G.base.hp = G.base.maxHp; }
+  if (k === 'ikinciNefes') G.selfRevive++;
   recompute();
   ring(p.x, p.y, '#ffd24a', 24); sparks(p.x, p.y, '#ffd24a', 14, 90);
   sfx.buy();

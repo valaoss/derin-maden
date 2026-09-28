@@ -143,6 +143,24 @@ export function generate(seed, opts = {}) {
     }
   }
 
+  // yuvalar: her biyomda 2-3 kovan, kayaya gömülü, sandık ve birbirinden uzak
+  const nests = [];
+  for (let s = 0; s < STRATA_COUNT; s++) {
+    const r0 = GROUND_ROW + s * STRATUM_ROWS;
+    const n = s === 0 ? 2 : 3;
+    for (let i = 0; i < n; i++) {
+      for (let tries = 0; tries < 40; tries++) {
+        const c = PLAY_MIN_COL + 1 + Math.floor(rnd() * 11);
+        const r = r0 + (s === 0 ? 10 : 4) + Math.floor(rnd() * (STRATUM_ROWS - (s === 0 ? 13 : 7)));
+        if (!plain(get(c, r))) continue;
+        if (chests.some(o => Math.abs(o[0] - c) < 3 && Math.abs(o[1] - r) < 4)) continue;
+        if (nests.some(o => Math.abs(o[1] - r) < 7 || (Math.abs(o[0] - c) < 4 && Math.abs(o[1] - r) < 12))) continue;
+        if (s === 0 && Math.abs(c - CENTER_COL) < 2 && r < r0 + 14) continue;
+        set(c, r, T.NEST); nests.push([c, r]); break;
+      }
+    }
+  }
+
   // çekirdek odası + Kalp Kristali
   const hr = BOTTOM - 6;
   for (let r = hr - 3; r <= hr + 3; r++) for (let c = CENTER_COL - 4; c <= CENTER_COL + 4; c++) {

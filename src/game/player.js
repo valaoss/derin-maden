@@ -11,6 +11,8 @@ import { hasPerk, bagCount, recompute, unlockSchematic, hear, isLocal, pickDmg, 
 import { HAZARD } from '../data/balance.js';
 import { perkChoices } from './economy.js';
 import { spawnGas } from './hazards.js';
+import { addNoise, nestDestroyed } from './threat.js';
+import { THREAT } from '../data/balance.js';
 import { debris, dust, sparks, shake, kick, hitstop, flashLight, ring, particle } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
 import { emit } from '../core/events.js';
@@ -69,11 +71,9 @@ export function anyCarrying() { return G.players.some(p => p.carrying); }
 
 export function updatePlayer(dt) {
   for (const p of G.players) updateOne(p, dt);
-  // partnerler birbirinden çok uzaksa dalga saati hızlanır (çok oyunculu baskısı)
-  if (G.mp && G.players.length > 1 && G.wave.phase === 'calm') {
-    const [a, b] = G.players;
-    if (!a.dead && !b.dead && Math.abs(a.y - b.y) > 20 * TILE) G.wave.t -= dt * 0.5;
-  }
+  // herkes baygın: sefer biter
+  if (G.players.every(p => p.dead && !p.autoUp)) { G.allDownT = (G.allDownT || 0) + dt; if (G.allDownT > 1.4 && !G.over) { G.allDownT = -1e9; emit('allDown'); } }
+  else G.allDownT = 0;
 }
 
 function updateOne(p, dt) {
@@ -92,8 +92,15 @@ function updateOne(p, dt) {
   if (p.digAnim > 0) p.digAnim = Math.max(0, p.digAnim - dt * 6);
   if (p.squash > 0) p.squash = Math.max(0, p.squash - dt * 5);
   if (p.dead) {
-    p.respawnT -= dt;
-    if (p.respawnT <= 0) respawn(p);
+    p.downT -= dt;
+    // partner yanında durursa kaldırır
+    const mate = G.players.find(q => q !== p && !q.dead && Math.hypot(q.x - p.x, q.y - p.y) < 16);
+    if (mate) { p.reviveP += dt / PLAYER.reviveTime; if (p.reviveP >= 1) { revive(p, 0.5); return; } }
+    else p.reviveP = Math.max(0, p.reviveP - dt * 0.6);
+    if (p.autoUp && p.downT <= 0) { revive(p, 0.6); return; }
+    // süre doldu: partner kampa dönerse orada uyanır
+    if (p.downT <= 0 && !p.gone) p.gone = true;
+    if (p.gone && G.players.some(q => q !== p && !q.dead && q.y < GROUND_Y)) respawn(p);
     return;
   }
   const mv = p.inp;
@@ -165,11 +172,11 @@ function updateOne(p, dt) {
   const st = stratumOfRow(row);
   if (st > G.maxStratum) { G.maxStratum = st; emit('stratum', st); sfx.stratum(); }
 
-  // ---- yüzey: depola, iyileş ----
+  // ---- yüzey (kamp): depola, iyileş ----
   const onSurface = p.y < GROUND_Y;
   if (onSurface) {
     if (bagCount(p) > 0) startDeposit(p);
-    if (p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + PLAYER.surfaceRegen * dt);
+    if (p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + PLAYER.surfaceRegen * (G.mods.slowRegen ? 0.5 : 1) * dt);
     if (p.carrying) { emit('victory'); return; }
   }
   // ---- kese geri alma (herhangi bir oyuncu alabilir) ----
@@ -194,6 +201,7 @@ function digHit(p, t) {
   p.hitTile = { c: t.c, r: t.r, t: 0.12 };
   const hx = t.c * TILE + 8 - t.dx * 7, hy = t.r * TILE + 8 - t.dy * 7;
   if (hear(p)) sfx.dig(mat, G.lvl.drill);
+  addNoise(THREAT.noise.dig * (d.hp >= 6 ? 1.4 : 1), hx, hy);
   debris(hx, hy, mat, 3, 0.6);
   // kazma ucu kıvılcımı: kademe rengi
   const tier = PICK_TIERS[Math.min(PICK_TIERS.length - 1, G.lvl.drill)];
@@ -226,6 +234,8 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
   if (!byPlayer) { debris(x, y, mat, 5, 0.7); return; }
   const p = byPlayer, near = hear(p, x, y), local = isLocal(p);
   G.stats.dug++;
+  addNoise(THREAT.noise.brk + (d.ore ? THREAT.noise.ore : 0), x, y);
+  if (d.nest) nestDestroyed(c, r, p);
   debris(x, y, mat, 9);
   dust(x, y, 3);
   if (near) sfx.breakBlock(mat);
@@ -245,6 +255,7 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
     sparks(x, y, '#ffd24a', 14, 110); ring(x, y, '#ffd24a', 22); flashLight(x, y, 5, 0.5);
     const sc = unlockSchematic();
     if (sc) emit('schematic', sc);
+    addNoise(THREAT.noise.chest, x, y);
     const keys = perkChoices();
     if (keys.length) { G.perkOffer = { pi: p.i, keys }; emit('perkOffer', p.i); }
     else if (local) emit('toast', { text: 'Sandık boş çıktı', icon: 'chest' });
@@ -378,10 +389,10 @@ export function webPlayer(p, t) { if (!p.dead) { p.webT = Math.max(p.webT, t); i
 export function chillPlayer(p, t) { if (!p.dead) { p.slowT = Math.max(p.slowT, t); if (isLocal(p)) emit('chill'); } }
 
 function die(p) {
-  p.hp = 0; p.dead = true;
-  // çok oyunculu: partner hayattaysa daha uzun bekleme; ikisi de düştüyse normal süre
-  const otherAlive = G.players.some(q => q !== p && !q.dead);
-  p.respawnT = G.mp && otherAlive ? PLAYER.respawn * 2 : PLAYER.respawn;
+  p.hp = 0; p.dead = true; p.gone = false; p.reviveP = 0; p.autoUp = false;
+  p.downT = PLAYER.downTime;
+  // kendi kendine kalkma hakkı: İkinci Nefes perk'i ya da Sağlık Sigortası (sefer başına bir kez)
+  if (G.selfRevive > 0) { G.selfRevive--; p.autoUp = true; p.downT = 2.6; }
   const has = bagCount(p) > 0 || p.carrying;
   if (has) {
     G.satchels.push({ x: p.x, y: p.y, bag: Object.assign({}, p.bag), heart: p.carrying, owner: p.i });
@@ -389,11 +400,19 @@ function die(p) {
   }
   p.carrying = false; p.recallT = 0; p.dig = null;
   sparks(p.x, p.y, '#74efcf', 18, 120); ring(p.x, p.y, '#74efcf', 26);
-  if (isLocal(p)) { shake(0.5); haptic(80); emit('playerDown', has); } else emit('toast', { text: 'Partnerin bayıldı', icon: 'skull', bad: true });
+  if (isLocal(p)) { shake(0.5); haptic(80); emit('playerDown', { has, autoUp: p.autoUp }); } else emit('toast', { text: 'Partnerin bayıldı — yanına git ve kaldır', icon: 'skull', bad: true });
   sfx.enemyDie(true);
 }
+// kaldırma (partner ya da kendi kendine)
+function revive(p, frac) {
+  p.dead = false; p.gone = false; p.hp = Math.max(1, Math.round(p.maxHp * frac)); p.iframes = 1.5; p.reviveP = 0; p.autoUp = false;
+  ring(p.x, p.y, '#74efcf', 22); sparks(p.x, p.y, '#74efcf', 12, 70); flashLight(p.x, p.y, 4, 0.3);
+  if (hear(p)) sfx.heal();
+  if (isLocal(p)) { haptic(25); emit('revived'); } else emit('toast', { text: 'Partnerin ayağa kalktı', icon: 'heart' });
+}
+// kampta uyanma (süre dolduysa ve partner kampa döndüyse)
 function respawn(p) {
-  p.dead = false; p.hp = p.maxHp; p.iframes = 1.2;
+  p.dead = false; p.gone = false; p.hp = p.maxHp; p.iframes = 1.2; p.reviveP = 0;
   p.x = BASE_X + (p.i ? -40 : 40); p.y = GROUND_ROW * TILE - 10; p.px = p.x; p.py = p.y;
   ring(p.x, p.y, '#74efcf', 20); sparks(p.x, p.y, '#74efcf', 10, 60);
   if (isLocal(p)) { G.cam.snap = true; emit('respawn'); }

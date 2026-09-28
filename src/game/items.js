@@ -2,10 +2,11 @@
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y, GROUND_ROW, BASE_X } from '../config.js';
 import { T, TD, isMineable } from '../data/tiles.js';
-import { DYNAMITE, MINE, MEDKIT, RECALL } from '../data/balance.js';
+import { DYNAMITE, MINE, MEDKIT, RECALL, ITEMS, THREAT } from '../data/balance.js';
+import { addNoise } from './threat.js';
 import { G } from './state.js';
 import { tileAt } from '../world/map.js';
-import { placeBarricade, barricadeTarget } from './economy.js';
+import { placeBarricade, barricadeTarget, placeBuild } from './economy.js';
 import { breakTile, damagePlayer } from './player.js';
 import { damageEnemy, hurtBarricade } from './enemies.js';
 import { isLocal, hear } from './run.js';
@@ -24,6 +25,7 @@ function torchSpot(p) {
 export function itemUsable(k, p = G.player) {
   if (p.dead || !G.items[k]) return false;
   const under = p.y >= GROUND_Y;
+  if (ITEMS[k].build) { const c = Math.floor(p.x / TILE), r = Math.floor(p.y / TILE); return tileAt(c, r) === T.AIR && !G.structures.some(s => s.c === c && s.r === r); }
   switch (k) {
     case 'torch': return !!torchSpot(p);
     case 'dynamite': return under && G.bombs.length < 3;
@@ -43,6 +45,7 @@ export function useItem(k, p = G.player) {
   }
   const c = Math.floor(p.x / TILE), r = Math.floor(p.y / TILE);
   if (k === 'barricade') { if (!placeBarricade(p)) return false; if (local) emit('itemUsed', k); return true; }
+  if (ITEMS[k].build) { if (!placeBuild(k, p)) return false; if (local) emit('itemUsed', k); return true; }
   G.items[k]--;
   if (k === 'torch') {
     G.torches.push({ c, r }); G.stats.torches++;
@@ -83,6 +86,7 @@ function detonate(b) {
   }
   for (const p of G.players) if (!p.dead && Math.hypot(p.x - cx, p.y - cy) < 26) damagePlayer(p, DYNAMITE.selfDmg, cx, cy);
   sfx.explode(); shake(0.5); hitstop(0.06); haptic(50);
+  addNoise(THREAT.noise.boom, cx, cy);
   ring(cx, cy, '#ffb050', rad); sparks(cx, cy, '#ffd48a', 22, 160); sparks(cx, cy, '#ff7a3a', 10, 110);
   dust(cx, cy, 8, 'rgba(160,130,110,0.55)'); flashLight(cx, cy, 8, 0.35);
   igniteGas(cx, cy, rad);
@@ -95,6 +99,7 @@ function mineBlast(m) {
     if (d < MINE.radius + e.r) damageEnemy(e, MINE.dmg, (e.x - m.x) / (d || 1), (e.y - m.y) / (d || 1), 2);
   }
   sfx.explode(); shake(0.25); haptic(25);
+  addNoise(THREAT.noise.mine, m.x, m.y);
   ring(m.x, m.y, '#ff7a3a', MINE.radius); sparks(m.x, m.y, '#ffd48a', 14, 120); debris(m.x, m.y, 'dirt', 6);
   flashLight(m.x, m.y, 5, 0.25);
   igniteGas(m.x, m.y, MINE.radius);

@@ -2,11 +2,11 @@
 // UI komutu dispatch() ile verir; tek oyunculuda hemen, çok oyunculuda lockstep karesinde çalışır.
 import { G } from './state.js';
 import { useItem } from './items.js';
-import { buyUpgrade, craftItem, buildOnPad, repairBase, applyPerk, buyMod, toggleMod } from './economy.js';
+import { buyUpgrade, craftItem, pickupBuild, applyPerk, buyMod, toggleMod } from './economy.js';
 import { useMod } from './combat.js';
 import { emit } from '../core/events.js';
 
-export const CMD = { USE: 'u', BUY: 'b', CRAFT: 'c', BUILD: 's', REPAIR: 'r', PERK: 'p', MODBUY: 'mb', MODEQ: 'me', MODUSE: 'mu' };
+export const CMD = { USE: 'u', BUY: 'b', CRAFT: 'c', PICKUP: 'k', PERK: 'p', MODBUY: 'mb', MODEQ: 'me', MODUSE: 'mu' };
 
 // Simülasyon içinde çalışır: pi = komutu veren oyuncu indeksi
 export function execCmd(pi, cmd) {
@@ -16,8 +16,7 @@ export function execCmd(pi, cmd) {
     case CMD.USE: return useItem(cmd.k, p);
     case CMD.BUY: return buyUpgrade(cmd.k, p);
     case CMD.CRAFT: return craftItem(cmd.k, p);
-    case CMD.BUILD: return buildOnPad(cmd.k, cmd.pad | 0, p);
-    case CMD.REPAIR: return repairBase(p);
+    case CMD.PICKUP: return pickupBuild(cmd.i | 0, p);
     case CMD.MODBUY: return buyMod(cmd.k, p);
     case CMD.MODEQ: return toggleMod(cmd.k, p);
     case CMD.MODUSE: return useMod(cmd.k, p);

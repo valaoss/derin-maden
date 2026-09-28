@@ -1,12 +1,13 @@
 // Otomatik nişan alan omuz blaster'ı, mermiler, taretler, onarım istasyonları.
 import { rnd } from '../core/rng.js';
-import { TILE, BASE_X, BASE_Y, GROUND_Y } from '../config.js';
+import { TILE, GROUND_Y } from '../config.js';
 import { T, TD } from '../data/tiles.js';
-import { UPGRADES, BUILDS, BASE, MODS, BURN } from '../data/balance.js';
+import { UPGRADES, BUILDS, MODS, BURN, THREAT } from '../data/balance.js';
 import { G } from './state.js';
-import { tileAt } from '../world/map.js';
-import { damageEnemy, losClear, damageStructure, damageBase, burnEnemy } from './enemies.js';
-import { damagePlayer, webPlayer } from './player.js';
+import { tileAt, damageTile } from '../world/map.js';
+import { damageEnemy, losClear, damageStructure, burnEnemy } from './enemies.js';
+import { damagePlayer, webPlayer, breakTile } from './player.js';
+import { addNoise } from './threat.js';
 import { hasPerk, hear, hasMod, isLocal } from './run.js';
 import { sparks, flashLight, particle, ring, shake, debris, hitstop } from './fx.js';
 import { igniteGas } from './hazards.js';
@@ -46,7 +47,8 @@ export function useMod(k, p = G.player) {
     if (hear(p)) sfx.overdrive();
   } else if (k === 'nova') {
     const lv = G.lvl.blaster, dmg = UPGRADES.blaster.dmg[lv] * 0.8;
-    for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2; const b = fire(p.x + Math.cos(a) * 6, p.y - 4 + Math.sin(a) * 6, a, 230, dmg, 'p', 0); tagBullet(b); }
+    for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2; const b = fire(p.x + Math.cos(a) * 6, p.y - 4 + Math.sin(a) * 6, a, 230, dmg, 'p', 0, p.i); tagBullet(b); }
+    addNoise(THREAT.noise.boom * 0.5, p.x, p.y);
     ring(p.x, p.y - 4, '#bff4ff', 30); sparks(p.x, p.y - 4, '#bff4ff', 16, 120); flashLight(p.x, p.y, 6, 0.3);
     hitstop(0.03); if (isLocal(p)) shake(0.3);
     if (hear(p)) sfx.nova();
@@ -80,8 +82,9 @@ function updateGun(p, dt) {
   const dmg = UPGRADES.blaster.dmg[lv];
   const shots = hasPerk('ciftNamlu') ? [-0.09, 0.09] : [0];
   const pierce = hasPerk('delici') ? 1 : 0;
-  for (const o of shots) tagBullet(fire(sp.x + Math.cos(ang) * 6, sp.y + Math.sin(ang) * 6, ang + o, 250, dmg, 'p', pierce));
-  if (hasMod('split')) for (const o of [-0.3, 0.3]) tagBullet(fire(sp.x + Math.cos(ang) * 6, sp.y + Math.sin(ang) * 6, ang + o, 230, dmg * 0.5, 'p', pierce));
+  for (const o of shots) tagBullet(fire(sp.x + Math.cos(ang) * 6, sp.y + Math.sin(ang) * 6, ang + o, 250, dmg, 'p', pierce, p.i));
+  if (hasMod('split')) for (const o of [-0.3, 0.3]) tagBullet(fire(sp.x + Math.cos(ang) * 6, sp.y + Math.sin(ang) * 6, ang + o, 230, dmg * 0.5, 'p', pierce, p.i));
+  addNoise(THREAT.noise.shot, sp.x, sp.y);
   if ((G.gear.active.overdrive || 0) > 0) sparks(sp.x, sp.y, '#ffe79a', 1, 30);
   p.recoil = 1;
   sparks(sp.x + Math.cos(ang) * 7, sp.y + Math.sin(ang) * 7, '#ffe79a', 2, 40);
@@ -89,8 +92,8 @@ function updateGun(p, dt) {
   if (hear(p)) sfx.shoot();
 }
 
-function fire(x, y, ang, speed, dmg, from, pierce) {
-  G.bullets.push({ x, y, px: x, py: y, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, life: 0.7, dmg, from, pierce, hit: null });
+function fire(x, y, ang, speed, dmg, from, pierce, pi = -1) {
+  G.bullets.push({ x, y, px: x, py: y, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, life: 0.7, dmg, from, pierce, hit: null, pi });
   return G.bullets[G.bullets.length - 1];
 }
 
@@ -105,6 +108,13 @@ export function updateBullets(dt) {
       b.x += b.vx * dt * 0.5; b.y += b.vy * dt * 0.5;
       const solid = (x, y) => { const t = tileAt(Math.floor(x / TILE), Math.floor(y / TILE)); return TD[t].solid && t !== T.BARRICADE; };
       if (solid(b.x, b.y)) {
+        // yuvaya isabet: mermiyle de yıkılır
+        const nc = Math.floor(b.x / TILE), nr = Math.floor(b.y / TILE);
+        if (tileAt(nc, nr) === T.NEST) {
+          sparks(b.x, b.y, '#ff8ab0', 4, 60);
+          if (damageTile(nc, nr, b.dmg * 0.6)) breakTile(nc, nr, G.players[b.pi >= 0 ? b.pi : 0]);
+          wall = true; break;
+        }
         if (b.bounce > 0) {
           // sekme: hangi eksen engellendiyse o hızı ters çevir
           b.bounce--;
@@ -152,9 +162,6 @@ export function updateBullets(dt) {
     let hitP = false;
     for (const p of G.players) if (!p.dead && Math.abs(b.x - p.x) < 6 && Math.abs(b.y - p.y) < 7) { damagePlayer(p, b.dmg, b.x, b.y); if (b.web) { webPlayer(p, 1.6); sparks(b.x, b.y, '#f0f0ff', 6, 40); } else sparks(b.x, b.y, '#9af060', 5, 50); hitP = true; break; }
     if (hitP) continue;
-    if (Math.abs(b.x - BASE_X) < 22 && Math.abs(b.y - (BASE_Y - 8)) < 16) {
-      damageBase(b.dmg * 0.6); sparks(b.x, b.y, '#9af060', 5, 50); continue;
-    }
     let hit = false;
     for (const s of G.structures) if (!s.dead && Math.abs(b.x - s.x) < 7 && Math.abs(b.y - s.y) < 7) { damageStructure(s, b.dmg); hit = true; break; }
     if (hit || b.life <= 0) continue;
@@ -163,32 +170,14 @@ export function updateBullets(dt) {
   eb.length = j;
 }
 
-// Üssün kendi hafif topu: ilk dalgaları tek başına karşılar, sonrası için taret/oyuncu gerekir
-export const BASE_GUN = { x: BASE_X - 12, y: BASE_Y - 22 };
-function updateBaseGun(dt) {
-  const b = G.base, g = BASE.gun;
-  b.cd = (b.cd || 0) - dt;
-  if (b.recoil > 0) b.recoil -= dt * 6;
-  const tgt = nearestTarget(BASE_GUN.x, BASE_GUN.y, g.range);
-  if (!tgt) return;
-  const ang = Math.atan2(tgt.y - BASE_GUN.y, tgt.x - BASE_GUN.x);
-  b.aim = (b.aim ?? ang) + Math.atan2(Math.sin(ang - (b.aim ?? ang)), Math.cos(ang - (b.aim ?? ang))) * Math.min(1, dt * 12);
-  if (b.cd <= 0) {
-    b.cd = g.cd; b.recoil = 1;
-    fire(BASE_GUN.x + Math.cos(b.aim) * 6, BASE_GUN.y + Math.sin(b.aim) * 6, b.aim, 220, g.dmg, 't', 0);
-    sfx.turret(); flashLight(BASE_GUN.x, BASE_GUN.y, 2, 0.06);
-  }
-}
-
-// havan: menzildeki, yüzeye yakın en tehlikeli (üsse en yakın) düşman
+// havan: menzildeki, havana en yakın düşman (min menzil dışı)
 function mortarTarget(s, b) {
   let best = null, bd = 1e9;
   for (const e of G.enemies) {
-    if (e.dead || e.emergeT > 0.2 || e.y > GROUND_Y + 80) continue;
+    if (e.dead || e.emergeT > 0.2) continue;
     const d = Math.hypot(e.x - s.x, e.y - s.y);
     if (d < b.minRange || d > b.range) continue;
-    const db = Math.hypot(e.x - BASE_X, e.y - BASE_Y);
-    if (db < bd) { bd = db; best = e; }
+    if (d < bd) { bd = d; best = e; }
   }
   return best;
 }
@@ -213,7 +202,6 @@ export function updateShells(dt) {
 }
 
 export function updateStructures(dt) {
-  if (G.base.hp > 0) updateBaseGun(dt);
   for (const s of G.structures) {
     if (s.buildT > 0) s.buildT -= dt;
     if (s.hurtT > 0) s.hurtT -= dt;
@@ -275,7 +263,6 @@ export function updateStructures(dt) {
       }
     } else if (s.type === 'heal') {
       s.pulse = (s.pulse || 0) + dt;
-      if (Math.hypot(BASE_X - s.x, BASE_Y - s.y) < b.range + 20 && G.base.hp > 0) G.base.hp = Math.min(G.base.maxHp, G.base.hp + b.rate * dt);
       for (const p of G.players) if (!p.dead && Math.hypot(p.x - s.x, p.y - s.y) < b.range) p.hp = Math.min(p.maxHp, p.hp + b.rate * 1.6 * dt);
       for (const o of G.structures) if (o !== s && Math.hypot(o.x - s.x, o.y - s.y) < b.range) o.hp = Math.min(o.maxHp, o.hp + b.rate * dt);
     }

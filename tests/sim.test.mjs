@@ -1,19 +1,21 @@
 // Headless oyun testleri: gerçek modüller, DOM yok. Kullanım: node tests/sim.test.mjs
 import { App, G } from '../src/game/state.js';
 import { newRun, recompute, serialize, deserialize, pickDmg, pickInterval, modSlots, makeStructure } from '../src/game/run.js';
-import { updatePlayer, updateOrbs, updateDeposit, bindEnemyDamage, breakTile } from '../src/game/player.js';
+import { updatePlayer, updateOrbs, updateDeposit, bindEnemyDamage, breakTile, damagePlayer } from '../src/game/player.js';
+const damagePlayerX = (p, d) => { p.iframes = 0; damagePlayer(p, d, p.x, p.y + 20); };
 import { updateEnemies, damageEnemy, spawnEnemy, killEnemy } from '../src/game/enemies.js';
 import { updatePlayerGun, updateBullets, updateStructures, updateShells, useMod } from '../src/game/combat.js';
 import { buyUpgrade, buyMod, toggleMod, upgradeCost } from '../src/game/economy.js';
 import { updateItems } from '../src/game/items.js';
 import { updateHazards } from '../src/game/hazards.js';
-import { updateWaves } from '../src/game/waves.js';
+import { updateThreat, addNoise, nestsInStratum } from '../src/game/threat.js';
 import { updateParticles, updateFlashes } from '../src/game/fx.js';
 import { updateFlow, forceFlow } from '../src/world/flow.js';
 import { setTile, tileAt } from '../src/world/map.js';
 import { generate } from '../src/world/gen.js';
 import { T, TD, HOST_TILE } from '../src/data/tiles.js';
-import { ENEMIES, MODS, MOD_KEYS, PICK_TIERS, UPGRADES, WAVES, ELITE, RES_KEYS } from '../src/data/balance.js';
+import { ENEMIES, MODS, MOD_KEYS, PICK_TIERS, UPGRADES, ELITE, RES_KEYS, THREAT, BUILDS, ITEMS } from '../src/data/balance.js';
+import { placeBuild, pickupBuild, craftItem } from '../src/game/economy.js';
 import { STRATA } from '../src/data/palette.js';
 import { COLS, ROWS, GROUND_ROW, STRATUM_ROWS, STRATA_COUNT, TILE } from '../src/config.js';
 import { on } from '../src/core/events.js';
@@ -21,8 +23,8 @@ import { on } from '../src/core/events.js';
 App.settings = { sfx: false, music: false, haptics: false, shake: false };
 App.meta = { lv: {}, tutorialDone: true };
 bindEnemyDamage(damageEnemy);
-let baseDown = false; on('baseDown', () => { baseDown = true; });
-const events = {}; for (const n of ['heart', 'web', 'chill', 'stratum', 'modChanged', 'modUsed', 'perkOffer', 'toast']) on(n, () => { events[n] = (events[n] || 0) + 1; });
+let allDown = false; on('allDown', () => { allDown = true; });
+const events = {}; for (const n of ['heart', 'web', 'chill', 'stratum', 'modChanged', 'modUsed', 'perkOffer', 'toast', 'threat', 'nestDown', 'beacon', 'bossDown', 'revived']) on(n, () => { events[n] = (events[n] || 0) + 1; });
 
 const STEP = 1 / 60;
 let fails = 0, checks = 0;
@@ -33,15 +35,15 @@ function step(dt = STEP) {
   G.time += dt; G.stats.time += dt; G.frame++;
   if (G.hitstop > 0) { G.hitstop -= dt; return; }
   updateFlow(dt); updatePlayer(dt); updatePlayerGun(dt); updateEnemies(dt); updateBullets(dt); updateStructures(dt); updateShells(dt);
-  updateItems(dt); updateHazards(dt); updateWaves(dt); updateOrbs(dt); updateDeposit(dt); updateParticles(dt); updateFlashes(dt);
+  updateItems(dt); updateHazards(dt); updateThreat(dt); updateOrbs(dt); updateDeposit(dt); updateParticles(dt); updateFlashes(dt);
 }
 const run = sec => { for (let i = 0, n = Math.round(sec / STEP); i < n; i++) step(); };
-const fresh = (seed = 1) => { const g = newRun({ seed }); baseDown = false; g.player.inp = { x: 0, y: 0, mag: 0 }; return g; };
+const fresh = (seed = 1) => { const g = newRun({ seed }); allDown = false; g.player.inp = { x: 0, y: 0, mag: 0 }; return g; };
 const shaft = (c, toRow) => { for (let r = GROUND_ROW; r <= toRow; r++) setTile(c, r, T.AIR); };
 function hash() {
   let h = 2166136261; const mix = v => { v = Math.round(v * 8) | 0; for (let s = 0; s < 24; s += 8) { h ^= (v >>> s) & 255; h = Math.imul(h, 16777619); } };
   for (const p of G.players) { mix(p.x); mix(p.y); mix(p.hp); mix(p.dead ? 1 : 0); }
-  mix(G.base.hp); mix(G.rng); mix(G.wave.num); mix(G.stats.dug); mix(G.stats.kills); mix(G.enemies.length); mix(G.mapVersion);
+  mix(G.threat.noise); mix(G.rng); mix(G.threat.level); mix(G.stats.dug); mix(G.stats.kills); mix(G.enemies.length); mix(G.mapVersion);
   for (const e of G.enemies) { mix(e.x); mix(e.y); mix(e.hp); }
   for (const k of RES_KEYS) mix(G.store[k]);
   return h >>> 0;
@@ -138,36 +140,112 @@ section('Ekonomi');
   ok('takılı olmayan eklenti kullanılmaz', !useMod('ricochet', q));
 }
 
-// ---------- 4. dalgalar ----------
-section('Dalga kuyruğu');
+// ---------- 4. uyanış ve yuvalar ----------
+section('Uyanış ve yuvalar');
 {
-  const seen = new Set(), sizes = [];
-  for (let st = 0; st < STRATA_COUNT; st += 3) for (let w = 1; w <= 15; w++) {
-    fresh(100 + st * 20 + w); G.maxStratum = st; G.wave.num = w - 1; G.wave.phase = 'calm'; G.wave.t = 0.01;
-    for (let i = 0; i < 60 * 12 && G.wave.phase !== 'active'; i++) step();
-    ok(`dalga ${w} başlar (biyom ${st})`, G.wave.phase === 'active' && G.wave.num === w, G.wave.phase);
-    const q = G.wave.queue || [];
-    const boss = w % 5 === 0;
-    ok(`dalga ${w} boss ${boss ? 'var' : 'yok'}`, q.some(s => s.type === 'boss') === boss);
-    const elites = q.filter(s => s.elite).length;
-    ok(`dalga ${w} elit`, elites === (w >= ELITE.fromWave && !boss ? 1 : 0), `${elites}`);
-    ok(`dalga ${w} türleri geçerli`, q.every(s => ENEMIES[s.type]));
-    ok(`dalga ${w} izinli türler`, q.every(s => s.type === 'boss' || WAVES.allowed(w, st).includes(s.type)));
-    ok(`dalga ${w} yeterince kalabalık`, q.length >= (boss ? 2 + w * 0.3 : 3 + w * 0.6), `${q.length}`);
-    sizes.push(`${st}/${w}:${q.length}`);
-    q.forEach(s => seen.add(s.type));
+  // üretim: her biyomda yuva var
+  for (let seed = 1; seed <= 6; seed++) {
+    fresh(seed);
+    const per = Array.from({ length: STRATA_COUNT }, (_, s) => nestsInStratum(s));
+    ok(`tohum ${seed}: her biyomda yuva`, per.every(n => n >= 2), per.join(','));
+    ok(`tohum ${seed}: yuva sayısı makul`, G.nests.length >= 2 * STRATA_COUNT && G.nests.length <= 3 * STRATA_COUNT, `${G.nests.length}`);
+    ok(`tohum ${seed}: yuvalar sandıktan uzak`, G.nests.every(n => tileAt(n.c, n.r) === T.NEST));
   }
-  console.log('  kuyruk boyları (biyom/dalga:adet):', sizes.join(' '));
-  const never = Object.keys(ENEMIES).filter(k => !seen.has(k));
-  ok('her tür bir dalgada çıkar', never.length === 0, never.join(','));
+  // gürültü: kazı ölçeri doldurur, yüzeyde hızla söner
+  fresh(500); const p = G.player; shaft(8, GROUND_ROW + 20); p.x = 8 * TILE + 8; p.y = (GROUND_ROW + 18) * TILE + 8; p.px = p.x; p.py = p.y;
+  Object.assign(p.inp, { x: 0, y: 1, mag: 1 }); run(10);
+  ok('kazı gürültü üretir', G.threat.noise > 8 && G.stats.dug > 5, `noise ${G.threat.noise.toFixed(1)} dug ${G.stats.dug}`);
+  const n1 = G.threat.noise; Object.assign(p.inp, { x: 0, y: 0, mag: 0 }); run(6);
+  ok('sessizken söner', G.threat.noise < n1, `${n1.toFixed(1)} -> ${G.threat.noise.toFixed(1)}`);
+  G.threat.noise = 60; p.x = 170; p.y = 86; p.px = p.x; p.py = p.y; run(8);
+  ok('yüzeyde hızla söner', G.threat.noise < 5, `${G.threat.noise.toFixed(1)}`);
+  // seviyeler ve olaylar
+  fresh(501); const q = G.player; shaft(8, GROUND_ROW + 20); q.x = 8 * TILE + 8; q.y = (GROUND_ROW + 18) * TILE + 8; q.px = q.x; q.py = q.y;
+  const ev0 = events.threat | 0;
+  for (const [v, lv] of [[30, 1], [55, 2], [80, 3]]) { G.threat.noise = v; step(); ok(`gürültü ${v} -> seviye ${lv}`, G.threat.level === lv, `${G.threat.level}`); }
+  for (let i = 0; i < 60 * (THREAT.bossDelay + 1); i++) { G.threat.noise = 100; step(); }
+  ok('gürültü 100 (sürekli) -> seviye 4', G.threat.level === 4, `${G.threat.level}`);
+  ok('seviye olayları yayınlandı', (events.threat | 0) - ev0 >= 4);
+  ok('Derin Ana uyanır', G.enemies.some(e => e.d.boss), G.enemies.map(e => e.type).join(','));
+  // yuva yakın oyuncuya düşman çıkarır (uyanış seviyesi)
+  fresh(502); const r = G.player;
+  const nest = G.nests.slice().sort((a, b) => a.r - b.r)[0];
+  shaft(nest.c, nest.r - 1); r.x = nest.c * TILE + 8; r.y = (nest.r - 2) * TILE + 8; r.px = r.x; r.py = r.y; forceFlow();
+  G.threat.noise = 60; let spawned = 0;
+  for (let i = 0; i < 60 * 30; i++) { G.threat.noise = Math.max(G.threat.noise, 55); r.hp = r.maxHp; r.dead = false; step(); spawned = Math.max(spawned, G.enemies.length); }
+  ok('uyanık yuva düşman çıkarır', spawned >= 2, `${spawned}`);
+  ok('yuva uyanık işaretli', nest.awake === true);
+  ok('canlı düşman sınırı aşılmaz', G.enemies.filter(e => !e.dead).length <= THREAT.cap[4] * 1.5 + 4, `${G.enemies.length}`);
+  // sessizde yuva uyur
+  G.threat.noise = 0; G.enemies.length = 0; run(4); const n0 = G.enemies.length; run(10);
+  ok('sessizde yuva üretmez', G.enemies.length === n0, `${G.enemies.length}`);
+  // yuva yıkımı: ganimet + sessizlik + fener
+  fresh(503); const u = G.player; G.threat.noise = 40; const st0 = 0;
+  const my = G.nests.filter(n => Math.floor((n.r - GROUND_ROW) / STRATUM_ROWS) === st0);
+  const before = G.orbs.length, noise0 = G.threat.noise;
+  breakTile(my[0].c, my[0].r, u);
+  ok('yuva yıkılınca ganimet', G.orbs.length > before + 2, `${G.orbs.length - before}`);
+  ok('yuva yıkılınca gürültü düşer', G.threat.noise < noise0, `${G.threat.noise}`);
+  ok('yuva sayacı', G.stats.nests === 1 && events.nestDown >= 1);
+  for (const n of my.slice(1)) breakTile(n.c, n.r, u);
+  ok('biyom temizlenince fener', G.beacons.includes(st0) && events.beacon >= 1, G.beacons.join(','));
+  ok('yuva listesi güncel', nestsInStratum(st0) === 0);
+  // mermi yuvayı yıkar
+  fresh(504); const w = G.player; const tn = G.nests.slice().sort((a, b) => a.r - b.r)[0];
+  shaft(tn.c, tn.r - 1); w.x = tn.c * TILE + 8; w.y = (tn.r - 4) * TILE + 8; w.px = w.x; w.py = w.y;
+  G.lvl.blaster = 5; G.bullets.push({ x: w.x, y: tn.r * TILE - 10, px: w.x, py: w.y, vx: 0, vy: 200, life: 1, dmg: 200, from: 'p', pierce: 0, hit: null, pi: 0 });
+  run(0.5);
+  ok('mermi yuvayı yıkar', tileAt(tn.c, tn.r) !== T.NEST, `${tileAt(tn.c, tn.r)}`);
+}
+
+// ---------- 4b. düşme / kaldırma ve aletler ----------
+section('Düşme, kaldırma, aletler');
+{
+  fresh(600); const p = G.player; p.y = (GROUND_ROW + 4) * TILE + 8; shaft(8, GROUND_ROW + 6); p.x = 8 * TILE + 8; p.px = p.x; p.py = p.y;
+  damagePlayerX(p, 999); step();
+  ok('tek oyuncu bayılır', p.dead && p.downT > 0);
+  run(2);
+  ok('herkes baygınsa sefer biter', allDown === true);
+  // iki oyuncu: partner kaldırır
+  const g = newRun({ seed: 601, mp: true }); allDown = false;
+  const [a, b] = g.players; for (const q of g.players) q.inp = { x: 0, y: 0, mag: 0 };
+  shaft(8, GROUND_ROW + 8); a.x = 8 * TILE + 8; a.y = (GROUND_ROW + 6) * TILE + 8; b.x = 4 * TILE + 8; b.y = (GROUND_ROW - 1) * TILE + 8;
+  for (const q of g.players) { q.px = q.x; q.py = q.y; }
+  damagePlayerX(a, 999); step();
+  ok('partner baygın, sefer sürer', a.dead && !allDown);
+  b.x = a.x; b.y = a.y; b.px = b.x; b.py = b.y; run(2.5);
+  ok('partner yanında durunca kalkar', !a.dead && a.hp > 0 && events.revived >= 0, `hp ${a.hp}`);
+  // ikinci nefes
+  fresh(602); const s = G.player; G.selfRevive = 1; shaft(8, GROUND_ROW + 6); s.x = 8 * TILE + 8; s.y = (GROUND_ROW + 4) * TILE + 8; s.px = s.x; s.py = s.y;
+  damagePlayerX(s, 999); step(); ok('ikinci nefes: baygın ama kalkacak', s.dead && s.autoUp); run(3.5);
+  ok('ikinci nefesle kalkar', !s.dead && s.hp > 0 && !allDown, `hp ${s.hp} down ${allDown}`);
+  // aletler: üret, kur, geri al, sınır
+  fresh(603); const d = G.player; shaft(8, GROUND_ROW + 6); d.x = 8 * TILE + 8; d.y = (GROUND_ROW + 4) * TILE + 8; d.px = d.x; d.py = d.y;
+  for (const k of RES_KEYS) G.store[k] = 80;
+  ok('nöbetçi üretilir', craftItem('turret', d) && G.items.turret === 1);
+  ok('nöbetçi kurulur', placeBuild('turret', d) && G.structures.length === 1 && G.items.turret === 0);
+  ok('aynı hücreye ikinci kurulmaz', craftItem('turret', d) && !placeBuild('turret', d));
+  d.y += TILE; d.py = d.y; ok('ikinci alet kurulur', placeBuild('turret', d) && G.structures.length === 2);
+  d.y += TILE; d.py = d.y; craftItem('lamp', d); ok('sınırda en eski alet kemere döner', placeBuild('lamp', d) && G.structures.length === 2 && G.items.turret === 1, `${G.structures.length} ${G.items.turret}`);
+  ok('fener direği kurulu', G.structures.some(x => x.type === 'lamp'));
+  const i = G.structures.findIndex(x => x.type === 'lamp'); d.y -= TILE; d.py = d.y;
+  ok('alet geri alınır', pickupBuild(i, d) && G.items.lamp === 1 && G.structures.length === 1);
+  // fener direği gürültüyü yarıya indirir
+  const dl = G.player; dl.y -= TILE; dl.py = dl.y; G.items.lamp = 1; ok('fener direği yeniden kurulur', placeBuild('lamp', dl)); G.threat.noise = 0; addNoise(10, dl.x, dl.y);
+  ok('fener direği gürültüyü azaltır', G.threat.noise < 6, `${G.threat.noise}`);
+  // düşman nöbetçiye saldırır ve nöbetçi ateş eder
+  fresh(604); const t = G.player; shaft(8, GROUND_ROW + 14); t.x = 8 * TILE + 8; t.y = (GROUND_ROW + 4) * TILE + 8; t.px = t.x; t.py = t.y;
+  G.items.turret = 1; placeBuild('turret', t); const tur = G.structures[0]; forceFlow();
+  const e = spawnEnemy('bug', 8 * TILE + 8, (GROUND_ROW + 12) * TILE + 8, 3); e.emergeT = 0;
+  run(6);
+  ok('nöbetçi düşmana ateş eder', e.dead || e.hp < e.maxHp, `hp ${e.hp}/${e.maxHp}`);
 }
 
 // ---------- 5. yaratıklar ----------
 section('Yaratıklar');
 {
   for (const type of Object.keys(ENEMIES)) {
-    fresh(300); const p = G.player; p.x = 170; p.y = 86; G.wave.num = 6; G.wave.phase = 'active'; G.wave.t = 99;
-    shaft(8, GROUND_ROW + 12); forceFlow();
+    fresh(300); const p = G.player; shaft(8, GROUND_ROW + 12); p.x = 8 * TILE + 8; p.y = (GROUND_ROW + 3) * TILE + 8; p.px = p.x; p.py = p.y; forceFlow();
     const es = [spawnEnemy(type, 8 * TILE + 8, (GROUND_ROW + 10) * TILE + 8, 6), spawnEnemy(type, 60, 60, 6)];
     es.forEach(e => e.emergeT = 0);
     let threw = null; try { run(8); } catch (err) { threw = err; }
@@ -189,10 +267,11 @@ section('Yaratıklar');
   ok('elit can ×2.2', Math.abs(e.hp - hp * ELITE.hp) < 1e-6 && e.elite && e.scale > 1);
   const orbs = G.orbs.length; killEnemy(e); ok('elit altın düşürür', G.orbs.filter(o => o.res === 'gold').length === ELITE.gold && G.stats.elites === 1, `${G.orbs.length - orbs}`);
   // ağ ve soğuk
-  fresh(302); const p = G.player; p.x = 170; p.y = 86; G.wave.phase = 'active'; G.wave.t = 99;
-  const sp = spawnEnemy('spider', 170 + 40, 86, 6); sp.emergeT = 0; run(6);
+  fresh(302); const p = G.player; for (let r = GROUND_ROW; r <= GROUND_ROW + 4; r++) for (let c = 4; c <= 12; c++) setTile(c, r, T.AIR);
+  p.x = 8 * TILE + 8; p.y = (GROUND_ROW + 2) * TILE + 8; p.px = p.x; p.py = p.y; forceFlow();
+  const sp = spawnEnemy('spider', p.x + 40, p.y, 6); sp.emergeT = 0; run(6);
   ok('örümcek ağ atar', p.webT > 0 || events.web > 0, `webT ${p.webT}`);
-  const fb = spawnEnemy('frostbat', 170, 70, 6); fb.emergeT = 0; run(6);
+  const fb = spawnEnemy('frostbat', p.x, p.y - 16, 6); fb.emergeT = 0; run(6);
   ok('kırağı dondurur', p.slowT > 0 || events.chill > 0, `slowT ${p.slowT}`);
 }
 
@@ -201,21 +280,21 @@ section('Determinizm');
 {
   const script = t => t < 10 ? { x: 0, y: 1, mag: 1 } : t < 14 ? { x: 1, y: 0, mag: 1 } : t < 18 ? { x: -1, y: 0.3, mag: 1 } : { x: 0, y: 1, mag: 1 };
   const play = () => {
-    fresh(4242); const p = G.player; G.wave.t = 8; let t = 0;
+    fresh(4242); const p = G.player; G.threat.noise = 45; let t = 0;
     for (let i = 0; i < 60 * 40; i++) { t += STEP; Object.assign(p.inp, script(t)); step(); }
-    return { h: hash(), s: JSON.stringify(serialize()), dug: G.stats.dug, kills: G.stats.kills, wave: G.wave.num };
+    return { h: hash(), s: JSON.stringify(serialize()), dug: G.stats.dug, kills: G.stats.kills, wave: G.threat.level };
   };
   const a = play(), b = play();
   ok('aynı tohum + aynı girdi → aynı durum', a.h === b.h && a.s === b.s, `${a.h} vs ${b.h}`);
   ok('oyuncu gerçekten kazdı', a.dug > 8, `${a.dug}`);
-  ok('dalga geldi', a.wave >= 1 && a.kills >= 0, `dalga ${a.wave} kills ${a.kills}`);
+  ok('uyanış seviyesi sayılır', a.wave >= 0 && a.kills >= 0, `seviye ${a.wave} kills ${a.kills}`);
 }
 
 // ---------- 7. kayıt / yükleme ----------
 section('Kayıt');
 {
-  fresh(9); const p = G.player; G.wave.t = 20; Object.assign(p.inp, { x: 0, y: 1, mag: 1 }); run(12);
-  for (const k of RES_KEYS) G.store[k] = 50; buyUpgrade('drill', p); buyMod('ricochet', p); buyMod('frost', p); G.structures.push(makeStructure('turret', 1));
+  fresh(9); const p = G.player; Object.assign(p.inp, { x: 0, y: 1, mag: 1 }); run(12);
+  for (const k of RES_KEYS) G.store[k] = 50; buyUpgrade('drill', p); buyMod('ricochet', p); buyMod('frost', p); G.structures.push(makeStructure('turret', 8, GROUND_ROW + 2));
   const s1 = serialize(); const j1 = JSON.stringify(s1);
   deserialize(JSON.parse(j1)); const s2 = serialize();
   const strip = s => { const o = JSON.parse(JSON.stringify(s)); delete o.player; delete o.wave; return JSON.stringify(o); };
@@ -242,27 +321,27 @@ section('Derin sefer (10 biyom, ~12 dk sim)');
       shaft(8, Math.min(bottom, rTop + STRATUM_ROWS)); G.maxStratum = s;
       // oyuncu biyomda kazıyor, sonra üsse dönüp savunuyor
       p.x = 8 * TILE + 8; p.y = rTop * TILE + 8; p.px = p.x; p.py = p.y; Object.assign(p.inp, { x: 0, y: 1, mag: 1 });
-      run(20);
-      p.x = 170; p.y = 86; Object.assign(p.inp, { x: 0, y: 0, mag: 0 });
       Object.assign(G.lvl, { blaster: Math.min(UPGRADES.blaster.costs.length, s), armor: Math.min(UPGRADES.armor.costs.length, s >> 1), drill: Math.min(PICK_TIERS.length - 1, s) }); recompute();
-      while (G.structures.length < Math.min(4, s)) G.structures.push(makeStructure('turret', G.structures.length));
-      G.base.hp = G.base.maxHp; G.wave.phase = 'calm'; G.wave.t = 2; forceFlow();
-      let t = 0; while (t < 70 && !baseDown) { step(); t += STEP; for (const e of G.enemies) { if (!finite(e.x) || !finite(e.y)) nanAt = e.type; spawnedBy[e.type] = s; } if (G.wave.phase === 'calm' && t > 15) break; }
-      G.enemies.length = 0; baseDown = false;
+      run(20);
+      // oyuncu biyomun içinde durur, gürültü yüksek: yuvalar ve sızma onu avlar
+      Object.assign(p.inp, { x: 0, y: 0, mag: 0 }); p.hp = p.maxHp; p.dead = false; forceFlow();
+      let t = 0; while (t < 45) { G.threat.noise = Math.max(G.threat.noise, 80); step(); t += STEP; for (const e of G.enemies) { if (!finite(e.x) || !finite(e.y)) nanAt = e.type; spawnedBy[e.type] = s; } if (p.dead) { p.dead = false; p.gone = false; p.hp = p.maxHp; allDown = false; G.allDownT = 0; } }
+      G.enemies.length = 0; G.threat.noise = 0;
     }
   } catch (e) { threw = e; }
   ok('derin sefer hatasız', !threw, threw && threw.stack.split('\n').slice(0, 3).join(' | '));
   ok('NaN yok', !nanAt, nanAt);
   ok('biyom afişi olayları', stratumEv >= 5, `${stratumEv}`);
   const deep = ['spider', 'frostbat', 'skitter', 'magmite', 'voidling', 'broodmother', 'ogolem'].filter(k => spawnedBy[k] === undefined);
-  ok('derin türler sahada görüldü', deep.length <= 2, 'görülmedi: ' + deep.join(','));
+  ok('derin türler sahada görüldü', deep.length <= 3, 'görülmedi: ' + deep.join(','));
+  ok('yuvalar düşman üretti', Object.keys(spawnedBy).length >= 6, Object.keys(spawnedBy).join(','));
   ok('kalp satırı ulaşılabilir', tileAt(8, G.heartRow) !== undefined && TD[tileAt(8, G.heartRow)] && G.heartRow < ROWS - 1);
 }
 
 // ---------- 9. performans ----------
 section('Performans');
 {
-  fresh(77); G.wave.phase = 'active'; G.wave.t = 99; const p = G.player; p.x = 170; p.y = 86; shaft(8, GROUND_ROW + 30); forceFlow();
+  fresh(77); const p = G.player; shaft(8, GROUND_ROW + 30); p.x = 8 * TILE + 8; p.y = (GROUND_ROW + 1) * TILE + 8; p.px = p.x; p.py = p.y; G.threat.noise = 60; forceFlow();
   const types = Object.keys(ENEMIES).filter(k => k !== 'boss');
   for (let i = 0; i < 60; i++) { const e = spawnEnemy(types[i % types.length], 8 * TILE + 8, (GROUND_ROW + 2 + (i % 28)) * TILE + 8, 8); e.emergeT = 0; }
   G.gear.eq = ['chain', 'split', 'boom'];

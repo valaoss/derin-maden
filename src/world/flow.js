@@ -1,5 +1,5 @@
-// Üsse doğru akış alanları (Dijkstra). Düşmanlar oyuncunun açtığı tünelleri izler.
-import { COLS, ROWS, GROUND_ROW, CENTER_COL } from '../config.js';
+// Oyunculara doğru akış alanları (Dijkstra, çok kaynaklı). Düşmanlar tünelleri izleyerek seni bulur; yüzey (kamp) hedef değildir.
+import { COLS, ROWS, GROUND_ROW, TILE } from '../config.js';
 import { T, TD } from '../data/tiles.js';
 import { G } from '../game/state.js';
 
@@ -31,7 +31,7 @@ let popVal = 0;
 const heap = makeHeap();
 
 function cost(t, r, mode) {
-  if (r < 3) return INF;
+  if (r < GROUND_ROW) return INF; // kamp güvenli: düşman yüzeye çıkmaz
   if (t === T.AIR) return 1;
   if (t === T.BARRICADE) return BARRICADE_COST;
   const d = TD[t];
@@ -43,11 +43,9 @@ function cost(t, r, mode) {
 
 export function createFields() { return [new Float32Array(N), new Float32Array(N), new Float32Array(N)]; }
 
-function solve(field, mode) {
+function solve(field, mode, goals) {
   field.fill(INF); heap.clear();
-  for (let r = 3; r < GROUND_ROW; r++) for (let c = CENTER_COL - 2; c <= CENTER_COL + 2; c++) {
-    const i = r * COLS + c; field[i] = 0; heap.push(i, 0);
-  }
+  for (const i of goals) { field[i] = 0; heap.push(i, 0); }
   while (heap.size) {
     const i = heap.pop(), d = popVal;
     if (d > field[i]) continue;
@@ -65,15 +63,26 @@ function solve(field, mode) {
   }
 }
 
+function goalCells() {
+  const g = [];
+  for (const p of G.players) {
+    if (p.dead) continue;
+    const c = Math.floor(p.x / TILE), r = Math.floor(p.y / TILE);
+    if (r >= GROUND_ROW && r < ROWS && c >= 0 && c < COLS) g.push(r * COLS + c);
+  }
+  return g;
+}
 export function updateFlow(dt) {
   G.flowTimer -= dt;
-  if (G.flowVersion === G.mapVersion || G.flowTimer > 0) return;
-  G.flowVersion = G.mapVersion; G.flowTimer = 0.2;
-  solve(G.flow[0], FIELD.walk);
-  solve(G.flow[1], FIELD.dig1);
-  solve(G.flow[2], FIELD.digAll);
+  if (G.flowTimer > 0) return;
+  const goals = goalCells(), key = goals.join(',');
+  if (G.flowVersion === G.mapVersion && G.flowKey === key) return;
+  G.flowVersion = G.mapVersion; G.flowKey = key; G.flowTimer = 0.2;
+  solve(G.flow[0], FIELD.walk, goals);
+  solve(G.flow[1], FIELD.dig1, goals);
+  solve(G.flow[2], FIELD.digAll, goals);
 }
-export function forceFlow() { G.flowVersion = -1; G.flowTimer = 0; updateFlow(0); }
+export function forceFlow() { G.flowVersion = -1; G.flowKey = ''; G.flowTimer = 0; updateFlow(0); }
 
 export function flowAt(mode, c, r) {
   if (c < 0 || c >= COLS || r < 0 || r >= ROWS) return INF;

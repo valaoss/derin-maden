@@ -1,9 +1,9 @@
 // DOM arayüzü: HUD, atölye, perk seçimi, menüler, bildirimler, öğretici.
-import { TILE, GROUND_Y, PAD_COLS, PAD_Y, stratumOfRow, STRATUM_ROWS } from '../config.js';
-import { UPGRADES, UPGRADE_KEYS, PICK_KEYS, MODS, MOD_KEYS, BUILDS, BUILD_KEYS, REPAIR, PERKS, META, META_KEYS, RES_KEYS, ENEMIES, ITEMS, ITEM_KEYS, CONTRACTS, KADEME } from '../data/balance.js';
+import { TILE, GROUND_Y, stratumOfRow, STRATUM_ROWS } from '../config.js';
+import { UPGRADES, UPGRADE_KEYS, PICK_KEYS, MODS, MOD_KEYS, BUILDS, BUILD_KEYS, PERKS, META, META_KEYS, RES_KEYS, ENEMIES, ITEMS, ITEM_KEYS, CONTRACTS, KADEME, DEPLOY_MAX } from '../data/balance.js';
 import { STRATA } from '../data/palette.js';
 import { G, App } from '../game/state.js';
-import { iconURL } from '../render/sprites.js';
+import { iconURL, HELMETS } from '../render/sprites.js';
 import { on, emit } from '../core/events.js';
 import { bagCount, hasPerk, isUnlocked, contractProgress, pickDmg, pickInterval, modSlots } from '../game/run.js';
 import { canAfford, upgradeCost, craftState } from '../game/economy.js';
@@ -12,7 +12,8 @@ import { dispatch, CMD } from '../game/commands.js';
 import { PICK_TIERS } from '../data/balance.js';
 import { net } from '../net/lockstep.js';
 import { todayKey } from '../core/util.js';
-import { enemiesRemaining, startTutorialWaveClock } from '../game/waves.js';
+import { LEVEL_NAMES, nestsInStratum, nestTotalInStratum } from '../game/threat.js';
+import { STRATA_COUNT } from '../config.js';
 import { worldToView, viewToWorld } from '../render/renderer.js';
 import { sfx, initAudio, applyAudioSettings } from '../audio/audio.js';
 import { saveMeta, saveSettings } from '../core/save.js';
@@ -29,19 +30,20 @@ export function initUI(root, h) {
     <div class="hud-row">
       <div class="plate meter">${ic('heart')}<div class="bar hp"><b></b><i></i></div></div>
       <div class="plate depth"><div class="m" id="dM">0m</div><div class="s" id="dS">YÜZEY</div></div>
-      <div class="plate meter">${ic('base')}<div class="bar base"><b></b><i></i></div></div>
+      <div class="plate meter noise" id="noiseM">${ic('wave')}<div class="bar base"><b></b><i></i></div></div>
       <button class="plate pausebtn" id="pauseBtn" aria-label="Duraklat">${ic('pause')}</button>
     </div>
     <div class="hud-row">
       <div class="plate meter bagm" id="bagM">${ic('bag')}<div class="bar bag"><i></i></div><span class="num" id="bagN">0/12</span></div>
       <div class="plate res" id="resBox">${RES_KEYS.map(k => `<span class="chip" id="r_${k}">${ic(k, 's')}<span>0</span></span>`).join('')}</div>
     </div>
-    <div class="plate" id="wave">${ic('wave', 's')}<span class="l">DALGA 1</span><span class="t"></span></div>
+    <div class="plate" id="wave">${ic('wave', 's')}<span class="l">SESSİZ</span><span class="t"></span></div>
+    <div class="plate" id="goal">${ic('base', 's')}<span class="g"></span></div>
     <div class="plate" id="boss">${ic('skull', 's')}<span>DERİN ANA</span><div class="bar"><i></i></div></div>
-    <div class="plate" id="partner">${ic('heart', 's')}<span>PARTNER</span><div class="bar"><i></i></div><span class="d"></span></div>
+    <div class="plate" id="partner">${ic('heart', 's')}<span class="pn">PARTNER</span><div class="bar"><i></i></div><span class="d"></span><span class="ping"></span></div>
   </div>
   <div class="plate" id="netstall">BAĞLANTI BEKLENİYOR…</div>
-  <div id="indicator">${ic('base', 's')} ÜS SALDIRI ALTINDA ▲</div>
+  <div id="indicator">${ic('heart', 's')} PARTNER BAYGIN</div>
   <div id="toasts"></div>
   <div id="coach"><div class="hand" style="background-image:url(${iconURL('hand')})"></div><div class="plate msg"></div></div>
   <div id="banner"><div class="k"></div><div class="n"></div><div class="rule"></div></div>
@@ -82,17 +84,23 @@ export function initUI(root, h) {
   on('modUsed', () => refreshHUD(true));
   on('web', () => toast('Ağa yakalandın', 'skull', true));
   on('chill', () => { const v = $('#vignette'); v.classList.add('cold'); setTimeout(() => v.classList.remove('cold'), 1800); });
-  on('alarm', d => {
-    const info = d.count ? ' · ' + d.count + ' DÜŞMAN' + (d.elite ? ' · ELİT' : '') : '';
-    banner(d.boss ? 'DERİNLİKTEN BİR ŞEY GELİYOR' + info : 'ALARM' + info, d.boss ? 'DERİN ANA UYANDI' : 'DALGA ' + d.num + ' YAKLAŞIYOR', true);
-    if (G.tutorial && G.tutorial.step === 4 && !G.tutorial.alarmSeen) { G.tutorial.alarmSeen = true; coach('Düşmanlar kazdığın tünellerden gelir. Üssü koru!', '', 6); }
+  on('threat', d => {
+    const lv = d.level;
+    if (!d.up) { if (lv === 0) toast('Maden sustu', 'wave'); return; }
+    if (lv === 1) { toast('Kıpırtı… bir şey seni duydu', 'wave', true); if (G.tutorial && !G.tutorial.noiseSeen) { G.tutorial.noiseSeen = true; coach('Kazma gürültü yapar. Gürültü yuvaları uyandırır: sessiz kal ya da yuvayı yık.', '', 7); } }
+    else if (lv === 2) banner('UYANIŞ', 'YUVALAR UYANDI', true);
+    else if (lv === 3) banner('ÖFKE', 'ELİTLER GELİYOR', true);
+    else if (lv === 4) banner('DERİN ANA UYANDI', 'SENİ AVLIYOR', true);
   });
-  on('waveStart', () => {});
-  on('waveClear', n => {
-    toast('Dalga ' + n + ' temizlendi', 'wave');
+  on('nestDown', d => {
+    toast(d.left ? `Yuva yıkıldı · bu biyomda ${d.left} kaldı` : 'Yuva yıkıldı', 'wave');
     if (G.tutorial && !G.tutorial.done) { G.tutorial.done = true; App.meta.tutorialDone = true; saveMeta(App.meta); coach('Harika. Derine in: yeni katmanlar, daha değerli cevherler.', '', 5); }
   });
-  on('baseHurt', () => { lastBaseHurt = performance.now(); });
+  on('beacon', s => { banner('BİYOM TEMİZ', 'FENER DİKİLDİ · ' + STRATA[s].name.toUpperCase()); setTimeout(() => toast('Sonraki seferde asansör buraya iner', 'base'), 2800); });
+  on('bossDown', () => banner('DERİN ANA DÜŞTÜ', 'MADEN SUSUYOR'));
+  on('bossWarn', () => { banner('DERİN ANA UYANIYOR', 'HEMEN SUS YA DA KAÇ', true); });
+  on('revived', () => toast('Ayaktasın', 'heart'));
+  on('deployed', () => refreshHUD(true));
   on('perkOffer', pi => { if (pi === G.localIdx) showPerks(); else toast('Partnerin bir kalıntı buldu', 'chest'); });
   on('perkTaken', d => { if (d.pi !== G.localIdx) toast('Partner seçti: ' + PERKS[d.k].name, PERKS[d.k].icon); });
   on('blind', () => { const f = $('#flash'); f.classList.remove('on'); void f.offsetWidth; f.classList.add('on'); });
@@ -100,7 +108,7 @@ export function initUI(root, h) {
   on('pickTier', l => { const t = PICK_TIERS[Math.min(PICK_TIERS.length - 1, l)]; toast(t.name + ' hazır', 'drill'); });
   on('cmdDone', d => { if (!d.ok && (d.cmd.t === CMD.BUILD)) toast('Yetersiz kaynak', 'bag', true); });
   on('heart', () => { banner('KALP KRİSTALİ', 'YÜZEYE TAŞI!', true); toast('Dalgalar sıklaşıyor — acele et', 'heart', true); });
-  on('playerDown', has => toast(has ? 'Bayıldın — çantan düştüğün yerde' : 'Bayıldın — üste uyanıyorsun', 'skull', true));
+  on('playerDown', d => toast(d.autoUp ? 'Bayıldın — ikinci nefes!' : G.mp ? 'Bayıldın — partnerin seni kaldırabilir' : 'Bayıldın', 'skull', true));
   on('respawn', () => {});
   on('upgraded', () => { refreshSheet(); });
   on('store', () => { if (sheetOpen()) refreshSheet(); });
@@ -125,7 +133,7 @@ function tap(el, fn) {
 }
 
 // ---------------- HUD ----------------
-let cache = {}, lastBaseHurt = 0;
+let cache = {};
 function set(id, key, val, fn) { if (cache[key] === val) return; cache[key] = val; fn(val); }
 export function showHUD(v) { coach(''); $('#hud').classList.toggle('hidden', !v); if (!v) { $('#workshopBtn').classList.add('hide'); $('#belt').innerHTML = ''; $('#mods').innerHTML = ''; } cache = {}; }
 // sağ kenar: takılı blaster eklentileri (aktifler dokunulabilir, bekleme süresi dolgu olarak)
@@ -156,9 +164,11 @@ export function refreshHUD(force = false) {
     const bar = $('.bar.hp'); bar.children[1].style.width = `calc(${f}% - ${f / 25}px)`; bar.children[0].style.width = `calc(${f}% - ${f / 25}px)`;
     $('#vignette').classList.toggle('low', f < 30 && !p.dead);
   });
-  set(0, 'base', Math.ceil(b.hp) + '/' + b.maxHp, () => {
-    const f = Math.max(0, b.hp / b.maxHp) * 100;
+  const th = G.threat;
+  set(0, 'noise', Math.round(th.noise) + '|' + th.level, () => {
+    const f = Math.max(0, Math.min(100, th.noise));
     const bar = $('.bar.base'); bar.children[1].style.width = `calc(${f}% - ${f / 25}px)`; bar.children[0].style.width = `calc(${f}% - ${f / 25}px)`;
+    $('#noiseM').className = 'plate meter noise lv' + th.level;
   });
   const bc = bagCount();
   set(0, 'bag', bc + '/' + G.bagCap, () => {
@@ -173,32 +183,37 @@ export function refreshHUD(force = false) {
   const st = stratumOfRow(row);
   set(0, 'strat', st, v => { $('#dS').textContent = v < 0 ? 'YÜZEY' : STRATA[v].short; });
 
-  const W = G.wave;
-  let wl, wt, wc;
-  if (W.phase === 'calm') {
-    wc = ''; wl = 'DALGA ' + (W.num + 1);
-    wt = W.t === Infinity ? '—' : fmt(W.t);
-  } else if (W.phase === 'warn') { wc = 'warn'; wl = W.boss ? 'BOSS' : 'DALGA ' + W.num; wt = fmt(W.t); }
-  else { wc = 'active'; wl = 'DALGA ' + W.num; wt = enemiesRemaining() + ' düşman'; }
-  if (W.t === Infinity && W.phase === 'calm') wc = 'hide';
+  const lv = th.level, alive = G.enemies.filter(e => !e.dead).length;
+  const wc = lv >= 4 ? 'active boss' : lv >= 2 ? 'active' : lv === 1 ? 'warn' : (th.noise < 2 && !(G.tutorial && G.tutorial.step >= 3) ? 'hide' : '');
   set(0, 'wc', wc, v => { $('#wave').className = 'plate ' + v; });
-  set(0, 'wl', wl, v => { $('#wave .l').textContent = v; });
-  set(0, 'wt', wt, v => { $('#wave .t').textContent = v; });
+  set(0, 'wl', LEVEL_NAMES[lv], v => { $('#wave .l').textContent = v; });
+  set(0, 'wt', lv >= 1 && alive ? alive + ' düşman' : '', v => { $('#wave .t').textContent = v; });
+  // hedef: bulunduğun biyomun yuvaları
+  const gs = Math.max(0, st), left = nestsInStratum(gs), tot = nestTotalInStratum(gs);
+  const gtxt = st < 0 ? (G.beacons.length ? `FENER ${G.beacons.length}/${STRATA_COUNT}` : 'DERİNE İN') : G.beacons.includes(gs) ? 'BİYOM TEMİZ' : tot ? `YUVA ${tot - left}/${tot}` : 'YUVA ARA';
+  set(0, 'goal', gtxt + '|' + (st >= 0 && !G.beacons.includes(gs) && left === 0 && tot === 0 ? 'x' : ''), () => { $('#goal .g').textContent = gtxt; $('#goal').classList.toggle('done', st >= 0 && G.beacons.includes(gs)); });
   const boss = G.enemies.find(e => e.d.boss && !e.dead);
   set(0, 'boss', boss ? Math.ceil(boss.hp) : -1, v => {
     $('#boss').classList.toggle('on', v >= 0);
     if (boss) $('#boss .bar > i').style.width = `calc(${boss.hp / boss.maxHp * 100}% - 4px)`;
   });
 
-  // partner
+  // partner + bağlantı
   const mate = G.mp ? G.players[1 - G.localIdx] : null;
   set(0, 'mate', mate ? (mate.dead ? 'x' : Math.ceil(mate.hp) + '|' + Math.max(0, Math.floor(mate.y / TILE) - 6)) : '', v => {
     $('#partner').classList.toggle('on', !!mate);
-    if (mate) { $('#partner .bar > i').style.width = `calc(${Math.max(0, mate.hp / mate.maxHp) * 100}% - 4px)`; $('#partner .d').textContent = mate.dead ? 'BAYGIN' : Math.max(0, Math.floor(mate.y / TILE) - 6) + 'm'; }
+    if (!mate) return;
+    $('#partner .pn').textContent = (mate.name || 'PARTNER').toUpperCase().slice(0, 10);
+    $('#partner .bar > i').style.width = `calc(${Math.max(0, mate.hp / mate.maxHp) * 100}% - 4px)`;
+    $('#partner .d').textContent = mate.dead ? 'BAYGIN' : Math.max(0, Math.floor(mate.y / TILE) - 6) + 'm';
   });
-  // üs saldırı altında ve ekran dışında
-  const baseOff = G.cam.y > GROUND_Y - 10;
-  set(0, 'ind', performance.now() - lastBaseHurt < 1500 && baseOff, v => $('#indicator').classList.toggle('on', v));
+  set(0, 'ping', G.mp ? (net.rtt ? Math.round(net.rtt / 10) * 10 : 0) + '|' + net.quality : '', v => {
+    if (!G.mp) return;
+    const el = $('#partner .ping'); el.textContent = net.rtt ? Math.round(net.rtt / 10) * 10 + 'ms' : '…';
+    el.className = 'ping q-' + net.quality;
+  });
+  // partner baygın
+  set(0, 'ind', !!(mate && mate.dead && !mate.gone), v => $('#indicator').classList.toggle('on', v));
 
   // atölye butonu
   const surf = p.y < GROUND_Y && !p.dead && !(G.tutorial && G.tutorial.step < 3);
@@ -257,7 +272,7 @@ function tutStep(n) {
   T.step = n;
   if (n === 1) coach('Parlayan cevherlere kaz — kendiliğinden toplanır.', '', 0);
   if (n === 2) coach('Çantanı boşaltmak için yüzeye dön.', '', 0);
-  if (n === 3) { coach('Cevherler depoda. Atölye\'den ilk yükseltmeni al!', '', 0); $('#workshopBtn').classList.add('pulse'); startTutorialWaveClock(); }
+  if (n === 3) { coach('Cevherler depoda. Atölye\'den ilk yükseltmeni al!', '', 0); $('#workshopBtn').classList.add('pulse'); }
   if (n === 4) { coach('', ''); $('#workshopBtn').classList.remove('pulse'); }
 }
 function tutEvent(ev) {
@@ -351,12 +366,7 @@ function refreshSheet(justKey) {
         <div class="main"><div class="name">${u.name} ${pips(l, max)}</div><div class="eff">${eff}</div>${c ? costHTML(c) : ''}</div>
         <button class="btn buy" ${c && canAfford(c) ? '' : 'disabled'}>AL</button></div>`;
     }
-    h += '<div class="sec">ÜS</div>';
-    const dmg = G.base.hp < G.base.maxHp;
-    h += `<div class="plate row" data-act="rep">${ic('base', 'l')}<div class="main"><div class="name">Üssü Onar</div>
-      <div class="eff">${Math.ceil(G.base.hp)}/${G.base.maxHp} → <b>+${REPAIR.amount}</b></div>${costHTML(REPAIR.cost)}</div>
-      <button class="btn buy" ${dmg && canAfford(REPAIR.cost) ? '' : 'disabled'}>ONAR</button></div>`;
-    h += `<div class="note">Taret kurmak için yüzeydeki <b style="color:var(--helm)">+</b> işaretlerine dokun.</div>`;
+    h += `<div class="note">Aletler (Nöbetçi, Fener Direği…) <b>ÜRET</b> sekmesinde. Kemerden durduğun yere kurulur; aynı anda ${DEPLOY_MAX + (hasPerk('ucuncuAlet') ? 1 : 0)} tane.</div>`;
     if (G.contracts.length) {
       h += '<div class="sec">KONTRATLAR</div>' + contractsHTML();
     }
@@ -365,9 +375,10 @@ function refreshSheet(justKey) {
       for (const k of G.perks) h += `<div class="plate row">${ic(PERKS[k].icon, 'l')}<div class="main"><div class="name">${PERKS[k].name}</div><div class="eff">${PERKS[k].desc}</div></div></div>`;
     }
   } else {
-    h += '<div class="sec">EŞYALAR · KEMERDEN KULLANILIR</div>';
     for (const k of ITEM_KEYS) {
       const d = ITEMS[k], st = craftState(k);
+      if (k === ITEM_KEYS[0]) h += '<div class="sec">EŞYALAR · KEMERDEN KULLANILIR</div>';
+      if (k === BUILD_KEYS[0]) h += `<div class="sec">ALETLER · DURDUĞUN YERE KUR (EN FAZLA ${DEPLOY_MAX + (hasPerk('ucuncuAlet') ? 1 : 0)})</div>`;
       if (st === 'locked') {
         h += `<div class="plate row locked">${ic('schematic', 'l')}<div class="main"><div class="name">${d.name}</div><div class="eff">Şema gerekli — Kalıntı sandıklarında bulunur.</div></div></div>`;
         continue;
@@ -384,7 +395,6 @@ function refreshSheet(justKey) {
     const k = b.closest('[data-up]').dataset.up;
     if (dispatch({ t: CMD.BUY, k })) { refreshSheet(k); refreshHUD(true); tutEvent('bought'); }
   }));
-  body.querySelectorAll('[data-act] .buy').forEach(b => tap(b, () => { if (dispatch({ t: CMD.REPAIR })) { refreshSheet(); refreshHUD(true); } }));
   body.querySelectorAll('[data-modbuy] .buy').forEach(b => tap(b, () => { const k = b.closest('[data-modbuy]').dataset.modbuy; if (dispatch({ t: CMD.MODBUY, k })) { refreshSheet(k); refreshHUD(true); } }));
   body.querySelectorAll('[data-mod] .buy').forEach(b => tap(b, () => { const k = b.closest('[data-mod]').dataset.mod; if (dispatch({ t: CMD.MODEQ, k })) { refreshSheet(); refreshHUD(true); } }));
   body.querySelectorAll('[data-craft] .buy').forEach(b => tap(b, () => {
@@ -422,44 +432,28 @@ export function showContractsToast() {
   setTimeout(() => { if (G && G.contracts[1]) toast('Kontrat: ' + CONTRACTS[G.contracts[1].k].text(G.contracts[1].n), 'contract'); }, 700);
 }
 
-// ---------------- yuva inşa popover'ı ----------------
+// ---------------- alet geri alma (dokun) ----------------
 export function handleTap(fx, fy) {
   hidePop();
-  if (!G || G.paused) return false;
+  if (!G || G.paused || G.player.dead) return false;
   const w = viewToWorld(fx, fy);
-  if (G.player.y >= GROUND_Y + 30) return false;
-  for (let i = 0; i < PAD_COLS.length; i++) {
-    const x = PAD_COLS[i] * TILE + 8;
-    if (Math.abs(w.x - x) < 14 && Math.abs(w.y - (PAD_Y - 6)) < 16) {
-      if (G.structures.some(s => s.pad === i)) return true;
-      showPop(i); return true;
-    }
+  for (let i = 0; i < G.structures.length; i++) {
+    const s = G.structures[i];
+    if (Math.abs(w.x - s.x) < 14 && Math.abs(w.y - (s.y - 8)) < 16 && Math.hypot(s.x - G.player.x, s.y - G.player.y) <= 40) { showPop(i); return true; }
   }
   return false;
 }
-function showPop(pad) {
-  const pop = $('#pop');
-  let h = '';
-  let locked = 0;
-  for (const k of BUILD_KEYS) {
-    const b = BUILDS[k];
-    if (!isUnlocked(k)) { locked++; continue; }
-    h += `<button class="plate row" data-b="${k}" ${canAfford(b.cost) ? '' : 'style="opacity:.6"'}>${ic(b.icon, 'l')}<div class="main"><div class="name">${b.name}</div><div class="eff">${b.desc}</div>${costHTML(b.cost)}</div></button>`;
-  }
-  if (locked) h += `<div class="note">${ic('schematic', 's')} ${locked} taret şeması sandıklarda seni bekliyor.</div>`;
-  pop.innerHTML = h;
-  const v = worldToView(PAD_COLS[pad] * TILE + 8, PAD_Y - 12);
+function showPop(i) {
+  const s = G.structures[i], b = BUILDS[s.type], pop = $('#pop');
+  pop.innerHTML = `<div class="plate row">${ic(b.icon, 'l')}<div class="main"><div class="name">${b.name}</div><div class="eff">${Math.ceil(s.hp)}/${s.maxHp} · ${b.desc}</div></div></div><button class="btn" data-pick="1">GERİ AL</button>`;
+  const v = worldToView(s.x, s.y - 12);
   const R = ui.getBoundingClientRect();
   pop.style.left = '0px'; pop.style.top = '0px'; pop.classList.add('on');
   const ph = pop.offsetHeight;
   let left = v.x * R.width - 110, top = v.y * R.height - ph - 20;
   left = Math.max(8, Math.min(R.width - 228, left)); top = Math.max(110, top);
   pop.style.left = left + 'px'; pop.style.top = top + 'px';
-  pop.classList.add('on');
-  pop.querySelectorAll('[data-b]').forEach(b => tap(b, () => {
-    const ok = dispatch({ t: CMD.BUILD, k: b.dataset.b, pad });
-    if (ok) { hidePop(); refreshHUD(true); } else if (!G.mp) toast('Yetersiz kaynak', 'bag', true);
-  }));
+  tap(pop.querySelector('[data-pick]'), () => { dispatch({ t: CMD.PICKUP, i }); hidePop(); refreshHUD(true); });
 }
 export function hidePop() { $('#pop').classList.remove('on'); }
 
@@ -479,20 +473,27 @@ function showPerks() {
     toast(PERKS[c.dataset.k].name, PERKS[c.dataset.k].icon);
   }));
 }
-export function setNetStall(v) { $('#netstall').classList.toggle('on', !!v); }
+export function setNetStall(v) { const el = $('#netstall'); el.classList.toggle('on', !!v); if (v && el.textContent !== v) el.textContent = v; }
 
-// ---------------- çok oyunculu oda ----------------
+// ---------------- çok oyunculu lobi ----------------
+const esc = t => String(t || '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+const helmDot = (h, big) => `<span class="helm ${big ? 'big' : ''}" style="background:${HELMETS[(h | 0) % HELMETS.length].c}"><i></i></span>`;
+
 export function showCoop(back) {
-  const s = $('#room');
-  s.innerHTML = `<div class="plate rivets panel"><h2>BİRLİKTE KAZ</h2>
-    <div class="sub">İki kişi, aynı maden, aynı üs. Düşmanlar daha kalabalık ve dayanıklı; Öz ×1.5.</div>
-    <button class="btn big" id="rHost">ODA KUR</button>
-    <div class="sec" style="text-align:center">VEYA ODAYA KATIL</div>
-    <input class="codein" id="rCode" maxlength="4" placeholder="KOD" autocomplete="off" autocapitalize="characters" spellcheck="false">
-    <button class="btn" id="rJoin">KATIL</button>
+  const s = $('#room'), S = App.settings;
+  s.innerHTML = `<div class="lobby">
+    <div class="lhead"><div class="k">BİRLİKTE KAZ</div><div class="n">İki madenci · aynı maden · Öz ×1.5</div></div>
+    <button class="plate lcard me" id="rMe">${helmDot(S.helm, true)}<div class="main"><div class="name">${esc(S.name)}</div><div class="eff">Ad ve kask rengini değiştir</div></div><span class="chev">›</span></button>
+    <button class="plate lcard primary" id="rQuick">${ic('hand', 'xl')}<div class="main"><div class="name">HIZLI EŞLEŞ</div><div class="eff">Bekleyen bir madenci bul. Yoksa sen bekle, biri gelir.</div></div></button>
+    <button class="plate lcard" id="rHost">${ic('base', 'xl')}<div class="main"><div class="name">ODA KUR</div><div class="eff">Arkadaşına davet linki gönder. Tıklayan doğrudan odaya düşer.</div></div></button>
+    <details class="lmore"><summary>Kodla katıl</summary>
+      <div class="lrow"><input class="codein small" id="rCode" maxlength="4" placeholder="KOD" autocomplete="off" autocapitalize="characters" spellcheck="false"><button class="btn" id="rJoin">KATIL</button></div>
+    </details>
     <button class="btn dark" id="rBack">GERİ</button></div>`;
   hideScreens(); s.classList.add('on');
-  tap($('#rHost'), () => { hooks.hostRoom().catch(e => toast('Oda kurulamadı: ' + (e && e.type || e), 'skull', true)); });
+  tap($('#rMe'), () => showProfile(() => showCoop(back)));
+  tap($('#rQuick'), () => hooks.quickMatch());
+  tap($('#rHost'), () => hooks.hostRoom());
   const inp = $('#rCode');
   inp.addEventListener('pointerdown', e => e.stopPropagation());
   inp.addEventListener('input', () => { inp.value = inp.value.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 4); });
@@ -500,27 +501,70 @@ export function showCoop(back) {
   tap($('#rJoin'), () => { if (inp.value.length === 4) hooks.joinRoom(inp.value); else toast('4 haneli oda kodu gir', 'skull', true); });
   tap($('#rBack'), () => { s.classList.remove('on'); back(); });
 }
-export function showRoom({ host, code, connecting, waiting, error }) {
+
+// ad + kask rengi
+export function showProfile(back) {
+  const s = $('#room'), S = App.settings;
+  s.innerHTML = `<div class="lobby">
+    <div class="lhead"><div class="k">MADENCİ KARTI</div><div class="n">Partnerin seni böyle görür</div></div>
+    <div class="plate lcard me">${helmDot(S.helm, true)}<div class="main"><input class="namein" id="pName" maxlength="14" value="${esc(S.name)}" placeholder="Adın" autocomplete="off" spellcheck="false"><div class="eff">En fazla 14 karakter</div></div></div>
+    <div class="sec">KASK RENGİ</div>
+    <div class="helms" id="pHelms">${HELMETS.map((h, i) => `<button class="hb ${i === (S.helm | 0) ? 'on' : ''}" data-i="${i}" aria-label="${h.name}"><span class="helm big" style="background:${h.c}"><i></i></span><small>${h.name}</small></button>`).join('')}</div>
+    <button class="btn big" id="pOk">TAMAM</button></div>`;
+  hideScreens(); s.classList.add('on');
+  const inp = $('#pName');
+  inp.addEventListener('pointerdown', e => e.stopPropagation());
+  inp.addEventListener('keydown', e => e.stopPropagation());
+  const commit = () => { const v = inp.value.trim().slice(0, 14); if (v) S.name = v; saveSettings(S); };
+  inp.addEventListener('change', commit);
+  s.querySelectorAll('.hb').forEach(b => tap(b, () => { S.helm = +b.dataset.i; saveSettings(S); s.querySelectorAll('.hb').forEach(x => x.classList.toggle('on', x === b)); $('.lcard.me .helm').style.background = HELMETS[S.helm].c; }));
+  tap($('#pOk'), () => { commit(); s.classList.remove('on'); back(); });
+}
+
+const seat = (p, label) => p
+  ? `<div class="plate seat ${p.ready ? 'ready' : ''}">${helmDot(p.helm, true)}<div class="sname">${esc(p.name)}</div><div class="sstate">${p.ready ? 'HAZIR' : label}</div></div>`
+  : `<div class="plate seat empty"><span class="helm big ghost"><i></i></span><div class="sname">—</div><div class="sstate waitdots">${label}</div></div>`;
+
+export function showRoom(L) {
   App.scene = 'room';
   const s = $('#room');
-  let body;
-  if (error) body = `<div class="sub" style="color:var(--bad)">${error}</div>`;
-  else if (host) body = `<div class="sub">Bu kodu partnerine gönder</div><div class="code">${code}</div><div class="sub waitdots">Partner bekleniyor</div>`;
-  else if (connecting) body = `<div class="code">${code}</div><div class="sub waitdots">Bağlanıyor</div>`;
-  else if (waiting) body = `<div class="code">${code}</div><div class="sub waitdots">Bağlandı · sefer başlıyor</div>`;
-  s.innerHTML = `<div class="plate rivets panel"><h2>${host ? 'ODA KURULDU' : 'ODAYA KATIL'}</h2>${body}
-    ${host && !error ? `<button class="btn dark" id="rCopy">KODU KOPYALA</button>` : ''}
-    <button class="btn dark" id="rLeave">${error ? 'GERİ' : 'İPTAL'}</button></div>`;
+  const st = L.status;
+  let head, hint = '', actions = '';
+  if (st === 'error') { head = ['SORUN', L.error]; actions = `${L.quick ? '<button class="btn big" id="rRetry">TEKRAR DENE</button>' : ''}<button class="btn dark" id="rLeave">GERİ</button>`; }
+  else if (st === 'search') { head = ['MADENCİ ARANIYOR', 'Bekleyen biri varsa saniyeler içinde eşleşirsin']; actions = '<button class="btn dark" id="rLeave">İPTAL</button>'; }
+  else if (st === 'connecting') { head = [L.host ? 'ODA KURULUYOR' : 'ODAYA GİRİLİYOR', L.code ? 'Kod ' + L.code : 'Sinyal sunucusuna bağlanılıyor']; actions = '<button class="btn dark" id="rLeave">İPTAL</button>'; }
+  else if (L.starting) { head = ['SEFER BAŞLIYOR', 'Kazmalar hazır']; }
+  else if (st === 'waiting') {
+    head = L.quick ? ['SIRA SENDE', 'Odayı sen açtın, ilk gelen madenci yanına oturur'] : ['ODA HAZIR', 'Partnerini davet et'];
+    hint = L.quick ? '' : `<div class="codeline">KOD <b>${L.code}</b></div>`;
+    actions = `${L.quick ? '' : '<button class="btn big" id="rShare">' + ic('hand') + ' DAVET LİNKİ PAYLAŞ</button>'}<button class="btn dark" id="rLeave">İPTAL</button>`;
+  } else {
+    const both = L.me.ready && L.mate && L.mate.ready;
+    head = ['EKİP TAMAM', both ? 'Başlıyor…' : L.me.ready ? 'Partnerin hazır olunca başlar' : 'Hazır olduğunda dokun'];
+    actions = `<button class="btn big ${L.me.ready ? 'dark' : ''}" id="rReady">${L.me.ready ? 'HAZIR ✓ (GERİ AL)' : 'HAZIRIM'}</button><button class="btn dark" id="rLeave">AYRIL</button>`;
+  }
+  const searching = st === 'search' || st === 'connecting';
+  s.innerHTML = `<div class="lobby">
+    <div class="lhead"><div class="k">${head[0]}</div><div class="n">${head[1]}</div></div>
+    <div class="seats ${searching ? 'radar' : ''}">
+      ${seat(L.me, 'SEN')}
+      <div class="amp">&amp;</div>
+      ${L.mate ? seat(L.mate, 'PARTNER') : seat(null, st === 'search' ? 'Aranıyor' : st === 'connecting' ? 'Bağlanıyor' : 'Bekleniyor')}
+    </div>
+    ${hint}
+    <div class="lactions">${actions}</div></div>`;
   hideScreens(); s.classList.add('on');
-  if ($('#rCopy')) tap($('#rCopy'), () => { try { navigator.clipboard.writeText(code); toast('Kod kopyalandı', 'check'); } catch (e) { /* yok */ } });
-  tap($('#rLeave'), () => { s.classList.remove('on'); hooks.leaveRoom(); });
+  if ($('#rShare')) tap($('#rShare'), () => hooks.share());
+  if ($('#rReady')) tap($('#rReady'), () => hooks.ready(!L.me.ready));
+  if ($('#rRetry')) tap($('#rRetry'), () => hooks.quickMatch());
+  if ($('#rLeave')) tap($('#rLeave'), () => { s.classList.remove('on'); hooks.leaveRoom(); });
 }
 
 // ---------------- menü ----------------
 export function showMenu(hasSave) {
   const m = App.meta;
   const s = $('#menu');
-  s.innerHTML = `<div class="top"><div class="title">DERİN<small>MADEN</small></div><div class="subtitle">KAZ · SAVUN · DERİNE İN</div></div>
+  s.innerHTML = `<div class="top"><div class="title">DERİN<small>MADEN</small></div><div class="subtitle">KAZ · SESSİZ KAL · DERİNE İN</div></div>
     <div class="stack">
       ${hasSave ? `<button class="btn big" id="mCont">DEVAM ET</button><button class="btn dark" id="mNew">YENİ SEFER</button>` : `<button class="btn big" id="mNew">KAZMAYA BAŞLA</button>`}
       ${m.maxKademe ? `<div class="plate kstep"><button class="kb" id="kDn" aria-label="Kademe azalt">◀</button><div class="kv">${ic('kademe', 's')}<span id="kName"></span><small id="kDesc"></small></div><button class="kb" id="kUp" aria-label="Kademe artır">▶</button></div>` : ''}
@@ -528,7 +572,8 @@ export function showMenu(hasSave) {
       ${m.tutorialDone ? `<button class="btn dark" id="mCoop">${ic('hand')} BİRLİKTE KAZ${m.coopWins ? `<small class="dline">${m.coopWins} ZAFER</small>` : ''}</button>` : ''}
       <div style="display:flex;gap:10px"><button class="btn dark" id="mCamp" style="flex:1">${ic('oz')} KAMP</button><button class="btn dark" id="mSet" style="flex:1">AYARLAR</button></div>
       ${matchMedia('(pointer: fine)').matches ? '<div class="foot">WASD / Oklar: hareket ve kazı · P: duraklat</div>' : ''}
-      <div class="foot">${m.runs ? `Rekor <b>${m.bestDepth}m</b> · ${m.runs} sefer${m.wins ? ' · ' + m.wins + ' zafer' : ''} · <span class="ozline">${ic('oz', 's')}${m.oz}</span>` : 'Çekirdekteki Kalp Kristali seni bekliyor.'}</div>
+      ${(m.beacons || []).length ? `<button class="plate toggle ${m.elevatorOff ? '' : 'on'}" id="mElev"><span>${ic('base', 's')} Fener asansörü · ${m.beacons.length}/${STRATA_COUNT} biyom</span><span class="sw"></span></button>` : ''}
+      <div class="foot">${m.runs ? `Rekor <b>${m.bestDepth}m</b> · ${m.runs} sefer${m.wins ? ' · ' + m.wins + ' zafer' : ''} · <span class="ozline">${ic('oz', 's')}${m.oz}</span>` : 'Yuvaları yık, fenerleri dik, çekirdeğe in.'}</div>
     </div>`;
   s.classList.add('on');
   let k = Math.min(m.maxKademe | 0, m.lastKademe | 0);
@@ -538,6 +583,7 @@ export function showMenu(hasSave) {
     tap($('#kDn'), () => { k = Math.max(0, k - 1); showK(); });
     tap($('#kUp'), () => { k = Math.min(m.maxKademe, k + 1); showK(); });
   }
+  if ($('#mElev')) tap($('#mElev'), () => { m.elevatorOff = !m.elevatorOff; saveMeta(m); $('#mElev').classList.toggle('on', !m.elevatorOff); });
   if (hasSave) tap($('#mCont'), () => hooks.continueRun());
   tap($('#mNew'), () => { m.lastKademe = k; saveMeta(m); hooks.newRun({ kademe: k }); });
   if ($('#mDaily')) tap($('#mDaily'), () => hooks.newRun({ daily: true }));
@@ -555,7 +601,7 @@ export function hideScreens() { document.querySelectorAll('.screen').forEach(s =
 export function showPause() {
   const s = $('#pause');
   s.innerHTML = `<div class="plate rivets panel"><h2>DURAKLATILDI</h2>
-    <div class="sub">Derinlik ${G.stats.maxDepth}m · Dalga ${G.wave.num}${G.kademe ? ' · Kademe ' + G.kademe : ''}${G.daily ? ' · Günün Madeni' : ''}${G.mp ? ' · Birlikte (oyun duraklamaz)' : ''}</div>
+    <div class="sub">Derinlik ${G.stats.maxDepth}m · Yuva ${G.stats.nests} · Fener ${G.beacons.length}${G.kademe ? ' · Kademe ' + G.kademe : ''}${G.daily ? ' · Günün Madeni' : ''}${G.mp ? ' · Birlikte (oyun duraklamaz)' : ''}</div>
     ${G.contracts.length ? '<div class="clist">' + contractsHTML() + '</div>' : ''}
     <button class="btn big" id="pRes">DEVAM</button>
     <button class="btn dark" id="pSet">AYARLAR</button>
@@ -577,8 +623,10 @@ export function showSettings(back) {
   const items = [['sfx', 'Ses efektleri'], ['music', 'Ambiyans'], ['haptics', 'Titreşim'], ['shake', 'Ekran sarsıntısı'], ['lefty', 'Solak mod']];
   s.innerHTML = `<div class="plate rivets panel"><h2>AYARLAR</h2>
     ${items.map(([k, n]) => `<button class="plate toggle ${S[k] ? 'on' : ''}" data-k="${k}"><span>${n}</span><span class="sw"></span></button>`).join('')}
+    <button class="plate toggle" id="sProfile"><span>Madenci kartı</span><span style="display:flex;align-items:center;gap:6px;color:var(--dim)">${esc(S.name)} ${helmDot(S.helm)}</span></button>
     <button class="btn" id="sBack">TAMAM</button></div>`;
   hideScreens(); s.classList.add('on');
+  tap($('#sProfile'), () => { s.classList.remove('on'); showProfile(() => showSettings(back)); });
   s.querySelectorAll('.toggle').forEach(t => tap(t, () => {
     S[t.dataset.k] = !S[t.dataset.k]; t.classList.toggle('on', S[t.dataset.k]); saveSettings(S); applyAudioSettings();
   }));
@@ -612,17 +660,18 @@ export function showCamp(back) {
 export function showResults(r) {
   const s = $('#results');
   const win = r.victory;
-  const title = win ? 'ZAFER' : r.reason === 'abandon' ? 'SEFER BİTTİ' : 'ÜS DÜŞTÜ';
+  const title = win ? 'ZAFER' : r.reason === 'abandon' ? 'SEFER BİTTİ' : r.mp ? 'EKİP DÜŞTÜ' : 'BAYILDIN';
   const rows = [
     ['En derin nokta', r.maxDepth + 'm', r.newDepth],
-    ['Temizlenen dalga', r.wavesCleared],
+    ['Yıkılan yuva', r.nests],
+    ['Dikilen fener', r.beacons],
     ['Açılan sandık', r.chests],
     ['Yok edilen düşman', r.kills],
     ['Toplanan cevher', r.ores],
   ];
   s.innerHTML = `<div class="plate rivets panel">
     <h2 style="font-size:30px;color:${win ? 'var(--helm)' : 'var(--bad)'}">${title}</h2>
-    <div class="sub">${win ? 'Kalp Kristali yüzeye ulaştı.' : 'Madenin derinlikleri seni bekliyor.'}</div>
+    <div class="sub">${win ? 'Kalp Kristali yüzeye ulaştı.' : r.mp && r.names ? esc(r.names.join(' & ')) + ' · madenin derinlikleri sizi bekliyor.' : 'Madenin derinlikleri seni bekliyor.'}</div>
     <div class="stats">${rows.map(([n, v, nw]) => `<div class="stat"><span>${n}</span><b data-v="${parseInt(v) || 0}" data-s="${String(v).replace(/[\d]/g, '')}">0</b>${nw ? '<span class="new">YENİ REKOR</span>' : ''}</div>`).join('')}</div>
     ${r.contracts && r.contracts.length ? '<div class="clist">' + r.contracts.map(c => `<div class="cline ${c.done ? 'done' : ''}">${ic(c.done ? 'check' : 'contract', 's')}<span>${CONTRACTS[c.k].text(c.n)}</span>${c.done ? `<b>+${Math.round(CONTRACTS[c.k].oz * (1 + 0.25 * r.kademe))}</b>` : ''}</div>`).join('') + '</div>' : ''}
     <div class="ozgain">${ic('oz', 'l')}<span id="ozN">+0</span>${r.kademe ? `<small>×${(1 + 0.25 * r.kademe).toFixed(2)}</small>` : ''}</div>

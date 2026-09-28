@@ -4,6 +4,7 @@ export const T = {
   IRON: 6, WATER: 7, COBALT: 8, CRYSTAL: 9, CHEST: 10, HEART: 11, BARRICADE: 12, FOUNDATION: 13, LOOSE: 14, GAS: 15, VAULT: 16,
   // v4 biyom kayaları ve altın
   MOSS: 17, ICE: 18, BONE: 19, MAGMA: 20, OBSIDIAN: 21, VOID: 22, GOLD: 23, EMBER: 24,
+  NEST: 25,
 };
 
 // mat: doku/ses/parçacık malzemesi ('host' => katmanın ana kayası)
@@ -36,6 +37,8 @@ TD[T.EMBER]    = { solid: true, hp: 12, mat: 'magma', ember: true };            
 TD[T.OBSIDIAN] = { solid: true, hp: 40, mat: 'obsidian' };
 TD[T.VOID]     = { solid: true, hp: 60, mat: 'void' };
 TD[T.GOLD]     = { solid: true, hp: 6, mat: 'host', ore: 'gold', amt: 2 };
+// yuva (kovan): uyanınca düşman çıkarır; kazma ve mermiyle yıkılır
+TD[T.NEST]     = { solid: true, hp: 30, mat: 'host', nest: true };
 
 export const isSolid = t => TD[t].solid;
 export const isMineable = t => TD[t].solid && !TD[t].unbreakable && !TD[t].built;

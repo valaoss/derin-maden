@@ -1,10 +1,10 @@
-// Düşmanlar derinden gelir, açık tünelleri akış alanıyla izleyerek üsse yürür.
+// Düşmanlar yuvalardan çıkar ve akış alanıyla tünelleri izleyerek OYUNCUYU avlar (üs hedef değildir; yüzeye çıkamazlar).
 // Kazıcılar kayayı oyar; yolu tamamen kapalı olan herkes yavaşça kazmaya başlar (asla takılmaz).
-// Hedef seçimi: en yakın canlı oyuncu (çok oyunculu uyumlu). Ölüm animasyonu için ceset kısa süre listede kalır.
+// Yeraltında oyuncu kalmazsa izini kaybederler ve kısa sürede geri çekilirler.
 import { rnd } from '../core/rng.js';
-import { TILE, GROUND_Y, GROUND_ROW, BASE_X, BASE_Y } from '../config.js';
+import { TILE, GROUND_Y, GROUND_ROW } from '../config.js';
 import { T, TD } from '../data/tiles.js';
-import { ENEMIES, WAVES, BASE, BARRICADE, BUILDS, ELITE, BURN } from '../data/balance.js';
+import { ENEMIES, WAVES, BARRICADE, BUILDS, ELITE, BURN } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, solidAt, damageTile, idx } from '../world/map.js';
 import { FIELD, flowAt, nextStep, FLOW_INF } from '../world/flow.js';
@@ -30,7 +30,7 @@ export function spawnEnemy(type, x, y, wave) {
     summonT: 5, stuckT: 0, lastC: -1, lastR: -1, slowT: 0, trail: d.burrow ? [] : null,
     wind: 0, lunge: 0, dieT: 0, lastF: 0, vx: 0, vy: 0,
     blindCd: 2 + rnd() * 2, flashT: 0, tongue: 0, tongueCd: 1.5, tx: 0, ty: 0, howlCd: 2 + rnd() * 2, howlT: 0,
-    burnT: 0, burnTick: 0, blinkCd: 1.5 + rnd() * 2, blinkT: 0, broodT: d.brood || 0, elite: false, scale: 1, dmgMul: 1, breathe: rnd() * 6,
+    burnT: 0, burnTick: 0, blinkCd: 1.5 + rnd() * 2, blinkT: 0, broodT: d.brood || 0, elite: false, scale: 1, dmgMul: 1, breathe: rnd() * 6, lostT: 0,
   };
   G.enemies.push(e);
   return e;
@@ -47,7 +47,7 @@ function blocked(e, x, y) {
   const x0 = Math.floor((x - h) / TILE), x1 = Math.floor((x + h - 0.01) / TILE);
   const y0 = Math.floor((y - h) / TILE), y1 = Math.floor((y + h - 0.01) / TILE);
   for (let r = y0; r <= y1; r++) for (let c = x0; c <= x1; c++) if (solidAt(c, r)) return true;
-  return y < 3 * TILE;
+  return y - h < GROUND_Y - 2; // kamp güvenli bölge
 }
 function moveE(e, mx, my) {
   if (mx && !blocked(e, e.x + mx, e.y)) e.x += mx;
@@ -109,7 +109,6 @@ export function explode(x, y, rad, dmg) {
   sfx.explode(); shake(0.35); haptic(40);
   ring(x, y, '#e070ff', rad); sparks(x, y, '#e070ff', 16, 140); sparks(x, y, '#ffd8ff', 6, 90); flashLight(x, y, 5, 0.3);
   for (const p of G.players) if (!p.dead && Math.hypot(p.x - x, p.y - y) < rad + 4) damagePlayer(p, dmg, x, y);
-  if (Math.hypot(BASE_X - x, BASE_Y - y) < rad + BASE.radius) damageBase(dmg);
   for (const s of G.structures) if (Math.hypot(s.x - x, s.y - y) < rad + 6) damageStructure(s, dmg);
   for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - x, e.y - y) < rad) damageEnemy(e, 18, 0, 0, 0);
   igniteGas(x, y, rad);
@@ -118,14 +117,6 @@ export function explode(x, y, rad, dmg) {
   for (let r = r0 - 1; r <= r0 + 1; r++) for (let c = c0 - 1; c <= c0 + 1; c++) if (tileAt(c, r) === T.BARRICADE) hurtBarricade(c, r, dmg);
 }
 
-export function damageBase(d) {
-  const b = G.base;
-  if (b.hp <= 0) return;
-  b.hp -= d * (1 - BASE.armor); b.hurtT = 0.25;
-  sfx.baseHurt(); emit('baseHurt');
-  sparks(b.x + (rnd() - 0.5) * 30, b.y - rnd() * 20, '#ffb080', 4, 70);
-  if (b.hp <= 0) { b.hp = 0; emit('baseDown'); }
-}
 export function damageStructure(s, d) {
   s.hp -= d; s.hurtT = 0.15;
   sparks(s.x, s.y, '#ffd48a', 3, 60);
@@ -186,7 +177,9 @@ export function updateEnemies(dt) {
     const sp = e.d.speed * (e.slowT > 0 ? 0.5 : e.slowT < 0 ? 1.35 : 1);
     const p = nearestPlayer(e.x, e.y);
     const dp = p ? Math.hypot(p.x - e.x, p.y - e.y) : 1e9;
-    const db = Math.hypot(BASE_X - e.x, BASE_Y - e.y);
+    // yeraltında oyuncu yok ya da çok uzak: izi kaybeder, geri çekilir
+    const anyUnder = G.players.some(q => !q.dead && q.y >= GROUND_Y);
+    if (!anyUnder || (dp > 420 && !e.d.boss)) { e.lostT += dt; if (e.lostT > (e.d.boss ? 12 : 5)) { retreat(e); continue; } } else e.lostT = 0;
 
     // Kaya Devi adımları: kare değişiminde toz ve yer sarsıntısı
     if (e.type === 'brute' || e.d.boss) {
@@ -195,12 +188,7 @@ export function updateEnemies(dt) {
       e.lastF = f;
     }
 
-    // --- üsse vardı mı ---
-    if (db < BASE.radius + e.r && e.y < GROUND_Y + 4) {
-      e.st = 'base'; e.wind = windup(e); if (e.atkCd <= 0) attack(e, 'base');
-      continue;
-    }
-    // --- yol üstündeki yapı ---
+    // --- yol üstündeki alet ---
     let hitStruct = false;
     for (const s of G.structures) if (!s.dead && Math.hypot(s.x - e.x, s.y - e.y) < 9 + e.r) {
       e.wind = windup(e); if (e.atkCd <= 0) { attack(e, s); } hitStruct = true; break;
@@ -282,7 +270,6 @@ export function updateEnemies(dt) {
       let tx = null, ty = 0;
       // görüş, oyuncunun omuz silahıyla aynı noktadan: o bizi göremiyorsa biz de ona ateş etmeyiz (tek yönlü kilitlenme olmasın)
       if (p && dp < e.d.range && losClear(e.x, e.y, p.x - p.face * 3, p.y - 5, true)) { tx = p.x; ty = p.y; }
-      else if (db < e.d.range && losClear(e.x, e.y, BASE_X, BASE_Y - 6)) { tx = BASE_X; ty = BASE_Y - 6; }
       if (tx !== null) {
         e.face = tx > e.x ? 1 : -1;
         e.wind = e.fireCd < 0.35 ? 1 - e.fireCd / 0.35 : 0;
@@ -301,7 +288,7 @@ export function updateEnemies(dt) {
         }
         e.st = 'ranged';
         // yalnızca hedefe gerçekten yakınken durur; aksi halde ateş ederken yürür (tüneli tıkamasın)
-        if (Math.min(dp, db) < 40) continue;
+        if (dp < 40) continue;
       }
     }
 
@@ -325,10 +312,12 @@ export function updateEnemies(dt) {
     const nx = nextStep(mode, c, r);
     e.st = 'flow';
     if (!nx) {
-      e.st = 'tobase';
-      const d = db || 1;
-      moveE(e, (BASE_X - e.x) / d * sp * dt, (BASE_Y - e.y) / d * sp * dt);
-      e.face = BASE_X > e.x ? 1 : -1;
+      // alan çözümsüz: doğrudan oyuncuya yönel (kayayı kazarak), oyuncu yoksa bekle
+      e.st = 'hunt';
+      if (!p) continue;
+      const d = dp || 1;
+      moveE(e, (p.x - e.x) / d * sp * dt, (p.y - e.y) / d * sp * dt);
+      e.face = p.x > e.x ? 1 : -1;
       continue;
     }
     const nt = tileAt(nx.c, nx.r);
@@ -391,6 +380,12 @@ export function updateEnemies(dt) {
 
 // saldırıdan hemen önce geri çekilme miktarı (0..1)
 function windup(e) { return e.atkCd > 0 && e.atkCd < 0.3 ? 1 - e.atkCd / 0.3 : 0; }
+// izini kaybetti: kayaya gömülür (listeden düşer)
+function retreat(e) {
+  e.dead = true; e.hp = 0; e.dieT = 0.01;
+  dust(e.x, e.y, 3, 'rgba(120,90,110,0.5)'); debris(e.x, e.y, 'dirt', 4, 0.5);
+  if (nearLocal(e)) sfx.burrow();
+}
 
 // ---------- Maden Solucanı: oyuncuyu kayanın içinden avlar, arkasında tünel bırakır ----------
 function trackTrail(e) {
@@ -435,12 +430,11 @@ function updateWorm(e, dt, sp, p, dp) {
   return true;
 }
 
-// target: oyuncu nesnesi | 'base' | yapı
+// target: oyuncu nesnesi | alet
 function attack(e, target) {
   e.atkCd = e.d.small ? 0.7 : 1; e.lunge = 1; e.wind = 0;
   const dmg = e.d.dmg * e.dmgMul;
   if (e.d.boom) { e.hp = 0; killEnemy(e); return; }
-  if (target === 'base') damageBase(dmg);
-  else if (target.bag) { damagePlayer(target, dmg, e.x, e.y); if (e.d.chill) { chillPlayer(target, 1.8); sparks(target.x, target.y, '#bff4ff', 6, 50); } }
+  if (target.bag) { damagePlayer(target, dmg, e.x, e.y); if (e.d.chill) { chillPlayer(target, 1.8); sparks(target.x, target.y, '#bff4ff', 6, 50); } }
   else damageStructure(target, dmg);
 }

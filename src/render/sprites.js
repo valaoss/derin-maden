@@ -70,6 +70,16 @@ const L_WC =   ['..ktgk.ktgk.', '..kbbkkbbk..', '...kk..kk...'];   // yürüyü�
 const L_CROUCH = ['..ktggktggk.', '..kbbbkbbbk.', '...kk...kk..']; // çömelme (aşağı kazarken)
 // partner paleti: turuncu tulum, turkuaz kask
 const P2_PAL = { y: '#5fe0b8', Y: '#a8f5dc', o: '#2a8a70', t: '#e07a4a', T: '#ffb080', g: '#8a3a1a' };
+// Kask/tulum renkleri: oyuncu seçer (ayarlar), ortak seferde iki taraf da görür
+export const HELMETS = [
+  { name: 'Sarı',    c: '#f2c14e', pal: {} },
+  { name: 'Turkuaz', c: '#5fe0b8', pal: P2_PAL },
+  { name: 'Kırmızı', c: '#ec4a4a', pal: { y: '#ec4a4a', Y: '#ff9a8a', o: '#8a1e28', t: '#3a3a5a', T: '#6a6a8a', g: '#1a1a2a' } },
+  { name: 'Mor',     c: '#c070ff', pal: { y: '#c070ff', Y: '#e8b0ff', o: '#6a2a9a', t: '#2fb39a', T: '#6fd8c0', g: '#1a6a5a' } },
+  { name: 'Turuncu', c: '#ff8a3a', pal: { y: '#ff8a3a', Y: '#ffc08a', o: '#a04a10', t: '#4a6aa0', T: '#8aa0d0', g: '#2a3a60' } },
+  { name: 'Beyaz',   c: '#f5ecd8', pal: { y: '#f5ecd8', Y: '#ffffff', o: '#a497b4', t: '#8a3a5a', T: '#c07a9a', g: '#4a1a30' } },
+];
+export function playerSprites(helm) { return SPR.playerSets[(helm | 0) % SPR.playerSets.length] || SPR.player; }
 
 export const SPR = {};
 
@@ -680,11 +690,35 @@ export function iconURL(name, scale = 1) {
   return (iconCache[key] = cv.toDataURL());
 }
 
+// yuva (kovan): etli mor kütle, nabız gibi atan gözenekler (2 kare)
+const NEST_PAL = { n: '#3a1a3a', N: '#5a2a58', m: '#7a3a70', r: '#ff3a6a', R: '#ff8ab0', k: '#140c1c' };
+const NEST_A = [
+  '..kkkkkkkkkkkk..',
+  '.knNNNNNNNNNNnk.',
+  'knNmmNNNmmNNNNnk',
+  'knNmrmNNmrmNNNnk',
+  'knNNmNNNNmNNNNnk',
+  'knNNNNNmmNNNmmnk',
+  'knNmmNNmrmNNmrnk',
+  'knNmrmNNmNNNNmnk',
+  'knNNmNNNNNNNNNnk',
+  'knNNNNmmNNNNNNnk',
+  'knNNNNmrmNNmmNnk',
+  'knNNNNNmNNmrmNnk',
+  'knNmmNNNNNNmNNnk',
+  'knNmrmNNNNNNNNnk',
+  '.knNNNNNNNNNNnk.',
+  '..kkkkkkkkkkkk..',
+];
+const NEST_B = NEST_A.map(row => row.replace(/r/g, 'R'));
+
 export function buildSprites() {
   const pTop = P_TOP;
+
   const mk = (legs, pal = {}) => makeSprite(pTop.concat(legs), pal, 'w');
-  SPR.player = { idle: mk(L_IDLE), wa: mk(L_WA), wb: mk(L_WB), wc: mk(L_WC), fly: mk(L_FLY), crouch: mk(L_CROUCH) };
-  SPR.player2 = { idle: mk(L_IDLE, P2_PAL), wa: mk(L_WA, P2_PAL), wb: mk(L_WB, P2_PAL), wc: mk(L_WC, P2_PAL), fly: mk(L_FLY, P2_PAL), crouch: mk(L_CROUCH, P2_PAL) };
+  SPR.nest = [makeSprite(NEST_A, NEST_PAL, 'r'), makeSprite(NEST_B, NEST_PAL, 'R')];
+  SPR.playerSets = HELMETS.map(h => ({ idle: mk(L_IDLE, h.pal), wa: mk(L_WA, h.pal), wb: mk(L_WB, h.pal), wc: mk(L_WC, h.pal), fly: mk(L_FLY, h.pal), crouch: mk(L_CROUCH, h.pal) }));
+  SPR.player = SPR.playerSets[0]; SPR.player2 = SPR.playerSets[1];
   SPR.glarer = [makeSprite(GLARE_A, GLARE_PAL, 'eEi'), makeSprite(GLARE_B, GLARE_PAL, 'eE')];
   SPR.lurker = [makeSprite(LURK_A, LURK_PAL, 'r'), makeSprite(LURK_B, LURK_PAL, 'rD')];
   SPR.howler = [makeSprite(HOWL_A, HOWL_PAL, 'r'), makeSprite(HOWL_B, HOWL_PAL, 'rW')];

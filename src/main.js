@@ -4,14 +4,14 @@ import './ui/style.css';
 
 import { STEP, TILE, GROUND_Y, WORLD_H, CENTER_COL, GROUND_ROW, STRATUM_ROWS, STRATA_COUNT, stratumOfRow } from './config.js';
 import { G, App, setG } from './game/state.js';
-import { loadMeta, saveMeta, loadSettings, loadRun, saveRun, clearRun } from './core/save.js';
-import { newRun, serialize, deserialize, bagCount, contractProgress, metaSnapshot, MP_MODS, stratumGroup } from './game/run.js';
+import { loadMeta, saveMeta, loadSettings, saveSettings, loadRun, saveRun, clearRun } from './core/save.js';
+import { newRun, serialize, deserialize, bagCount, contractProgress, metaSnapshot, stratumGroup } from './game/run.js';
 import { updatePlayer, updateOrbs, updateDeposit, bindEnemyDamage } from './game/player.js';
 import { updateEnemies, damageEnemy, spawnEnemy } from './game/enemies.js';
 import { updatePlayerGun, updateBullets, updateStructures, updateShells } from './game/combat.js';
 import { updateItems } from './game/items.js';
 import { updateHazards } from './game/hazards.js';
-import { updateWaves } from './game/waves.js';
+import { updateThreat, LEVEL_NAMES } from './game/threat.js';
 import { updateParticles, updateFlashes, particle } from './game/fx.js';
 import { updateFlow, forceFlow } from './world/flow.js';
 import { buildSprites } from './render/sprites.js';
@@ -20,16 +20,17 @@ import { initRenderer, resize, render, updateCamera, view } from './render/rende
 import { initInput, input, cancelStick, keyPressed, setStickVisible, readMove } from './input/input.js';
 import { initAudio, sfx, setAmbience, stopAmbience, suspendAudio, haptic } from './audio/audio.js';
 import { on, emit } from './core/events.js';
-import { ozForRun, CONTRACTS, ITEM_KEYS, MODS } from './data/balance.js';
+import { ozForRun, CONTRACTS, ITEM_KEYS, MODS, PERKS } from './data/balance.js';
 import { STRATA } from './data/palette.js';
 import { todayKey } from './core/util.js';
 import { dispatch, CMD } from './game/commands.js';
-import { net, startLockstep, stopLockstep, sampleLocal, canStep, applyInputs, afterStep } from './net/lockstep.js';
-import { link, hostRoom, joinRoom, send, closeLink } from './net/peer.js';
+import { net, startLockstep, stopLockstep, sampleLocal, canStep, applyInputs, afterStep, netTick } from './net/lockstep.js';
+import { link, hostRoom, joinRoom, quickMatch, send, closeLink, codeFromURL, shareInvite } from './net/peer.js';
 import * as UI from './ui/ui.js';
 
 App.meta = loadMeta();
 App.settings = loadSettings();
+if (!App.settings.name) { App.settings.name = 'Madenci ' + (10 + Math.floor(Math.random() * 90)); saveSettings(App.settings); }
 
 const app = document.getElementById('app');
 const canvas = document.getElementById('cv');
@@ -62,42 +63,94 @@ const hooks = {
     if (showMenu) UI.showPause();
   },
   resume() { if (G) { G.paused = false; last = performance.now(); } },
-  newRun(opts) { startRun(false, opts); },
+  newRun(opts) { startRun(false, Object.assign({ startStratum: elevatorStratum(App.meta) }, opts)); },
   continueRun() { startRun(true); },
   endRun(reason) { endRun(reason); },
-  // çok oyunculu oda akışı
+  // ---------- çok oyunculu lobi ----------
   async hostRoom() {
-    const code = await hostRoom();
-    UI.showRoom({ host: true, code });
-    link.onOpen = () => {
-      sfx.connect();
-      const seed = (Math.random() * 1e9) | 0;
-      const meta = metaSnapshot();
-      send({ t: 'start', seed, meta });
-      startRun(false, { mp: true, seed, meta, localIdx: 0 });
-    };
-    link.onClose = onPeerGone; link.onError = e => UI.toast('Bağlantı hatası: ' + e, 'skull', true);
+    lobbyReset({ host: true, quick: false, status: 'connecting' });
+    UI.showRoom(lobby);
+    try { lobby.code = await hostRoom(); } catch (e) { lobby.status = 'error'; lobby.error = 'Oda kurulamadı'; UI.showRoom(lobby); return; }
+    lobby.status = 'waiting'; UI.showRoom(lobby);
+    bindLobbyLink();
   },
   async joinRoom(code) {
-    UI.showRoom({ host: false, code, connecting: true });
-    try { await joinRoom(code); } catch (e) { UI.showRoom({ host: false, code, error: 'Oda bulunamadı' }); return; }
-    sfx.connect();
-    UI.showRoom({ host: false, code, waiting: true });
-    link.onClose = onPeerGone; link.onError = e => UI.toast('Bağlantı hatası: ' + e, 'skull', true);
+    lobbyReset({ host: false, quick: false, status: 'connecting', code });
+    UI.showRoom(lobby);
+    try { await joinRoom(code); } catch (e) { lobby.status = 'error'; lobby.error = 'Oda bulunamadı. Kod doğru mu?'; UI.showRoom(lobby); return; }
+    bindLobbyLink();
+    onLobbyOpen();
   },
+  async quickMatch() {
+    lobbyReset({ host: false, quick: true, status: 'search' });
+    UI.showRoom(lobby);
+    try {
+      await quickMatch(st => { if (st === 'host') { lobby.host = true; lobby.status = 'waiting'; lobby.code = link.code; UI.showRoom(lobby); } });
+    } catch (e) { lobby.status = 'error'; lobby.error = 'Eşleşme başarısız. Tekrar dene.'; UI.showRoom(lobby); return; }
+    bindLobbyLink();
+    if (link.open) onLobbyOpen();
+  },
+  ready(v) {
+    lobby.me.ready = !!v; send({ t: 'ready', v: lobby.me.ready }); UI.showRoom(lobby); maybeStart();
+  },
+  async share() { const r = await shareInvite(lobby.code); if (r === 'copied') UI.toast('Davet linki kopyalandı', 'check'); else if (r === 'fail') UI.toast('Paylaşılamadı', 'skull', true); },
   leaveRoom() { closeLink(); toMenu(); },
 };
+// lobi durumu (arayüz bunu çizer)
+const lobby = { host: false, quick: false, status: 'idle', code: '', error: '', me: null, mate: null, starting: false };
+function lobbyReset(o) {
+  Object.assign(lobby, { host: false, quick: false, status: 'idle', code: '', error: '', mate: null, starting: false }, o);
+  lobby.me = { name: App.settings.name, helm: App.settings.helm | 0, ready: false };
+}
+function bindLobbyLink() {
+  link.onOpen = onLobbyOpen;
+  link.onClose = onPeerGone;
+  link.onError = e => UI.toast('Bağlantı hatası: ' + e, 'skull', true);
+}
+function onLobbyOpen() {
+  sfx.connect();
+  lobby.status = 'open'; lobby.code = link.code; lobby.host = link.host;
+  send({ t: 'hello', name: lobby.me.name, helm: lobby.me.helm });
+  UI.showRoom(lobby);
+}
+function maybeStart() {
+  if (!lobby.host || !lobby.mate || !lobby.me.ready || !lobby.mate.ready || lobby.starting) return;
+  const seed = (Math.random() * 1e9) | 0;
+  const meta = metaSnapshot();
+  const names = [lobby.me.name, lobby.mate.name], helms = [lobby.me.helm, lobby.mate.helm];
+  const startStratum = elevatorStratum(App.meta);
+  send({ t: 'start', seed, meta, names, helms, startStratum });
+  beginCoop({ seed, meta, names, helms, localIdx: 0, startStratum });
+}
+function beginCoop(o) {
+  lobby.starting = true; UI.showRoom(lobby);
+  setTimeout(() => startRun(false, { mp: true, seed: o.seed, meta: o.meta, localIdx: o.localIdx, names: o.names, helms: o.helms, startStratum: o.startStratum | 0 }), 900);
+}
+// fener asansörü: ardışık temizlenmiş biyomların sonrasından başla (menüde kapatılabilir)
+function elevatorStratum(m) {
+  if (m.elevatorOff) return 0;
+  let s = 0; const b = m.beacons || [];
+  while (b.includes(s) && s < STRATA_COUNT - 1) s++;
+  return s;
+}
 UI.initUI(document.getElementById('ui'), hooks);
 // bağlantı mesajları (lockstep başlamadan önce de): oda başlangıcı vb.
 const defaultOnMessage = d => { if (d && d.t) emit('netMsg', d); };
 link.onMessage = defaultOnMessage;
 
 on('netMsg', d => {
-  if (d.t === 'start' && !link.host) startRun(false, { mp: true, seed: d.seed, meta: d.meta, localIdx: 1 });
+  if (App.scene === 'room') {
+    if (d.t === 'hello') { lobby.mate = { name: String(d.name || 'Madenci').slice(0, 14), helm: d.helm | 0, ready: false }; UI.showRoom(lobby); }
+    else if (d.t === 'ready' && lobby.mate) { lobby.mate.ready = !!d.v; UI.showRoom(lobby); maybeStart(); }
+    else if (d.t === 'start' && !link.host) beginCoop({ seed: d.seed, meta: d.meta, names: d.names, helms: d.helms, localIdx: 1, startStratum: d.startStratum | 0 });
+  }
 });
 function onPeerGone() {
   if (App.scene === 'play' && G && G.mp && !G.over) { UI.toast('Partner ayrıldı', 'skull', true); endRun('abandon'); }
-  else if (App.scene === 'room') { UI.toast('Bağlantı koptu', 'skull', true); toMenu(); }
+  else if (App.scene === 'room') {
+    if (lobby.host && !lobby.starting) { lobby.mate = null; lobby.me.ready = false; lobby.status = 'waiting'; UI.toast('Partner ayrıldı', 'skull', true); UI.showRoom(lobby); }
+    else { UI.toast('Bağlantı koptu', 'skull', true); toMenu(); }
+  }
 }
 on('desync', () => UI.toast('Senkron kaydı — sonuçlar farklı olabilir', 'skull', true));
 
@@ -113,7 +166,7 @@ function toMenu() {
   newRun({ seed: 1337 });
   resetTiles(); prebuildTiles();
   for (let i = 0; i < G.rev.length; i++) G.rev[i] = 1;
-  G.player.dead = true; G.player.respawnT = 1e9;
+  G.player.dead = true; G.player.gone = true; G.player.downT = 1e9;
   G.cam.y = G.cam.py = -150; menuT = 0;
   UI.showHUD(false);
   UI.hideScreens();
@@ -134,16 +187,16 @@ function startRun(cont, opts = {}) {
       clearRun();
       const daily = opts.daily ? todayKey() : null;
       newRun({ tutorial: !App.meta.tutorialDone && !daily && !opts.mp, kademe: opts.kademe | 0, daily, seed: daily ? seedOf('derin' + daily) : opts.seed,
-        mp: !!opts.mp, meta: opts.meta || null, localIdx: opts.localIdx | 0 });
+        mp: !!opts.mp, meta: opts.meta || null, localIdx: opts.localIdx | 0, names: opts.names || null, helms: opts.helms || null, startStratum: daily ? 0 : opts.startStratum | 0 });
     }
-    if (G.mp) startLockstep(G.localIdx); else if (net.on) stopLockstep();
+    if (G.mp) { startLockstep(G.localIdx); mateAway = false; if (document.hidden) startBgTick(); } else if (net.on) stopLockstep();
     resetTiles(); prebuildTiles(); forceFlow();
     G.cam.snap = true; updateCamera(0, true);
     App.scene = 'play';
     UI.showHUD(true); UI.refreshHUD(true);
     last = performance.now(); acc = 0;
     if (!saved && !G.tutorial) {
-      UI.banner(G.mp ? 'BİRLİKTE KAZ' : G.daily ? 'GÜNÜN MADENİ' : G.kademe ? 'KADEME ' + G.kademe : 'SEFER ' + (App.meta.runs + 1), G.mp ? 'ODA ' + link.code : STRATA[0].name.toUpperCase());
+      UI.banner(G.mp ? 'BİRLİKTE KAZ' : G.daily ? 'GÜNÜN MADENİ' : G.kademe ? 'KADEME ' + G.kademe : 'SEFER ' + (App.meta.runs + 1), G.mp ? G.players.map(p => p.name || 'MADENCİ').join(' & ').toUpperCase() : STRATA[0].name.toUpperCase());
       setTimeout(() => UI.showContractsToast(), 2600);
     }
   });
@@ -162,22 +215,26 @@ function endRun(reason) {
   const oz = Math.round((ozForRun({ ...s, collected }) + contractOz) * G.mods.oz);
   const newDepth = s.maxDepth > m.bestDepth;
   const prevStratum = m.maxStratum | 0;
-  m.oz += oz; m.runs++; m.bestDepth = Math.max(m.bestDepth, s.maxDepth); m.bestWave = Math.max(m.bestWave, s.wavesCleared);
+  m.oz += oz; m.runs++; m.bestDepth = Math.max(m.bestDepth, s.maxDepth); m.bestNests = Math.max(m.bestNests | 0, s.nests);
   m.maxStratum = Math.max(prevStratum, G.maxStratum);
+  // fenerler kalıcı: temizlenen biyomlara sonraki seferde asansörle inilir
+  m.beacons = Array.from(new Set([...(m.beacons || []), ...G.beacons])).sort((a, b) => a - b);
   if (victory && !G.mp) { m.wins++; m.maxKademe = Math.max(m.maxKademe | 0, Math.min(5, G.kademe + 1)); }
   if (victory && G.mp) { m.wins++; m.coopWins = (m.coopWins | 0) + 1; }
   let dailyBest = false;
   if (G.daily) {
     const d = m.daily && m.daily.day === G.daily ? m.daily : { day: G.daily, depth: 0, waves: 0, win: false, tries: 0 };
     d.tries++; dailyBest = s.maxDepth > d.depth || (victory && !d.win);
-    d.depth = Math.max(d.depth, s.maxDepth); d.waves = Math.max(d.waves, s.wavesCleared); d.win = d.win || victory;
+    d.depth = Math.max(d.depth, s.maxDepth); d.nests = Math.max(d.nests | 0, s.nests); d.win = d.win || victory;
     m.daily = d;
   }
   m.tutorialDone = true;
   saveMeta(m); clearRun();
   const ores = Object.values(collected).reduce((a, b) => a + b, 0);
   let goal;
+  const nextBeacon = [...Array(STRATA_COUNT).keys()].find(i => !m.beacons.includes(i));
   if (victory) goal = 'Kalp Kristali senin. Şimdi daha hızlı yapabilir misin?';
+  else if (nextBeacon !== undefined && nextBeacon <= G.maxStratum) goal = `Sonraki hedef: <b>${STRATA[nextBeacon].name}</b> yuvalarını yık, Fener dik.`;
   else if (G.maxStratum < STRATA_COUNT - 1) goal = `Sonraki hedef: <b>${STRATA[G.maxStratum + 1].name}</b> (${(G.maxStratum + 1) * STRATUM_ROWS}m)`;
   else goal = 'Çekirdek çok yakın. Kalp Kristali\'ni yüzeye taşı!';
   if (!victory && m.oz >= 20) goal += '<br><span style="color:var(--good)">Kampta harcayacak Öz\'ün var.</span>';
@@ -187,14 +244,14 @@ function endRun(reason) {
   const mp = G.mp;
   setTimeout(() => {
     UI.showHUD(false); UI.closeSheet(); UI.coach('');
-    UI.showResults({ victory, reason, maxDepth: s.maxDepth, newDepth, wavesCleared: s.wavesCleared, chests: s.chests, kills: s.kills, ores, oz, goal,
+    UI.showResults({ victory, reason, maxDepth: s.maxDepth, newDepth, nests: s.nests, beacons: s.beacons, chests: s.chests, kills: s.kills, ores, oz, goal, names: G.players.map(p => p.name),
       contracts: G.contracts, kademe: G.kademe, daily: G.daily, dailyBest, mp,
       unlockedKademe: victory && !mp && G.kademe + 1 <= 5 && m.maxKademe === G.kademe + 1 ? G.kademe + 1 : 0 });
     if (mp) closeLink();
   }, victory ? 400 : 900);
 }
 
-on('baseDown', () => { if (G) { G.base.hp = 0; endRun('base'); } });
+on('allDown', () => endRun('down'));
 on('victory', () => endRun('victory'));
 bindEnemyDamage(damageEnemy);
 
@@ -220,7 +277,7 @@ function step(dt) {
   updateShells(dt);
   updateItems(dt);
   updateHazards(dt);
-  updateWaves(dt);
+  updateThreat(dt);
   updateOrbs(dt);
   updateDeposit(dt);
   updateParticles(dt);
@@ -258,13 +315,8 @@ function step(dt) {
       }
     }
   }
-  // üs bacası dumanı (kozmetik)
+  // kamp bacası dumanı (kozmetik)
   if (Math.random() < dt * 4) particle(G.base.x + 22, GROUND_Y - 44, (Math.random() - 0.5) * 6 + 3, -10 - Math.random() * 8, 1.6 + Math.random(), 'rgba(120,110,130,0.45)', 2 + (Math.random() * 2 | 0), 2, -6);
-  // sakin fazda üs yavaşça kendini onarır (oyuncu yüzeydeyse daha hızlı; çok oyunculuda yarı hız)
-  if (G.wave.phase === 'calm' && !G.mods.noRegen && G.base.hp > 0 && G.base.hp < G.base.maxHp) {
-    const anySurf = G.players.some(p => !p.dead && p.y < GROUND_Y);
-    G.base.hp = Math.min(G.base.maxHp, G.base.hp + (anySurf ? 2 : 0.6) * dt * (G.mp ? MP_MODS.regen : 1));
-  }
   UI.tutorialTick(dt);
   checkContracts();
   updateCamera(dt);
@@ -297,6 +349,10 @@ function feedLocalInput() {
 let lastAmb = '';
 function frame(now) {
   requestAnimationFrame(frame);
+  tick(now, false);
+}
+// bg: sekme arka plandayken Worker zamanlayıcısından gelir; simülasyon ilerler, çizim atlanır (partner donmaz)
+function tick(now, bg) {
   let dt = (now - last) / 1000; last = now;
   if (dt > 0.25) dt = 0.25;
   handleTaps();
@@ -304,7 +360,7 @@ function frame(now) {
   if (App.scene === 'menu' || App.scene === 'room') {
     acc += dt; let n = 0;
     while (acc >= STEP && n++ < 5) { menuStep(STEP); acc -= STEP; }
-    render(1, { hidePlayer: true });
+    if (!bg) render(1, { hidePlayer: true });
     return;
   }
   if (App.scene === 'play' && !G.paused && !G.over) {
@@ -313,16 +369,17 @@ function frame(now) {
     if (keyPressed('q') || keyPressed('e')) { const act = G.gear.eq.filter(k => MODS[k].active); const k = act[keyPressed('e') ? 1 : 0] || act[0]; if (k) { dispatch({ t: CMD.MODUSE, k }); UI.refreshHUD(true); } }
     acc += dt; let n = 0;
     if (G.mp) {
-      // lockstep: karşı girdi yoksa bekle; geri kaldıysak hızlan
-      const maxSteps = net.remoteAhead > 3 ? 4 : 2;
-      while (acc >= STEP && n < maxSteps) {
+      // lockstep: girdi her çizim karesinde örneklenir (adım atılmasa da karşıya gider)
+      sampleLocal();
+      let blocked = false;
+      while (acc >= STEP && n < 3) {
         sampleLocal();
-        if (!canStep()) { net.stallT += dt; break; }
-        net.stallT = 0;
+        if (!canStep()) { blocked = true; break; }
         applyInputs(); step(STEP); afterStep(); acc -= STEP; n++;
       }
-      if (acc > STEP * 3) acc = STEP * 3;
-      UI.setNetStall(net.stallT > 0.5);
+      acc += netTick(dt, blocked);
+      if (acc > STEP * 2) acc = STEP * 2;   // beklemeden çıkınca sıçrama yok: en fazla iki adım birikir
+      UI.setNetStall(net.stallT > 0.4 ? (mateAway ? 'PARTNER UZAKLAŞTI' : 'PARTNER BEKLENİYOR · ' + Math.round(net.rtt) + 'ms') : '');
     } else {
       while (acc >= STEP && n++ < 6) { feedLocalInput(); step(STEP); acc -= STEP; }
       if (n >= 6) acc = 0;
@@ -332,15 +389,28 @@ function frame(now) {
     if (saveT > 8) { saveT = 0; autosave(); }
     const surf = G.player.y < GROUND_Y;
     const st = stratumGroup(stratumOfRow(Math.floor(G.player.y / TILE)));
-    const key = st + '|' + surf + '|' + (G.wave.phase === 'active');
-    if (key !== lastAmb) { lastAmb = key; setAmbience(st, surf, G.wave.phase === 'active'); }
+    const key = st + '|' + surf + '|' + (G.threat.level >= 2);
+    if (key !== lastAmb) { lastAmb = key; setAmbience(st, surf, G.threat.level >= 2); }
   } else if (App.scene === 'play' && G.paused && G.mp) {
     G.paused = false; // çok oyunculuda duraklatma yok
   }
   const sv = App.scene === 'play' && !G.paused && !G.over;
   if (sv !== stickShown) { stickShown = sv; setStickVisible(sv); }
+  if (bg) return;
   render(App.scene === 'play' ? Math.min(1, acc / STEP) : 1);
 }
+// arka plan sekmesi: rAF durur; Worker zamanlayıcısı simülasyonu sürdürür ki partner beklemesin
+let bgWorker = null, mateAway = false;
+function startBgTick() {
+  if (bgWorker) return;
+  try {
+    const src = 'setInterval(function(){postMessage(0)},' + Math.round(STEP * 1000) + ')';
+    bgWorker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+    bgWorker.onmessage = () => { if (document.hidden && App.scene === 'play' && G && G.mp && !G.over) tick(performance.now(), true); };
+  } catch (e) { bgWorker = null; }
+}
+function stopBgTick() { if (bgWorker) { bgWorker.terminate(); bgWorker = null; } }
+on('netMsg', d => { if (d.t === 'away') mateAway = !!d.v; });
 let stickShown = null;
 
 function autosave() {
@@ -350,9 +420,9 @@ function autosave() {
 }
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
-    if (App.scene === 'play' && G && !G.over) { autosave(); if (!G.paused && !G.mp) hooks.pause(true); }
+    if (App.scene === 'play' && G && !G.over) { autosave(); if (!G.paused && !G.mp) hooks.pause(true); if (G.mp) { startBgTick(); send({ t: 'away', v: true }); } }
     suspendAudio(true);
-  } else { suspendAudio(false); last = performance.now(); }
+  } else { suspendAudio(false); last = performance.now(); stopBgTick(); if (link.open) send({ t: 'away', v: false }); }
 });
 window.addEventListener('pagehide', autosave);
 document.addEventListener('pointerdown', () => initAudio(), { once: true });
@@ -362,6 +432,8 @@ document.addEventListener('keydown', () => initAudio(), { once: true });
 const fontsReady = document.fonts ? document.fonts.ready : Promise.resolve();
 Promise.race([fontsReady, new Promise(r => setTimeout(r, 1500))]).then(() => {
   toMenu();
+  const invite = codeFromURL();
+  if (invite) setTimeout(() => hooks.joinRoom(invite), 300);
   requestAnimationFrame(t => { last = t; frame(t); });
   const boot = document.getElementById('boot');
   boot.classList.add('done'); setTimeout(() => boot.remove(), 400);
@@ -374,7 +446,8 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
 // geliştirme/test erişimi
 if (import.meta.env.DEV) window.__dm = {
   get G() { return G; }, App, UI, hooks, step, render, view, input, net, link,
-  spawn(type, c, r) { const e = spawnEnemy(type, c * TILE + 8, r * TILE + 8, Math.max(1, G.wave.num)); e.emergeT = 0; return e; },
+  spawn(type, c, r) { const e = spawnEnemy(type, c * TILE + 8, r * TILE + 8, 1 + G.maxStratum); e.emergeT = 0; return e; },
+  noise(v) { G.threat.noise = v; },
   put(c, r, t) { const i = r * 17 + c; G.map[i] = t; G.dmg[i] = 0; G.dirty.push(c, r); G.mapVersion++; },
   tick(sec) {
     const n = Math.round(sec / STEP);

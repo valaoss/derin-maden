@@ -1,8 +1,10 @@
-// Oda tabanlı eşleşme: PeerJS (WebRTC DataChannel). Oda kodu = peer kimliği.
-// Varsayılan olarak PeerJS'in ücretsiz bulut sinyal sunucusu kullanılır; kendi sunucun için VITE_PEER_HOST/PORT ver.
+// Eşleşme: PeerJS (WebRTC DataChannel).
+// Üç yol: Hızlı Eşleş (sunucusuz lobi yuvaları), davet linki (?oda=KOD) ve eski usul 4 haneli kod.
 import { Peer } from 'peerjs';
 
-const PREFIX = 'derinmaden-v3-';
+const PREFIX = 'derinmaden-v4-';
+const LOBBY = PREFIX + 'lobi-';
+const LOBBY_SLOTS = 6;
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // karışan harfler yok (I/O/0/1)
 
 export function makeCode() {
@@ -14,14 +16,19 @@ export function makeCode() {
 export function normCode(s) { return (s || '').toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 4); }
 
 function peerOpts() {
-  const host = import.meta.env.VITE_PEER_HOST;
-  const o = { debug: 0, config: { iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }] } };
-  if (host) { o.host = host; o.port = +(import.meta.env.VITE_PEER_PORT || 443); o.secure = import.meta.env.VITE_PEER_SECURE !== '0'; o.path = import.meta.env.VITE_PEER_PATH || '/'; }
+  const env = import.meta.env;
+  const ice = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] }];
+  // NAT arkasında kalanlar için isteğe bağlı TURN (VITE_TURN_URL, VITE_TURN_USER, VITE_TURN_PASS)
+  if (env.VITE_TURN_URL) ice.push({ urls: env.VITE_TURN_URL.split(','), username: env.VITE_TURN_USER || '', credential: env.VITE_TURN_PASS || '' });
+  const o = { debug: 0, config: { iceServers: ice } };
+  if (env.VITE_PEER_HOST) { o.host = env.VITE_PEER_HOST; o.port = +(env.VITE_PEER_PORT || 443); o.secure = env.VITE_PEER_SECURE !== '0'; o.path = env.VITE_PEER_PATH || '/'; }
   return o;
 }
+// Oyun kanalı: sırasız (head-of-line blocking yok); kayıp paketleri girdi yedeklemesi telafi eder
+const CHAN = { reliable: false, serialization: 'json' };
 
 export const link = {
-  peer: null, conn: null, host: false, code: '', open: false,
+  peer: null, conn: null, host: false, code: '', open: false, quick: false,
   onMessage: null, onOpen: null, onClose: null, onError: null,
 };
 
@@ -29,44 +36,120 @@ function bindConn(c) {
   link.conn = c;
   c.on('open', () => { link.open = true; link.onOpen && link.onOpen(); });
   c.on('data', d => { link.onMessage && link.onMessage(d); });
-  c.on('close', () => { link.open = false; link.onClose && link.onClose('closed'); });
+  c.on('close', () => { if (link.conn !== c) return; link.open = false; link.conn = null; link.onClose && link.onClose('closed'); });
   c.on('error', e => { link.onError && link.onError(String(e && e.type || e)); });
 }
 
-// Oda kur: kod üretir, misafiri bekler
+function acceptIncoming(peer) {
+  peer.on('connection', c => { if (link.conn) { try { c.close(); } catch (e) { /* yok */ } return; } bindConn(c); });
+}
+
+function makePeer(id, resolve, reject, onIdTaken) {
+  const peer = id ? new Peer(id, peerOpts()) : new Peer(peerOpts());
+  link.peer = peer;
+  peer.on('open', () => resolve(peer));
+  peer.on('error', e => {
+    const t = e && e.type;
+    if (t === 'unavailable-id' && onIdTaken) { onIdTaken(); return; }
+    if (t === 'peer-unavailable') return; // bağlantı denemeleri ayrıca dinler
+    link.onError && link.onError(t || 'peer'); reject(e);
+  });
+  peer.on('disconnected', () => { if (!link.open) { try { peer.reconnect(); } catch (err) { /* yok */ } } });
+  return peer;
+}
+
+// Kodlu oda kur: kod üretir, misafiri bekler
 export function hostRoom() {
   return new Promise((resolve, reject) => {
     closeLink();
     const code = makeCode();
-    const peer = new Peer(PREFIX + code, peerOpts());
-    link.peer = peer; link.host = true; link.code = code;
-    peer.on('open', () => resolve(code));
-    peer.on('connection', c => { if (link.conn) { c.close(); return; } bindConn(c); });
-    peer.on('error', e => {
-      const t = e && e.type;
-      if (t === 'unavailable-id') { closeLink(); hostRoom().then(resolve, reject); return; } // kod çakıştı: yeniden dene
-      link.onError && link.onError(t || 'peer'); reject(e);
-    });
-    peer.on('disconnected', () => { if (!link.open) peer.reconnect(); });
+    link.host = true; link.code = code; link.quick = false;
+    const peer = makePeer(PREFIX + code, () => resolve(code), reject, () => { closeLink(); hostRoom().then(resolve, reject); });
+    acceptIncoming(peer);
   });
 }
 
-// Odaya katıl
+// Kodla/linkle katıl
 export function joinRoom(code) {
   return new Promise((resolve, reject) => {
     closeLink();
     code = normCode(code);
-    const peer = new Peer(peerOpts());
-    link.peer = peer; link.host = false; link.code = code;
+    link.host = false; link.code = code; link.quick = false;
     let done = false;
     const to = setTimeout(() => { if (!done) { done = true; reject(new Error('timeout')); closeLink(); } }, 15000);
-    peer.on('open', () => {
-      const c = peer.connect(PREFIX + code, { reliable: true, serialization: 'json' });
+    const peer = makePeer(null, () => {
+      const c = peer.connect(PREFIX + code, CHAN);
       bindConn(c);
       c.on('open', () => { if (!done) { done = true; clearTimeout(to); resolve(); } });
-    });
-    peer.on('error', e => { if (!done) { done = true; clearTimeout(to); reject(e); } else link.onError && link.onError(e && e.type); });
+      peer.on('error', e => { if (e && e.type === 'peer-unavailable' && !done) { done = true; clearTimeout(to); reject(e); } });
+    }, e => { if (!done) { done = true; clearTimeout(to); reject(e); } });
   });
+}
+
+// Hızlı Eşleş: önce bekleyen bir ev sahibi ara (lobi yuvaları), yoksa boş bir yuvada ev sahibi ol.
+// onState('search'|'host'|'joined') ile arayüz bilgilendirilir.
+export function quickMatch(onState) {
+  return new Promise((resolve, reject) => {
+    closeLink();
+    link.quick = true; link.host = false; link.code = '';
+    let done = false;
+    const finish = (host) => { if (done) return; done = true; link.host = host; resolve(host); };
+    onState && onState('search');
+    const seeker = makePeer(null, () => {
+      const order = shuffled(LOBBY_SLOTS);
+      let pending = order.length;
+      const tries = [];
+      const giveUp = () => { if (done) return; for (const c of tries) { try { c.close(); } catch (e) { /* yok */ } } seeker.destroy(); becomeHost(); };
+      seeker.on('error', e => {
+        if (e && e.type === 'peer-unavailable') { if (--pending <= 0 && !link.open) giveUp(); }
+      });
+      for (const i of order) {
+        const c = seeker.connect(LOBBY + i, CHAN);
+        tries.push(c);
+        c.on('open', () => {
+          if (link.open || done) { try { c.close(); } catch (e) { /* yok */ } return; }
+          for (const o of tries) if (o !== c) { try { o.close(); } catch (e) { /* yok */ } }
+          link.code = 'L' + i;
+          bindConn(c); link.open = true;
+          onState && onState('joined');
+          finish(false);
+          link.onOpen && link.onOpen();
+        });
+      }
+      // sinyal sunucusu hata döndürmezse 6 sn sonra yine de ev sahibi ol
+      setTimeout(() => { if (!done && !link.open) giveUp(); }, 6000);
+    }, reject);
+
+    function becomeHost(slot = 0) {
+      if (done) return;
+      if (slot >= LOBBY_SLOTS) { reject(new Error('lobi dolu')); return; }
+      link.host = true; link.code = 'L' + slot; link.quick = true;
+      const peer = makePeer(LOBBY + slot, () => { onState && onState('host'); finish(true); }, reject, () => { try { peer.destroy(); } catch (e) { /* yok */ } becomeHost(slot + 1); });
+      acceptIncoming(peer);
+    }
+  });
+}
+
+function shuffled(n) {
+  const a = Array.from({ length: n }, (_, i) => i);
+  for (let i = n - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
+// Davet linki
+export function inviteURL(code) {
+  const u = new URL(location.href); u.search = ''; u.hash = ''; u.searchParams.set('oda', code);
+  return u.toString();
+}
+export function codeFromURL() {
+  const c = normCode(new URLSearchParams(location.search).get('oda'));
+  if (c) history.replaceState(null, '', location.pathname);
+  return c.length === 4 ? c : '';
+}
+export async function shareInvite(code) {
+  const url = inviteURL(code);
+  if (navigator.share) { try { await navigator.share({ title: 'Derin Maden', text: 'Birlikte kazalım! Oda: ' + code, url }); return 'shared'; } catch (e) { if (e && e.name === 'AbortError') return 'cancel'; } }
+  try { await navigator.clipboard.writeText(url); return 'copied'; } catch (e) { return 'fail'; }
 }
 
 export function send(msg) { if (link.conn && link.open) { try { link.conn.send(msg); } catch (e) { /* kapandı */ } } }
@@ -75,5 +158,5 @@ export function closeLink() {
   link.open = false;
   try { link.conn && link.conn.close(); } catch (e) { /* yok */ }
   try { link.peer && link.peer.destroy(); } catch (e) { /* yok */ }
-  link.conn = null; link.peer = null; link.code = '';
+  link.conn = null; link.peer = null; link.code = ''; link.quick = false;
 }

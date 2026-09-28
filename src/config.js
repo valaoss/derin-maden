@@ -20,8 +20,8 @@ export const BASE_Y = GROUND_Y - 14;
 export const PLAYER_MIN_Y = 3 * TILE + 8;
 
 // Yüzey inşa yuvaları (sütun)
-export const PAD_COLS = [3, 5, 11, 13];
-export const PAD_Y = GROUND_Y - 6;
+
+
 
 export function stratumOfRow(r) {
   if (r < GROUND_ROW) return -1;

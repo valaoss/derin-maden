@@ -1,6 +1,5 @@
-// Headless denge simülasyonu: gerçek oyun modülleri, DOM yok.
-// Senaryo: oyuncu her katmana bir şaft açar, üste döner ve savunur. Dalga başına üs canı/süre raporlanır.
-// Kullanım: node scripts/balance-sim.mjs [tekrar=20]   (AWAY=1: oyuncu derinde, sadece taretler savunur)
+// Headless denge simülasyonu (uyanış döngüsü): oyuncu her biyomda 60 sn kazar, gürültü/seviye/düşman/bayılma raporlanır.
+// Kullanım: node scripts/balance-sim.mjs [tekrar=10]
 import { App, G } from '../src/game/state.js';
 import { newRun, recompute } from '../src/game/run.js';
 import { updatePlayer, updateOrbs, updateDeposit, bindEnemyDamage } from '../src/game/player.js';
@@ -8,62 +7,43 @@ import { updateEnemies, damageEnemy } from '../src/game/enemies.js';
 import { updatePlayerGun, updateBullets, updateStructures, updateShells } from '../src/game/combat.js';
 import { updateItems } from '../src/game/items.js';
 import { updateHazards } from '../src/game/hazards.js';
-import { updateWaves } from '../src/game/waves.js';
+import { updateThreat } from '../src/game/threat.js';
 import { updateParticles, updateFlashes } from '../src/game/fx.js';
 import { updateFlow, forceFlow } from '../src/world/flow.js';
 import { setTile } from '../src/world/map.js';
-import { makeStructure } from '../src/game/run.js';
-import { on } from '../src/core/events.js';
+import { UPGRADES, PICK_TIERS } from '../src/data/balance.js';
+import { GROUND_ROW, STRATUM_ROWS, STRATA_COUNT, TILE } from '../src/config.js';
 
 App.settings = { sfx: false, music: false, haptics: false, shake: false };
 App.meta = { lv: {}, tutorialDone: true };
 bindEnemyDamage(damageEnemy);
-let baseDown = false;
-on('baseDown', () => { baseDown = true; });
 
-const RUNS = +process.argv[2] || 20, STEP = 1 / 60;
-const table = {};
+const RUNS = +process.argv[2] || 10, STEP = 1 / 60;
+const rows = [];
 for (let run = 0; run < RUNS; run++) {
   newRun({ seed: 1000 + run });
-  baseDown = false;
-  // oyuncu ilerledikçe güçlenir (kabaca beklenen tempo)
-  const plan = [
-    { wave: 1, depth: 14, lvl: { blaster: 0 }, turrets: 0 },
-    { wave: 3, depth: 26, lvl: { blaster: 1 }, turrets: 1 },
-    { wave: 5, depth: 40, lvl: { blaster: 2, armor: 1 }, turrets: 2 },
-    { wave: 7, depth: 58, lvl: { blaster: 3, armor: 2 }, turrets: 3 },
-    { wave: 9, depth: 80, lvl: { blaster: 4, armor: 3 }, turrets: 4 },
-  ];
-  let dug = 0;
-  const p = G.player; p.inp = p.inp || { x: 0, y: 0, mag: 0 };
-  for (let w = 1; w <= 12 && !baseDown; w++) {
-    const stage = plan.filter(s => s.wave <= w).pop();
-    Object.assign(G.lvl, stage.lvl); recompute();
-    while (G.structures.length < stage.turrets) G.structures.push(makeStructure('turret', G.structures.length));
-    for (; dug < stage.depth; dug++) setTile(11, 6 + dug, 0);
-    G.maxStratum = Math.min(9, Math.floor(stage.depth / 36));
-    // oyuncu üs yanında
-    if (process.env.AWAY) { p.x = 40; p.y = 104 * 16; } else { p.x = 170; p.y = 86; } p.dead = false;
-    G.wave.t = 14.1; G.wave.phase = 'calm';
+  const p = G.player; p.inp = { x: 0, y: 1, mag: 1 };
+  for (let s = 0; s < STRATA_COUNT; s++) {
+    const rTop = GROUND_ROW + s * STRATUM_ROWS + 2;
+    for (let r = GROUND_ROW; r <= rTop; r++) setTile(8, r, 0);
+    p.x = 8 * TILE + 8; p.y = rTop * TILE + 8; p.px = p.x; p.py = p.y; p.hp = p.maxHp; p.dead = false; G.maxStratum = s;
+    Object.assign(G.lvl, { blaster: Math.min(UPGRADES.blaster.costs.length, s), armor: Math.min(UPGRADES.armor.costs.length, s >> 1), drill: Math.min(PICK_TIERS.length - 1, s) }); recompute();
     forceFlow();
-    let t = 0;
-    const hp0 = G.base.hp;
-    while (!baseDown && t < 150) {
+    const row = rows[s] || (rows[s] = { n: 0, peak: 0, lv2: 0, lv3: 0, lv4: 0, spawned: 0, downs: 0, hpLost: 0 });
+    let t = 0, tLv2 = -1, tLv3 = -1, tLv4 = -1, spawned = 0, downs = 0, lost = 0, last = 0;
+    while (t < 60) {
       G.time += STEP; t += STEP;
       if (G.hitstop > 0) { G.hitstop -= STEP; continue; }
       updateFlow(STEP); updatePlayer(STEP); updatePlayerGun(STEP); updateEnemies(STEP); updateBullets(STEP);
-      updateStructures(STEP); updateShells(STEP); updateItems(STEP); updateHazards(STEP); updateWaves(STEP); updateOrbs(STEP); updateDeposit(STEP); updateParticles(STEP); updateFlashes(STEP);
-      if (G.wave.phase === 'calm' && t > 20) break;
+      updateStructures(STEP); updateShells(STEP); updateItems(STEP); updateHazards(STEP); updateThreat(STEP); updateOrbs(STEP); updateDeposit(STEP); updateParticles(STEP); updateFlashes(STEP);
+      if (G.enemies.length > last) spawned += G.enemies.length - last; last = G.enemies.length;
+      if (G.threat.level >= 2 && tLv2 < 0) tLv2 = t; if (G.threat.level >= 3 && tLv3 < 0) tLv3 = t; if (G.threat.level >= 4 && tLv4 < 0) tLv4 = t;
+      if (p.dead) { downs++; p.dead = false; p.gone = false; p.hp = p.maxHp; G.allDownT = 0; }
+      lost = Math.max(lost, p.maxHp - p.hp);
     }
-    if (process.env.DEBUG && t >= +process.env.DEBUG) console.log('takılma dalga', w, 'seed', 1000 + run, G.enemies.map(e => `${e.type}@${Math.floor(e.x/16)},${Math.floor(e.y/16)}:${e.st}`).join(' '));
-    const row = table[w] || (table[w] = { n: 0, lost: 0, dmg: 0, time: 0, deaths: 0 });
-    row.n++; row.dmg += hp0 - G.base.hp; row.time += t; if (baseDown) row.lost++;
-    if (p.dead) row.deaths++;
-    G.base.hp = Math.min(G.base.maxHp, G.base.hp + 60); // dalga arası onarım varsayımı
+    row.n++; row.peak += G.threat.peak; row.lv2 += tLv2 < 0 ? 60 : tLv2; row.lv3 += tLv3 < 0 ? 60 : tLv3; row.lv4 += tLv4 < 0 ? 60 : tLv4; row.spawned += spawned; row.downs += downs; row.hpLost += lost;
+    G.enemies.length = 0; G.threat.noise = 0; G.threat.peak = 0;
   }
 }
-console.log('dalga | koşu | üs kaybı | ort. üs hasarı | ort. süre(s) | oyuncu bayıldı');
-for (const w in table) {
-  const r = table[w];
-  console.log(`${String(w).padStart(5)} | ${String(r.n).padStart(4)} | ${String(r.lost).padStart(8)} | ${(r.dmg / r.n).toFixed(0).padStart(14)} | ${(r.time / r.n).toFixed(0).padStart(12)} | ${r.deaths}`);
-}
+console.log('biyom | tepe gürültü | uyanış sn | öfke sn | boss sn | düşman/dk | bayılma/dk');
+rows.forEach((r, s) => console.log(`${String(s).padStart(5)} | ${(r.peak / r.n).toFixed(0).padStart(12)} | ${(r.lv2 / r.n).toFixed(0).padStart(9)} | ${(r.lv3 / r.n).toFixed(0).padStart(7)} | ${(r.lv4 / r.n).toFixed(0).padStart(7)} | ${(r.spawned / r.n).toFixed(1).padStart(9)} | ${(r.downs / r.n).toFixed(2).padStart(10)}`));

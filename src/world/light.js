@@ -82,7 +82,7 @@ export function lightSourcesFor(g, lampTiles) {
   for (const s of g.satchels) L.push({ x: s.x, y: s.y, s: 2.5 });
   for (const e of g.enemies) { if (e.dead) continue; if (e.type === 'glarer') L.push({ x: e.x, y: e.y, s: e.flashT > 0 ? 9 : 2.6 }); else if (e.d.boom) L.push({ x: e.x, y: e.y, s: 1.6 }); }
   L.push({ x: g.base.x, y: g.base.y, s: 7 });
-  for (const s of g.structures) L.push({ x: s.x, y: s.y, s: s.type === 'heal' ? 3.6 : s.type === 'flame' && s.firing ? 4.2 : 3 });
+  for (const s of g.structures) L.push({ x: s.x, y: s.y - 4, s: s.type === 'lamp' ? 7 : s.type === 'heal' ? 3.6 : s.type === 'flame' && s.firing ? 4.2 : 3 });
   for (const t of g.torches) L.push({ x: t.c * TILE + 8, y: t.r * TILE + 6, s: TORCH.light });
   for (const b of g.bombs) L.push({ x: b.x, y: b.y - 6, s: 1.8 });
   for (const f of g.flashes) L.push({ x: f.x, y: f.y, s: f.s * (f.t / f.t0) });
@@ -93,6 +93,7 @@ export function glowTileSources(g, r0, r1, out) {
   for (let r = Math.max(GROUND_ROW, r0); r <= Math.min(ROWS - 1, r1); r++) for (let c = 0; c < COLS; c++) {
     const t = g.map[r * COLS + c];
     if (t === T.CHEST) out.push({ x: c * TILE + 8, y: r * TILE + 8, s: 2.6 });
+    else if (t === T.NEST) out.push({ x: c * TILE + 8, y: r * TILE + 8, s: 2.4 });
     else if (t === T.HEART) out.push({ x: c * TILE + 8, y: r * TILE + 8, s: 6.5 });
     else if (TD[t].ore === 'crystal' || TD[t].ore === 'cobalt') out.push({ x: c * TILE + 8, y: r * TILE + 8, s: 1.9 });
     else if (TD[t].ore === 'gold') out.push({ x: c * TILE + 8, y: r * TILE + 8, s: 1.6 });
