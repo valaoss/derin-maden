@@ -44,8 +44,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 #stick.show.on { opacity: 1; }
 #stick.show.hint { opacity: .5; }
 /* sabit joystick: sağ altta (solakta sol altta), düğmelerin üstünde */
-#stick.fixed { left: auto; top: auto; right: calc(var(--sar) + 78px); bottom: calc(var(--sab) + 262px); }
-.lefty #stick.fixed { right: auto; left: calc(var(--sal) + 78px); }
+#stick.fixed { left: auto; top: auto; }
 #stick.show.fixed { opacity: .4; }
 #stick.show.fixed.on { opacity: 1; }
 #stick.hint .ring { animation: stickHint 1s steps(2) infinite; }
@@ -360,6 +359,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .goal { font-size: 14px; text-align: center; color: var(--helm); line-height: 1.4; padding: 8px; background: var(--plate2); clip-path: var(--cut2); }
 .new { color: var(--helm); font-size: 12px; margin-left: 6px; }
 
+.toggle .cv { color: var(--dim); font-size: 14px; }
 .toggle { display: flex; justify-content: space-between; align-items: center; padding: 10px 10px 12px; font-size: 16px; min-height: 52px; width: 100%; }
 .toggle .sw { width: 44px; height: 22px; background: var(--ink); position: relative; clip-path: var(--cut2); }
 .toggle .sw::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; background: var(--mute); transition: left .1s steps(3); }

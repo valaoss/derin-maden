@@ -41,7 +41,7 @@ const canvas = document.getElementById('cv');
 buildSprites();
 initRenderer(canvas);
 initInput(document.getElementById('touch'), document.getElementById('stick'), document.querySelector('#stick .knob'));
-setStickMode(App.settings.stickFixed, App.settings.lefty);
+setStickMode(App.settings.stickFixed, App.settings.stickPos, App.settings.stickH, App.settings.lefty);
 
 // ---------- çözünürlük: tam sayı ölçekli pixel-art ----------
 function fit() {
@@ -100,6 +100,7 @@ const hooks = {
   },
   async share() { const r = await shareInvite(lobby.code); if (r === 'copied') UI.toast('Davet linki kopyalandı', 'check'); else if (r === 'fail') UI.toast('Paylaşılamadı', 'skull', true); },
   leaveRoom() { closeLink(); toMenu(); },
+  menu() { closeLink(); transition(toMenu); },
 };
 // lobi durumu (arayüz bunu çizer)
 const lobby = { host: false, quick: false, status: 'idle', code: '', error: '', me: null, mate: null, starting: false };

@@ -1,6 +1,6 @@
 // Tile tabanlı ışık: kaynaklardan Dijkstra ile yayılır, kayadan zor geçer.
 // Sonuç her karede görünür pencere için hesaplanır (~17x40 hücre).
-import { COLS, ROWS, GROUND_ROW, TILE } from '../config.js';
+import { COLS, ROWS, GROUND_ROW, TILE, CENTER_COL, STRATUM_ROWS } from '../config.js';
 import { TD, T } from '../data/tiles.js';
 import { G } from '../game/state.js';
 import { TORCH } from '../data/balance.js';
@@ -84,6 +84,8 @@ export function lightSourcesFor(g, lampTiles) {
   L.push({ x: g.base.x, y: g.base.y, s: 7 });
   for (const s of g.structures) L.push({ x: s.x, y: s.y - 4, s: s.type === 'lamp' ? 7 : s.type === 'heal' ? 3.6 : s.type === 'flame' && s.firing ? 4.2 : 3 });
   for (const t of g.torches) L.push({ x: t.c * TILE + 8, y: t.r * TILE + 6, s: TORCH.light });
+  // asansör istasyonu fenerleri
+  for (const s of g.stations || []) L.push({ x: CENTER_COL * TILE + 8, y: (GROUND_ROW + s * STRATUM_ROWS + 1) * TILE + 4, s: 4 });
   for (const b of g.bombs) L.push({ x: b.x, y: b.y - 6, s: 1.8 });
   for (const f of g.flashes) L.push({ x: f.x, y: f.y, s: f.s * (f.t / f.t0) });
   return L;

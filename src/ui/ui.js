@@ -660,18 +660,30 @@ export function showPause() {
 }
 export function pauseShown() { return $('#pause').classList.contains('on') || $('#settings').classList.contains('on'); }
 
+// döngülü ayarlar (sabit joystick yeri ve yüksekliği)
+const CYC = {
+  stickPos: { name: 'Sabit joystick yeri', opts: [['auto', 'Otomatik'], ['sag', 'Sağ alt'], ['sol', 'Sol alt'], ['orta', 'Orta alt']] },
+  stickH: { name: 'Joystick yüksekliği', opts: [['alcak', 'Alçak'], ['orta', 'Orta'], ['yuksek', 'Yüksek']] },
+};
+const cycLabel = (S, k) => (CYC[k].opts.find(o => o[0] === S[k]) || CYC[k].opts[0])[1];
 export function showSettings(back) {
   const S = App.settings;
   const s = $('#settings');
   const items = [['sfx', 'Ses efektleri'], ['music', 'Ambiyans'], ['haptics', 'Titreşim'], ['shake', 'Ekran sarsıntısı'], ['lefty', 'Solak mod'], ['stickFixed', 'Sabit joystick']];
   s.innerHTML = `<div class="plate rivets panel"><h2>AYARLAR</h2>
     ${items.map(([k, n]) => `<button class="plate toggle ${S[k] ? 'on' : ''}" data-k="${k}"><span>${n}</span><span class="sw"></span></button>`).join('')}
+    ${Object.keys(CYC).map(k => `<button class="plate toggle cyc" data-c="${k}"><span>${CYC[k].name}</span><span class="cv">${cycLabel(S, k)} ›</span></button>`).join('')}
     <button class="plate toggle" id="sProfile"><span>Madenci kartı</span><span style="display:flex;align-items:center;gap:6px;color:var(--dim)">${esc(S.name)} ${helmDot(S.helm)}</span></button>
     <button class="btn" id="sBack">TAMAM</button></div>`;
   hideScreens(); s.classList.add('on');
   tap($('#sProfile'), () => { s.classList.remove('on'); showProfile(() => showSettings(back)); });
-  s.querySelectorAll('.toggle').forEach(t => tap(t, () => {
-    S[t.dataset.k] = !S[t.dataset.k]; t.classList.toggle('on', S[t.dataset.k]); saveSettings(S); applyAudioSettings(); setStickMode(S.stickFixed, S.lefty);
+  const applyStick = () => setStickMode(S.stickFixed, S.stickPos, S.stickH, S.lefty);
+  s.querySelectorAll('.toggle[data-k]').forEach(t => tap(t, () => {
+    S[t.dataset.k] = !S[t.dataset.k]; t.classList.toggle('on', S[t.dataset.k]); saveSettings(S); applyAudioSettings(); applyStick();
+  }));
+  s.querySelectorAll('.cyc').forEach(t => tap(t, () => {
+    const k = t.dataset.c, o = CYC[k].opts, i = o.findIndex(x => x[0] === S[k]);
+    S[k] = o[(i + 1) % o.length][0]; t.querySelector('.cv').textContent = cycLabel(S, k) + ' ›'; saveSettings(S); applyStick();
   }));
   tap($('#sBack'), () => { s.classList.remove('on'); back(); });
 }
@@ -723,6 +735,7 @@ export function showResults(r) {
     ${r.daily ? `<div class="goal">${ic('daily', 's')} Günün Madeni · ${r.dailyBest ? 'yeni günlük rekor!' : 'günün rekoru ' + (App.meta.daily ? App.meta.daily.depth : 0) + 'm'}</div>` : ''}
     <div class="goal">${r.goal}</div>
     <div style="display:flex;gap:10px"><button class="btn dark" id="rCamp" style="flex:1">${ic('oz')} KAMP</button><button class="btn" id="rAgain" style="flex:1.4">TEKRAR KAZ</button></div>
+    <button class="btn dark" id="rMenu" style="width:100%;margin-top:8px">ANA MENÜ</button>
     </div>`;
   s.classList.add('on');
   // sayılar sayarak gelsin
@@ -738,6 +751,7 @@ export function showResults(r) {
   setTimeout(() => requestAnimationFrame(step), 250);
   tap($('#rAgain'), () => { if (r.mp) { hideScreens(); showCoop(() => showMenu(false)); } else hooks.newRun({ kademe: r.kademe, daily: !!r.daily }); });
   tap($('#rCamp'), () => showCamp(() => showResults(r)));
+  tap($('#rMenu'), () => { s.classList.remove('on'); hooks.menu(); });
 }
 
 export function fade(on_) { $('#fade').classList.toggle('on', on_); }

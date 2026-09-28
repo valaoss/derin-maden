@@ -33,6 +33,8 @@ npm run build      # dist/ — statik olarak herhangi bir yerde yayınlanabilir
 - **Öz:** yıkılan yuva ×6, fener ×20, derinlik, sandık, cevher. Kontratlar: `waves` yerine `nests` (yuva yık).
 - **Asansör (sefer içi):** Merkez şaft. Bir biyoma ilk ulaştığında istasyonu açılır ve şaft oraya kadar kazılır; şaftta durunca
   ASANSÖR düğmesi çıkar, Kamp ya da açılmış biyomu seç, kabin seni taşır (kabinde hasar yok, Kalp Kristali ile yavaş). Her biyomda git-gel yok.
+  İstasyonlar şaftta platform + fener olarak görünür ve çevresini aydınlatır; en yakın istasyon ekran dışındaysa şaft hizasında altın kenar oku gösterir.
+  Sonuç ekranında **ANA MENÜ** düğmesi vardır.
 - **Düşman yoğunluğu:** Sessizde bile yakın yuva (7 blok) tek tük düşman verir, kayadan sızma her seviyede; üst sınır 4/10/16/24/32,
   Uyanış'ta 1-2, Öfke'de 2-3 düşman birden çıkar. İlk biyom yeni oyuncu için daha seyrek. `npm run sim` ~40 düşman/dk gösterir.
 - **Roller:** Madenci kartında seçilir; Kazıcı (kazma %20 hızlı, kazı gürültüsü %25 az), Nişancı (blaster hasarı +%25, menzil +12),
@@ -41,7 +43,8 @@ npm run build      # dist/ — statik olarak herhangi bir yerde yayınlanabilir
   **Gaz sızıntısı** (yakın boşluklara bulut), **Karartma** (18 sn fener yarı menzil). Deterministik; iki tarafta da aynı anda olur.
 - **Maden kanaryası (Kamp):** yerel oyuncuyu izleyen kuş; 11 blok içindeki gizli yuvayı sezip ok gösterir, gürültü eşiğe yaklaşınca öter.
 - **Ölüm yankısı:** Tek oyunculuda bayılıp cevherli çantan kaldıysa, sonraki seferde aynı derinlikte parlayan çanta olarak bekler.
-- **Kontrol hissi:** Ayarlar > **Sabit joystick** (varsayılan; solak modda sol altta) ya da yüzen joystick (taban parmağı izler).
+- **Kontrol hissi:** Ayarlar > **Sabit joystick** (varsayılan) ya da yüzen joystick (taban parmağı izler); sabit tabanın yeri
+  (Otomatik/Sağ/Sol/Orta) ve yüksekliği (Alçak/Orta/Yüksek) ayarlardan seçilir.
   Kardinale yakın itişte eksen kilidi, köşede kaydırma (bloke olunca açık şeride hızla kayıp aynı karede ilerler), kutu 9×11.
 - **Fotoğraf modu:** Duraklat > Fotoğraf Çek; HUD'suz kare + filigran, telefonda paylaşım menüsü, masaüstünde PNG indirme.
 

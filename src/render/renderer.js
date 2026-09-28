@@ -1,6 +1,6 @@
 // Kare çizimi: gökyüzü -> kaya -> nesneler -> ışık -> ışık yayanlar.
 // v3: prosedürel ezilme/gerilme, saldırı öncesi hazırlık, ölüm animasyonu, kazma kademeleri, ortam süsleri, partner.
-import { COLS, ROWS, TILE, GROUND_Y, GROUND_ROW, WORLD_W, WORLD_H, BASE_X, STRATUM_ROWS, stratumOfRow } from '../config.js';
+import { COLS, ROWS, TILE, GROUND_Y, GROUND_ROW, WORLD_W, WORLD_H, BASE_X, CENTER_COL, STRATUM_ROWS, stratumOfRow } from '../config.js';
 import { T, TD } from '../data/tiles.js';
 import { P, RES_COL, ORE_RAMP, STRATA, MAT_RAMP } from '../data/palette.js';
 import { PICK_TIERS } from '../data/balance.js';
@@ -183,6 +183,7 @@ export function render(alpha, opts = {}) {
   drawDecor(r0, r1);
   drawTileOverlays(r0, r1);
   drawBeacons(r0, r1);
+  drawStations(r0, r1);
   // maden kulesi makarası: biri derindeyken döner
   if (G.players.some(p => !p.dead && p.y > GROUND_Y + 32)) wheelA += dtR * 4;
   drawBase();
@@ -233,13 +234,59 @@ export function render(alpha, opts = {}) {
   ctx.translate(-camX, -camY);
   drawEmissive(r0, r1, alpha, opts);
   ctx.restore();
-  if (!opts.hidePlayer) drawNestArrows(camX, camY);
+  if (!opts.hidePlayer) { drawNestArrows(camX, camY); drawStationArrow(camX, camY); }
   if (!opts.hidePlayer) { drawPartnerArrow(camX, camY, alpha); drawPings(camX, camY); drawBubbles(camX, camY, alpha); }
   // kör edici parlama sonrası: görüş bulanık (beyaz perde)
   const lp = G.player;
   if (!opts.hidePlayer && lp.blindT > 0) { ctx.fillStyle = `rgba(255,248,224,${Math.min(0.85, lp.blindT * 0.6)})`; ctx.fillRect(0, 0, vw, vh); }
 }
 
+// asansör şaftı: raylar + halat, biyom istasyonlarında platform ve fener
+const SHAFT_X = CENTER_COL * TILE + 8;
+const stationRowOf = s => GROUND_ROW + s * STRATUM_ROWS + 1;
+function drawStations(r0, r1) {
+  const S = G.stations; if (!S.length) return;
+  const x = SHAFT_X, last = stationRowOf(S[S.length - 1]);
+  const top = Math.max(r0, GROUND_ROW) * TILE, bot = Math.min(r1 + 1, last + 1) * TILE;
+  if (bot > top) {
+    ctx.fillStyle = 'rgba(20,12,28,0.6)'; ctx.fillRect(x - 8, top, 1, bot - top); ctx.fillRect(x + 7, top, 1, bot - top);
+    ctx.fillStyle = '#3a3230'; ctx.fillRect(x, top, 1, bot - top);
+  }
+  const blink = Math.floor(G.time * 2) % 2 === 0;
+  for (const s of S) {
+    const r = stationRowOf(s); if (r < r0 || r > r1) continue;
+    const y = r * TILE + 8;
+    glow(x, y, '#ffd24a', 14, 0.35);
+    ctx.fillStyle = P.ink; ctx.fillRect(x - 8, y - 8, 2, 16); ctx.fillRect(x + 6, y - 8, 2, 16); ctx.fillRect(x - 8, y + 6, 16, 3);
+    ctx.fillStyle = '#c9a54a'; ctx.fillRect(x - 6, y + 6, 12, 1);
+    ctx.fillStyle = '#8a6a2a'; ctx.fillRect(x - 6, y + 7, 12, 1);
+    ctx.fillStyle = '#5a6278'; ctx.fillRect(x - 7, y - 7, 1, 14); ctx.fillRect(x + 6, y - 7, 1, 14);
+    ctx.fillStyle = P.ink; ctx.fillRect(x + 3, y - 6, 5, 5);
+    ctx.fillStyle = blink ? '#ffe79a' : '#f2c14e'; ctx.fillRect(x + 4, y - 5, 3, 3);
+  }
+}
+// en yakın istasyon ekran dışındaysa şaft hizasında altın kenar oku (kampa dönüş yolu)
+function drawStationArrow(camX, camY) {
+  const p = G.player; if (!G.stations.length || p.dead || p.ride || p.y < GROUND_Y) return;
+  if (Math.abs(p.x - SHAFT_X) <= 8 && Math.floor(p.y / TILE) <= stationRowOf(G.stations[G.stations.length - 1]) + 1) return;
+  let ty = GROUND_Y - 10;
+  for (const s of G.stations) { const y = stationRowOf(s) * TILE + 8; if (Math.abs(y - p.y) < Math.abs(ty - p.y)) ty = y; }
+  const vh = view.vh, sx = Math.round(SHAFT_X - camX);
+  let sy = null, dir = 0;
+  if (ty - camY > vh - 6) { sy = vh - 14; dir = 1; }
+  else if (ty - camY < 44) { sy = 66; dir = -1; }
+  if (sy === null) return;
+  const bob = Math.floor(G.time * 4) % 2 === 0 ? 1 : 0;
+  ctx.fillStyle = P.ink;
+  for (let i = 0; i < 8; i++) ctx.fillRect(sx - 8 + i, sy + dir * (i - 4) + bob * dir, 17 - i * 2, 2);
+  ctx.fillStyle = '#ffd24a';
+  for (let i = 0; i < 6; i++) ctx.fillRect(sx - 5 + i, sy + dir * (i - 3) + bob * dir, 11 - i * 2, 1);
+  // kabin simgesi
+  const cy = sy - dir * 12;
+  ctx.fillStyle = P.ink; ctx.fillRect(sx - 5, cy - 5, 10, 10);
+  ctx.fillStyle = '#c9a54a'; ctx.fillRect(sx - 4, cy - 4, 8, 1); ctx.fillRect(sx - 4, cy + 3, 8, 1);
+  ctx.fillStyle = 'rgba(255,231,154,0.35)'; ctx.fillRect(sx - 3, cy - 3, 6, 6);
+}
 // ekran dışındaki uyanık yuvalar için kenar okları
 function drawNestArrows(camX, camY) {
   const vw = view.vw, vh = view.vh, t = G.time;

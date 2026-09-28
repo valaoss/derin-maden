@@ -10,18 +10,23 @@ const keys = {};
 let stickId = null, ox = 0, oy = 0, sx = 0, sy = 0, t0 = 0, moved = 0;
 let stickEl, knobEl, surface;
 const RADIUS = 56, DEAD = 6;
-let fixed = true, lefty = false;
+const SIDE = { sag: 'right', sol: 'left', orta: 'center' }, HEIGHT = { alcak: 180, orta: 262, yuksek: 350 };
+let fixed = true, side = 'right', bottom = 262;
 const ZONE_TOP = 0.42; // ekranın bu oranından aşağısı joystick bölgesi
 
-export function setStickMode(fix, left) {
-  fixed = !!fix; lefty = !!left;
+// sabit taban yeri: pos 'auto' solak ayarını izler; 'sag' | 'sol' | 'orta'. h: 'alcak' | 'orta' | 'yuksek'
+export function setStickMode(fix, pos, h, left) {
+  fixed = !!fix; side = SIDE[pos] || (left ? 'left' : 'right'); bottom = HEIGHT[h] || 262;
   if (!stickEl) return;
   stickEl.classList.toggle('fixed', fixed);
-  stickEl.style.left = stickEl.style.top = '';
+  const st = stickEl.style; st.left = st.top = st.right = st.bottom = '';
+  if (!fixed) return;
+  st.bottom = `calc(var(--sab) + ${bottom}px)`;
+  if (side === 'center') st.left = '50%'; else st[side] = `calc(var(--sa${side[0]}) + 78px)`;
 }
 export function initInput(el, stick, knob) {
   surface = el; stickEl = stick; knobEl = knob;
-  setStickMode(fixed, lefty);
+  setStickMode(fixed, side === 'right' ? 'sag' : side === 'left' ? 'sol' : 'orta');
   el.addEventListener('pointerdown', down, { passive: false });
   window.addEventListener('pointermove', move, { passive: false });
   window.addEventListener('pointerup', up);
@@ -42,7 +47,7 @@ function down(e) {
   e.preventDefault();
   const r = surface.getBoundingClientRect();
   const fy = (e.clientY - r.top) / r.height, fx = (e.clientX - r.left) / r.width;
-  const zone = fy >= ZONE_TOP && (!fixed || (fx >= 0.5) !== lefty);
+  const zone = fy >= ZONE_TOP && (!fixed || side === 'center' || (fx >= 0.5) === (side === 'right'));
   if (stickId === null && zone) {
     stickId = e.pointerId; t0 = performance.now(); moved = 0; stickTap = true;
     if (fixed) { const b = stickEl.getBoundingClientRect(); ox = b.left; oy = b.top; }
