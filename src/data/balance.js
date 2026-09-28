@@ -144,9 +144,9 @@ export const THREAT = {
   noise: { dig: 0.25, brk: 0.42, ore: 0.35, shot: 0.12, boom: 8, mine: 4, chest: 3 },
   bossDelay: 4,                     // ölçer tepedeyken Derin Ana'nın uyanmasına kalan süre (sn)
   range: [7, 13, 20, 30, 45],       // yuvanın uyanma menzili (tile), seviyeye göre (sessizken de yakın yuva tepki verir)
-  cd: [16, 7, 4.5, 3, 2.2],           // yuva çıkarma aralığı (sn)
-  cap: [2, 5, 8, 12, 16],          // sahadaki canlı düşman üst sınırı
-  seepCd: [24, 15, 10, 7, 5],        // yakın yuva yoksa kayadan sızma aralığı (sessizde de tek tük)
+  cd: [8, 3.5, 2.3, 1.5, 1.1],           // yuva çıkarma aralığı (sn)
+  cap: [4, 10, 16, 24, 32],          // sahadaki canlı düşman üst sınırı
+  seepCd: [12, 8, 5, 3.5, 2.5],        // yakın yuva yoksa kayadan sızma aralığı (sessizde de tek tük)
   eliteChance: 0.3, nestRelief: 18, afterBoss: 55,
 };
 

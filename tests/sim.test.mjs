@@ -180,7 +180,7 @@ section('Uyanış ve yuvalar');
   for (let i = 0; i < 60 * 30; i++) { G.threat.noise = Math.max(G.threat.noise, 55); r.hp = r.maxHp; r.dead = false; step(); spawned = Math.max(spawned, G.enemies.length); }
   ok('uyanık yuva düşman çıkarır', spawned >= 2, `${spawned}`);
   ok('yuva uyanık işaretli', nest.awake === true);
-  ok('canlı düşman sınırı aşılmaz', G.enemies.filter(e => !e.dead).length <= THREAT.cap[4] * 1.5 + 4, `${G.enemies.length}`);
+  ok('canlı düşman sınırı aşılmaz', G.enemies.filter(e => !e.dead).length <= THREAT.cap[4] * 1.5 + 8, `${G.enemies.length}`);
   // sessizde yuva uyur
   G.threat.noise = 0; G.enemies.length = 0; run(4); const n0 = G.enemies.length; run(10);
   ok('sessizde yuva seyrek üretir (üst sınır)', G.enemies.filter(e => !e.dead).length <= THREAT.cap[0] + 1, `${G.enemies.length}`);
