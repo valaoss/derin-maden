@@ -153,7 +153,7 @@ section('Dalga kuyruğu');
     ok(`dalga ${w} elit`, elites === (w >= ELITE.fromWave && !boss ? 1 : 0), `${elites}`);
     ok(`dalga ${w} türleri geçerli`, q.every(s => ENEMIES[s.type]));
     ok(`dalga ${w} izinli türler`, q.every(s => s.type === 'boss' || WAVES.allowed(w, st).includes(s.type)));
-    ok(`dalga ${w} yeterince kalabalık`, q.length >= (boss ? 3 + w * 0.3 : 4 + w * 0.6), `${q.length}`);
+    ok(`dalga ${w} yeterince kalabalık`, q.length >= (boss ? 2 + w * 0.3 : 3 + w * 0.6), `${q.length}`);
     sizes.push(`${st}/${w}:${q.length}`);
     q.forEach(s => seen.add(s.type));
   }

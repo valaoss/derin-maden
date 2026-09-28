@@ -83,7 +83,8 @@ export function initUI(root, h) {
   on('web', () => toast('Ağa yakalandın', 'skull', true));
   on('chill', () => { const v = $('#vignette'); v.classList.add('cold'); setTimeout(() => v.classList.remove('cold'), 1800); });
   on('alarm', d => {
-    banner(d.boss ? 'DERİNLİKTEN BİR ŞEY GELİYOR' : 'ALARM', d.boss ? 'DERİN ANA UYANDI' : 'DALGA ' + d.num + ' YAKLAŞIYOR', true);
+    const info = d.count ? ' · ' + d.count + ' DÜŞMAN' + (d.elite ? ' · ELİT' : '') : '';
+    banner(d.boss ? 'DERİNLİKTEN BİR ŞEY GELİYOR' + info : 'ALARM' + info, d.boss ? 'DERİN ANA UYANDI' : 'DALGA ' + d.num + ' YAKLAŞIYOR', true);
     if (G.tutorial && G.tutorial.step === 4 && !G.tutorial.alarmSeen) { G.tutorial.alarmSeen = true; coach('Düşmanlar kazdığın tünellerden gelir. Üssü koru!', '', 6); }
   });
   on('waveStart', () => {});
@@ -126,7 +127,7 @@ function tap(el, fn) {
 // ---------------- HUD ----------------
 let cache = {}, lastBaseHurt = 0;
 function set(id, key, val, fn) { if (cache[key] === val) return; cache[key] = val; fn(val); }
-export function showHUD(v) { $('#hud').classList.toggle('hidden', !v); if (!v) { $('#workshopBtn').classList.add('hide'); $('#belt').innerHTML = ''; $('#mods').innerHTML = ''; } cache = {}; }
+export function showHUD(v) { coach(''); $('#hud').classList.toggle('hidden', !v); if (!v) { $('#workshopBtn').classList.add('hide'); $('#belt').innerHTML = ''; $('#mods').innerHTML = ''; } cache = {}; }
 // sağ kenar: takılı blaster eklentileri (aktifler dokunulabilir, bekleme süresi dolgu olarak)
 function renderMods() {
   const box = $('#mods'), p = G.player, g = G.gear;

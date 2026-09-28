@@ -75,8 +75,10 @@ export function updateWaves(dt) {
       W.phase = 'warn'; W.num++;
       W.nests = pickNests();
       W.boss = W.num % G.mods.bossEvery === 0;
+      // kuyruk alarm anında kurulur: afiş dalganın içeriğini (adet, elit) gösterebilsin
+      W.queue = buildQueue();
       sfx.alarm(); haptic([30, 60, 30]);
-      emit('alarm', { num: W.num, boss: W.boss });
+      emit('alarm', { num: W.num, boss: W.boss, count: W.queue.length, elite: W.queue.some(q => q.elite) });
     }
   } else if (W.phase === 'warn') {
     W.t -= dt;
@@ -111,7 +113,7 @@ export function updateWaves(dt) {
 
 function startWave() {
   const W = G.wave;
-  W.phase = 'active'; W.queue = buildQueue(); W.spawnIdx = 0; W.elapsed = 0; W.total = W.queue.length;
+  W.phase = 'active'; if (!W.queue || !W.queue.length) W.queue = buildQueue(); W.spawnIdx = 0; W.elapsed = 0; W.total = W.queue.length;
   for (const n of W.nests) { ring(n.x, n.y, '#ff5a4a', 16); debris(n.x, n.y, 'dirt', 6); }
   shake(0.25); sfx.waveStart(); haptic(60);
   emit('waveStart', W.num);
