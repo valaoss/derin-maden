@@ -7,10 +7,10 @@ import { mulberry32, fbm, vnoise } from '../core/util.js';
 const STRATA_GEN = [
   { mats: [[T.DIRT, 0.74], [T.STONE, 0.22], [T.HARD, 0.04]],                         veins: { iron: 9, water: 2 },                         chests: 1, caves: 0,    haz: 1 },
   { mats: [[T.STONE, 0.58], [T.DIRT, 0.14], [T.HARD, 0.28]],                         veins: { iron: 6, water: 5, gold: 1 },                chests: 2, caves: 0.1,  haz: 1 },
-  { mats: [[T.MOSS, 0.5], [T.DIRT, 0.2], [T.STONE, 0.3]],                            veins: { iron: 5, water: 6, gold: 2, cobalt: 1 },     chests: 2, caves: 0.3,  haz: 0.8 },
+  { mats: [[T.MOSS, 0.62], [T.DIRT, 0.14], [T.STONE, 0.24]],                            veins: { iron: 5, water: 6, gold: 2, cobalt: 1 },     chests: 2, caves: 0.3,  haz: 0.8 },
   { mats: [[T.HARD, 0.6], [T.STONE, 0.22], [T.DENSE, 0.18]],                         veins: { iron: 3, water: 3, cobalt: 6, gold: 2 },     chests: 2, caves: 0.22, haz: 1.2 },
   { mats: [[T.ICE, 0.55], [T.HARD, 0.3], [T.STONE, 0.15]],                           veins: { water: 4, cobalt: 4, gold: 3 },              chests: 2, caves: 0.18, haz: 1 },
-  { mats: [[T.BONE, 0.5], [T.HARD, 0.3], [T.DENSE, 0.2]],                            veins: { iron: 4, cobalt: 4, gold: 3, crystal: 1 },   chests: 2, caves: 0.28, haz: 1.6 },
+  { mats: [[T.BONE, 0.6], [T.HARD, 0.24], [T.DENSE, 0.16]],                            veins: { iron: 4, cobalt: 4, gold: 3, crystal: 1 },   chests: 2, caves: 0.28, haz: 1.6 },
   { mats: [[T.MAGMA, 0.55], [T.HARD, 0.2], [T.DENSE, 0.15], [T.EMBER, 0.1]],         veins: { cobalt: 5, gold: 4, crystal: 2 },            chests: 2, caves: 0.24, haz: 1.4 },
   { mats: [[T.DENSE, 0.6], [T.HARD, 0.3], [T.OBSIDIAN, 0.1]],                        veins: { cobalt: 3, crystal: 6, gold: 3 },            chests: 2, caves: 0.2,  haz: 1.3 },
   { mats: [[T.OBSIDIAN, 0.6], [T.DENSE, 0.3], [T.VOID, 0.1]],                        veins: { crystal: 5, gold: 4, cobalt: 3 },            chests: 3, caves: 0.26, haz: 1.5 },

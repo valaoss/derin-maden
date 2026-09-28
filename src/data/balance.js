@@ -164,7 +164,7 @@ export const ELITE = { hp: 2.2, dmg: 1.4, scale: 1.25, gold: 3, fromWave: 3 };
 
 export const WAVES = {
   firstCalm: 48, calm: 27, warn: 10, heartCalm: 12,
-  budget: (wave, stratum, mult = 1) => (1.2 + wave * 2.6 + stratum * 3.4 + Math.max(0, wave - 5) * 1.0) * mult,
+  budget: (wave, stratum, mult = 1) => (3.0 + wave * 2.6 + stratum * 3.4 + Math.max(0, wave - 5) * 1.0) * mult,
   hpScale: wave => 1 + 0.08 * (wave - 1),
   bossEvery: 5,
   spawnGap: 0.42,
