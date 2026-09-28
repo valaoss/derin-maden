@@ -18,7 +18,8 @@ import { igniteGas } from './hazards.js';
 
 const ENEMY_COL = { rodent: '#b07a4a', bug: '#5a9a5a', spitter: '#9a5ac0', flyer: '#7a64a0', boomer: '#e070ff', brute: '#8a7c78', worm: '#c07890', boss: '#c24a64',
   glarer: '#ffe79a', lurker: '#6a8a5a', howler: '#8a5a7a', shade: '#4a3a6a',
-  spider: '#6a4a8a', spiderling: '#8a6aaa', broodmother: '#5a2a6a', frostbat: '#9ad8ff', skitter: '#d0c0a0', magmite: '#ff7a3a', voidling: '#7a6aff', ogolem: '#4a3e68' };
+  spider: '#6a4a8a', spiderling: '#8a6aaa', broodmother: '#5a2a6a', frostbat: '#9ad8ff', skitter: '#d0c0a0', magmite: '#ff7a3a', voidling: '#7a6aff', ogolem: '#4a3e68',
+  quickling: '#c8d8e4', voltbat: '#3a8aff', gilded: '#ffd870', sporeling: '#a8f070', mirrorling: '#d8f8ff', titanling: '#7a9a78', chronoling: '#ffd890', leech: '#c02a30', echoer: '#8a86b0', seraph: '#fff4e8' };
 export { ENEMY_COL };
 
 export function spawnEnemy(type, x, y, wave) {
@@ -99,6 +100,7 @@ export function killEnemy(e) {
   if (e.d.boom) explode(e.x, e.y, e.d.boom, e.d.dmg * e.dmgMul);
   if (e.d.boss) { for (let i = 0; i < 5; i++) spawnOrb(e.x, e.y, 'cobalt', true); for (let i = 0; i < 3; i++) spawnOrb(e.x, e.y, 'crystal', true);
     shake(0.6); hitstop(0.15); ring(e.x, e.y, '#ff8aa8', 40); flashLight(e.x, e.y, 7, 0.6); }
+  else if (e.d.loot) { for (const [res, n] of e.d.loot) for (let i = 0; i < n; i++) spawnOrb(e.x, e.y, res, true); shake(0.25); }
   else if (e.type === 'brute' || e.type === 'worm' || e.type === 'lurker') { spawnOrb(e.x, e.y, 'iron', true); spawnOrb(e.x, e.y, 'iron', true); spawnOrb(e.x, e.y, 'cobalt', true); shake(0.25); }
   else if (e.type === 'glarer' && rnd() < 0.6) spawnOrb(e.x, e.y, 'crystal', true);
   else if (rnd() < 0.35) spawnOrb(e.x, e.y, rnd() < 0.75 ? 'iron' : 'water', true);
@@ -182,7 +184,7 @@ export function updateEnemies(dt) {
     if (!anyUnder || (dp > 420 && !e.d.boss)) { e.lostT += dt; if (e.lostT > (e.d.boss ? 12 : 5)) { retreat(e); continue; } } else e.lostT = 0;
 
     // Kaya Devi adımları: kare değişiminde toz ve yer sarsıntısı
-    if (e.type === 'brute' || e.d.boss) {
+    if (e.type === 'brute' || e.d.boss || e.d.stomp) {
       const f = Math.floor(e.anim) % 2;
       if (f !== e.lastF && (Math.abs(e.x - e.px) > 0.05 || Math.abs(e.y - e.py) > 0.05)) { dust(e.x, e.y + e.r, 1, 'rgba(160,140,130,0.45)'); if (nearLocal(e)) shake(e.d.boss ? 0.08 : 0.04); }
       e.lastF = f;

@@ -2,7 +2,7 @@
 import { TILE, GROUND_Y, stratumOfRow, STRATUM_ROWS } from '../config.js';
 import { UPGRADES, UPGRADE_KEYS, PICK_KEYS, MODS, MOD_KEYS, BUILDS, BUILD_KEYS, PERKS, META, META_KEYS, RES_KEYS, ENEMIES, ITEMS, ITEM_KEYS, CONTRACTS, KADEME, DEPLOY_MAX, ROLES, ROLE_KEYS, EVENTS } from '../data/balance.js';
 import { STRATA } from '../data/palette.js';
-import { G, App } from '../game/state.js';
+import { G, App, biomeOf } from '../game/state.js';
 import { iconURL, HELMETS } from '../render/sprites.js';
 import { on, emit } from '../core/events.js';
 import { bagCount, hasPerk, isUnlocked, contractProgress, pickDmg, pickInterval, modSlots } from '../game/run.js';
@@ -75,7 +75,7 @@ export function initUI(root, h) {
   tap($('#chatBtn'), toggleChat);
   tap($('#workshopBtn'), openSheet);
   tap($('#elevBtn'), showElevPop);
-  on('station', s => toast('Asansör istasyonu açıldı: ' + STRATA[s].name, 'base'));
+  on('station', s => toast('Asansör istasyonu açıldı: ' + STRATA[biomeOf(s)].name, 'base'));
   on('elevator', d => { if (d.pi === G.localIdx) hidePop(); else toast('Partner asansöre bindi', 'base'); });
   tap($('#sheetClose'), closeSheet);
   tap($('#sheetBack'), closeSheet);
@@ -87,7 +87,11 @@ export function initUI(root, h) {
   on('storePop', k => { const c = $('#r_' + k); c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop'); });
   on('deposit', () => { refreshSheet(); });
   on('hurt', () => { const v = $('#vignette'); v.classList.remove('hit'); void v.offsetWidth; v.classList.add('hit'); });
-  on('stratum', s => banner('BİYOM ' + (s + 1) + ' · ' + s * STRATUM_ROWS + 'M', STRATA[s].name.toUpperCase()));
+  on('stratum', s => {
+    const b = STRATA[biomeOf(s)];
+    banner((b.legend ? 'EFSANEVİ BİYOM' : 'BİYOM ' + (s + 1)) + ' · ' + s * STRATUM_ROWS + 'M', b.name.toUpperCase(), b.legend ? 'gold' : false);
+    if (b.desc) setTimeout(() => toast(b.desc, 'depth'), 2600);
+  });
   on('modChanged', () => { if (sheetOpen()) refreshSheet(); refreshHUD(true); });
   on('modUsed', () => refreshHUD(true));
   on('web', () => toast('Ağa yakalandın', 'skull', true));
@@ -104,7 +108,7 @@ export function initUI(root, h) {
     toast(d.left ? `Yuva yıkıldı · bu biyomda ${d.left} kaldı` : 'Yuva yıkıldı', 'wave');
     if (G.tutorial && !G.tutorial.done) { G.tutorial.done = true; App.meta.tutorialDone = true; saveMeta(App.meta); coach('Harika. Derine in: yeni katmanlar, daha değerli cevherler.', '', 5); }
   });
-  on('beacon', s => { banner('BİYOM TEMİZ', 'FENER DİKİLDİ · ' + STRATA[s].name.toUpperCase()); setTimeout(() => toast('Sonraki seferde asansör buraya iner', 'base'), 2800); });
+  on('beacon', s => banner('BİYOM TEMİZ', 'FENER DİKİLDİ · ' + STRATA[biomeOf(s)].name.toUpperCase()));
   on('bossDown', () => banner('DERİN ANA DÜŞTÜ', 'MADEN SUSUYOR'));
   on('bossWarn', () => { banner('DERİN ANA UYANIYOR', 'HEMEN SUS YA DA KAÇ', true); });
   on('event', d => { const e = EVENTS[d.k]; if (!e) return; if (d.phase === 'warn') banner(e.name, e.sub, true); else if (d.k === 'karanlik') toast('Fenerin kısıldı · ' + e.t + ' sn', 'lamp', true); });
@@ -203,7 +207,7 @@ export function refreshHUD(force = false) {
   const row = Math.floor(p.y / TILE), depth = Math.max(0, row - 6);
   set(0, 'depth', depth, v => { $('#dM').textContent = v + 'm'; });
   const st = stratumOfRow(row);
-  set(0, 'strat', st, v => { $('#dS').textContent = v < 0 ? 'YÜZEY' : STRATA[v].short; });
+  set(0, 'strat', st, v => { const b = v < 0 ? null : STRATA[biomeOf(v)]; $('#dS').textContent = b ? b.short : 'YÜZEY'; $('#dS').classList.toggle('legend', !!(b && b.legend)); });
 
   const lv = th.level, alive = G.enemies.filter(e => !e.dead).length;
   const wc = lv >= 4 ? 'active boss' : lv >= 2 ? 'active' : lv === 1 ? 'warn' : (th.noise < 2 && !(G.tutorial && G.tutorial.step >= 3) ? 'hide' : '');
@@ -485,7 +489,7 @@ function showElevPop() {
   const p = G.player, pop = $('#pop');
   const ds = destinations(p);
   if (!ds.length) return;
-  pop.innerHTML = `<div class="sec">ASANSÖR · NEREYE?</div>` + ds.map(s => `<button class="btn ${s === -1 ? '' : 'dark'}" data-to="${s}">${s === -1 ? ic('base', 's') + ' KAMP' : ic('depth', 's') + ' ' + STRATA[s].name.toUpperCase() + ' · ' + s * STRATUM_ROWS + 'M'}</button>`).join('');
+  pop.innerHTML = `<div class="sec">ASANSÖR · NEREYE?</div>` + ds.map(s => `<button class="btn ${s === -1 ? '' : 'dark'}" data-to="${s}">${s === -1 ? ic('base', 's') + ' KAMP' : ic('depth', 's') + ' ' + STRATA[biomeOf(s)].name.toUpperCase() + ' · ' + s * STRATUM_ROWS + 'M'}</button>`).join('');
   const R = ui.getBoundingClientRect();
   pop.style.left = '0px'; pop.style.top = '0px'; pop.classList.add('on');
   pop.style.left = Math.max(8, R.width - 236) + 'px'; pop.style.top = Math.max(110, R.height - pop.offsetHeight - 100) + 'px';
@@ -612,7 +616,6 @@ export function showMenu(hasSave) {
       <div style="display:flex;gap:10px"><button class="btn dark" id="mCamp" style="flex:1">${ic('oz')} KAMP</button><button class="btn dark" id="mSet" style="flex:1">AYARLAR</button></div>
       ${m.tutorialDone ? `<button class="plate toggle" id="mRole"><span>${ic(ROLES[App.settings.role] ? ROLES[App.settings.role].icon : 'drill', 's')} Rol · ${ROLES[App.settings.role] ? ROLES[App.settings.role].name : 'Seç'}</span><span class="chev">›</span></button>` : ''}
       ${matchMedia('(pointer: fine)').matches ? '<div class="foot">WASD / Oklar: hareket ve kazı · P: duraklat</div>' : ''}
-      ${(m.beacons || []).length ? `<button class="plate toggle ${m.elevatorOff ? '' : 'on'}" id="mElev"><span>${ic('base', 's')} Fener asansörü · ${m.beacons.length}/${STRATA_COUNT} biyom</span><span class="sw"></span></button>` : ''}
       <div class="foot">${m.runs ? `Rekor <b>${m.bestDepth}m</b> · ${m.runs} sefer${m.wins ? ' · ' + m.wins + ' zafer' : ''} · <span class="ozline">${ic('oz', 's')}${m.oz}</span>` : 'Yuvaları yık, fenerleri dik, çekirdeğe in.'}</div>
     </div>`;
   s.classList.add('on');
@@ -624,7 +627,6 @@ export function showMenu(hasSave) {
     tap($('#kUp'), () => { k = Math.min(m.maxKademe, k + 1); showK(); });
   }
   if ($('#mRole')) tap($('#mRole'), () => { s.classList.remove('on'); showProfile(() => showMenu(hasSave)); });
-  if ($('#mElev')) tap($('#mElev'), () => { m.elevatorOff = !m.elevatorOff; saveMeta(m); $('#mElev').classList.toggle('on', !m.elevatorOff); });
   if (hasSave) tap($('#mCont'), () => hooks.continueRun());
   tap($('#mNew'), () => { m.lastKademe = k; saveMeta(m); hooks.newRun({ kademe: k }); });
   if ($('#mDaily')) tap($('#mDaily'), () => hooks.newRun({ daily: true }));

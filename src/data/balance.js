@@ -28,8 +28,10 @@ export const PICK_TIERS = [
   { name: 'Kristal Kazma',  dmg: 9.5,  interval: 0.17, head: '#9030c8', headL: '#f0b0ff', handle: '#3a1a4a', spark: '#e070ff', glow: 'rgba(224,112,255,0.55)' },
   { name: 'Obsidyen Kazma', dmg: 14,   interval: 0.16, head: '#2c2440', headL: '#8a7ab8', handle: '#1a1428', spark: '#b0a0e0', glow: 'rgba(120,90,200,0.5)' },
   { name: 'Boşluk Kazma',   dmg: 20,   interval: 0.15, head: '#1c1840', headL: '#9a90ff', handle: '#0a0818', spark: '#c0b8ff', glow: 'rgba(120,100,255,0.7)' },
+  { name: 'Yıldız Demiri',  dmg: 30,   interval: 0.14, head: '#4a9ad8', headL: '#d8f8ff', handle: '#16304e', spark: '#9ad8ff', glow: 'rgba(90,180,255,0.7)' },
+  { name: 'Yaratılış Kazması', dmg: 45, interval: 0.13, head: '#e0b040', headL: '#fff4e8', handle: '#3a2e3a', spark: '#fff0a0', glow: 'rgba(255,230,160,0.8)' },
 ];
-const PICK_COSTS = [{ iron: 6 }, { iron: 14 }, { iron: 8, gold: 6 }, { cobalt: 10, gold: 4 }, { crystal: 6, cobalt: 8 }, { crystal: 10, gold: 10 }, { crystal: 16, cobalt: 12, gold: 12 }];
+const PICK_COSTS = [{ iron: 6 }, { iron: 14 }, { iron: 8, gold: 6 }, { cobalt: 10, gold: 4 }, { crystal: 6, cobalt: 8 }, { crystal: 10, gold: 10 }, { crystal: 16, cobalt: 12, gold: 12 }, { crystal: 24, cobalt: 16, gold: 20 }, { crystal: 40, gold: 32 }];
 
 // Seviye 0..max. effect[lvl] mevcut seviyedeki değer.
 export const UPGRADES = {
@@ -174,6 +176,17 @@ export const ENEMIES = {
   magmite:     { name: 'Kor Böceği', hp: 40, speed: 36, dmg: 12, r: 5, boom: 22, burnTrail: true, cost: 2.5 },
   voidling:    { name: 'Boşluk Gözü', hp: 52, speed: 30, dmg: 15, r: 5, fly: true, blink: true, blinkCd: 3.6, cost: 3.5 },
   ogolem:      { name: 'Obsidyen Devi', hp: 280, speed: 18, dmg: 30, r: 9, armor: 0.55, dig: 99, digRate: 6, knockResist: 0.9, cost: 8 },
+  // v5 derin biyom imza düşmanları (yalnız kendi biyomunun yuvalarından çıkar; loot: ölünce düşen cevher)
+  quickling:  { name: 'Cıva Damlası', hp: 70, speed: 50, dmg: 22, r: 5, boom: 24, cost: 3 },
+  voltbat:    { name: 'Yıldırım Yarasası', hp: 60, speed: 70, dmg: 12, r: 4, fly: true, blind: true, blindRange: 40, blindCd: 5, cost: 3 },
+  gilded:     { name: 'Altın Muhafız', hp: 340, speed: 20, dmg: 32, r: 9, armor: 0.6, dig: 99, digRate: 5, knockResist: 0.9, stomp: true, loot: [['gold', 4]], cost: 9 },
+  sporeling:  { name: 'Spor Böceği', hp: 95, speed: 30, dmg: 14, r: 6, armor: 0.3, ranged: true, web: true, range: 70, fireCd: 2.2, cost: 4 },
+  mirrorling: { name: 'Cam Gölgesi', hp: 70, speed: 50, dmg: 18, r: 4, phase: true, cost: 3.5 },
+  titanling:  { name: 'Dev Parçası', hp: 280, speed: 19, dmg: 34, r: 9, armor: 0.5, dig: 99, digRate: 5, knockResist: 0.9, stomp: true, loot: [['crystal', 2], ['iron', 2]], cost: 9 },
+  chronoling: { name: 'Zaman Gözü', hp: 85, speed: 32, dmg: 20, r: 5, fly: true, blink: true, blinkCd: 2.6, cost: 4.5 },
+  leech:      { name: 'Kan Sülüğü', hp: 140, speed: 26, dmg: 16, r: 6, armor: 0.25, burrow: true, dig: 99, digRate: 7, knockResist: 0.75, loot: [['iron', 3]], cost: 5 },
+  echoer:     { name: 'Yankıcı', hp: 95, speed: 32, dmg: 14, r: 6, howl: true, howlRange: 110, howlCd: 5.5, cost: 4 },
+  seraph:     { name: 'Işık Bekçisi', hp: 120, speed: 42, dmg: 16, r: 5, fly: true, blind: true, blindRange: 52, blindCd: 4, loot: [['crystal', 1]], cost: 5 },
 };
 
 // Elit: Öfke seviyesinde yuvalardan şansla çıkar (can ×2.2, boyut ×1.25, altın düşürür)

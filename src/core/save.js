@@ -24,6 +24,7 @@ export function loadSettings() {
 }
 export const saveSettings = s => write(SET_KEY, s);
 
-export const loadRun = () => read(RUN_KEY);
+// v8: 20 biyomluk dünya; eski kayıtlar (farklı harita boyutu) yok sayılır
+export const loadRun = () => { const r = read(RUN_KEY); return r && r.v >= 8 ? r : null; };
 export const saveRun = r => write(RUN_KEY, r);
 export const clearRun = () => remove(RUN_KEY);

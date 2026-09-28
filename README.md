@@ -20,8 +20,8 @@ npm run build      # dist/ — statik olarak herhangi bir yerde yayınlanabilir
   Seviyeler: **Sessiz → Kıpırtı (25) → Uyanış (50) → Öfke (75, elitler) → Derin Ana (100 birkaç saniye sürerse, seni avlar).**
 - **Yuvalar:** Her biyomda 2-3 kovan kayaya gömülüdür. Uyanık yuva yakınındaki oyuncuya düşman çıkarır (menzil seviyeyle büyür).
   Yuvayı kazma ya da mermiyle yık: ganimet düşer, ölçer düşer. Yakın yuva kalmadıysa yüksek gürültüde kayadan sızma olur.
-- **Fenerler (amaç):** Bir biyomun tüm yuvaları yıkılınca Fener dikilir. Fenerler kalıcıdır; sonraki seferde **fener asansörü**
-  temizlenmiş biyomların altına iner (menüden kapatılabilir). Final hedef en dipteki Kalp Kristali'ni yüzeye taşımak.
+- **Fenerler (amaç):** Bir biyomun tüm yuvaları yıkılınca Fener dikilir. Fenerler kalıcı ilerleme sayacıdır; her sefer yüzeyden
+  başlar (kaldığın biyomdan devam şimdilik kapalı). Final hedef en dipteki Kalp Kristali'ni yüzeye taşımak.
 - **Düşmanlar seni avlar:** Üs canı yok, kamp güvenli bölgedir; düşman yüzeye çıkamaz. Akış alanı oyunculara doğru çözülür,
   yeraltında oyuncu kalmazsa düşmanlar izi kaybedip kayaya çekilir.
 - **Düşme ve kaldırma:** Can bitince ölmezsin, bayılırsın. Partner 1.6 sn yanında durursa kaldırır (%50 can); 25 sn içinde kaldırılmazsan
@@ -43,10 +43,26 @@ npm run build      # dist/ — statik olarak herhangi bir yerde yayınlanabilir
   **Gaz sızıntısı** (yakın boşluklara bulut), **Karartma** (18 sn fener yarı menzil). Deterministik; iki tarafta da aynı anda olur.
 - **Maden kanaryası (Kamp):** yerel oyuncuyu izleyen kuş; 11 blok içindeki gizli yuvayı sezip ok gösterir, gürültü eşiğe yaklaşınca öter.
 - **Ölüm yankısı:** Tek oyunculuda bayılıp cevherli çantan kaldıysa, sonraki seferde aynı derinlikte parlayan çanta olarak bekler.
-- **Kontrol hissi:** Ayarlar > **Sabit joystick** (varsayılan) ya da yüzen joystick (taban parmağı izler); sabit tabanın yeri
+- **Kontrol hissi:** Ayarlar > **Sabit joystick** (varsayılan) ya da yüzen joystick (ekranın alt yarısında dokunduğun yerde doğar, sabit kalır); sabit tabanın yeri
   (Otomatik/Sağ/Sol/Orta) ve yüksekliği (Alçak/Orta/Yüksek) ayarlardan seçilir.
   Kardinale yakın itişte eksen kilidi, köşede kaydırma (bloke olunca açık şeride hızla kayıp aynı karede ilerler), kutu 9×11.
 - **Fotoğraf modu:** Duraklat > Fotoğraf Çek; HUD'suz kare + filigran, telefonda paylaşım menüsü, masaüstünde PNG indirme.
+
+- **20 biyom, ~720 m, karışık sıra:** Toprak hep ilk, Yaratılış Çekirdeği hep son; aradakiler tohuma göre zorluk bantları içinde
+  yer değiştirir (`biomeOrder(seed)`: [1-2] [3-5] [6-7] [8-9] [10-11] [12-14] [15-18]). Ana kaya sertliği derinlikle artar (Boşluk 60 → Yaratılış 350),
+  iki yeni kazma kademesi (Yıldız Demiri, Yaratılış Kazması). Her biyomun imza düşmanı yuvalardan sık çıkar; derin biyomların imzaları yalnız kendi biyomunda.
+- **Derin biyomlar (10-19), her birinin kendine özgü taşı:**
+  - **Cıva Denizi:** cıva cebi → altın verir ama yakındaysan zehirler; gümüş buhar, tavandan cıva damlaları.
+  - **Fırtına Damarı:** yıldırım damarı → kırılınca 48 px içindeki düşmanları 40 hasarla çarpar, çok yakındaysan seni de; kobalt verir.
+  - **★ Altın Saray (efsanevi):** 200 vuruşluk kapılarla mühürlü salon; sütunlar, altın döşeme, iki sandık; Altın Muhafız (altın düşürür).
+  - **Mantar Uçurumu:** spor kesesi → yakın oyuncuyu iyileştirir, düşmanı 3.5 sn uyuşturur; dev parlayan mantarlar.
+  - **Cam Katedrali:** cam zincirleme kırılır (komşu camlar da dökülür, ganimet yok, gürültü ×1.5); dikey nefler, Cam Gölgesi duvardan geçer.
+  - **★ Uyuyan Dev (efsanevi):** göğüs boşluğunda nabız taşı → 30 can ve 3 kristal, ama ölçer +40 (Dev uyanır); ekran tonu nabız gibi atar.
+  - **Zaman Kırığı:** zaman taşı → 80 px içindeki düşman 5 sn donar, sen 5 sn ×1.45 hızlanırsın; Zaman Gözü ışınlanır.
+  - **Kan Gölü:** kan damarı → 3 demir + 20 can, ölçer +25; tehlike çarpanı en yüksek; Kan Sülüğü kayada yüzer.
+  - **Yankı Boşluğu:** her gürültü ×2; sessiz taş ölçeri 30 düşürür; Yankıcı korkutur.
+  - **★ Yaratılış Çekirdeği (efsanevi):** yaratılış tohumu → çevredeki 8 sıradan kaya altın/kristale döner; Kalp Kristali burada; Işık Bekçisi kör eder.
+  Efsanevi biyomlar altın afişle girilir, fazladan sandık taşır; biyoma girince kısa ipucu çıkar.
 
 ## Birlikte Kaz (2 kişi, çevrim içi)
 
@@ -66,7 +82,7 @@ npm run build      # dist/ — statik olarak herhangi bir yerde yayınlanabilir
 
 ## Önceki içerik (v2-v4)
 
-- **10 biyom, ~360 m:** Toprak, Taş, Kök Ormanı, Kobalt, Buz, Kemik Çukuru, Kor, Kristal, Obsidyen, Boşluk Çekirdeği; her birinin kayası, süsü ve atmosferi.
+- **İlk 10 biyom:** Toprak, Taş, Kök Ormanı, Kobalt, Buz, Kemik Çukuru, Kor, Kristal, Obsidyen, Boşluk Çekirdeği; her birinin kayası, süsü ve atmosferi.
 - **Kazma dükkânı:** 8 kademe (Odun → Boşluk), Keskinlik ve Hızlı Sallama. **Blaster eklentileri:** 3 yuva, 7 pasif + Aşırı Yük ve Nova.
 - **Yaratıklar:** Kemirgen, Kabukbiti, Tükürgen, Yarasa, Kristalböcek, Kaya Devi, Maden Solucanı, Parıldak, Çekici, Uluyan, Gölge,
   Örümcek/Örümcekçik/Örümcek Ana, Kırağı, Kemikçi, Kor Böceği, Boşluk Gözü, Obsidyen Devi ve Derin Ana. Elitler taçlı, altın düşürür.
@@ -93,5 +109,5 @@ Simülasyon sabit 60 Hz adımla çalışır (ekran yenileme hızından bağıms�
 ## Test
 
 - `npm test` — DOM'suz oyun testleri (`tests/sim.test.mjs`): dünya üretimi, taş düşürmeleri, ekonomi, uyanış ve yuvalar, düşme/kaldırma ve aletler,
-  partner işareti, yaratıklar, determinizm, kayıt/yükleme, 10 biyomluk derin sefer, performans.
+  partner işareti, yaratıklar, determinizm, kayıt/yükleme, biyom sırası, 20 biyomluk derin sefer, performans.
 - `npm run sim` — uyanış dengesi simülasyonu (biyom başına tepe gürültü, seviye süreleri, düşman ve bayılma sayıları).

@@ -17,7 +17,7 @@ import { DEPLOY_MAX, EVENTS } from '../src/data/balance.js';
 import { updateParticles, updateFlashes } from '../src/game/fx.js';
 import { updateFlow, forceFlow } from '../src/world/flow.js';
 import { setTile, tileAt } from '../src/world/map.js';
-import { generate } from '../src/world/gen.js';
+import { generate, biomeOrder } from '../src/world/gen.js';
 import { T, TD, HOST_TILE } from '../src/data/tiles.js';
 import { ENEMIES, MODS, MOD_KEYS, PICK_TIERS, UPGRADES, ELITE, RES_KEYS, THREAT, BUILDS, ITEMS } from '../src/data/balance.js';
 import { placeBuild, pickupBuild, craftItem } from '../src/game/economy.js';
@@ -68,7 +68,7 @@ for (let seed = 1; seed <= 12; seed++) {
     const s = Math.floor((r - GROUND_ROW) / STRATUM_ROWS);
     if (r >= GROUND_ROW && s < STRATA_COUNT && c >= 2 && c <= 14) {
       const ps = perStratum[s]; ps.total++;
-      if (t === HOST_TILE[s]) ps.host++;
+      if (t === HOST_TILE[gen.order[s]]) ps.host++;
       if (t === T.GOLD) ps.gold++;
       if (TD[t].chest) ps.chest++;
       if (TD[t].ore) ps.ore++;
@@ -86,6 +86,14 @@ for (let seed = 1; seed <= 12; seed++) {
   ok('sandık var', perStratum.reduce((a, p) => a + p.chest, 0) >= 6, `seed ${seed}: ${perStratum.reduce((a, p) => a + p.chest, 0)}`);
 }
 { const a = generate(99, {}).map, b = generate(99, {}).map; ok('aynı tohum aynı harita', a.every((v, i) => v === b[i])); }
+{
+  const os = [1, 2, 3, 4, 5].map(biomeOrder);
+  ok('biyom sırası: Toprak ilk, Yaratılış son', os.every(o => o[0] === 0 && o[19] === 19));
+  ok('biyom sırası: her biyom bir kez', os.every(o => new Set(o).size === STRATA_COUNT));
+  ok('biyom sırası tohuma göre değişir', new Set(os.map(o => o.join())).size >= 3);
+  ok('biyom sırası zorluk bandında kalır', os.every(o => o.every((b, i) => Math.abs(b - i) <= 3)));
+  ok('aynı tohum aynı sıra', biomeOrder(77).join() === biomeOrder(77).join());
+}
 
 // ---------- 2. taşlar ve kırma ----------
 section('Taş kırma ve düşürmeler');
@@ -105,7 +113,7 @@ section('Taş kırma ve düşürmeler');
   ok('kalp olayı yayıldı', events.heart >= 1);
   // sertlik sırası: derin kayalar daha dayanıklı
   const hp = s => TD[HOST_TILE[s]].hp;
-  ok('ana kaya sertliği artar', hp(0) < hp(3) && hp(3) < hp(6) && hp(6) < hp(8) && hp(8) < hp(9), HOST_TILE.map((_, i) => hp(i)).join(','));
+  ok('ana kaya sertliği artar', hp(0) < hp(3) && hp(3) < hp(6) && hp(6) < hp(8) && hp(8) < hp(9) && hp(9) < hp(12) && hp(12) < hp(15) && hp(15) < hp(19), HOST_TILE.map((_, i) => hp(i)).join(','));
 }
 
 // ---------- 3. ekonomi: kazma, yükseltmeler, eklentiler ----------
@@ -327,7 +335,7 @@ section('Kayıt');
 }
 
 // ---------- 8. derin sefer ----------
-section('Derin sefer (10 biyom, ~12 dk sim)');
+section('Derin sefer (20 biyom, ~24 dk sim)');
 {
   fresh(2026); const p = G.player; const bottom = GROUND_ROW + STRATUM_ROWS * STRATA_COUNT - 8;
   const spawnedBy = {}; const origSpawn = G.enemies.push.bind(G.enemies);

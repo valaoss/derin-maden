@@ -35,6 +35,18 @@ export const MAT_RAMP = {
   dense:    ['#0c0714', '#1f1230', '#2f1c45', '#48306a', '#6a4a92'],
   obsidian: ['#050408', '#120e1a', '#1c1628', '#2c2440', '#4a3e68'],
   void:     ['#03020a', '#0a0818', '#120e28', '#1c1840', '#3a3080'],
+  // v5 derin biyomlar
+  quick:    ['#0e1014', '#2a3038', '#4a5460', '#7a8898', '#c8d8e4'],
+  storm:    ['#060a14', '#0e1a30', '#16304e', '#22507a', '#4a9ad8'],
+  gilt:     ['#1a1006', '#4a3010', '#7a5218', '#b88a2a', '#ffd870'],
+  gate:     ['#120c04', '#3a2a10', '#6a4c1a', '#a07a2a', '#e8c060'],
+  fungus:   ['#120a14', '#2e1a34', '#4a2a50', '#6a3e6a', '#a86a90'],
+  glass:    ['#0a1418', '#1e3a44', '#2e5a68', '#5a98a8', '#d8f8ff'],
+  titan:    ['#0c100c', '#1e2a22', '#304236', '#4a6250', '#7a9a78'],
+  chrono:   ['#0c0a06', '#2a2010', '#4a3a1a', '#7a6030', '#c8a860'],
+  blood:    ['#120204', '#2e060a', '#4e0c12', '#7a141c', '#c02a30'],
+  echo:     ['#08070c', '#181622', '#262234', '#3a3450', '#5e5880'],
+  genesis:  ['#14100c', '#3a2e3a', '#6a5a70', '#a898b0', '#fff4e8'],
   bedrock:  ['#07050b', '#110d18', '#1a1524', '#241d31', '#30283f'],
   found:    ['#0f0c16', '#2a2c3c', '#3e4256', '#5a6078', '#8a92aa'],
   vault:    ['#0a0810', '#2a1e2e', '#3e2c44', '#5a4262', '#8a6a8e'],
@@ -51,6 +63,16 @@ export const WALL_RAMP = {
   dense:    ['#06030a', '#0d0716', '#140b20', '#1c1029'],
   obsidian: ['#030205', '#07050c', '#0b0812', '#100c1a'],
   void:     ['#020108', '#04030e', '#070516', '#0a081e'],
+  quick:    ['#07080a', '#0e1014', '#151820', '#1c2028'],
+  storm:    ['#03050a', '#070c16', '#0b1422', '#101c2e'],
+  gilt:     ['#0c0804', '#181006', '#241a0a', '#30240e'],
+  fungus:   ['#0a060a', '#140c16', '#1e1220', '#28182a'],
+  glass:    ['#050a0c', '#0c161a', '#122226', '#1a2e34'],
+  titan:    ['#060806', '#0e140f', '#141c16', '#1c261e'],
+  chrono:   ['#060502', '#100c04', '#181208', '#22180a'],
+  blood:    ['#080102', '#140204', '#1e0406', '#2a060a'],
+  echo:     ['#040308', '#0a0810', '#100c18', '#161220'],
+  genesis:  ['#0a0808', '#1a1416', '#262022', '#342c30'],
   bedrock:  ['#040306', '#08060b', '#0c0a10', '#100d15'],
   vault:    ['#06040a', '#0c0812', '#120c1a', '#181022'],
 };
@@ -65,18 +87,31 @@ export const ORE_RAMP = {
 
 export const RES_COL = { iron: '#e8a060', water: '#6fd0ff', cobalt: '#5a86ff', crystal: '#e070ff', gold: '#ffd24a' };
 
-// Biyomlar (10): isim, HUD kısaltması, karanlık rengi, süs türü, parçacık efekti
-// decor: 'mush' mantar, 'crys' kristal, 'root' kök sarkıtı, 'icicle' buz sarkıtı, 'bone' kemik, 'ember' kor, 'shard' obsidyen, 'star' boşluk ışığı
-// fx: 'spore' sporlar, 'snow' kar tanesi, 'ember' yükselen kor, 'ash' kül, 'star' yıldız tozu
+// Biyomlar (20): isim, HUD kısaltması, karanlık rengi, süs türü, parçacık efekti, ton
+// decor: 'mush' mantar, 'crys' kristal, 'root' kök sarkıtı, 'icicle' buz sarkıtı, 'bone' kemik, 'ember' kor, 'shard' obsidyen, 'star' boşluk ışığı,
+//        'drip' cıva damlası, 'arc' statik kıvılcım, 'coin' altın yığını, 'shroom' dev mantar, 'pane' cam dikeni, 'vein' nabız damarı, 'gear' dişli, 'pool' kan birikintisi, 'ring' yankı halkası, 'halo' ışık zerresi
+// fx: 'spore' sporlar, 'snow' kar, 'ember' kor, 'ash' kül, 'star' yıldız tozu, 'mist' cıva buharı, 'spark' kıvılcım, 'gleam' altın pırıltı, 'glint' cam parıltısı, 'sand' zaman kumu, 'blood' kan damlası, 'echo' yankı zerresi, 'halo' ışık
+// sig: biyomun imza düşmanı (yuvalardan sık çıkar). legend: efsanevi biyom (altın afiş, hazine odası). noiseMul: biyomda gürültü çarpanı. pulse: ton nabız gibi atar
 export const STRATA = [
-  { name: 'Toprak Katmanı',    short: 'TOPRAK',   dark: [10, 6, 12],  decor: 'mush',   fx: null,    tint: null },
-  { name: 'Taş Damarları',     short: 'TAŞ',      dark: [8, 7, 12],   decor: 'mush',   fx: null,    tint: null },
-  { name: 'Kök Ormanı',        short: 'KÖK',      dark: [5, 10, 6],   decor: 'root',   fx: 'spore', tint: 'rgba(60,140,60,0.05)' },
-  { name: 'Kobalt Mağaraları', short: 'KOBALT',   dark: [5, 7, 16],   decor: 'crys',   fx: null,    tint: null },
-  { name: 'Buz Katmanı',       short: 'BUZ',      dark: [6, 10, 18],  decor: 'icicle', fx: 'snow',  tint: 'rgba(120,200,255,0.06)' },
-  { name: 'Kemik Çukuru',      short: 'KEMİK',    dark: [10, 8, 6],   decor: 'bone',   fx: 'ash',   tint: null },
-  { name: 'Kor Katmanı',       short: 'KOR',      dark: [14, 4, 3],   decor: 'ember',  fx: 'ember', tint: 'rgba(255,90,30,0.07)' },
-  { name: 'Kristal Yatağı',    short: 'KRİSTAL',  dark: [9, 4, 16],   decor: 'crys',   fx: null,    tint: 'rgba(200,100,255,0.04)' },
-  { name: 'Obsidyen Derinliği', short: 'OBSİDYEN', dark: [4, 3, 8],   decor: 'shard',  fx: 'ash',   tint: null },
-  { name: 'Boşluk Çekirdeği',  short: 'BOŞLUK',   dark: [3, 2, 10],   decor: 'star',   fx: 'star',  tint: 'rgba(80,60,255,0.06)' },
+  { name: 'Toprak Katmanı',    short: 'TOPRAK',   dark: [10, 6, 12],  decor: 'mush',   fx: null,    tint: null, sig: null },
+  { name: 'Taş Damarları',     short: 'TAŞ',      dark: [8, 7, 12],   decor: 'mush',   fx: null,    tint: null, sig: 'bug' },
+  { name: 'Kök Ormanı',        short: 'KÖK',      dark: [5, 10, 6],   decor: 'root',   fx: 'spore', tint: 'rgba(60,140,60,0.05)', sig: 'spider' },
+  { name: 'Kobalt Mağaraları', short: 'KOBALT',   dark: [5, 7, 16],   decor: 'crys',   fx: null,    tint: null, sig: 'glarer' },
+  { name: 'Buz Katmanı',       short: 'BUZ',      dark: [6, 10, 18],  decor: 'icicle', fx: 'snow',  tint: 'rgba(120,200,255,0.06)', sig: 'frostbat' },
+  { name: 'Kemik Çukuru',      short: 'KEMİK',    dark: [10, 8, 6],   decor: 'bone',   fx: 'ash',   tint: null, sig: 'skitter' },
+  { name: 'Kor Katmanı',       short: 'KOR',      dark: [14, 4, 3],   decor: 'ember',  fx: 'ember', tint: 'rgba(255,90,30,0.07)', sig: 'magmite' },
+  { name: 'Kristal Yatağı',    short: 'KRİSTAL',  dark: [9, 4, 16],   decor: 'crys',   fx: null,    tint: 'rgba(200,100,255,0.04)', sig: 'boomer' },
+  { name: 'Obsidyen Derinliği', short: 'OBSİDYEN', dark: [4, 3, 8],   decor: 'shard',  fx: 'ash',   tint: null, sig: 'ogolem' },
+  { name: 'Boşluk Çekirdeği',  short: 'BOŞLUK',   dark: [3, 2, 10],   decor: 'star',   fx: 'star',  tint: 'rgba(80,60,255,0.06)', sig: 'voidling' },
+  // v5: derin biyomlar
+  { name: 'Cıva Denizi',       short: 'CIVA',     dark: [8, 9, 12],   decor: 'drip',   fx: 'mist',  tint: 'rgba(180,200,220,0.05)', sig: 'quickling', desc: 'Cıva cepleri altın verir ama zehirler.' },
+  { name: 'Fırtına Damarı',    short: 'FIRTINA',  dark: [3, 6, 14],   decor: 'arc',    fx: 'spark', tint: 'rgba(60,140,255,0.06)', sig: 'voltbat', desc: 'Yıldırım damarları çevredeki düşmanı çarpar.' },
+  { name: 'Altın Saray',       short: 'SARAY',    dark: [14, 9, 3],   decor: 'coin',   fx: 'gleam', tint: 'rgba(255,200,80,0.07)', sig: 'gilded', legend: true, desc: 'Kapısı 200 vuruşluk; içi altın ve sandık dolu.' },
+  { name: 'Mantar Uçurumu',    short: 'MANTAR',   dark: [8, 4, 10],   decor: 'shroom', fx: 'spore', tint: 'rgba(160,80,200,0.05)', sig: 'sporeling', desc: 'Spor keseleri seni iyileştirir, düşmanı uyuşturur.' },
+  { name: 'Cam Katedrali',     short: 'CAM',      dark: [4, 10, 14],  decor: 'pane',   fx: 'glint', tint: 'rgba(140,240,255,0.05)', sig: 'mirrorling', noiseMul: 1.5, desc: 'Cam zincirleme kırılır: hızlı ama gürültülü.' },
+  { name: 'Uyuyan Dev',        short: 'DEV',      dark: [6, 9, 6],    decor: 'vein',   fx: 'ash',   tint: 'rgba(255,60,60,0.06)', sig: 'titanling', legend: true, pulse: true, desc: 'Nabız taşları can verir ama Dev uyanır.' },
+  { name: 'Zaman Kırığı',      short: 'ZAMAN',    dark: [8, 6, 3],    decor: 'gear',   fx: 'sand',  tint: 'rgba(220,170,80,0.05)', sig: 'chronoling', desc: 'Zaman taşı düşmanı dondurur, seni hızlandırır.' },
+  { name: 'Kan Gölü',          short: 'KAN',      dark: [12, 2, 4],   decor: 'pool',   fx: 'blood', tint: 'rgba(200,20,40,0.07)', sig: 'leech', desc: 'Kan damarları demir ve can verir; göl uyanır.' },
+  { name: 'Yankı Boşluğu',     short: 'YANKI',    dark: [5, 4, 8],    decor: 'ring',   fx: 'echo',  tint: null, sig: 'echoer', noiseMul: 2, desc: 'Her ses iki kat; sessiz taşlar ölçeri düşürür.' },
+  { name: 'Yaratılış Çekirdeği', short: 'YARATILIŞ', dark: [10, 8, 12], decor: 'halo', fx: 'halo',  tint: 'rgba(255,240,200,0.06)', sig: 'seraph', legend: true, desc: 'Tohumlar çevre kayayı cevhere çevirir. Kalp burada.' },
 ];

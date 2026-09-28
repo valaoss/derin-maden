@@ -3,7 +3,7 @@ import '@fontsource/tiny5/latin-ext-400.css';
 import './ui/style.css';
 
 import { STEP, TILE, GROUND_Y, WORLD_H, CENTER_COL, GROUND_ROW, STRATUM_ROWS, STRATA_COUNT, stratumOfRow, depthOfY } from './config.js';
-import { G, App, setG } from './game/state.js';
+import { G, App, setG, biomeOf } from './game/state.js';
 import { loadMeta, saveMeta, loadSettings, saveSettings, loadRun, saveRun, clearRun } from './core/save.js';
 import { newRun, serialize, deserialize, bagCount, contractProgress, metaSnapshot, stratumGroup } from './game/run.js';
 import { updatePlayer, updateOrbs, updateDeposit, bindEnemyDamage } from './game/player.js';
@@ -132,13 +132,8 @@ function beginCoop(o) {
   lobby.starting = true; UI.showRoom(lobby);
   setTimeout(() => startRun(false, { mp: true, seed: o.seed, meta: o.meta, localIdx: o.localIdx, names: o.names, helms: o.helms, roles: o.roles, startStratum: o.startStratum | 0 }), 900);
 }
-// fener asansörü: ardışık temizlenmiş biyomların sonrasından başla (menüde kapatılabilir)
-function elevatorStratum(m) {
-  if (m.elevatorOff) return 0;
-  let s = 0; const b = m.beacons || [];
-  while (b.includes(s) && s < STRATA_COUNT - 1) s++;
-  return s;
-}
+// her sefer yüzeyden başlar (kaldığın biyomdan devam şimdilik kapalı; fenerler yalnız ilerleme sayacı)
+function elevatorStratum() { return 0; }
 UI.initUI(document.getElementById('ui'), hooks);
 // bağlantı mesajları (lockstep başlamadan önce de): oda başlangıcı vb.
 const defaultOnMessage = d => { if (d && d.t) emit('netMsg', d); };
@@ -252,8 +247,8 @@ function endRun(reason) {
   let goal;
   const nextBeacon = [...Array(STRATA_COUNT).keys()].find(i => !m.beacons.includes(i));
   if (victory) goal = 'Kalp Kristali senin. Şimdi daha hızlı yapabilir misin?';
-  else if (nextBeacon !== undefined && nextBeacon <= G.maxStratum) goal = `Sonraki hedef: <b>${STRATA[nextBeacon].name}</b> yuvalarını yık, Fener dik.`;
-  else if (G.maxStratum < STRATA_COUNT - 1) goal = `Sonraki hedef: <b>${STRATA[G.maxStratum + 1].name}</b> (${(G.maxStratum + 1) * STRATUM_ROWS}m)`;
+  else if (nextBeacon !== undefined && nextBeacon <= G.maxStratum) goal = `Sonraki hedef: <b>${STRATA[biomeOf(nextBeacon)].name}</b> yuvalarını yık, Fener dik.`;
+  else if (G.maxStratum < STRATA_COUNT - 1) goal = `Sonraki hedef: <b>${STRATA[biomeOf(G.maxStratum + 1)].name}</b> (${(G.maxStratum + 1) * STRATUM_ROWS}m)`;
   else goal = 'Çekirdek çok yakın. Kalp Kristali\'ni yüzeye taşı!';
   if (echo) goal += `<br><span style="color:var(--helm)">Ölüm yankısı: ${echo.n} cevherlik çantan ${depthOfY(echo.r * TILE)}m derinde seni bekliyor.</span>`;
   if (!victory && m.oz >= 20) goal += '<br><span style="color:var(--good)">Kampta harcayacak Öz\'ün var.</span>';
@@ -325,7 +320,7 @@ function step(dt) {
   }
   // biyom atmosferi (kozmetik): spor, kar, kor, kül, yıldız tozu
   if (!lp.dead && lp.y > GROUND_Y + 16) {
-    const fx = STRATA[Math.max(0, stratumOfRow(Math.floor(lp.y / TILE)))].fx;
+    const fx = STRATA[biomeOf(stratumOfRow(Math.floor(lp.y / TILE)))].fx;
     if (fx && Math.random() < dt * (fx === 'snow' ? 6 : 3.5)) {
       const x = lp.x + (Math.random() - 0.5) * 120, y = lp.y + (Math.random() - 0.5) * 160;
       const c = Math.floor(x / TILE), r = Math.floor(y / TILE);
@@ -335,6 +330,14 @@ function step(dt) {
         else if (fx === 'ember') particle(x, y + 30, (Math.random() - 0.5) * 8, -14 - Math.random() * 14, 1.8, Math.random() < 0.5 ? '#ff9a4a' : '#ffd24a', 1, 1, -6);
         else if (fx === 'ash') particle(x, y - 30, (Math.random() - 0.5) * 5, 5 + Math.random() * 5, 3, 'rgba(180,170,160,0.5)', 1, 2, 0);
         else if (fx === 'star') particle(x, y, (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 3, 3.5, Math.random() < 0.3 ? '#ffffff' : 'rgba(150,140,255,0.8)', 1, 1, 0);
+        else if (fx === 'mist') particle(x, y + 20, (Math.random() - 0.5) * 4, -4 - Math.random() * 4, 2.6, 'rgba(200,215,230,0.35)', 2, 2, 0);
+        else if (fx === 'spark') particle(x, y, (Math.random() - 0.5) * 40, (Math.random() - 0.5) * 40, 0.25, Math.random() < 0.5 ? '#9ad8ff' : '#ffffff', 1, 1, 0);
+        else if (fx === 'gleam') particle(x, y, 0, -2, 1.2, Math.random() < 0.5 ? '#ffd870' : '#fff4c0', 1, 1, 0);
+        else if (fx === 'glint') particle(x, y, (Math.random() - 0.5) * 2, 0, 0.6, '#ffffff', 1, 1, 0);
+        else if (fx === 'sand') particle(x, y - 30, (Math.random() - 0.5) * 2, 3 + Math.random() * 3, 4, 'rgba(220,180,100,0.6)', 1, 2, 0);
+        else if (fx === 'blood') particle(x, y - 30, 0, 26, 1, 'rgba(200,30,50,0.8)', 1, 0, 200);
+        else if (fx === 'echo') particle(x, y, (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2, 3, 'rgba(120,110,150,0.45)', 2, 2, 0);
+        else if (fx === 'halo') particle(x, y, (Math.random() - 0.5) * 3, -1 - Math.random() * 2, 3.5, Math.random() < 0.4 ? '#ffffff' : 'rgba(255,230,180,0.8)', 1, 1, 0);
       }
     }
   }

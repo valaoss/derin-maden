@@ -2,7 +2,7 @@
 // Her oyuncu kendi girdisini (p.inp) kullanır; tek ve çok oyunculu aynı yoldan geçer.
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y, GROUND_ROW, PLAYER_MIN_Y, WORLD_W, BASE_X, BASE_Y, stratumOfRow, depthOfY } from '../config.js';
-import { T, TD, isMineable } from '../data/tiles.js';
+import { T, TD, isMineable, isPlain } from '../data/tiles.js';
 import { PLAYER, UPGRADES, PERKS, RES_KEYS, PICK_TIERS } from '../data/balance.js';
 import { RES_COL } from '../data/palette.js';
 import { G, App } from './state.js';
@@ -63,7 +63,7 @@ export function moveAxis(p, mx, my) {
 }
 
 export function playerSpeed(p) {
-  return PLAYER.speed * (hasPerk('hafifBot') ? 1.2 : 1) * (p.carrying ? 0.85 : 1) * (p.fearT > 0 ? 0.6 : 1) * (p.slowT > 0 ? 0.55 : 1) * (p.webT > 0 ? 0.35 : 1);
+  return PLAYER.speed * (hasPerk('hafifBot') ? 1.2 : 1) * (p.carrying ? 0.85 : 1) * (p.fearT > 0 ? 0.6 : 1) * (p.slowT > 0 ? 0.55 : 1) * (p.webT > 0 ? 0.35 : 1) * (p.hasteT > 0 ? 1.45 : 1);
 }
 
 export function alivePlayers() { return G.players.filter(p => !p.dead); }
@@ -96,6 +96,7 @@ function updateOne(p, dt) {
   if (p.fearT > 0) p.fearT -= dt;
   if (p.landT > 0) p.landT -= dt;
   if (p.slowT > 0) p.slowT -= dt;
+  if (p.hasteT > 0) p.hasteT -= dt;
   if (p.webT > 0) p.webT -= dt;
   if (p.burnT > 0) { p.burnT -= dt; p.burnTick = (p.burnTick || 0) - dt; if (p.burnTick <= 0) { p.burnTick = 0.5; poisonPlayer(p, 2); } }
   if (p.hitTile && (p.hitTile.t -= dt) <= 0) p.hitTile = null;
@@ -253,6 +254,52 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
   if (local) haptic(d.hp >= 6 ? 14 : 7);
   // hitstop simülasyonu durdurur: deterministik kalması için iki tarafta da uygulanır
   if (d.hp >= 6 || d.ore) { hitstop(0.035); if (local) shake(0.12); } else if (local) shake(d.hp >= 3 ? 0.07 : 0.04);
+  // derin biyom taşları
+  if (d.toxic && Math.hypot(p.x - x, p.y - y) < 26) { poisonPlayer(p, 12); dust(x, y, 3, 'rgba(200,210,220,0.6)'); }
+  if (d.shock) {
+    // yıldırım damarı: çevredeki düşmanı çarpar, çok yakındaysan seni de
+    sparks(x, y, '#9ad8ff', 18, 140); ring(x, y, '#9ad8ff', 30); flashLight(x, y, 7, 0.5); if (local) shake(0.3); sfx.explode();
+    for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - x, e.y - y) < 48) damageEnemyExt(e, 40, 0, 0, 0.5);
+    if (Math.hypot(p.x - x, p.y - y) < 16) damagePlayer(p, 8, x, y);
+  }
+  if (d.spore) {
+    dust(x, y, 4, 'rgba(150,230,120,0.5)'); ring(x, y, '#a8f070', 24);
+    for (const q of G.players) if (!q.dead && Math.hypot(q.x - x, q.y - y) < 40) q.hp = Math.min(q.maxHp, q.hp + 12);
+    for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - x, e.y - y) < 56) e.slowT = Math.max(e.slowT, 3.5);
+  }
+  if (d.brittle) {
+    // cam zincirleme kırılır: komşu camlar da dökülür (ganimet yok, gürültü var)
+    for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nc = c + dc, nr = r + dr;
+      if (nr < GROUND_ROW || tileAt(nc, nr) !== t) continue;
+      setTile(nc, nr, T.AIR); debris(nc * TILE + 8, nr * TILE + 8, mat, 5, 0.7); addNoise(THREAT.noise.brk * 0.6, x, y); G.stats.dug++;
+    }
+    sparks(x, y, '#d8f8ff', 8, 90);
+  }
+  if (d.pulse) {
+    // nabız taşı: can verir ama Dev uyanır
+    G.threat.noise = Math.min(100, G.threat.noise + 40); G.threat.quietT = 0;
+    for (const q of G.players) if (!q.dead && Math.hypot(q.x - x, q.y - y) < 60) q.hp = Math.min(q.maxHp, q.hp + 30);
+    ring(x, y, '#ff5a6a', 40); flashLight(x, y, 8, 0.7); if (local) shake(0.5); sfx.rumble();
+  }
+  if (d.chrono) {
+    // zaman taşı: düşman donar, sen hızlanırsın
+    p.hasteT = 5;
+    for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - x, e.y - y) < 80) { e.slowT = Math.max(e.slowT, 5); e.atkCd = Math.max(e.atkCd, 5); }
+    ring(x, y, '#ffd890', 44); flashLight(x, y, 6, 0.5); hitstop(0.1);
+  }
+  if (d.vamp) { p.hp = Math.min(p.maxHp, p.hp + 20); G.threat.noise = Math.min(100, G.threat.noise + 25); G.threat.quietT = 0; sparks(x, y, '#e02a3a', 10, 80); ring(x, y, '#e02a3a', 22); }
+  if (d.hush) { G.threat.noise = Math.max(0, G.threat.noise - 30); ring(x, y, '#d8d8e8', 36); dust(x, y, 3, 'rgba(220,220,235,0.5)'); }
+  if (d.seed) {
+    // yaratılış tohumu: çevredeki sıradan kaya cevhere döner
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+      const nc = c + dc, nr = r + dr;
+      if ((!dc && !dr) || nr < GROUND_ROW || !isPlain(tileAt(nc, nr))) continue;
+      setTile(nc, nr, rnd() < 0.5 ? T.CRYSTAL : T.GOLD);
+    }
+    sparks(x, y, '#fff0a0', 24, 140); ring(x, y, '#ffd24a', 40); flashLight(x, y, 9, 0.8); hitstop(0.1); if (local) shake(0.3); sfx.chest();
+  }
+  if (d.gate && local) emit('toast', { text: 'Saray kapısı açıldı', icon: 'chest' });
   if (d.ore) {
     if (near) sfx.oreReveal();
     const n = d.amt + (hasPerk('damar') && !d.iceDrop ? 1 : 0);

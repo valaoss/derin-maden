@@ -6,7 +6,8 @@ import { rnd } from '../core/rng.js';
 import { TILE, COLS, ROWS, GROUND_ROW, GROUND_Y, STRATUM_ROWS, STRATA_COUNT, PLAY_MIN_COL, PLAY_MAX_COL, stratumOfRow } from '../config.js';
 import { T, TD } from '../data/tiles.js';
 import { THREAT, ENEMIES, WAVES, BUILDS, ELITE } from '../data/balance.js';
-import { G } from './state.js';
+import { G, biomeOf } from './state.js';
+import { STRATA } from '../data/palette.js';
 import { tileAt, setTile } from '../world/map.js';
 import { spawnEnemy, aliveEnemies, makeElite } from './enemies.js';
 import { spawnOrb } from './player.js';
@@ -34,7 +35,7 @@ export function addNoise(a, x, y) {
   const th = G.threat; if (!th || G.over) return;
   if (G.tutorial && G.tutorial.step < 3) return;
   const st = Math.max(0, stratumOfRow(Math.floor(y / TILE)));
-  let m = (1 + st * THREAT.depthMul) * (G.mods.noise || 1);
+  let m = (1 + st * THREAT.depthMul) * (G.mods.noise || 1) * (STRATA[biomeOf(st)].noiseMul || 1);
   for (const s of G.structures) if (s.type === 'lamp' && Math.hypot(s.x - x, s.y - y) < BUILDS.lamp.range) { m *= 0.5; break; }
   th.noise = Math.min(100, th.noise + a * m);
   th.quietT = 0;
@@ -56,8 +57,11 @@ function deepestUnder() {
   return best;
 }
 
+// biyomun imza düşmanı sık çıkar; derin biyomların (10+) imzaları yalnız kendi biyomunda görülür
 function pickType(st, lv) {
+  const b = biomeOf(st), sig = STRATA[b].sig;
   const allowed = WAVES.allowed(2 + lv * 2, st).filter(t => !ENEMIES[t].boss && !ENEMIES[t].small);
+  if (sig && rnd() < (b >= 10 ? 0.55 : 0.4) && (b >= 10 || allowed.includes(sig))) return sig;
   return allowed[Math.floor(rnd() * allowed.length)] || 'rodent';
 }
 function hpTier(st, lv) { return 1 + st * 1.5 + lv; }

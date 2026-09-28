@@ -200,6 +200,8 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 #banner .n { font-size: 34px; font-weight: 700; color: var(--helm); letter-spacing: 1px; text-align: center; padding: 0 12px;
   text-shadow: 2px 0 var(--ink), -2px 0 var(--ink), 0 2px var(--ink), 0 -2px var(--ink), 2px 2px var(--ink), -2px 2px var(--ink), 2px -2px var(--ink), -2px -2px var(--ink), 0 5px var(--ink); }
 #banner.red .n { color: #ff6a5a; }
+#banner.gold .n { color: #ffd870; text-shadow: 0 0 14px rgba(255, 200, 80, .55); }
+#dS.legend { color: #ffd870; }
 #banner .rule { width: 0; height: 3px; background: var(--helm); margin-top: 8px; animation: rule .5s .1s ease-out forwards; box-shadow: 0 2px var(--ink); }
 #banner.red .rule { background: #ff6a5a; }
 @keyframes rule { to { width: 160px; } }

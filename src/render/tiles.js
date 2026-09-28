@@ -18,7 +18,10 @@ for (const k in MAT_RAMP) ramp('m_' + k, MAT_RAMP[k]);
 for (const k in WALL_RAMP) ramp('w_' + k, WALL_RAMP[k]);
 for (const k in ORE_RAMP) ramp('o_' + k, ORE_RAMP[k]);
 ramp('grass', [P.ink, P.grass0, P.grass1, P.grass2]);
-const MAT_SEED = { dirt: 11, stone: 23, hard: 37, dense: 53, bedrock: 71, found: 83, vault: 97, moss: 101, ice: 113, bone: 127, magma: 131, obsidian: 139, void: 149 };
+const MAT_SEED = { dirt: 11, stone: 23, hard: 37, dense: 53, bedrock: 71, found: 83, vault: 97, moss: 101, ice: 113, bone: 127, magma: 131, obsidian: 139, void: 149,
+  quick: 151, storm: 157, gilt: 163, gate: 167, fungus: 173, glass: 179, titan: 181, chrono: 191, blood: 193, echo: 197, genesis: 199 };
+const gemCache = new Map();
+function gemRamp(gem) { let r = gemCache.get(gem); if (!r) { r = gem.map(hexToRgb); gemCache.set(gem, r); } return r; }
 
 // görsel olarak katı mı (barikat arka duvar üzerinde sprite olarak çizilir)
 function vSolid(c, r) {
@@ -141,6 +144,91 @@ function baseShade(mat, wx, wy, s) {
       if (Math.abs(sw - 0.5) < 0.03) return 3;
       return sw > 0.62 ? 2 : 1;
     }
+    case 'quick': {
+      // cıva: yatay dalga bantları, gümüş parlama noktaları
+      const w = Math.sin(wx / 5 + vnoise(wx / 9, wy / 9, s) * 6) * 1.5;
+      const band = ((Math.floor(wy + w) % 6) + 6) % 6;
+      if (band === 0) return 3; if (band === 1) return 4; if (band === 3) return 1;
+      return h < 0.02 ? 4 : 2;
+    }
+    case 'storm': {
+      // fırtına taşı: koyu mavi, çapraz zikzak yıldırım çizgileri
+      const z = (((wx + Math.floor(vnoise(0, wy / 4, s + 2) * 7) - wy * 2) % 23) + 23) % 23;
+      if (z === 0 && hash2(wx >> 2, wy >> 2, s) < 0.7) return 4;
+      if (z === 1) return 3;
+      if (h < 0.01) return 4;
+      return n > 0.6 ? 2 : 1;
+    }
+    case 'gilt': {
+      // yaldızlı taş: kahverengi bloklar, altın derz çizgileri
+      const lx = ((wx % 12) + 12) % 12, ly = ((wy % 8) + 8) % 8, row = Math.floor(wy / 8) & 1;
+      if (ly === 0 || (lx === 0 && !row) || (lx === 6 && row)) return 4;
+      if (ly === 1) return 1;
+      if (h < 0.03) return 4;
+      return n > 0.62 ? 3 : 2;
+    }
+    case 'gate': {
+      // saray kapısı: dikey altın kalaslar, perçinler
+      const lx = ((wx % 8) + 8) % 8, ly = ((wy % 16) + 16) % 16;
+      if (lx === 0) return 0; if (lx === 1) return 4; if (lx === 7) return 1;
+      if ((ly === 4 || ly === 12) && lx === 4) return 4;
+      return ly < 2 || ly > 13 ? 3 : 2;
+    }
+    case 'fungus': {
+      // mantar eti: yumuşak mor doku, açık benekler, ince lif çizgileri
+      const m = vnoise(wx / 6, wy / 6, s + 5);
+      const spot = hash2(wx >> 2, wy >> 2, s + 1) < 0.08 && (wx & 3) > 0 && (wx & 3) < 3 && (wy & 3) > 0 && (wy & 3) < 3;
+      if (spot) return 4;
+      if ((((wx + wy * 3) % 13) + 13) % 13 === 0) return 1;
+      return m > 0.62 ? 3 : m < 0.3 ? 1 : 2;
+    }
+    case 'glass': {
+      // cam: geniş açık levhalar, keskin çapraz kırıklar, beyaz yansıma çizgisi
+      const f = vnoise(wx / 10, wy / 10, s + 4), d1 = (((wx - wy) % 9) + 9) % 9;
+      const crack = (d1 === 0 && hash2((wx - wy) / 9 | 0, wy >> 4, s) < 0.6) || ((((wx + wy * 2) % 17) + 17) % 17 === 0);
+      if (crack) return 1;
+      if (d1 === 1 && f > 0.5) return 4;
+      return f > 0.55 ? 3 : 2;
+    }
+    case 'titan': {
+      // dev kabuğu: iri şaşırtmalı pullar, koyu derzler, üst kenarda ışık
+      const px = wx + ((Math.floor(wy / 6) & 1) ? 4 : 0), lx = ((px % 8) + 8) % 8, ly = ((wy % 6) + 6) % 6;
+      if (ly === 0 || lx === 0) return 1;
+      if (ly === 1 && lx > 1 && lx < 6) return 3;
+      if (h < 0.02) return 4;
+      return 2;
+    }
+    case 'chrono': {
+      // kronit: bronz, eş merkezli saat halkaları ve akrep çizgisi
+      const cx = Math.floor(wx / 24) * 24 + 12, cy = Math.floor(wy / 24) * 24 + 12, d = Math.hypot(wx - cx, wy - cy);
+      const ring = Math.floor(d) % 5;
+      if (ring === 0) return 3; if (ring === 1 && d < 11) return 4;
+      if (Math.abs((wx - cx) - (wy - cy) * 0.5) < 0.7 && d < 10) return 1;
+      return n > 0.6 ? 2 : 1;
+    }
+    case 'blood': {
+      // kan taşı: koyu kızıl, aşağı akan damla izleri ve parlak damarlar
+      const drip = (((wx + Math.floor(vnoise(0, wy / 5, s + 2) * 3)) % 7) + 7) % 7 === 0 && hash2(wx >> 1, 0, s) < 0.5;
+      if (drip) return 4;
+      const v = vnoise(wx / 5, wy / 9, s + 3);
+      if (Math.abs(v - 0.5) < 0.03) return 3;
+      return n > 0.62 ? 2 : 1;
+    }
+    case 'echo': {
+      // yankı taşı: gri-mor, eş merkezli dalga halkaları
+      const cx = Math.floor(wx / 32) * 32 + 16, cy = Math.floor(wy / 32) * 32 + 16, d = Math.hypot(wx - cx, wy - cy);
+      const r2 = Math.floor(d + vnoise(wx / 6, wy / 6, s) * 3) % 6;
+      if (r2 === 0) return 3; if (r2 === 1) return 1;
+      if (h < 0.01) return 4;
+      return 2;
+    }
+    case 'genesis': {
+      // yaratılış taşı: açık mermer, ince koyu damarlar, seyrek altın-beyaz pırıltı
+      const v = vnoise(wx / 7, wy / 4, s + 3), m = vnoise(wx / 13, wy / 13, s + 8);
+      if (Math.abs(v - 0.5) < 0.03) return 1;
+      if (h < 0.03) return 4;
+      return m > 0.6 || m < 0.35 ? 3 : 2;
+    }
     default: // bedrock
       return n > 0.72 ? 3 : n > 0.4 ? 2 : 1;
   }
@@ -215,10 +303,10 @@ function paintTile(img, c, r, oy) {
   const mN = !eN ? nm(c, r - 1) : null, mS = !eS ? nm(c, r + 1) : null;
   const mW = !eW && c > 0 ? nm(c - 1, r) : null, mE = !eE && c < COLS - 1 ? nm(c + 1, r) : null;
   // çelik temel düz kenarlı kalır (insan yapımı)
-  const blend = m => m && m !== mat0 && m !== 'found' && mat0 !== 'found' && m !== 'vault' && mat0 !== 'vault';
+  const blend = m => m && m !== mat0 && m !== 'found' && mat0 !== 'found' && m !== 'vault' && mat0 !== 'vault' && m !== 'gate' && mat0 !== 'gate';
   const dN = blend(mN), dS = blend(mS), dW = blend(mW), dE = blend(mE);
   const grass = eN && r === GROUND_ROW && mat0 === 'dirt';
-  const ember = TD[t].ember;
+  const ember = TD[t].ember, gem = TD[t].gem ? gemRamp(TD[t].gem) : null;
   const ore = TD[t].ore;
   const OR = ore ? rgb['o_' + ore] : null;
   for (let py = 0; py < TILE; py++) for (let px = 0; px < TILE; px++) {
@@ -246,6 +334,10 @@ function paintTile(img, c, r, oy) {
     if (OR) {
       const g = gemAt(c, r, px, py);
       if (g) { put(px, py, OR[g - 1]); continue; }
+    }
+    if (gem) {
+      const g = gemAt(c, r, px, py);
+      if (g) { put(px, py, gem[g - 1]); continue; }
     }
     if (ember) {
       const g = gemAt(c, r, px, py);

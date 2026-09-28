@@ -8,3 +8,6 @@ export const App = {
   settings: null,
   scene: 'menu',   // menu | play | results
 };
+
+// katman konumu (0..19) -> biyom kimliği (STRATA/HOST_* indeksi); sefer sırası G.order'da
+export function biomeOf(s) { const o = G && G.order; return o && s >= 0 && s < o.length ? o[s] : Math.max(0, s | 0); }

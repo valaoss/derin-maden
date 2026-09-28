@@ -1,6 +1,6 @@
 import { COLS, ROWS, TILE, GROUND_ROW, stratumOfRow } from '../config.js';
 import { T, TD, HOST_MAT } from '../data/tiles.js';
-import { G } from '../game/state.js';
+import { G, biomeOf } from '../game/state.js';
 
 export function idx(c, r) { return r * COLS + c; }
 export function inWorld(c, r) { return c >= 0 && c < COLS && r >= 0 && r < ROWS; }
@@ -12,7 +12,7 @@ export function tileAt(c, r) {
 export function solidAt(c, r) { return TD[tileAt(c, r)].solid; }
 export function solidAtPx(x, y) { return solidAt(Math.floor(x / TILE), Math.floor(y / TILE)); }
 
-export function hostMat(r) { return HOST_MAT[Math.max(0, stratumOfRow(r))]; }
+export function hostMat(r) { return HOST_MAT[biomeOf(stratumOfRow(r))]; }
 export function matOf(c, r) {
   const d = TD[tileAt(c, r)];
   if (!d.mat) return hostMat(r);

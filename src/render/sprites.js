@@ -448,6 +448,17 @@ const VOID_B = [
 ];
 // Obsidyen Devi: Kaya Devi şekli, obsidyen paleti, mor gözler
 const OGOLEM_PAL = { q: '#120e1a', Q: '#2c2440', U: '#4a3e68', r: '#c0a0ff' };
+// v5 derin biyom imza düşmanları: mevcut gövdeler, biyom paletleri
+const QUICK_PAL = { c: '#2a3038', C: '#c8d8e4', Q: '#ffffff' };
+const VOLT_PAL = { B: '#3a8aff', X: '#16304e' };
+const GILD_PAL = { q: '#4a3010', Q: '#b88a2a', U: '#ffd870' };
+const SPORE_PAL = { a: '#2e1a34', A: '#6a3e6a', L: '#a8f070', u: '#120a14' };
+const MIRROR_PAL = { s: '#2e5a68', S: '#5a98a8', X: '#d8f8ff' };
+const TITAN_PAL = { q: '#1e2a22', Q: '#4a6250', U: '#7a9a78' };
+const CHRONO_PAL = { v: '#2a2010', V: '#7a6030', e: '#ffd890', E: '#ffffff', p: '#c8a860' };
+const LEECH_PAL = { p: '#4e0c12', P: '#c02a30', Q: '#ff6a70' };
+const ECHOER_PAL = { u: '#262234', U: '#3a3450', F: '#5e5880', W: '#f5ecd8' };
+const SERAPH_PAL = { j: '#a898b0', J: '#fff4e8', e: '#ffffff', E: '#ffe79a', i: '#3a2e3a' };
 
 // ---------------- DÜNYA OBJELERİ ----------------
 const CHEST = [
@@ -738,11 +749,22 @@ export function buildSprites() {
   SPR.magmite = [makeSprite(MAGMITE_A, MAGMITE_PAL, 'rOo'), makeSprite(MAGMITE_B, MAGMITE_PAL, 'rOo')];
   SPR.voidling = [makeSprite(VOID_A, VOID_PAL, 'eEp'), makeSprite(VOID_B, VOID_PAL, 'eEp')];
   SPR.ogolem = [makeSprite(BRUTE_A, OGOLEM_PAL, 'r'), makeSprite(BRUTE_B, OGOLEM_PAL, 'r')];
+  SPR.quickling = [makeSprite(BOOM_A, QUICK_PAL, 'rCQ'), makeSprite(BOOM_B, QUICK_PAL, 'rCQ')];
+  SPR.voltbat = [makeSprite(BAT_A, VOLT_PAL, 'rB'), makeSprite(BAT_B, VOLT_PAL, 'rB')];
+  SPR.gilded = [makeSprite(BRUTE_A, GILD_PAL, 'rU'), makeSprite(BRUTE_B, GILD_PAL, 'rU')];
+  SPR.sporeling = [makeSprite(BUG_A, SPORE_PAL, 'rL'), makeSprite(BUG_B, SPORE_PAL, 'rL')];
+  SPR.mirrorling = [makeSprite(SHADE_A, MIRROR_PAL, 'X'), makeSprite(SHADE_B, MIRROR_PAL, 'X')];
+  SPR.titanling = [makeSprite(BRUTE_A, TITAN_PAL, 'r'), makeSprite(BRUTE_B, TITAN_PAL, 'r')];
+  SPR.chronoling = [makeSprite(VOID_A, CHRONO_PAL, 'eEp'), makeSprite(VOID_B, CHRONO_PAL, 'eEp')];
+  SPR.leech = [makeSprite(WORM_HEAD_A, LEECH_PAL, 'r'), makeSprite(WORM_HEAD_B, LEECH_PAL, 'r')];
+  SPR.echoer = [makeSprite(HOWL_A, ECHOER_PAL, 'r'), makeSprite(HOWL_B, ECHOER_PAL, 'rW')];
+  SPR.seraph = [makeSprite(GLARE_A, SERAPH_PAL, 'eEi'), makeSprite(GLARE_B, SERAPH_PAL, 'eE')];
   SPR.chest = makeSprite(CHEST, { G: '#ffd24a' }, 'G');
   SPR.heart = makeSprite(HEART, { x: '#ff3a6a', X: '#ff8aa8', Z: '#ffffff', z: '#a01a40' }, 'xXZz');
   SPR.satchel = makeSprite(SATCHEL, { G: '#ffd24a' }, 'G');
   SPR.worm = [makeSprite(WORM_HEAD_A, WORM_PAL, 'r'), makeSprite(WORM_HEAD_B, WORM_PAL, 'r')];
   SPR.wormSeg = makeSprite(WORM_SEG, WORM_PAL);
+  SPR.leechSeg = makeSprite(WORM_SEG, LEECH_PAL);
   SPR.torch = [makeSprite(TORCH_A, FIRE_PAL, 'YOF'), makeSprite(TORCH_B, FIRE_PAL, 'YOF')];
   SPR.dynamite = makeSprite(DYN, {}, 'Y');
   SPR.mine = makeSprite(MINE_W, {}, 'R');

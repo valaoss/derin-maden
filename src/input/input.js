@@ -1,6 +1,6 @@
 // Girdi: joystick (sabit ya da yüzen) + klavye.
 // Sabit: taban hep aynı yerde, alt bölgede kendi tarafına basınca yön sabit merkeze göre.
-// Yüzen: basılan yerde doğar; parmak yarıçapı aşınca taban parmağı izler.
+// Yüzen: ekranın alt yarısında basılan yerde doğar, parmak bırakılana dek orada kalır.
 // Joystick bölgesi dışındaki kısa ve hareketsiz dokunuş "tap" olarak iletilir (yuvalara inşa vb).
 export const input = { x: 0, y: 0, mag: 0, active: false, taps: [], keyboard: false };
 const HOLD_MS = 480; // basılı tutma: partner işareti
@@ -12,7 +12,7 @@ let stickEl, knobEl, surface;
 const RADIUS = 56, DEAD = 6;
 const SIDE = { sag: 'right', sol: 'left', orta: 'center' }, HEIGHT = { alcak: 180, orta: 262, yuksek: 350 };
 let fixed = true, side = 'right', bottom = 262;
-const ZONE_TOP = 0.42; // ekranın bu oranından aşağısı joystick bölgesi
+const ZONE_TOP = 0.42; // sabit modda ekranın bu oranından aşağısı joystick bölgesi (yüzen: alt yarı)
 
 // sabit taban yeri: pos 'auto' solak ayarını izler; 'sag' | 'sol' | 'orta'. h: 'alcak' | 'orta' | 'yuksek'
 export function setStickMode(fix, pos, h, left) {
@@ -47,7 +47,7 @@ function down(e) {
   e.preventDefault();
   const r = surface.getBoundingClientRect();
   const fy = (e.clientY - r.top) / r.height, fx = (e.clientX - r.left) / r.width;
-  const zone = fy >= ZONE_TOP && (!fixed || side === 'center' || (fx >= 0.5) === (side === 'right'));
+  const zone = fixed ? fy >= ZONE_TOP && (side === 'center' || (fx >= 0.5) === (side === 'right')) : fy >= 0.5;
   if (stickId === null && zone) {
     stickId = e.pointerId; t0 = performance.now(); moved = 0; stickTap = true;
     if (fixed) { const b = stickEl.getBoundingClientRect(); ox = b.left; oy = b.top; }
@@ -74,15 +74,8 @@ function move(e) {
   if (e.pointerId !== stickId) return;
   e.preventDefault();
   sx = e.clientX; sy = e.clientY;
-  let dx = sx - ox, dy = sy - oy, dd = Math.hypot(dx, dy);
+  const dx = sx - ox, dy = sy - oy, dd = Math.hypot(dx, dy);
   if (dd > 10) stickTap = false;
-  if (!fixed && dd > RADIUS) {
-    // yüzen taban parmağı izler: kontrol ekran kenarında kaybolmaz
-    const k = (dd - RADIUS) / dd; ox += dx * k; oy += dy * k;
-    const r = surface.getBoundingClientRect();
-    stickEl.style.left = (ox - r.left) + 'px'; stickEl.style.top = (oy - r.top) + 'px';
-    dx = sx - ox; dy = sy - oy; dd = RADIUS;
-  }
   const kx = dd > RADIUS ? dx / dd * RADIUS : dx, ky = dd > RADIUS ? dy / dd * RADIUS : dy;
   knobEl.style.transform = `translate(${kx}px, ${ky}px)`;
   if (dd < DEAD) { input.x = input.y = input.mag = 0; input.active = false; return; }

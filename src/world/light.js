@@ -100,5 +100,6 @@ export function glowTileSources(g, r0, r1, out) {
     else if (TD[t].ore === 'crystal' || TD[t].ore === 'cobalt') out.push({ x: c * TILE + 8, y: r * TILE + 8, s: 1.9 });
     else if (TD[t].ore === 'gold') out.push({ x: c * TILE + 8, y: r * TILE + 8, s: 1.6 });
     else if (TD[t].ember) out.push({ x: c * TILE + 8, y: r * TILE + 8, s: 3.2 });
+    else if (TD[t].glow) out.push({ x: c * TILE + 8, y: r * TILE + 8, s: TD[t].glow });
   }
 }
