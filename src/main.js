@@ -15,6 +15,7 @@ import { updateThreat, LEVEL_NAMES } from './game/threat.js';
 import { updatePings } from './game/pings.js';
 import { updateEvents } from './game/events.js';
 import { updateCanary } from './game/canary.js';
+import { updatePrediction, pred } from './net/predict.js';
 import { updateParticles, updateFlashes, particle } from './game/fx.js';
 import { updateFlow, forceFlow } from './world/flow.js';
 import { buildSprites } from './render/sprites.js';
@@ -405,6 +406,7 @@ function tick(now, bg) {
       while (acc >= STEP && n++ < 6) { feedLocalInput(); step(STEP); acc -= STEP; }
       if (n >= 6) acc = 0;
     }
+    updatePrediction(dt);
     updateCanary(dt);
     UI.refreshHUD();
     saveT += dt;
@@ -486,7 +488,7 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
 
 // geliştirme/test erişimi
 if (import.meta.env.DEV) window.__dm = {
-  get G() { return G; }, App, UI, hooks, step, render, view, input, net, link,
+  get G() { return G; }, App, UI, hooks, step, render, view, input, net, link, pred,
   spawn(type, c, r) { const e = spawnEnemy(type, c * TILE + 8, r * TILE + 8, 1 + G.maxStratum); e.emergeT = 0; return e; },
   noise(v) { G.threat.noise = v; },
   put(c, r, t) { const i = r * 17 + c; G.map[i] = t; G.dmg[i] = 0; G.dirty.push(c, r); G.mapVersion++; },

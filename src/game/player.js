@@ -33,7 +33,7 @@ function blockedAt(x, y) {
 }
 
 // eksen bazlı hareket + köşe yumuşatma (tünel ağzına hafif hizalama)
-function moveAxis(p, mx, my) {
+export function moveAxis(p, mx, my) {
   if (!mx && !my) return true;
   const nx = p.x + mx, ny = p.y + my;
   if (!blockedAt(nx, ny)) { p.x = nx; p.y = ny; return true; }

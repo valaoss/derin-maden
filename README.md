@@ -51,6 +51,7 @@ npm run build      # dist/ — statik olarak herhangi bir yerde yayınlanabilir
 - **Ağ (donmaya karşı):** deterministik lockstep, ölçülen ping ve geç gelen girdilere göre kendini ayarlayan girdi gecikmesi (3-16 kare),
   sırasız DataChannel üzerinden her pakette son 8 karenin girdisi (kayıp/gecikme telafisi), hız eşitleme (önde olan %30 yavaşlar),
   yumuşak yakalama, arka plana alınan sekmede Worker zamanlayıcısıyla simülasyonun sürmesi. HUD'da ping ve bağlantı kalitesi.
+  **Yerel tahmin:** planlanmış girdilerle kendi madencin ve kamera önden çizilir; girdi gecikmesi hissedilmez (simülasyon deterministik kalır).
   Ara özet karşılaştırmasıyla senkron kaybı bildirilir.
 - **Peak hissi:** Basılı tut (masaüstünde sağ tık ya da X) → partnerin ekranında işaret ve kenar oku. Hızlı mesaj çipleri
   (Buraya gel, Yardım, Kampa dönelim, İyi iş, Yuva buldum, Sessiz ol) baloncuk olarak görünür. Partner baygınsa HUD uyarır.

@@ -11,6 +11,7 @@ import { computeLight, lightWin, lightSourcesFor, glowTileSources } from '../wor
 import { lampTiles, hasPerk, hasMod } from '../game/run.js';
 import { bubbleFor } from '../ui/ui.js';
 import { canary } from '../game/canary.js';
+import { pred } from '../net/predict.js';
 import { shoulderPos } from '../game/combat.js';
 import { barricadeTarget } from '../game/economy.js';
 import { tileDamage01 } from '../world/map.js';
@@ -37,11 +38,12 @@ export function updateCamera(dt, instant = false) {
   const p = G.player, cam = G.cam;
   cam.px = cam.x; cam.py = cam.y;
   const minY = -100, maxY = WORLD_H - view.vh;
-  let ty = p.y - view.vh * 0.42;
+  const px = pred.on ? pred.sx : p.x, py = pred.on ? pred.sy : p.y;
+  let ty = py - view.vh * 0.42;
   if (p.dig && p.digDir[1] > 0) ty += 18;
   else if (p.moving && p.dy > 0.5) ty += 10;
   ty = clamp(ty, minY, maxY);
-  const tx = clamp(p.x - view.vw / 2, 0, Math.max(0, WORLD_W - view.vw));
+  const tx = clamp(px - view.vw / 2, 0, Math.max(0, WORLD_W - view.vw));
   const cx = WORLD_W <= view.vw ? (WORLD_W - view.vw) / 2 : tx;
   if (instant || cam.snap) { cam.x = cx; cam.y = ty; cam.px = cx; cam.py = ty; cam.snap = false; }
   else { cam.y = damp(cam.y, ty, 7, dt); cam.x = damp(cam.x, cx, 5, dt); }
@@ -203,7 +205,15 @@ export function render(alpha, opts = {}) {
     ctx.globalAlpha = 1;
   }
   for (const e of G.enemies) drawEnemy(e, alpha, camY, vh);
-  if (!opts.hidePlayer) for (const p of G.players) drawPlayer(p, alpha);
+  if (!opts.hidePlayer) for (const p of G.players) {
+    if (pred.on && p === G.player) {
+      // yerel madenci tahmin edilen konumda (lockstep gecikmesi gizlenir)
+      const ox = p.px, oy = p.py, x0 = p.x, y0 = p.y;
+      p.px = p.x = pred.sx; p.py = p.y = pred.sy;
+      drawPlayer(p, alpha);
+      p.px = ox; p.py = oy; p.x = x0; p.y = y0;
+    } else drawPlayer(p, alpha);
+  }
   if (!opts.hidePlayer && canary.on) drawCanary();
   ctx.restore();
 
