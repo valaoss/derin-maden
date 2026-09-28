@@ -49,7 +49,8 @@ function buildQueue() {
   const w = G.wave.num, st = G.maxStratum;
   let budget = WAVES.budget(w, st, G.mods.budget || 1) * (anyCarrying() ? 1.35 : 1);
   const q = [];
-  if (w % G.mods.bossEvery === 0) { q.push('boss'); budget *= 0.5; }
+  const bossWave = w % G.mods.bossEvery === 0;
+  if (bossWave) { q.push('boss'); budget *= 0.4; }
   const allowed = WAVES.allowed(w, st);
   let guard = 0;
   while (budget > 0.5 && guard++ < 80) {
@@ -61,7 +62,7 @@ function buildQueue() {
   // ağır olanlar sona; dalga 3'ten sonra en pahalı sıradan düşman elit olur
   q.sort((a, b) => ENEMIES[a].cost - ENEMIES[b].cost);
   const out = q.map((type, i) => ({ type, t: 0.4 + i * WAVES.spawnGap }));
-  if (w >= ELITE.fromWave) { const cand = out.filter(s => s.type !== 'boss' && !ENEMIES[s.type].small); if (cand.length) cand[cand.length - 1].elite = true; }
+  if (w >= ELITE.fromWave && !bossWave) { const cand = out.filter(s => s.type !== 'boss' && !ENEMIES[s.type].small); if (cand.length) cand[cand.length - 1].elite = true; }
   return out;
 }
 
