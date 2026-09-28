@@ -54,7 +54,7 @@ export function makePlayer(i, helm = i, name = '', role = '') {
     i, helm, name, role: ROLES[role] ? role : '', x: (CENTER_COL + (i ? -3 : 3)) * TILE + 8, y: GROUND_ROW * TILE - 10, px: 0, py: 0,
     face: i ? -1 : 1, dx: 0, dy: 1, hp: 0, maxHp: 0, iframes: 0, dead: false,
     dig: null, digT: 0, digAnim: 0, digDir: [0, 1], walkT: 0, moving: false, up: false, upT: 0, downT: 0, reviveP: 0, gone: false, autoUp: false,
-    fireCd: 0, aim: 0, aimT: 0, carrying: false, hurtT: 0, shockCd: 0, squash: 0, recallT: 0, gasT: 0,
+    fireCd: 0, aim: 0, aimT: 0, carrying: false, ride: null, hurtT: 0, shockCd: 0, squash: 0, recallT: 0, gasT: 0,
     bag: emptyRes(), inp: { x: 0, y: 0, mag: 0 }, landT: 0, airT: 0, blindT: 0, fearT: 0, pullX: 0, pullY: 0, slowT: 0, webT: 0, burnT: 0,
   };
 }
@@ -83,7 +83,7 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
     kademe, mods, daily, contracts: [],
     torches: [], mines: [], bombs: [], rocks: [], falls: [], gas: [], shells: [], hazT: 0,
     structures: [], enemies: [], bullets: [], ebullets: [], orbs: [], particles: [], pIdx: 0, flashes: [], lightSrc: [],
-    satchels: [], zaps: [], pings: [], evt: makeEvents(), echo: null,
+    satchels: [], zaps: [], pings: [], evt: makeEvents(), echo: null, stations: [],
     // uyanış: dalga yok; G.wave yalnızca gök rengi/ambiyans uyumu için türetilir
     wave: { num: 0, phase: 'calm', t: Infinity, nests: [], boss: false },
     threat: makeThreat(), nests: [], nestTotal: [], beacons: [], selfRevive: (ml.sigorta | 0) ? 1 : 0, allDownT: 0,
@@ -115,6 +115,7 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
     const rTop = GROUND_ROW + startStratum * STRATUM_ROWS;
     for (let r = GROUND_ROW + 3; r <= rTop + 1; r++) { const i = r * COLS + CENTER_COL; if (g.map[i] !== T.FOUNDATION && g.map[i] !== T.BEDROCK) g.map[i] = T.AIR; }
     g.startStratum = startStratum; g.maxStratum = startStratum;
+    for (let s = 1; s <= startStratum; s++) g.stations.push(s);
     for (const p of g.players) { p.x = CENTER_COL * TILE + 8 + (p.i ? -3 : 3); p.y = (rTop + 1) * TILE + 8; p.px = p.x; p.py = p.y; }
     g.stats.maxDepth = startStratum * STRATUM_ROWS;
   }
@@ -183,7 +184,7 @@ export function serialize() {
     base: { hp: g.base.hp }, bag: g.player.bag, store: g.store, collected: g.collected, lvl: g.lvl, perks: g.perks,
     items: g.items, structures: g.structures.map(s => ({ type: s.type, c: s.c, r: s.r, hp: s.hp })),
     torches: g.torches, mines: g.mines.map(m => ({ x: m.x, y: m.y })), kademe: g.kademe, daily: g.daily, contracts: g.contracts,
-    threat: { noise: g.threat.noise }, evt: { t: g.evt.t }, beacons: g.beacons, selfRevive: g.selfRevive, startStratum: g.startStratum,
+    threat: { noise: g.threat.noise }, evt: { t: g.evt.t }, beacons: g.beacons, stations: g.stations, selfRevive: g.selfRevive, startStratum: g.startStratum,
     stats: g.stats, maxStratum: g.maxStratum, tutorial: g.tutorial,
     player: { x: g.player.x, y: g.player.y, hp: g.player.hp, carrying: g.player.carrying, role: g.player.role },
     satchels: g.satchels,
@@ -201,7 +202,7 @@ export function deserialize(d) {
   g.structures = (d.structures || []).filter(s => BUILDS[s.type] && s.c !== undefined).map(s => Object.assign(makeStructure(s.type, s.c, s.r), { hp: s.hp, buildT: 0 }));
   g.threat = makeThreat(); if (d.threat) g.threat.noise = Math.min(60, d.threat.noise || 0);
   if (d.evt) g.evt.t = Math.max(10, +d.evt.t || 0);
-  g.beacons = d.beacons || []; g.selfRevive = d.selfRevive | 0; g.startStratum = d.startStratum | 0;
+  g.beacons = d.beacons || []; g.selfRevive = d.selfRevive | 0; g.startStratum = d.startStratum | 0; g.stations = (d.stations || []).map(Number);
   Object.assign(g.stats, d.stats); g.maxStratum = d.maxStratum | 0; g.tutorial = d.tutorial;
   g.nests = scanNests(); g.nestTotal = [];
   for (const n of g.nests) { const s = stratumOfRow(n.r); g.nestTotal[s] = (g.nestTotal[s] | 0) + 1; }

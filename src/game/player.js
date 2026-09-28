@@ -12,6 +12,7 @@ import { HAZARD } from '../data/balance.js';
 import { perkChoices } from './economy.js';
 import { spawnGas } from './hazards.js';
 import { addNoise, nestDestroyed } from './threat.js';
+import { openStation, updateRide } from './elevator.js';
 import { THREAT } from '../data/balance.js';
 import { debris, dust, sparks, shake, kick, hitstop, flashLight, ring, particle } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
@@ -103,6 +104,7 @@ function updateOne(p, dt) {
     if (p.gone && G.players.some(q => q !== p && !q.dead && q.y < GROUND_Y)) respawn(p);
     return;
   }
+  if (p.ride) { updateRide(p, dt); return; }
   const mv = p.inp;
   const sp = playerSpeed(p);
   p.moving = mv.mag > 0.05;
@@ -170,7 +172,7 @@ function updateOne(p, dt) {
   const depth = depthOfY(p.y);
   if (depth > G.stats.maxDepth) G.stats.maxDepth = depth;
   const st = stratumOfRow(row);
-  if (st > G.maxStratum) { G.maxStratum = st; emit('stratum', st); sfx.stratum(); }
+  if (st > G.maxStratum) { G.maxStratum = st; emit('stratum', st); sfx.stratum(); openStation(st); }
 
   // ---- yüzey (kamp): depola, iyileş ----
   const onSurface = p.y < GROUND_Y;
@@ -389,7 +391,7 @@ export function webPlayer(p, t) { if (!p.dead) { p.webT = Math.max(p.webT, t); i
 export function chillPlayer(p, t) { if (!p.dead) { p.slowT = Math.max(p.slowT, t); if (isLocal(p)) emit('chill'); } }
 
 function die(p) {
-  p.hp = 0; p.dead = true; p.gone = false; p.reviveP = 0; p.autoUp = false;
+  p.hp = 0; p.dead = true; p.gone = false; p.reviveP = 0; p.autoUp = false; p.ride = null;
   p.downT = PLAYER.downTime;
   // kendi kendine kalkma hakkı: İkinci Nefes perk'i ya da Sağlık Sigortası (sefer başına bir kez)
   if (G.selfRevive > 0) { G.selfRevive--; p.autoUp = true; p.downT = 2.6; }

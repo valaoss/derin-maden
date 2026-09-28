@@ -162,19 +162,19 @@ export function updateThreat(dt) {
   for (const n of G.nests) {
     if (n.burst > 0) n.burst -= dt;
     n.pulse += dt;
-    if (lv === 0) { n.awake = false; n.cd = Math.max(n.cd, 2); continue; }
     const p = nearestUnder(n.x, n.y, THREAT.range[lv]);
     n.awake = !!p;
     if (!p) continue;
     n.cd -= dt;
-    if (n.cd > 0 || aliveEnemies() >= cap) continue;
-    n.cd = THREAT.cd[lv] * (0.8 + rnd() * 0.4);
     const st = Math.max(0, stratumOfRow(n.r));
-    const count = lv >= 3 ? 2 : lv === 2 && rnd() < 0.3 ? 2 : 1;
+    // ilk biyom: yeni oyuncu için daha seyrek ve daha az kalabalık
+    if (n.cd > 0 || aliveEnemies() >= (st === 0 ? Math.ceil(cap * 0.6) : cap)) continue;
+    n.cd = THREAT.cd[lv] * (0.8 + rnd() * 0.4) * (st === 0 ? 1.4 : 1);
+    const count = Math.min(st === 0 ? 2 : 3, lv >= 3 ? 2 + (rnd() < 0.5 ? 1 : 0) : lv === 2 ? 1 + (rnd() < 0.5 ? 1 : 0) : 1);
     spawnFrom(n, p, st, lv, count);
   }
   // sızma
-  if (lv >= 2 && anyUnder) {
+  if (anyUnder) {
     th.seepT -= dt;
     if (th.seepT <= 0) {
       th.seepT = THREAT.seepCd[lv] * (0.8 + rnd() * 0.4);

@@ -13,6 +13,7 @@ import { PICK_TIERS } from '../data/balance.js';
 import { net } from '../net/lockstep.js';
 import { todayKey } from '../core/util.js';
 import { LEVEL_NAMES, nestsInStratum, nestTotalInStratum } from '../game/threat.js';
+import { atShaft, destinations } from '../game/elevator.js';
 import { STRATA_COUNT } from '../config.js';
 import { worldToView, viewToWorld } from '../render/renderer.js';
 import { sfx, initAudio, applyAudioSettings } from '../audio/audio.js';
@@ -48,6 +49,7 @@ export function initUI(root, h) {
   <div id="coach"><div class="hand" style="background-image:url(${iconURL('hand')})"></div><div class="plate msg"></div></div>
   <div id="banner"><div class="k"></div><div class="n"></div><div class="rule"></div></div>
   <button class="btn hide" id="workshopBtn">${ic('drill', 'l')}<span>ATÖLYE</span><span class="badge"></span></button>
+  <button class="btn hide" id="elevBtn">${ic('base', 'l')}<span>ASANSÖR</span></button>
   <div id="belt"></div>
   <button class="btn dark" id="chatBtn" aria-label="Hızlı mesaj">${ic('hand', 'l')}</button>
   <div id="chat"></div>
@@ -72,6 +74,9 @@ export function initUI(root, h) {
   tap($('#pauseBtn'), () => hooks.pause(true));
   tap($('#chatBtn'), toggleChat);
   tap($('#workshopBtn'), openSheet);
+  tap($('#elevBtn'), showElevPop);
+  on('station', s => toast('Asansör istasyonu açıldı: ' + STRATA[s].name, 'base'));
+  on('elevator', d => { if (d.pi === G.localIdx) hidePop(); else toast('Partner asansöre bindi', 'base'); });
   tap($('#sheetClose'), closeSheet);
   tap($('#sheetBack'), closeSheet);
   document.querySelectorAll('#sheet .tab').forEach(t => tap(t, () => { sheetTab = t.dataset.tab; if (sheetTab === 'craft' && !App.meta.seenCraft) { App.meta.seenCraft = true; saveMeta(App.meta); } refreshSheet(); $('#sheetBody').scrollTop = 0; }));
@@ -236,6 +241,8 @@ export function refreshHUD(force = false) {
   const surf = p.y < GROUND_Y && !p.dead && !(G.tutorial && G.tutorial.step < 3);
   const any = anyAffordable();
   set(0, 'ws', surf, v => $('#workshopBtn').classList.toggle('hide', !v));
+  const elev = !p.dead && !p.ride && atShaft(p) && destinations(p).length > 0;
+  set(0, 'elev', elev, v => { $('#elevBtn').classList.toggle('hide', !v); if (!v) hidePop(); });
   set(0, 'wsb', any, v => $('#workshopBtn').classList.toggle('has', v));
   // eşya kemeri: sadece elindeki eşyalar; kullanılamayan soluk
   let bk = '';
@@ -473,6 +480,17 @@ function showPop(i) {
   tap(pop.querySelector('[data-pick]'), () => { dispatch({ t: CMD.PICKUP, i }); hidePop(); refreshHUD(true); });
 }
 export function hidePop() { $('#pop').classList.remove('on'); }
+// asansör hedefleri
+function showElevPop() {
+  const p = G.player, pop = $('#pop');
+  const ds = destinations(p);
+  if (!ds.length) return;
+  pop.innerHTML = `<div class="sec">ASANSÖR · NEREYE?</div>` + ds.map(s => `<button class="btn ${s === -1 ? '' : 'dark'}" data-to="${s}">${s === -1 ? ic('base', 's') + ' KAMP' : ic('depth', 's') + ' ' + STRATA[s].name.toUpperCase() + ' · ' + s * STRATUM_ROWS + 'M'}</button>`).join('');
+  const R = ui.getBoundingClientRect();
+  pop.style.left = '0px'; pop.style.top = '0px'; pop.classList.add('on');
+  pop.style.left = Math.max(8, R.width - 236) + 'px'; pop.style.top = Math.max(110, R.height - pop.offsetHeight - 100) + 'px';
+  pop.querySelectorAll('[data-to]').forEach(b => tap(b, () => { dispatch({ t: CMD.ELEV, to: +b.dataset.to }); hidePop(); }));
+}
 
 // ---------------- perk seçimi ----------------
 function showPerks() {

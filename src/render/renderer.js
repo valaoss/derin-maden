@@ -672,7 +672,8 @@ function drawEnemy(e, alpha, camY, vh) {
 function pickTier() { return PICK_TIERS[Math.min(PICK_TIERS.length - 1, G.lvl.drill)]; }
 function drawPlayer(p, alpha) {
   if (p.dead) { drawDowned(p, alpha); return; }
-  if (p.iframes > 0 && p.hurtT <= 0 && Math.floor(p.iframes * 14) % 2 === 0) return;
+  if (p.ride) drawCab(Math.round(lerp(p.px, p.x, alpha)), Math.round(lerp(p.py, p.y, alpha)));
+  else if (p.iframes > 0 && p.hurtT <= 0 && Math.floor(p.iframes * 14) % 2 === 0) return;
   const x = Math.round(lerp(p.px, p.x, alpha)), y = Math.round(lerp(p.py, p.y, alpha));
   const S = playerSprites(p.helm);
   const digDown = p.dig && p.digDir[1] > 0;
@@ -714,6 +715,14 @@ function drawPlayer(p, alpha) {
 }
 
 // baygın oyuncu: yerde yatar, kask yanıp söner; partner yaklaşınca kaldırma halkası
+// asansör kabini: halat + kafes
+function drawCab(x, y) {
+  ctx.fillStyle = '#3a3230'; ctx.fillRect(x - 1, GROUND_Y - 40, 2, y - 12 - (GROUND_Y - 40));
+  ctx.fillStyle = P.ink; ctx.fillRect(x - 9, y - 13, 18, 2); ctx.fillRect(x - 9, y + 8, 18, 2);
+  ctx.fillRect(x - 9, y - 13, 2, 23); ctx.fillRect(x + 7, y - 13, 2, 23);
+  ctx.fillStyle = '#c9a54a'; ctx.fillRect(x - 8, y - 12, 16, 1); ctx.fillRect(x - 8, y + 8, 16, 1);
+  ctx.fillStyle = 'rgba(255,231,154,0.12)'; ctx.fillRect(x - 7, y - 11, 14, 19);
+}
 // maden kanaryası: küçük sarı kuş; yuva sezince ona doğru titreyen ok
 function drawCanary() {
   const x = Math.round(canary.x), y = Math.round(canary.y);

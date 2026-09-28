@@ -31,6 +31,10 @@ npm run build      # dist/ — statik olarak herhangi bir yerde yayınlanabilir
   Alev/Buz Kulesi, Havan üretilir; kemerden durduğun yere (tünel içi dahil) kurulur, dokunup geri alınır. Aynı anda en fazla 2 (perk ile 3);
   sınırda en eski alet kemere döner.
 - **Öz:** yıkılan yuva ×6, fener ×20, derinlik, sandık, cevher. Kontratlar: `waves` yerine `nests` (yuva yık).
+- **Asansör (sefer içi):** Merkez şaft. Bir biyoma ilk ulaştığında istasyonu açılır ve şaft oraya kadar kazılır; şaftta durunca
+  ASANSÖR düğmesi çıkar, Kamp ya da açılmış biyomu seç, kabin seni taşır (kabinde hasar yok, Kalp Kristali ile yavaş). Her biyomda git-gel yok.
+- **Düşman yoğunluğu:** Sessizde bile yakın yuva (7 blok) tek tük düşman verir, kayadan sızma her seviyede; üst sınır 2/5/8/12/16,
+  Uyanış'ta 1-2, Öfke'de 2-3 düşman birden çıkar. İlk biyom yeni oyuncu için daha seyrek. `npm run sim` ~20 düşman/dk gösterir.
 - **Roller:** Madenci kartında seçilir; Kazıcı (kazma %20 hızlı, kazı gürültüsü %25 az), Nişancı (blaster hasarı +%25, menzil +12),
   Mühendis (alet sınırı +1, aletler %40 dayanıklı). Co-op'ta partnerin rolü koltuk kartında görünür.
 - **Maden olayları:** Yeraltında ve ölçer sessiz değilken 55-95 sn'de bir olay: **Sarsıntı** (uyarıdan 2.5 sn sonra tavan çöker),

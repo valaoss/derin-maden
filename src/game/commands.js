@@ -5,9 +5,10 @@ import { useItem } from './items.js';
 import { buyUpgrade, craftItem, pickupBuild, applyPerk, buyMod, toggleMod } from './economy.js';
 import { useMod } from './combat.js';
 import { addPing } from './pings.js';
+import { callElevator } from './elevator.js';
 import { emit } from '../core/events.js';
 
-export const CMD = { USE: 'u', BUY: 'b', CRAFT: 'c', PICKUP: 'k', PERK: 'p', MODBUY: 'mb', MODEQ: 'me', MODUSE: 'mu', PING: 'g' };
+export const CMD = { USE: 'u', BUY: 'b', CRAFT: 'c', PICKUP: 'k', PERK: 'p', MODBUY: 'mb', MODEQ: 'me', MODUSE: 'mu', PING: 'g', ELEV: 'el' };
 
 // Simülasyon içinde çalışır: pi = komutu veren oyuncu indeksi
 export function execCmd(pi, cmd) {
@@ -19,6 +20,7 @@ export function execCmd(pi, cmd) {
     case CMD.CRAFT: return craftItem(cmd.k, p);
     case CMD.PICKUP: return pickupBuild(cmd.i | 0, p);
     case CMD.PING: return addPing(pi, Math.round(+cmd.x || 0), Math.round(+cmd.y || 0));
+    case CMD.ELEV: return callElevator(p, cmd.to | 0);
     case CMD.MODBUY: return buyMod(cmd.k, p);
     case CMD.MODEQ: return toggleMod(cmd.k, p);
     case CMD.MODUSE: return useMod(cmd.k, p);

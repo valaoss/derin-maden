@@ -140,14 +140,14 @@ export const SCHEMATICS = [
 export const HAZARD = { fallDelay: 0.9, fallDmg: 22, fallEnemyDmg: 45, gasTime: 7, gasRadius: 22, gasDps: 7, gasBoom: 40, emberBurn: 8 };
 // Uyanış (gürültü) ölçeri
 export const THREAT = {
-  decay: 1.0, decayPerLevel: 0.5, surfaceDecay: 9, quietAfter: 1.2, depthMul: 0.1,
-  noise: { dig: 0.2, brk: 0.35, ore: 0.3, shot: 0.14, boom: 8, mine: 4, chest: 3 },
+  decay: 0.9, decayPerLevel: 0.45, surfaceDecay: 9, quietAfter: 1.2, depthMul: 0.1,
+  noise: { dig: 0.25, brk: 0.42, ore: 0.35, shot: 0.12, boom: 8, mine: 4, chest: 3 },
   bossDelay: 4,                     // ölçer tepedeyken Derin Ana'nın uyanmasına kalan süre (sn)
-  range: [0, 8, 15, 24, 40],        // yuvanın uyanma menzili (tile), seviyeye göre
-  cd: [99, 9, 6, 4, 3],             // yuva çıkarma aralığı (sn)
-  cap: [0, 3, 6, 9, 12],            // sahadaki canlı düşman üst sınırı
-  seepCd: [99, 99, 14, 9, 6],       // yakın yuva yoksa kayadan sızma aralığı
-  eliteChance: 0.25, nestRelief: 18, afterBoss: 55,
+  range: [7, 13, 20, 30, 45],       // yuvanın uyanma menzili (tile), seviyeye göre (sessizken de yakın yuva tepki verir)
+  cd: [16, 7, 4.5, 3, 2.2],           // yuva çıkarma aralığı (sn)
+  cap: [2, 5, 8, 12, 16],          // sahadaki canlı düşman üst sınırı
+  seepCd: [24, 15, 10, 7, 5],        // yakın yuva yoksa kayadan sızma aralığı (sessizde de tek tük)
+  eliteChance: 0.3, nestRelief: 18, afterBoss: 55,
 };
 
 // Düşmanlar: r = çarpışma yarıçapı, dig = kazabildiği maks kaya hp'si
@@ -229,6 +229,9 @@ export const PERKS = {
   altinDamar:   { name: 'Altın Damarı', icon: 'gold', desc: 'Elit düşmanlar iki kat altın düşürür.' },
   dorduncuYuva: { name: 'Dördüncü Yuva', icon: 'nova', desc: 'Blaster eklenti yuvası +1.' },
 };
+
+// Sefer içi asansör: merkez şaft, ulaşılan her biyomda istasyon
+export const ELEVATOR = { speed: 230, snap: 7, noise: 3 };
 
 // Roller: madenci kartında seçilir, ekipte birbirini tamamlar
 export const ROLES = {
