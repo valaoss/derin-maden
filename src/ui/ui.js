@@ -19,6 +19,7 @@ import { worldToView, viewToWorld } from '../render/renderer.js';
 import { sfx, initAudio, applyAudioSettings } from '../audio/audio.js';
 import { saveMeta, saveSettings } from '../core/save.js';
 import { cancelStick, setStickMode } from '../input/input.js';
+import { isNative, WEB_URL } from '../core/native.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const ic = (name, cls = '') => `<i class="icon ${cls}" style="background-image:url(${iconURL(name)})"></i>`;
@@ -692,8 +693,10 @@ export function showSettings(back) {
     ${items.map(([k, n]) => `<button class="plate toggle ${S[k] ? 'on' : ''}" data-k="${k}"><span>${n}</span><span class="sw"></span></button>`).join('')}
     ${Object.keys(CYC).map(k => `<button class="plate toggle cyc" data-c="${k}"><span>${CYC[k].name}</span><span class="cv">${cycLabel(S, k)} ›</span></button>`).join('')}
     <button class="plate toggle" id="sProfile"><span>Madenci kartı</span><span style="display:flex;align-items:center;gap:6px;color:var(--dim)">${esc(S.name)} ${helmDot(S.helm)}</span></button>
+    <button class="plate toggle" id="sPriv"><span>Gizlilik ve destek</span><span class="cv">›</span></button>
     <button class="btn" id="sBack">TAMAM</button></div>`;
   hideScreens(); s.classList.add('on');
+  tap($('#sPriv'), () => window.open((isNative ? WEB_URL : './') + 'gizlilik.html', '_blank'));
   tap($('#sProfile'), () => { s.classList.remove('on'); showProfile(() => showSettings(back)); });
   const applyStick = () => setStickMode(S.stickFixed, S.stickPos, S.stickH, S.lefty);
   s.querySelectorAll('.toggle[data-k]').forEach(t => tap(t, () => {

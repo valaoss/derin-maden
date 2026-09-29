@@ -5,6 +5,7 @@ import './ui/style.css';
 import { STEP, TILE, GROUND_Y, WORLD_H, CENTER_COL, GROUND_ROW, STRATUM_ROWS, STRATA_COUNT, stratumOfRow, depthOfY } from './config.js';
 import { G, App, setG, biomeOf } from './game/state.js';
 import { loadMeta, saveMeta, loadSettings, saveSettings, loadRun, saveRun, clearRun } from './core/save.js';
+import { isNative, nativeShareImage } from './core/native.js';
 import { newRun, serialize, deserialize, bagCount, contractProgress, metaSnapshot, stratumGroup } from './game/run.js';
 import { updatePlayer, updateOrbs, updateDeposit, bindEnemyDamage } from './game/player.js';
 import { updateEnemies, damageEnemy, spawnEnemy } from './game/enemies.js';
@@ -491,6 +492,7 @@ hooks.photo = () => {
   x.fillStyle = 'rgba(0,0,0,0.7)'; x.fillText(txt, 5, c.height - 4); x.fillStyle = '#ffe79a'; x.fillText(txt, 4, c.height - 5);
   c.toBlob(async b => {
     if (!b) return;
+    if (isNative) { try { await nativeShareImage(b, 'derin-maden.png'); } catch (e) { /* iptal */ } return; }
     const f = new File([b], 'derin-maden.png', { type: 'image/png' });
     if (navigator.canShare && navigator.canShare({ files: [f] })) { try { await navigator.share({ files: [f], title: 'Derin Maden' }); return; } catch (e) { /* iptal */ } }
     const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = f.name; a.click();
@@ -527,8 +529,9 @@ Promise.race([fontsReady, new Promise(r => setTimeout(r, 1500))]).then(() => {
   boot.classList.add('done'); setTimeout(() => boot.remove(), 400);
 });
 
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+if ('serviceWorker' in navigator && import.meta.env.PROD && !isNative) {
+  const reg = () => navigator.serviceWorker.register('./sw.js').catch(() => {});
+  if (document.readyState === 'complete') reg(); else window.addEventListener('load', reg);
 }
 
 // geliştirme/test erişimi

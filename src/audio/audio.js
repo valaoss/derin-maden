@@ -1,6 +1,7 @@
 // Prosedürel ses: WebAudio ile sentezlenir, dosya yok.
 // Her ses kimliği için kısma (throttle) + eşzamanlı ses bütçesi var.
 import { App } from '../game/state.js';
+import { isNative, nativeHaptic } from '../core/native.js';
 
 let ctx = null, master = null, sfxBus = null, musBus = null, noiseBuf = null;
 const last = {};
@@ -349,6 +350,8 @@ export function stopAmbience() {
 }
 
 export function haptic(ms) {
-  if (!App.settings.haptics || !navigator.vibrate) return;
+  if (!App.settings.haptics) return;
+  if (isNative) { nativeHaptic(ms); return; }
+  if (!navigator.vibrate) return;
   try { navigator.vibrate(ms); } catch (e) { /* desteklenmiyor */ }
 }

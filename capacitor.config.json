@@ -1,0 +1,11 @@
+{
+  "appId": "com.valaoss.derinmaden",
+  "appName": "Derin Maden",
+  "webDir": "dist",
+  "backgroundColor": "#0b0712",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#0b0712",
+    "limitsNavigationsToAppBoundDomains": false
+  }
+}

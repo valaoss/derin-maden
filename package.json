@@ -8,12 +8,20 @@
     "build": "vite build",
     "preview": "vite preview --port 8765",
     "test": "node tests/sim.test.mjs",
-    "sim": "node scripts/balance-sim.mjs"
+    "sim": "node scripts/balance-sim.mjs",
+    "ios": "vite build && cap sync ios"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.2",
     "vite": "^5.4.0"
   },
   "dependencies": {
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/filesystem": "^8.1.3",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/ios": "^8.5.2",
+    "@capacitor/preferences": "^8.0.1",
+    "@capacitor/share": "^8.0.2",
     "@fontsource/tiny5": "^5.3.0",
     "peerjs": "^1.5.5"
   }

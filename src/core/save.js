@@ -1,12 +1,13 @@
 // Kalıcı veri: meta ilerleme, ayarlar, devam eden sefer.
+import { persist } from './native.js';
 const META_KEY = 'derinMaden.meta.v4';
 const RUN_KEY = 'derinMaden.run.v4';
 const SET_KEY = 'derinMaden.settings.v1';
 const LEGACY_META = 'derinMadenMetaV3';
 
 function read(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
-function write(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* depolama yok */ } }
-function remove(k) { try { localStorage.removeItem(k); } catch (e) { /* yok */ } }
+function write(k, v) { const j = JSON.stringify(v); try { localStorage.setItem(k, j); } catch (e) { /* depolama yok */ } persist(k, j); }
+function remove(k) { try { localStorage.removeItem(k); } catch (e) { /* yok */ } persist(k, null); }
 
 export function loadMeta() {
   const m = read(META_KEY);

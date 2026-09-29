@@ -1,6 +1,7 @@
 // Eşleşme: PeerJS (WebRTC DataChannel).
 // Üç yol: Hızlı Eşleş (sunucusuz lobi yuvaları), davet linki (?oda=KOD) ve eski usul 4 haneli kod.
 import { Peer } from 'peerjs';
+import { isNative, WEB_URL, nativeShare } from '../core/native.js';
 
 const PREFIX = 'derinmaden-v4-';
 const LOBBY = PREFIX + 'lobi-';
@@ -138,7 +139,7 @@ function shuffled(n) {
 
 // Davet linki
 export function inviteURL(code) {
-  const u = new URL(location.href); u.search = ''; u.hash = ''; u.searchParams.set('oda', code);
+  const u = new URL(isNative ? WEB_URL : location.href); u.search = ''; u.hash = ''; u.searchParams.set('oda', code);
   return u.toString();
 }
 export function codeFromURL() {
@@ -148,6 +149,7 @@ export function codeFromURL() {
 }
 export async function shareInvite(code) {
   const url = inviteURL(code);
+  if (isNative) { try { await nativeShare({ title: 'Derin Maden', text: 'Birlikte kazalım! Oda: ' + code, url }); return 'shared'; } catch (e) { return 'cancel'; } }
   if (navigator.share) { try { await navigator.share({ title: 'Derin Maden', text: 'Birlikte kazalım! Oda: ' + code, url }); return 'shared'; } catch (e) { if (e && e.name === 'AbortError') return 'cancel'; } }
   try { await navigator.clipboard.writeText(url); return 'copied'; } catch (e) { return 'fail'; }
 }
