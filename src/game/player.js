@@ -90,6 +90,7 @@ export function updatePlayer(dt) {
 
 function updateOne(p, dt) {
   p.px = p.x; p.py = p.y;
+  if (!p.dead && G.buried) { const pc = Math.floor(p.x / TILE), pr = Math.floor(p.y / TILE); for (let k = -2; k <= 2; k++) for (let j = -2; j <= 2; j++) if (k * k + j * j <= 4) unbury(pc + k, pr + j, p); }
   if (p.iframes > 0) p.iframes -= dt;
   if (p.hurtT > 0) p.hurtT -= dt;
   if (p.gasT > 0) p.gasT -= dt;
@@ -245,9 +246,19 @@ let damageEnemyExt = () => {};
 export function bindEnemyDamage(fn) { damageEnemyExt = fn; }
 
 // byPlayer: kıran oyuncu (null: düşman/çevre)
+// gömülü cevheri açığa çıkar (kıvılcımla)
+export function unbury(c, r, p = null) {
+  const i = r * 17 + c;
+  if (c < 0 || c > 16 || !G.buried || !G.buried[i]) return;
+  G.buried[i] = 0; G.dirty.push(c, r); G.mapVersion++;
+  const x = c * TILE + 8, y = r * TILE + 8, d = TD[G.map[i]];
+  sparks(x, y, RES_COL[d.ore] || '#fff0a0', 10, 70); flashLight(x, y, 3, 0.4);
+  if (p && hear(p, x, y)) sfx.oreReveal();
+}
 export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
   const t = tileAt(c, r), d = TD[t], mat = matOf(c, r);
   setTile(c, r, T.AIR);
+  if (G.buried) { G.buried[r * 17 + c] = 0; for (let k = -1; k <= 1; k++) for (let j = -1; j <= 1; j++) if (k || j) unbury(c + k, r + j, byPlayer); }
   const x = c * TILE + 8, y = r * TILE + 8;
   if (d.gas) spawnGas(x, y);
   if (d.ember) { sparks(x, y, '#ff9a4a', 10, 90); flashLight(x, y, 4, 0.3); if (byPlayer && Math.hypot(byPlayer.x - x, byPlayer.y - y) < 22) { byPlayer.burnT = 2; damagePlayer(byPlayer, HAZARD.emberBurn, x, y); } }

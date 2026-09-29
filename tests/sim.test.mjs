@@ -612,5 +612,21 @@ section('Sefer haritası');
   ok('iz kayıtla geri gelir', g2.journey.p[0].length === a.length && g2.journey.m.length > 0);
 }
 
+// ---------- 18. gömülü cevher ----------
+section('Gömülü cevher');
+{
+  const g = fresh(960); let val = 0, hid = 0;
+  for (let k = 0; k < g.map.length; k++) { const d = TD[g.map[k]]; if (d.ore && !d.plain && d.ore !== 'iron' && d.ore !== 'water') { val++; if (g.buried[k]) hid++; } }
+  ok('değerli cevherin yaklaşık üçte biri gömülü', hid / val > 0.2 && hid / val < 0.45, `${hid}/${val}`);
+  ok('demir ve su gömülmez', g.map.every((t, k) => !g.buried[k] || (TD[t].ore !== 'iron' && TD[t].ore !== 'water')));
+  const k = g.buried.findIndex((b, j) => b && Math.floor(j / COLS) > GROUND_ROW + 4 && j % COLS > 2 && j % COLS < 14);
+  const c = k % COLS, r = Math.floor(k / COLS);
+  setTile(c - 1, r, T.DIRT); breakTile(c - 1, r, G.player);
+  ok('yanını kazınca gömülü cevher belirir', G.buried[k] === 0);
+  const k2 = g.buried.findIndex((b, j) => b && Math.floor(j / COLS) > GROUND_ROW + 4);
+  const g2 = deserialize(JSON.parse(JSON.stringify(serialize())));
+  ok('gömülü bilgisi kayıtla geri gelir', g2.buried[k2] === 1 && g2.buried[k] === 0);
+}
+
 console.log(`\n${checks - fails}/${checks} kontrol geçti${fails ? `, ${fails} HATA` : ''}`);
 process.exit(fails ? 1 : 0);

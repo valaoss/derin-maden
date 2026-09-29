@@ -520,6 +520,14 @@ function decorLights(r0, r1, out) {
 }
 
 function drawTileOverlays(r0, r1) {
+  // Hazine Kokusu: gömülü cevher ara ara pırıldar
+  if (hasPerk('hazineKokusu') && G.buried) for (let r = r0; r <= r1; r++) for (let c = 0; c < COLS; c++) {
+    const i = r * COLS + c;
+    if (!G.buried[i] || Math.floor(G.time * 2 + hash2(c, r, 5) * 9) % 5) continue;
+    ctx.fillStyle = RES_COL[TD[G.map[i]].ore] || '#fff0a0';
+    const x = c * TILE + 4 + Math.floor(hash2(c, r, 2) * 8), y = r * TILE + 4 + Math.floor(hash2(r, c, 3) * 8);
+    ctx.fillRect(x, y, 1, 1); ctx.globalAlpha = 0.5; ctx.fillRect(x - 1, y, 3, 1); ctx.fillRect(x, y - 1, 1, 3); ctx.globalAlpha = 1;
+  }
   // kazılan blok titremesi
   let hc = -1, hr = -1, hj = 0;
   for (const p of G.players) if (p.hitTile && p.hitTile.t > 0) { hc = p.hitTile.c; hr = p.hitTile.r; hj = (Math.floor(G.time * 40) % 2) ? 1 : -1; }

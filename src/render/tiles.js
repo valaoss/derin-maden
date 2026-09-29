@@ -308,7 +308,7 @@ function paintTile(img, c, r, oy) {
   const grass = eN && r === GROUND_ROW && mat0 === 'dirt';
   const ember = TD[t].ember, gem = TD[t].gem ? gemRamp(TD[t].gem) : null;
   const ore = TD[t].ore;
-  const OR = ore ? rgb['o_' + ore] : null;
+  const OR = ore && !(G.buried && G.buried[r * COLS + c]) ? rgb['o_' + ore] : null;
   for (let py = 0; py < TILE; py++) for (let px = 0; px < TILE; px++) {
     // dışbükey köşe yuvarlama
     const cut = (eN && eW && px + py < 2) || (eN && eE && (15 - px) + py < 2) ||

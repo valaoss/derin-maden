@@ -49,6 +49,7 @@ function pickContracts(seed) {
 export function contractProgress(c) { return Math.min(c.n, CONTRACTS[c.k].stat(G)); }
 
 export const MP_MODS = { hp: 1.3, noise: 1.15, oz: 1.5 };
+export const SP_MODS = { hp: 1.15, dmg: 1.2, noise: 1.15 }; // tek başına da madenin dişi olsun
 
 export function makePlayer(i, helm = i, name = '', role = '') {
   return {
@@ -69,10 +70,11 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
   const gm = meta || metaSnapshot(), ml = gm.lv;
   const mods = kademeMods(kademe);
   if (mp) { mods.hp *= MP_MODS.hp; mods.noise *= MP_MODS.noise; mods.oz *= MP_MODS.oz; }
+  else if (!tutorial) { mods.hp *= SP_MODS.hp; mods.dmg *= SP_MODS.dmg; mods.noise *= SP_MODS.noise; }
   const gen = generate(seed, { tutorial, hazard: mods.hazard });
   const g = {
     seed, rng: 1, map: gen.map, heartRow: gen.heartRow, order: gen.order, meta: gm, mp, localIdx,
-    dmg: new Float32Array(COLS * ROWS), rev: new Uint8Array(COLS * ROWS), bhp: {},
+    dmg: new Float32Array(COLS * ROWS), rev: new Uint8Array(COLS * ROWS), buried: gen.buried || new Uint8Array(COLS * ROWS), bhp: {},
     mapVersion: 1, dirty: [], cleared: [], dirtyDmg: false, flow: createFields(), flowVersion: -1, flowTimer: 0,
     time: 0, frame: 0, hitstop: 0,
     player: null, players: [],
@@ -185,7 +187,7 @@ function unb64(s) { const b = atob(s), u = new Uint8Array(b.length); for (let i 
 export function serialize() {
   const g = G;
   return {
-    v: 8, seed: g.seed, rng: g.rng, heartRow: g.heartRow, order: g.order, map: b64(g.map), rev: b64(g.rev), bhp: g.bhp, gear: { owned: g.gear.owned, eq: g.gear.eq },
+    v: 8, seed: g.seed, rng: g.rng, heartRow: g.heartRow, order: g.order, map: b64(g.map), rev: b64(g.rev), buried: b64(g.buried), bhp: g.bhp, gear: { owned: g.gear.owned, eq: g.gear.eq },
     base: { hp: g.base.hp }, bag: g.player.bag, store: g.store, collected: g.collected, lvl: g.lvl, perks: g.perks,
     items: g.items, structures: g.structures.map(s => ({ type: s.type, c: s.c, r: s.r, hp: s.hp })),
     torches: g.torches, mines: g.mines.map(m => ({ x: m.x, y: m.y })), kademe: g.kademe, daily: g.daily, contracts: g.contracts,
@@ -198,6 +200,7 @@ export function serialize() {
 export function deserialize(d) {
   const g = newRun({ seed: d.seed, kademe: d.kademe | 0, daily: d.daily || null });
   g.map = unb64(d.map); g.rev = unb64(d.rev);
+  g.buried = d.buried ? unb64(d.buried) : new Uint8Array(COLS * ROWS);
   if (g.map.length !== COLS * ROWS) throw new Error('harita boyutu uyumsuz'); g.bhp = d.bhp || {}; g.heartRow = d.heartRow; if (d.order) g.order = d.order;
   Object.assign(g.player.bag, d.bag); Object.assign(g.store, d.store); Object.assign(g.collected, d.collected);
   Object.assign(g.lvl, d.lvl); g.perks = d.perks || [];

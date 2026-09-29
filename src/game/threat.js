@@ -67,7 +67,7 @@ function pickType(st, lv) {
   if (sig && rnd() < (b >= 10 ? 0.55 : 0.4) && (b >= 10 || allowed.includes(sig))) return sig;
   return allowed[Math.floor(rnd() * allowed.length)] || 'rodent';
 }
-function hpTier(st, lv) { return 1 + st * 1.5 + lv; }
+function hpTier(st, lv) { return 1 + st * 1.8 + lv; }
 
 // yuvadan çıkış hücresi: komşu boşluk; yoksa oyuncuya doğru bir hücre patlatılır
 function exitCell(n, p) {

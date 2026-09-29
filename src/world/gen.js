@@ -1,7 +1,8 @@
 // Katmanlı dünya üretimi (v5: 20 biyom): malzeme kümeleri, cevher damarları, mağaralar, biyom özellikleri, sandıklar, çekirdek odası.
 // Biyom sırası tohuma göre karışır: Toprak hep ilk, Yaratılış Çekirdeği hep son; aradakiler zorluk bantları içinde yer değiştirir.
 import { COLS, ROWS, GROUND_ROW, STRATUM_ROWS, STRATA_COUNT, PLAY_MIN_COL, PLAY_MAX_COL, CENTER_COL } from '../config.js';
-import { T, HOST_TILE, isPlain, DEEP_TILE } from '../data/tiles.js';
+import { T, TD, HOST_TILE, isPlain, DEEP_TILE } from '../data/tiles.js';
+import { DEEP_ORES } from '../data/balance.js';
 import { mulberry32, fbm, vnoise } from '../core/util.js';
 
 // zorluk bantları: her bant kendi içinde karışır (ana kaya sertliği ve düşman gücü derinlikle artmaya devam eder)
@@ -304,6 +305,9 @@ export function generate(seed, opts = {}) {
     set(tc, GROUND_ROW + 5, T.IRON);
     set(tc + 1, GROUND_ROW + 5, T.IRON);
   }
-  return { map, heartRow: hr, order };
+  // gömülü cevher: değerlilerin üçte biri kaya gibi görünür, yanından kazınca ya da çok yaklaşınca belirir
+  const buried = new Uint8Array(COLS * ROWS), HIDE = ['cobalt', 'crystal', 'gold', ...DEEP_ORES];
+  for (let i = 0; i < map.length; i++) { const d = TD[map[i]]; if (d && d.ore && !d.plain && HIDE.includes(d.ore) && rnd() < 0.33) buried[i] = 1; }
+  return { map, heartRow: hr, order, buried };
 }
 export { HOST_TILE };

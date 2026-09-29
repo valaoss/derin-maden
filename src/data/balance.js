@@ -159,13 +159,13 @@ export const SCHEMATICS = [
 export const HAZARD = { fallDelay: 0.9, fallDmg: 22, fallEnemyDmg: 45, gasTime: 7, gasRadius: 22, gasDps: 7, gasBoom: 40, emberBurn: 8 };
 // Uyanış (gürültü) ölçeri
 export const THREAT = {
-  decay: 0.9, decayPerLevel: 0.45, surfaceDecay: 9, quietAfter: 1.2, depthMul: 0.1,
+  decay: 0.7, decayPerLevel: 0.45, surfaceDecay: 9, quietAfter: 1.2, depthMul: 0.1,
   noise: { dig: 0.25, brk: 0.42, ore: 0.35, shot: 0.12, boom: 8, mine: 4, chest: 3 },
   bossDelay: 4,                     // ölçer tepedeyken bossun uyanmasına kalan süre (sn)
   range: [7, 13, 20, 30, 45],       // yuvanın uyanma menzili (tile), seviyeye göre (sessizken de yakın yuva tepki verir)
-  cd: [8, 3.5, 2.3, 1.5, 1.1],           // yuva çıkarma aralığı (sn)
-  cap: [4, 10, 16, 24, 32],          // sahadaki canlı düşman üst sınırı
-  seepCd: [12, 8, 5, 3.5, 2.5],        // yakın yuva yoksa kayadan sızma aralığı (sessizde de tek tük)
+  cd: [7, 3, 2, 1.4, 1],           // yuva çıkarma aralığı (sn)
+  cap: [5, 12, 18, 26, 34],          // sahadaki canlı düşman üst sınırı
+  seepCd: [9, 6, 4, 3, 2.2],        // yakın yuva yoksa kayadan sızma aralığı (sessizde de tek tük)
   eliteChance: 0.3, nestRelief: 18, afterBoss: 55,
   floorPerStratum: 4, floorMax: 40, // derinde maden tam susmaz: gürültü bu tabanın altına sönmez
   seepDepth: 0.08,                   // her biyom sızmayı biraz sıklaştırır
@@ -280,7 +280,7 @@ export const PERKS = {
   lesKazisi:    { name: 'Leş Kazısı', icon: 'skull', desc: 'Öldürdüğün düşman %25 ihtimalle derinliğine göre cevher düşürür.' },
   sonDirenis:   { name: 'Son Direniş', icon: 'elite', desc: 'Canın %35’in altındayken kazman ve blasterın iki kat vurur.' },
   kacis:        { name: 'Kaçış Refleksi', icon: 'boot', desc: 'Hasar aldığında 2 sn boyunca çok hızlı koşarsın.' },
-  hazineKokusu: { name: 'Hazine Kokusu', icon: 'chest', desc: 'Kalıntı sandıkları karanlıkta bile görünür.' },
+  hazineKokusu: { name: 'Hazine Kokusu', icon: 'chest', desc: 'Kalıntı sandıkları karanlıkta görünür; gömülü cevherler pırıldar.' },
   simya:        { name: 'Simya', icon: 'gold', desc: 'Demir, su ve kobalt damarları %15 ihtimalle altın verir.' },
   sifaPinari:   { name: 'Şifa Pınarı', icon: 'water', desc: 'Su damarı kırmak 6 can yeniler.' },
   gazMaskesi:   { name: 'Gaz Maskesi', icon: 'heal', desc: 'Gaz bulutları ve zehirli taş sana işlemez.' },
@@ -353,7 +353,7 @@ export const KADEME = [
   { name: 'Kademe 5', desc: '+ Yuvalar iki kat hızlı üretir' },
 ];
 export function kademeMods(k = 0) {
-  return { hp: k >= 1 ? 1.2 : 1, noise: k >= 2 ? 1.25 : 1, hazard: k >= 3 ? 2 : 1, slowRegen: k >= 4, nestRate: k >= 5 ? 2 : 1, oz: 1 + 0.25 * k };
+  return { dmg: 1, hp: k >= 1 ? 1.2 : 1, noise: k >= 2 ? 1.25 : 1, hazard: k >= 3 ? 2 : 1, slowRegen: k >= 4, nestRate: k >= 5 ? 2 : 1, oz: 1 + 0.25 * k };
 }
 
 // Sefer kontratları: her seferde 2 tane, tamamlanınca bonus Öz

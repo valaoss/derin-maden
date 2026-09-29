@@ -94,6 +94,7 @@ export function lightSourcesFor(g, lampTiles) {
 export function glowTileSources(g, r0, r1, out) {
   for (let r = Math.max(GROUND_ROW, r0); r <= Math.min(ROWS - 1, r1); r++) for (let c = 0; c < COLS; c++) {
     const t = g.map[r * COLS + c];
+    if (g.buried && g.buried[r * COLS + c]) continue;
     if (t === T.CHEST) out.push({ x: c * TILE + 8, y: r * TILE + 8, s: 2.6 });
     else if (t === T.NEST) out.push({ x: c * TILE + 8, y: r * TILE + 8, s: 2.4 });
     else if (t === T.HEART) out.push({ x: c * TILE + 8, y: r * TILE + 8, s: 6.5 });

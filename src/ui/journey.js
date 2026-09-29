@@ -65,7 +65,7 @@ export function snapshotJourney() {
   for (let r = 0; r < rows; r++) {
     const host = HOST_MAT[biomeOf(Math.max(0, Math.min(STRATA_COUNT - 1, Math.floor((r - GROUND_ROW) / STRATUM_ROWS))))] || 'stone';
     for (let c = 0; c < COLS; c++) {
-      const i = r * COLS + c, d = TD[G.map[i]] || TD[0], seen = G.rev[i];
+      const i = r * COLS + c, d = TD[G.map[i]] || TD[0], seen = G.rev[i] && !(G.buried && G.buried[i]);
       const ramp = MAT_RAMP[d.mat && d.mat !== 'host' && d.mat !== 'metal' && MAT_RAMP[d.mat] ? d.mat : host] || MAT_RAMP.stone;
       let col;
       if (!d.solid) col = r < GROUND_ROW ? sky : seen ? tunnel : rgb(ramp[1]);

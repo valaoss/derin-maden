@@ -49,7 +49,7 @@ export function callElevator(p, to) {
   if (to !== -1 && !G.stations.includes(to)) return false;
   const y = stationY(to);
   if (Math.abs(y - p.y) <= 6) return false;
-  p.ride = { y, to, t: 0 }; p.dig = null; p.x = SHAFT_X;
+  p.ride = { y, to, t: 0, d0: Math.abs(y - p.y) }; p.dig = null; p.x = SHAFT_X;
   addNoise(ELEVATOR.noise, p.x, p.y);
   if (hear(p)) sfx.build();
   if (isLocal(p)) haptic(15);
@@ -60,7 +60,8 @@ export function callElevator(p, to) {
 
 export function updateRide(p, dt) {
   const rd = p.ride; rd.t += dt;
-  const sp = ELEVATOR.speed * (p.carrying ? 0.6 : 1);
+  // uzun yolculukta kabin biraz hızlanır (4 biyom ve üstü en çok %50)
+  const sp = ELEVATOR.speed * (1 + Math.min(0.5, (rd.d0 || 0) / (STRATUM_ROWS * TILE * 4))) * (p.carrying ? 0.6 : 1);
   const dy = rd.y - p.y;
   p.y += Math.sign(dy) * Math.min(Math.abs(dy), sp * dt);
   p.x += (SHAFT_X - p.x) * Math.min(1, dt * 12);

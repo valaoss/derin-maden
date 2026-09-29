@@ -35,7 +35,7 @@ export function spawnEnemy(type, x, y, wave) {
     stuckT: 0, lastC: -1, lastR: -1, slowT: 0, trail: d.burrow ? [] : null,
     wind: 0, lunge: 0, dieT: 0, lastF: 0, vx: 0, vy: 0,
     blindCd: 2 + rnd() * 2, flashT: 0, tongue: 0, tongueCd: 1.5, tx: 0, ty: 0, howlCd: 2 + rnd() * 2, howlT: 0,
-    burnT: 0, burnTick: 0, blinkCd: 1.5 + rnd() * 2, blinkT: 0, broodT: d.brood || 0, elite: false, scale: 1, dmgMul: 1, breathe: rnd() * 6, lostT: 0,
+    burnT: 0, burnTick: 0, blinkCd: 1.5 + rnd() * 2, blinkT: 0, broodT: d.brood || 0, elite: false, scale: 1, dmgMul: (G.mods && G.mods.dmg) || 1, breathe: rnd() * 6, lostT: 0,
     zapCd: 1.5, puffT: d.puff || 0, mirrorCd: 0, quakeCd: 2.5, rewindCd: 3, judgeCd: 2.5, beamT: 0, beamP: -1, sack: 0, baseMax: hp,
   };
   G.enemies.push(e);
@@ -43,7 +43,7 @@ export function spawnEnemy(type, x, y, wave) {
 }
 // Elit: daha dayanıklı, daha büyük, altın düşürür; çizimde altın aura
 export function makeElite(e) {
-  e.elite = true; e.hp *= ELITE.hp; e.maxHp = e.hp; e.scale = ELITE.scale; e.r = e.r * 1.2; e.dmgMul = ELITE.dmg;
+  e.elite = true; e.hp *= ELITE.hp; e.maxHp = e.hp; e.scale = ELITE.scale; e.r = e.r * 1.2; e.dmgMul *= ELITE.dmg;
   return e;
 }
 
