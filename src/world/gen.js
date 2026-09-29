@@ -116,6 +116,20 @@ export function generate(seed, opts = {}) {
     }
   }
 
+  // cevher tabanı: alışverişin demir/suyu her derinlikte, kobalt/kristal erken biyomlarda da az bulunur (ana kayayı azaltmaz)
+  for (let s = 0; s < STRATA_COUNT; s++) {
+    const r0 = GROUND_ROW + s * STRATUM_ROWS, v = GEN(s).veins, host = HOST_TILE[order[s]];
+    const want = { iron: s >= 5 ? 3 : 0, water: s >= 5 ? 2 : 0, cobalt: s >= 2 ? 2 : s >= 1 ? 1 : 0, crystal: s >= 3 ? 2 : s >= 1 ? 1 : 0 };
+    for (const res in want) for (let i = v[res] || 0; i < want[res]; i++) {
+      let c = PLAY_MIN_COL + Math.floor(rnd() * 13), r = r0 + 3 + Math.floor(rnd() * (STRATUM_ROWS - 5));
+      const len = 3 + Math.floor(rnd() * 4);
+      for (let k = 0; k < len; k++) {
+        if (inPlay(c, r) && plain(get(c, r)) && (get(c, r) !== host || s >= 5)) set(c, r, ORE_T[res]);
+        if (rnd() < 0.5) c += rnd() < 0.5 ? -1 : 1; else r += rnd() < 0.7 ? 1 : -1;
+      }
+    }
+  }
+
   // biyom özellikleri (derin biyomlar): elle tasarlanmış yapılar ve biyoma özgü taşlar
   const chests = [];
   const pickPlain = (r0, want) => {
@@ -271,7 +285,7 @@ export function generate(seed, opts = {}) {
   for (let s = 0; s < STRATA_COUNT; s++) {
     const r0 = GROUND_ROW + s * STRATUM_ROWS, tile = DEEP_TILE[Math.min(DEEP_TILE.length - 1, Math.floor(s / 4))];
     const spare = (c, r) => plain(get(c, r)) && get(c, r) !== HOST_TILE[order[s]]; // ana kayayı azaltmaz
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 4; i++) {
       let at = null;
       for (let tries = 0; tries < 60 && !at; tries++) { const c = PLAY_MIN_COL + Math.floor(rnd() * 13), r = r0 + 4 + Math.floor(rnd() * (STRATUM_ROWS - 8)); if (spare(c, r)) at = [c, r]; }
       if (!at) continue;

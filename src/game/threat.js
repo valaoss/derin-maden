@@ -148,7 +148,9 @@ export function updateThreat(dt) {
   let decay = anyUnder ? THREAT.decay + th.level * THREAT.decayPerLevel : THREAT.surfaceDecay;
   if (th.quietT < THREAT.quietAfter) decay *= 0.35;
   if (anyUnder && G.players.every(p => p.dead || !p.moving)) decay *= 1.6;
-  if (!bossAlive) th.noise = Math.max(0, th.noise - decay * dt);
+  const dp = deepestUnder(), dst = dp ? Math.max(0, stratumOfRow(Math.floor(dp.y / TILE))) : 0;
+  const floor = Math.min(THREAT.floorMax, dst * THREAT.floorPerStratum);
+  if (!bossAlive) th.noise = Math.max(Math.min(th.noise, floor), th.noise - decay * dt);
   // boss öldü: ölçer sakinleşir
   if (th.bossUp && !bossAlive) { th.bossUp = false; th.noise = Math.min(th.noise, THREAT.afterBoss); th.bossCd = 20; G.stats.bosses++; emit('bossDown', th.bossType); th.bossType = ''; }
   if (th.bossCd > 0) th.bossCd -= dt;
@@ -195,10 +197,12 @@ export function updateThreat(dt) {
   if (anyUnder) {
     th.seepT -= dt;
     if (th.seepT <= 0) {
-      th.seepT = THREAT.seepCd[lv] * (0.8 + rnd() * 0.4);
-      const p = deepestUnder();
+      th.seepT = THREAT.seepCd[lv] * (0.8 + rnd() * 0.4) / (1 + dst * THREAT.seepDepth);
       const nearNest = G.nests.some(n => n.awake);
-      if (p && !nearNest && aliveEnemies() < cap) seep(p, Math.max(0, stratumOfRow(Math.floor(p.y / TILE))), lv);
+      if (dp && !nearNest && aliveEnemies() < cap) {
+        seep(dp, dst, lv);
+        if (dst >= 3 && rnd() < Math.min(0.5, dst * 0.05)) seep(dp, dst, lv);
+      }
     }
   } else th.seepT = Math.min(th.seepT, 2);
 }

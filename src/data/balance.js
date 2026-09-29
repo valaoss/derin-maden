@@ -167,6 +167,8 @@ export const THREAT = {
   cap: [4, 10, 16, 24, 32],          // sahadaki canlı düşman üst sınırı
   seepCd: [12, 8, 5, 3.5, 2.5],        // yakın yuva yoksa kayadan sızma aralığı (sessizde de tek tük)
   eliteChance: 0.3, nestRelief: 18, afterBoss: 55,
+  floorPerStratum: 4, floorMax: 40, // derinde maden tam susmaz: gürültü bu tabanın altına sönmez
+  seepDepth: 0.08,                   // her biyom sızmayı biraz sıklaştırır
 };
 
 // Düşmanlar: r = çarpışma yarıçapı, dig = kazabildiği maks kaya hp'si

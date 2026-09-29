@@ -504,6 +504,7 @@ export function handleTap(fx, fy) {
 }
 function showPop(i) {
   const s = G.structures[i], b = BUILDS[s.type], pop = $('#pop');
+  pop.classList.remove('elev');
   pop.innerHTML = `<div class="plate row">${ic(b.icon, 'l')}<div class="main"><div class="name">${b.name}</div><div class="eff">${Math.ceil(s.hp)}/${s.maxHp} · ${b.desc}</div></div></div><button class="btn" data-pick="1">GERİ AL</button>`;
   const v = worldToView(s.x, s.y - 12);
   const R = ui.getBoundingClientRect();
@@ -514,17 +515,25 @@ function showPop(i) {
   pop.style.left = left + 'px'; pop.style.top = top + 'px';
   tap(pop.querySelector('[data-pick]'), () => { dispatch({ t: CMD.PICKUP, i }); hidePop(); refreshHUD(true); });
 }
-export function hidePop() { $('#pop').classList.remove('on'); }
+export function hidePop() { $('#pop').classList.remove('on', 'elev'); }
 // asansör hedefleri
+// asansör paneli: düğmenin hemen üstünde kat listesi; tekrar basınca kapanır
 function showElevPop() {
   const p = G.player, pop = $('#pop');
+  if (pop.classList.contains('elev')) { hidePop(); return; }
   const ds = destinations(p);
   if (!ds.length) return;
-  pop.innerHTML = `<div class="sec">ASANSÖR · NEREYE?</div>` + ds.map(s => `<button class="btn ${s === -1 ? '' : 'dark'}" data-to="${s}">${s === -1 ? ic('base', 's') + ' KAMP' : ic('depth', 's') + ' ' + STRATA[biomeOf(s)].name.toUpperCase() + ' · ' + s * STRATUM_ROWS + 'M'}</button>`).join('');
-  const R = ui.getBoundingClientRect();
-  pop.style.left = '0px'; pop.style.top = '0px'; pop.classList.add('on');
-  pop.style.left = Math.max(8, R.width - 236) + 'px'; pop.style.top = Math.max(110, R.height - pop.offsetHeight - 100) + 'px';
-  pop.querySelectorAll('[data-to]').forEach(b => tap(b, () => { dispatch({ t: CMD.ELEV, to: +b.dataset.to }); hidePop(); }));
+  const floors = [-1, ...G.stations];
+  pop.innerHTML = floors.map(s => {
+    const here = !ds.includes(s);
+    return `<button class="efl${here ? ' here' : ''}${s === -1 ? ' camp' : ''}" data-to="${s}"${here ? ' disabled' : ''}>${ic(s === -1 ? 'base' : 'depth', 's')}<span>${s === -1 ? 'KAMP' : STRATA[biomeOf(s)].short}</span><b>${here ? 'BURADASIN' : s === -1 ? 'YÜZEY' : s * STRATUM_ROWS + 'M'}</b></button>`;
+  }).join('');
+  const R = ui.getBoundingClientRect(), B = $('#elevBtn').getBoundingClientRect();
+  pop.style.left = '0px'; pop.style.top = '0px'; pop.classList.add('on', 'elev');
+  const w = pop.offsetWidth, lefty = B.left - R.left < R.width / 2;
+  pop.style.left = Math.max(8, Math.min(R.width - w - 8, lefty ? B.left - R.left : B.right - R.left - w)) + 'px';
+  pop.style.top = Math.max(110, B.top - R.top - pop.offsetHeight - 10) + 'px';
+  pop.querySelectorAll('[data-to]:not([disabled])').forEach(b => tap(b, () => { dispatch({ t: CMD.ELEV, to: +b.dataset.to }); hidePop(); }));
 }
 
 // ---------------- perk seçimi ----------------
