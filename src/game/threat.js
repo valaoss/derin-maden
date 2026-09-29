@@ -38,6 +38,7 @@ export function addNoise(a, x, y) {
   const st = Math.max(0, stratumOfRow(Math.floor(y / TILE)));
   let m = (1 + st * THREAT.depthMul) * (G.mods.noise || 1) * (STRATA[biomeOf(st)].noiseMul || 1);
   for (const s of G.structures) if (s.type === 'lamp' && Math.hypot(s.x - x, s.y - y) < BUILDS.lamp.range) { m *= 0.5; break; }
+  if (G.evt && G.evt.hushT > 0) m *= 0.5;
   th.noise = Math.min(100, th.noise + a * m);
   th.quietT = 0;
   if (th.noise > th.peak) th.peak = th.noise;
@@ -109,6 +110,12 @@ function seep(p, st, lv) {
     if (lv >= 3 && rnd() < THREAT.eliteChance) makeElite(e);
     return;
   }
+}
+
+// Sürü olayı: oyuncunun altındaki kayadan birkaç yaratık sızar
+export function swarm(p, n) {
+  const st = Math.max(0, stratumOfRow(Math.floor(p.y / TILE)));
+  for (let i = 0; i < n; i++) seep(p, st, 1);
 }
 
 function spawnBoss(p) {

@@ -119,7 +119,7 @@ export function updateHazards(dt) {
     g.tick -= dt;
     if (g.tick <= 0) {
       g.tick = 0.5;
-      for (const p of G.players) if (!p.dead && Math.hypot(p.x - g.x, p.y - g.y) < g.rad) poisonPlayer(p, HAZARD.gasDps * 0.5);
+      for (const p of G.players) if (!p.dead && Math.hypot(p.x - g.x, p.y - g.y) < g.rad) poisonPlayer(p, HAZARD.gasDps * 0.5, true);
     }
     for (const e of G.enemies) {
       if (e.dead || e.emergeT > 0 || Math.hypot(e.x - g.x, e.y - g.y) > g.rad) continue;

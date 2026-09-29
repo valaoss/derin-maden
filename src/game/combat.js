@@ -8,7 +8,7 @@ import { tileAt, damageTile } from '../world/map.js';
 import { damageEnemy, losClear, damageStructure, burnEnemy } from './enemies.js';
 import { damagePlayer, webPlayer, chillPlayer, breakTile, nearestPlayer } from './player.js';
 import { addNoise } from './threat.js';
-import { hasPerk, hear, hasMod, isLocal, roleOf } from './run.js';
+import { hasPerk, hear, hasMod, isLocal, roleOf, lastStand } from './run.js';
 import { sparks, flashLight, particle, ring, shake, debris, hitstop } from './fx.js';
 import { igniteGas } from './hazards.js';
 import { sfx } from '../audio/audio.js';
@@ -79,7 +79,7 @@ function updateGun(p, dt) {
   if (hasMod('rapid')) cd *= 0.7;
   if ((G.gear.active.overdrive || 0) > 0) cd /= 3;
   p.fireCd = cd;
-  const dmg = UPGRADES.blaster.dmg[lv] * (roleOf(p).dmg || 1);
+  const dmg = UPGRADES.blaster.dmg[lv] * (roleOf(p).dmg || 1) * lastStand(p);
   const shots = hasPerk('ciftNamlu') ? [-0.09, 0.09] : [0];
   const pierce = hasPerk('delici') ? 1 : 0;
   for (const o of shots) tagBullet(fire(sp.x + Math.cos(ang) * 6, sp.y + Math.sin(ang) * 6, ang + o, 250, dmg, 'p', pierce, p.i));

@@ -2,7 +2,7 @@
 // Kazıcılar kayayı oyar; yolu tamamen kapalı olan herkes yavaşça kazmaya başlar (asla takılmaz).
 // Yeraltında oyuncu kalmazsa izini kaybederler ve kısa sürede geri çekilirler.
 import { rnd } from '../core/rng.js';
-import { TILE, GROUND_Y, GROUND_ROW } from '../config.js';
+import { TILE, GROUND_Y, GROUND_ROW, stratumOfRow } from '../config.js';
 import { T, TD } from '../data/tiles.js';
 import { ENEMIES, WAVES, BARRICADE, BUILDS, ELITE, BURN } from '../data/balance.js';
 import { G } from './state.js';
@@ -134,6 +134,7 @@ export function killEnemy(e) {
   else if (e.type === 'glarer' && rnd() < 0.6) spawnOrb(e.x, e.y, 'crystal', true);
   else if (rnd() < 0.35) spawnOrb(e.x, e.y, rnd() < 0.75 ? 'iron' : 'water', true);
   if (hasPerk('yasamOzu')) for (const p of G.players) if (!p.dead) p.hp = Math.min(p.maxHp, p.hp + 3);
+  if (hasPerk('lesKazisi') && rnd() < 0.25) { const st = stratumOfRow(Math.floor(e.y / TILE)); spawnOrb(e.x, e.y, st >= 8 ? 'crystal' : st >= 4 ? 'gold' : st >= 2 ? 'cobalt' : 'iron', true); }
 }
 
 export function explode(x, y, rad, dmg) {

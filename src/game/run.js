@@ -108,6 +108,7 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
   seedRng(seed);
   recompute(true);
   if (ml.hazirTaret) g.items.turret = 1;
+  if (g.players.some(p => p.role === 'yikici')) g.items.dynamite = Math.max(g.items.dynamite | 0, 3);
   g.nests = scanNests();
   for (const n of g.nests) { const s = stratumOfRow(n.r); g.nestTotal[s] = (g.nestTotal[s] | 0) + 1; }
   // fener asansörü: temizlenmiş biyomların altına iniş (merkez şaft açılır, oyuncular oraya başlar)
@@ -145,6 +146,8 @@ export function hasPerk(k) { return G.perks.includes(k); }
 export function hasRelic(k) { return !!(G.meta.relics && G.meta.relics.includes(k)); }
 export function roleOf(p) { return ROLES[p.role] || {}; }
 export function teamHas(role) { return G.players.some(p => p.role === role); }
+// Son Direniş: düşük canda iki kat vuruş
+export function lastStand(p) { return hasPerk('sonDirenis') && p.hp < p.maxHp * 0.35 ? 2 : 1; }
 
 // Seviye/perk/meta'ya bağlı değerler
 export function recompute(fill = false) {

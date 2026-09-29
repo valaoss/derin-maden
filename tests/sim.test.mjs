@@ -1,16 +1,16 @@
 // Headless oyun testleri: gerçek modüller, DOM yok. Kullanım: node tests/sim.test.mjs
 import { App, G } from '../src/game/state.js';
 import { newRun, recompute, serialize, deserialize, pickDmg, pickInterval, modSlots, makeStructure } from '../src/game/run.js';
-import { updatePlayer, updateOrbs, updateDeposit, bindEnemyDamage, breakTile, damagePlayer } from '../src/game/player.js';
+import { updatePlayer, updateOrbs, updateDeposit, bindEnemyDamage, breakTile, damagePlayer, blindPlayer } from '../src/game/player.js';
 const damagePlayerX = (p, d) => { p.iframes = 0; damagePlayer(p, d, p.x, p.y + 20); };
 import { updateEnemies, damageEnemy, spawnEnemy, killEnemy } from '../src/game/enemies.js';
 import { updatePlayerGun, updateBullets, updateStructures, updateShells, useMod } from '../src/game/combat.js';
-import { buyUpgrade, buyMod, toggleMod, upgradeCost } from '../src/game/economy.js';
+import { buyUpgrade, buyMod, toggleMod, upgradeCost, applyPerk } from '../src/game/economy.js';
 import { updateItems } from '../src/game/items.js';
 import { updateHazards } from '../src/game/hazards.js';
 import { updateThreat, addNoise, nestsInStratum } from '../src/game/threat.js';
 import { updateEvents } from '../src/game/events.js';
-import { roleOf, lampTiles, metaSnapshot, hasRelic } from '../src/game/run.js';
+import { roleOf, lampTiles, metaSnapshot, hasRelic, lastStand } from '../src/game/run.js';
 import { deployLimit } from '../src/game/economy.js';
 import { openStation, callElevator, atShaft, stationY, SHAFT_X } from '../src/game/elevator.js';
 import { DEPLOY_MAX, EVENTS } from '../src/data/balance.js';
@@ -19,7 +19,7 @@ import { updateFlow, forceFlow } from '../src/world/flow.js';
 import { setTile, tileAt } from '../src/world/map.js';
 import { generate, biomeOrder } from '../src/world/gen.js';
 import { T, TD, HOST_TILE } from '../src/data/tiles.js';
-import { ENEMIES, MODS, MOD_KEYS, PICK_TIERS, UPGRADES, ELITE, RES_KEYS, THREAT, BUILDS, ITEMS, RELICS, RELIC_KEYS } from '../src/data/balance.js';
+import { ENEMIES, MODS, MOD_KEYS, PICK_TIERS, UPGRADES, ELITE, RES_KEYS, THREAT, BUILDS, ITEMS, RELICS, RELIC_KEYS, PERKS, ROLES, EVENT_KEYS } from '../src/data/balance.js';
 import { placeBuild, pickupBuild, craftItem } from '../src/game/economy.js';
 import { STRATA } from '../src/data/palette.js';
 import { COLS, ROWS, GROUND_ROW, GROUND_Y, STRATUM_ROWS, STRATA_COUNT, TILE } from '../src/config.js';
@@ -389,6 +389,19 @@ section('Roller, olaylar, yankı');
   ok('karartma geçer', G.evt.darkT <= 0 && lampTiles() === lamp0);
   G.threat.noise = 40; G.evt.k = 'gaz'; G.evt.warnT = 0.05; const g0 = G.gas.length; run(0.2);
   ok('gaz sızıntısı bulut salar', G.gas.length > g0, `${G.gas.length}`);
+  ok('her olayın adı ve ağırlığı var', EVENT_KEYS.every(k => EVENTS[k].name && EVENTS[k].w > 0));
+  const fireEvt = (k, seed) => { fresh(seed); const q = G.player; shaft(8, GROUND_ROW + 14); q.x = 8 * TILE + 8; q.y = (GROUND_ROW + 12) * TILE + 8; q.px = q.x; q.py = q.y; q.hp = q.maxHp = 9999; forceFlow(); G.threat.noise = 40; G.evt.k = k; G.evt.warnT = 0.02; run(0.1); return q; };
+  { const n0 = fireEvt('suru', 22) && G.enemies.length; ok('sürü yaratık salar', n0 >= 3, `${n0}`); }
+  { fireEvt('damar', 23); ok('parlayan damar cevher ve işaret bırakır', G.pings.some(q => q.pi === -1) && G.map.some((t, i) => G.rev[i] && (t === T.GOLD || t === T.IRON))); }
+  { fireEvt('kese', 24); const k = G.satchels.find(x => x.lost); ok('kayıp kese yerleşir', k && k.bag.iron > 0 && G.pings.length === 1); }
+  { fireEvt('sandik', 25); const pg = G.pings[0]; ok('unutulmuş sandık belirir', pg && tileAt(Math.floor(pg.x / TILE), Math.floor(pg.y / TILE)) === T.CHEST); }
+  { fireEvt('sessizlik', 26); const n1 = G.threat.noise; addNoise(10, G.player.x, G.player.y); const n2 = G.threat.noise;
+    ok('derin sessizlik gürültüyü düşürür ve yarıya indirir', n1 <= 0.5 && G.evt.hushT > 0 && n2 - n1 < 10 * 0.6 * (1 + 0.5), `${n1} ${n2}`); }
+  // yeni roller
+  { newRun({ seed: 5, roles: ['yikici'] }); ok('yıkıcı 3 dinamitle başlar', G.items.dynamite >= 3); }
+  { fresh(27); newRun({ seed: 27, roles: ['sihhiyeci'] }); const q = G.player; shaft(8, GROUND_ROW + 6); q.x = 8 * TILE + 8; q.y = (GROUND_ROW + 5) * TILE + 8; q.px = q.x; q.py = q.y; q.inp = { x: 0, y: 0, mag: 0 }; q.hp = 50; G.threat.noise = 0; run(2);
+    ok('sıhhiyeci yeraltında iyileşir', q.hp > 50.8, `${q.hp}`); }
+  { newRun({ seed: 5, roles: ['kuyumcu'] }); ok('kuyumcu blaster hasarı az', roleOf(G.player).dmg === 0.8 && ROLES.kuyumcu.rare); }
   // ölüm yankısı: meta'daki çanta seferde aynı hücrede bekler
   const m = metaSnapshot(); m.echo = { c: 8, r: GROUND_ROW + 9, bag: { iron: 5, cobalt: 2 } };
   newRun({ seed: 9, meta: m });
@@ -542,6 +555,29 @@ section('Bosslar');
     p.hp = 9999; e.px = e.x; for (let i = 0; i < 60 * 2.6; i++) { step(); e.x = e.px = 8 * TILE + 8; e.y = e.py = (GROUND_ROW + 4) * TILE + 8; }
     ok('Kıyamet Halkası siperde vurmaz', p.hp === 9999, `hp ${p.hp}`); }
   ok('bosslar deterministik', (() => { const h = []; for (let i = 0; i < 2; i++) { arena(740, 'sultan'); spawnEnemy('ezeli', 6 * TILE + 8, (GROUND_ROW + 3) * TILE + 8, 3).emergeT = 0; run(8); h.push(hash()); } return h[0] === h[1]; })());
+}
+
+// ---------- 15. yeni kalıntılar ----------
+section('Kalıntılar');
+{
+  ok('her kalıntının adı ve açıklaması var', Object.values(PERKS).every(k => k.name && k.desc) && Object.keys(PERKS).length >= 29);
+  const setup = seed => { fresh(seed); const p = G.player; shaft(8, GROUND_ROW + 14); p.x = 8 * TILE + 8; p.y = (GROUND_ROW + 12) * TILE + 8; p.px = p.x; p.py = p.y; forceFlow(); return p; };
+  { const p = setup(800); applyPerk('sonDirenis'); const full = lastStand(p); p.hp = p.maxHp * 0.2;
+    ok('Son Direniş düşük canda iki kat vurur', full === 1 && lastStand(p) === 2); }
+  { const p = setup(801); applyPerk('kacis'); damagePlayerX(p, 5); ok('Kaçış Refleksi hızlandırır', p.hasteT > 1.5); }
+  { const p = setup(802); applyPerk('sogukkanli'); blindPlayer(p, 2); ok('Soğukkanlı körlüğü engeller', !(p.blindT > 0)); }
+  { const p = setup(803); applyPerk('dikenZirh'); const e = spawnEnemy('rodent', p.x + 6, p.y, 1); e.emergeT = 0; const h0 = e.hp; damagePlayerX(p, 5);
+    ok('Diken Zırh vurana hasar verir', e.hp < h0 || e.dead); }
+  { const p = setup(804); applyPerk('sessizDamar'); setTile(9, GROUND_ROW + 12, T.GOLD); G.threat.noise = 0; breakTile(9, GROUND_ROW + 12, p);
+    ok('Sessiz Damar cevherde gürültü yapmaz', G.threat.noise === 0, `${G.threat.noise}`); }
+  { const p = setup(805); applyPerk('sifaPinari'); p.hp = 50; setTile(9, GROUND_ROW + 12, T.WATER); breakTile(9, GROUND_ROW + 12, p);
+    ok('Şifa Pınarı su kırınca iyileştirir', p.hp === 56, `${p.hp}`); }
+  { const p = setup(806); applyPerk('depremVurus'); for (let c = 3; c <= 13; c++) for (let r = GROUND_ROW + 13; r <= GROUND_ROW + 16; r++) setTile(c, r, T.DIRT || HOST_TILE[0]);
+    const before = G.stats.dug; for (let i = 0; i < 8; i++) breakTile(4 + i, GROUND_ROW + 14, p);
+    ok('Deprem Vuruşu 8. blokta çevreyi yıkar', G.stats.dug - before > 8, `${G.stats.dug - before}`); }
+  { const p = setup(807); applyPerk('hazineKokusu'); const i = G.map.findIndex(t => t === T.CHEST); ok('Hazine Kokusu sandıkları gösterir', i < 0 || G.rev[i] === 1); }
+  { const p = setup(808); applyPerk('lesKazisi'); let n = 0; for (let i = 0; i < 40; i++) { const e = spawnEnemy('rodent', p.x, p.y - 30, 1); const o0 = G.orbs.length; killEnemy(e); n += G.orbs.length - o0; }
+    ok('Leş Kazısı ganimeti artırır', n > 40 * 0.35 * 1.1, `${n}`); }
 }
 
 console.log(`\n${checks - fails}/${checks} kontrol geçti${fails ? `, ${fails} HATA` : ''}`);

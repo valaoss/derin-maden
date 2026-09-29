@@ -315,7 +315,7 @@ function drawNestArrows(camX, camY) {
 function drawPings(camX, camY) {
   const vw = view.vw, vh = view.vh, t = G.time;
   for (const q of G.pings) {
-    const col = HELMETS[(G.players[q.pi] ? G.players[q.pi].helm : 0) % HELMETS.length].c;
+    const col = q.col || HELMETS[(G.players[q.pi] ? G.players[q.pi].helm : 0) % HELMETS.length].c;
     const sx = q.x - camX, sy = q.y - camY;
     const off = sx < 6 || sx > vw - 6 || sy < 44 || sy > vh - 12;
     if (!off) {

@@ -129,6 +129,7 @@ export function applyPerk(k, p = G.player) {
   if (G.perks.includes(k) || !PERKS[k]) return false;
   G.perks.push(k);
   if (k === 'ikinciNefes') G.selfRevive++;
+  if (k === 'hazineKokusu') for (let i = 0; i < G.map.length; i++) if (G.map[i] === T.CHEST) G.rev[i] = 1;
   recompute();
   ring(p.x, p.y, '#ffd24a', 24); sparks(p.x, p.y, '#ffd24a', 14, 90);
   sfx.buy();

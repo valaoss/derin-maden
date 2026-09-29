@@ -256,6 +256,19 @@ export const PERKS = {
   parlakFener:  { name: 'Parlak Fener', icon: 'lamp', desc: 'Görüş +2 blok. Karanlıktaki cevherler parıldar.' },
   altinDamar:   { name: 'Altın Damarı', icon: 'gold', desc: 'Elit düşmanlar iki kat altın düşürür.' },
   dorduncuYuva: { name: 'Dördüncü Yuva', icon: 'nova', desc: 'Blaster eklenti yuvası +1.' },
+  depremVurus:  { name: 'Deprem Vuruşu', icon: 'dynamite', desc: 'Kırdığın her 8. blok çevresindeki kayaları da yıkar.' },
+  sessizDamar:  { name: 'Sessiz Damar', icon: 'wave', desc: 'Cevher kazmak hiç gürültü yapmaz.' },
+  lesKazisi:    { name: 'Leş Kazısı', icon: 'skull', desc: 'Öldürdüğün düşman %25 ihtimalle derinliğine göre cevher düşürür.' },
+  sonDirenis:   { name: 'Son Direniş', icon: 'elite', desc: 'Canın %35’in altındayken kazman ve blasterın iki kat vurur.' },
+  kacis:        { name: 'Kaçış Refleksi', icon: 'boot', desc: 'Hasar aldığında 2 sn boyunca çok hızlı koşarsın.' },
+  hazineKokusu: { name: 'Hazine Kokusu', icon: 'chest', desc: 'Kalıntı sandıkları karanlıkta bile görünür.' },
+  simya:        { name: 'Simya', icon: 'gold', desc: 'Demir, su ve kobalt damarları %15 ihtimalle altın verir.' },
+  sifaPinari:   { name: 'Şifa Pınarı', icon: 'water', desc: 'Su damarı kırmak 6 can yeniler.' },
+  gazMaskesi:   { name: 'Gaz Maskesi', icon: 'heal', desc: 'Gaz bulutları ve zehirli taş sana işlemez.' },
+  yuvaAvcisi:   { name: 'Yuva Avcısı', icon: 'sharp', desc: 'Yuvaları üç kat hızlı kazarsın; yıktığında gürültü 25 düşer.' },
+  dikenZirh:    { name: 'Diken Zırh', icon: 'armor', desc: 'Sana vuran yakındaki düşman 15 hasar alır.' },
+  ozHasadi:     { name: 'Öz Hasadı', icon: 'oz', desc: 'Sefer sonunda %25 fazla Öz kazanırsın.' },
+  sogukkanli:   { name: 'Soğukkanlı', icon: 'frost', desc: 'Korku, körlük ve ağ seni etkilemez.' },
 };
 
 // Efsanevi eserler: efsanevi biyomların kalbinde tek bir eser taşı; kırınca kalıcı olarak senindir (kamp rafında durur, her seferde çalışır)
@@ -276,17 +289,25 @@ export const ROLES = {
   kazici:   { name: 'Kazıcı', icon: 'drill', desc: 'Kazma %20 daha hızlı, kazı gürültüsü %25 daha az.', dig: 0.8, digNoise: 0.75 },
   nisanci:  { name: 'Nişancı', icon: 'blaster', desc: 'Blaster hasarı +%25, menzil +12.', dmg: 1.25, range: 12 },
   muhendis: { name: 'Mühendis', icon: 'turret', desc: 'Kurulu alet sınırı +1, aletler %40 daha dayanıklı.', deploy: 1, buildHp: 1.4 },
+  sihhiyeci:{ name: 'Sıhhiyeci', icon: 'medkit', desc: 'Yeraltında yavaşça iyileşirsin; partnerini iki kat hızlı ve tam canla kaldırırsın.', regen: 0.6 },
+  yikici:   { name: 'Yıkıcı', icon: 'dynamite', desc: 'Sefere 3 dinamitle başlarsın; dinamitin daha geniş patlar ve sana zarar vermez.', blast: 1.4 },
+  kuyumcu:  { name: 'Kuyumcu', icon: 'gem', desc: 'Kobalt, kristal ve altın damarları +1 düşürür; blaster hasarı %20 az.', rare: 1, dmg: 0.8 },
 };
 export const ROLE_KEYS = Object.keys(ROLES);
 
-// Dinamik maden olayları: yeraltındayken ve ölçer sessiz değilken, uyarıdan birkaç saniye sonra vurur
+// Dinamik maden olayları: yeraltındayken ve ölçer sessiz değilken, uyarıdan birkaç saniye sonra vurur. w: seçilme ağırlığı, good: ödül
 export const EVENTS = {
   first: 40, cd: [55, 95], minLevel: 1, warn: 2.5,
-  sarsinti: { name: 'SARSINTI', sub: 'TAVANDAN UZAKLAŞ', rocks: 5, noise: 6 },
-  gaz:      { name: 'GAZ SIZINTISI', sub: 'ATEŞ ETME, UZAKLAŞ', clouds: 3 },
-  karanlik: { name: 'KARARTMA', sub: 'FENERİN KISILIYOR', t: 18 },
+  sarsinti:  { name: 'SARSINTI', sub: 'TAVANDAN UZAKLAŞ', rocks: 5, noise: 6, w: 3 },
+  gaz:       { name: 'GAZ SIZINTISI', sub: 'ATEŞ ETME, UZAKLAŞ', clouds: 3, w: 3 },
+  karanlik:  { name: 'KARARTMA', sub: 'FENERİN KISILIYOR', t: 18, w: 2 },
+  suru:      { name: 'SÜRÜ', sub: 'KAYADAN TAŞIYORLAR', w: 3 },
+  damar:     { name: 'PARLAYAN DAMAR', sub: 'YAKINDA CEVHER BELİRDİ', tiles: 5, w: 2, good: true },
+  kese:      { name: 'KAYIP KESE', sub: 'ESKİ BİR MADENCİNİN ÇANTASI', w: 2, good: true },
+  sandik:    { name: 'UNUTULMUŞ SANDIK', sub: 'İŞARETİ TAKİP ET', w: 1, good: true },
+  sessizlik: { name: 'DERİN SESSİZLİK', sub: 'GÜRÜLTÜ YARIYA İNDİ', t: 20, drop: 40, w: 2, good: true },
 };
-export const EVENT_KEYS = ['sarsinti', 'gaz', 'karanlik'];
+export const EVENT_KEYS = ['sarsinti', 'gaz', 'karanlik', 'suru', 'damar', 'kese', 'sandik', 'sessizlik'];
 
 // Kalıcı Kamp yükseltmeleri (Öz ile)
 export const META = {

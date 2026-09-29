@@ -7,7 +7,7 @@ import { PLAYER, UPGRADES, PERKS, RES_KEYS, PICK_TIERS, RELIC_OF_BIOME } from '.
 import { RES_COL } from '../data/palette.js';
 import { G, App, biomeOf } from './state.js';
 import { tileAt, solidAt, setTile, damageTile, matOf } from '../world/map.js';
-import { hasPerk, hasRelic, bagCount, recompute, unlockSchematic, hear, isLocal, pickDmg, pickInterval, roleOf } from './run.js';
+import { hasPerk, hasRelic, bagCount, recompute, unlockSchematic, hear, isLocal, pickDmg, pickInterval, roleOf, lastStand } from './run.js';
 import { HAZARD } from '../data/balance.js';
 import { perkChoices } from './economy.js';
 import { spawnGas } from './hazards.js';
@@ -108,7 +108,8 @@ function updateOne(p, dt) {
     p.downT -= dt;
     // partner yanında durursa kaldırır
     const mate = G.players.find(q => q !== p && !q.dead && Math.hypot(q.x - p.x, q.y - p.y) < 16);
-    if (mate) { p.reviveP += dt / PLAYER.reviveTime; if (p.reviveP >= 1) { revive(p, 0.5); return; } }
+    const medic = mate && mate.role === 'sihhiyeci';
+    if (mate) { p.reviveP += dt / PLAYER.reviveTime * (medic ? 2 : 1); if (p.reviveP >= 1) { revive(p, medic ? 1 : 0.5); return; } }
     else p.reviveP = Math.max(0, p.reviveP - dt * 0.6);
     if (p.autoUp && p.downT <= 0) { revive(p, 0.6); return; }
     // süre doldu: partner kampa dönerse orada uyanır
@@ -194,7 +195,7 @@ function updateOne(p, dt) {
     if (bagCount(p) > 0) startDeposit(p);
     if (p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + PLAYER.surfaceRegen * (G.mods.slowRegen ? 0.5 : 1) * dt);
     if (p.carrying) { emit('victory'); return; }
-  }
+  } else if (!p.dead && roleOf(p).regen && p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + roleOf(p).regen * dt);
   // ---- kese geri alma (herhangi bir oyuncu alabilir) ----
   for (let i = 0; i < G.satchels.length; i++) {
     const s = G.satchels[i];
@@ -203,21 +204,21 @@ function updateOne(p, dt) {
       if (s.heart) { p.carrying = true; emit('heart'); }
       G.satchels.splice(i, 1); i--;
       if (hear(p)) sfx.chest();
-      if (isLocal(p)) emit('toast', { text: s.echo ? 'Ölüm yankısı: kaybettiğin çanta geri geldi' : 'Çantanı geri aldın', icon: 'bag' });
+      if (isLocal(p)) emit('toast', { text: s.lost ? 'Kayıp kese: içindekiler çantanda' : s.echo ? 'Ölüm yankısı: kaybettiğin çanta geri geldi' : 'Çantanı geri aldın', icon: 'bag' });
     }
   }
 }
 
 function digHit(p, t) {
   const tile = tileAt(t.c, t.r), mat = matOf(t.c, t.r), d = TD[tile];
-  const dmg = pickDmg();
+  const dmg = pickDmg() * lastStand(p) * (d.nest && hasPerk('yuvaAvcisi') ? 3 : 1);
   p.digAnim = 1;
   p.swingN = (p.swingN | 0) + 1;
   p.squash = 0.6;
   p.hitTile = { c: t.c, r: t.r, t: 0.12 };
   const hx = t.c * TILE + 8 - t.dx * 7, hy = t.r * TILE + 8 - t.dy * 7;
   if (hear(p)) sfx.dig(mat, G.lvl.drill);
-  addNoise(THREAT.noise.dig * (d.hp >= 6 ? 1.4 : 1) * (roleOf(p).digNoise || 1), hx, hy);
+  if (!(d.ore && hasPerk('sessizDamar'))) addNoise(THREAT.noise.dig * (d.hp >= 6 ? 1.4 : 1) * (roleOf(p).digNoise || 1), hx, hy);
   debris(hx, hy, mat, 3, 0.6);
   // kazma ucu kıvılcımı: kademe rengi
   const tier = PICK_TIERS[Math.min(PICK_TIERS.length - 1, G.lvl.drill)];
@@ -250,8 +251,9 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
   if (!byPlayer) { debris(x, y, mat, 5, 0.7); return; }
   const p = byPlayer, near = hear(p, x, y), local = isLocal(p);
   G.stats.dug++;
-  addNoise((THREAT.noise.brk + (d.ore ? THREAT.noise.ore : 0)) * (roleOf(p).digNoise || 1), x, y);
-  if (d.nest) nestDestroyed(c, r, p);
+  if (!(d.ore && hasPerk('sessizDamar'))) addNoise((THREAT.noise.brk + (d.ore ? THREAT.noise.ore : 0)) * (roleOf(p).digNoise || 1), x, y);
+  if (d.nest) { nestDestroyed(c, r, p); if (hasPerk('yuvaAvcisi')) G.threat.noise = Math.max(0, G.threat.noise - 25); }
+  if (hasPerk('depremVurus') && !p.quake && (p.quakeN = (p.quakeN | 0) + 1) >= 8) { p.quakeN = 0; quake(c, r, p); }
   debris(x, y, mat, 9);
   dust(x, y, 3);
   if (near) sfx.breakBlock(mat);
@@ -259,7 +261,7 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
   // hitstop simülasyonu durdurur: deterministik kalması için iki tarafta da uygulanır
   if (d.hp >= 6 || d.ore) { hitstop(0.035); if (local) shake(0.12); } else if (local) shake(d.hp >= 3 ? 0.07 : 0.04);
   // derin biyom taşları
-  if (d.toxic && Math.hypot(p.x - x, p.y - y) < 26) { poisonPlayer(p, 12); dust(x, y, 3, 'rgba(200,210,220,0.6)'); }
+  if (d.toxic && Math.hypot(p.x - x, p.y - y) < 26) { poisonPlayer(p, 12, true); dust(x, y, 3, 'rgba(200,210,220,0.6)'); }
   if (d.shock) {
     // yıldırım damarı: çevredeki düşmanı çarpar, çok yakındaysan seni de
     sparks(x, y, '#9ad8ff', 18, 140); ring(x, y, '#9ad8ff', 30); flashLight(x, y, 7, 0.5); if (local) shake(0.3); sfx.explode();
@@ -311,8 +313,11 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
   if (hasRelic('kivilcim')) { sparks(x, y, '#fff0a0', 4, 70); for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - x, e.y - y) < 40) damageEnemyExt(e, 12, 0, 0, 0.2); }
   if (d.ore) {
     if (near) sfx.oreReveal();
-    const n = d.amt + (hasPerk('damar') && !d.iceDrop ? 1 : 0);
-    for (let i = 0; i < n; i++) spawnOrb(x, y, d.ore);
+    const rare = d.ore === 'cobalt' || d.ore === 'crystal' || d.ore === 'gold';
+    const n = d.amt + (hasPerk('damar') && !d.iceDrop ? 1 : 0) + (rare && roleOf(p).rare ? 1 : 0);
+    const res = !rare || d.ore === 'cobalt' ? (hasPerk('simya') && rnd() < 0.15 ? 'gold' : d.ore) : d.ore;
+    for (let i = 0; i < n; i++) spawnOrb(x, y, res);
+    if (d.ore === 'water' && hasPerk('sifaPinari')) { p.hp = Math.min(p.maxHp, p.hp + 6); sparks(p.x, p.y - 4, '#8ad0ff', 5, 50); }
     sparks(x, y, RES_COL[d.ore], 6, 70);
     flashLight(x, y, 3, 0.25);
   }
@@ -333,6 +338,19 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
     sparks(x, y, '#ff3a6a', 24, 140); ring(x, y, '#ff8aa8', 30); flashLight(x, y, 8, 0.8);
     emit('heart');
   }
+}
+
+// Deprem Vuruşu: çevredeki sıradan kayalar da yıkılır
+function quake(c, r, p) {
+  p.quake = true;
+  for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+    const nc = c + dc, nr = r + dr, t = tileAt(nc, nr), d = TD[t];
+    if ((!dc && !dr) || nr <= GROUND_ROW || !isMineable(t) || d.chest || d.heart || d.relic || d.nest) continue;
+    breakTile(nc, nr, p);
+  }
+  p.quake = false;
+  const x = c * TILE + 8, y = r * TILE + 8;
+  ring(x, y, '#ffb050', 26); dust(x, y, 6, 'rgba(160,130,110,0.55)'); hitstop(0.05); if (isLocal(p)) shake(0.35);
 }
 
 // efsanevi eser: kalıcı (App.meta), sefer içinde hemen etkin; ikinci kez bulunursa altın yağmuru
@@ -445,6 +463,8 @@ export function damagePlayer(p, amount, sx, sy) {
   if (hear(p)) sfx.playerHurt();
   hitstop(0.04);
   if (isLocal(p)) { haptic(30); shake(0.28); emit('hurt', amount); }
+  if (hasPerk('kacis')) p.hasteT = Math.max(p.hasteT || 0, 2);
+  if (hasPerk('dikenZirh')) for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - p.x, e.y - p.y) < e.r + 16) { damageEnemyExt(e, 15, (e.x - p.x) / 16, (e.y - p.y) / 16, 1); sparks(e.x, e.y, '#dfe6f0', 4, 60); }
   if (hasPerk('sokDalgasi') && p.shockCd <= 0) {
     p.shockCd = 4; ring(p.x, p.y, '#ffe79a', 34); flashLight(p.x, p.y, 4, 0.2);
     for (const e of G.enemies) {
@@ -457,8 +477,8 @@ export function damagePlayer(p, amount, sx, sy) {
 }
 
 // gaz: iframe/savrulma yok, küçük düzenli hasar
-export function poisonPlayer(p, amount) {
-  if (p.dead) return;
+export function poisonPlayer(p, amount, gas = false) {
+  if (p.dead || (gas && hasPerk('gazMaskesi'))) return;
   p.hp -= amount; p.gasT = 0.35;
   if (hear(p)) sfx.cough();
   if (isLocal(p) && G.time - (p.poisonT || 0) > 1.2) { p.poisonT = G.time; emit('hurt', amount); }
@@ -466,11 +486,11 @@ export function poisonPlayer(p, amount) {
 }
 
 // kör edici parlama / korku: yeni derin yaratıkların etkileri
-export function blindPlayer(p, t) { if (!p.dead) { p.blindT = Math.max(p.blindT, t); if (isLocal(p)) { G.flashWhite = Math.max(G.flashWhite, t); emit('blind'); } } }
-export function scarePlayer(p, t) { if (!p.dead) { p.fearT = Math.max(p.fearT, t); if (isLocal(p)) { shake(0.3); emit('fear'); } } }
+export function blindPlayer(p, t) { if (!p.dead && !hasPerk('sogukkanli')) { p.blindT = Math.max(p.blindT, t); if (isLocal(p)) { G.flashWhite = Math.max(G.flashWhite, t); emit('blind'); } } }
+export function scarePlayer(p, t) { if (!p.dead && !hasPerk('sogukkanli')) { p.fearT = Math.max(p.fearT, t); if (isLocal(p)) { shake(0.3); emit('fear'); } } }
 export function pullPlayer(p, fx, fy) { if (!p.dead) { p.pullX += fx; p.pullY += fy; } }
 // ağ (örümcek) ve soğuk (Kırağı): yavaşlatma
-export function webPlayer(p, t) { if (!p.dead) { p.webT = Math.max(p.webT, t); if (isLocal(p)) emit('web'); } }
+export function webPlayer(p, t) { if (!p.dead && !hasPerk('sogukkanli')) { p.webT = Math.max(p.webT, t); if (isLocal(p)) emit('web'); } }
 export function chillPlayer(p, t) { if (!p.dead) { p.slowT = Math.max(p.slowT, t); if (isLocal(p)) emit('chill'); } }
 
 function die(p) {

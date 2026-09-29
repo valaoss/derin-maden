@@ -113,7 +113,7 @@ export function initUI(root, h) {
   on('bossWarn', k => banner((ENEMIES[k] ? up(ENEMIES[k].name) : 'BİR ŞEY') + ' UYANIYOR', 'HEMEN SUS YA DA KAÇ', true));
   on('bossSpawn', k => { const B = ENEMIES[k]; if (B && once(k)) setTimeout(() => toast(B.lore, 'skull', true), 2600); });
   on('bossPhase', k => { const B = ENEMIES[k]; if (B) banner(up(B.name), 'ÖFKELENDİ', true); });
-  on('event', d => { const e = EVENTS[d.k]; if (!e) return; if (d.phase === 'warn') banner(e.name, e.sub, true); else if (d.k === 'karanlik') toast('Fenerin kısıldı · ' + e.t + ' sn', 'lamp', true); });
+  on('event', d => { const e = EVENTS[d.k]; if (!e) return; if (d.phase === 'warn') banner(e.name, e.sub, e.good ? 'gold' : true); else if (d.k === 'karanlik') toast('Fenerin kısıldı · ' + e.t + ' sn', 'lamp', true); });
   on('ping', d => { if (!G.mp) return; const p = G.players[d.pi]; if (d.pi !== G.localIdx) { toast((p && p.name || 'Partner') + ' işaret bıraktı', 'hand'); sfx.ping(); } else sfx.click(); });
   on('deployed', () => refreshHUD(true));
   on('relic', d => {

@@ -1,24 +1,25 @@
-// Dinamik maden olayları (deterministik, simülasyonun parçası): sarsıntı, gaz sızıntısı, karartma.
+// Dinamik maden olayları (deterministik, simülasyonun parçası): tehlikeler (sarsıntı, gaz, karartma, sürü) ve ödüller (damar, kese, sandık, sessizlik).
 // Uyarı afişinden birkaç saniye sonra vurur; oyuncuya tepki verme şansı bırakır.
 import { rnd } from '../core/rng.js';
-import { TILE, GROUND_Y, GROUND_ROW, ROWS, PLAY_MIN_COL, PLAY_MAX_COL } from '../config.js';
-import { T, TD } from '../data/tiles.js';
+import { TILE, COLS, GROUND_Y, GROUND_ROW, ROWS, PLAY_MIN_COL, PLAY_MAX_COL, stratumOfRow } from '../config.js';
+import { T, TD, isPlain } from '../data/tiles.js';
 import { EVENTS, EVENT_KEYS } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, setTile } from '../world/map.js';
 import { spawnGas } from './hazards.js';
-import { addNoise } from './threat.js';
-import { shake, dust } from './fx.js';
+import { addNoise, swarm } from './threat.js';
+import { shake, dust, ring, sparks, flashLight } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
 import { emit } from '../core/events.js';
 
-export function makeEvents() { return { t: EVENTS.first, k: null, warnT: 0, darkT: 0, n: 0 }; }
+export function makeEvents() { return { t: EVENTS.first, k: null, warnT: 0, darkT: 0, hushT: 0, n: 0 }; }
 
 const under = () => G.players.filter(p => !p.dead && p.y >= GROUND_Y);
 
 export function updateEvents(dt) {
   const ev = G.evt; if (!ev || G.over) return;
   if (ev.darkT > 0) ev.darkT -= dt;
+  if (ev.hushT > 0) ev.hushT -= dt;
   if (G.tutorial && !G.tutorial.done) return;
   const ps = under();
   if (ev.k) {
@@ -29,9 +30,9 @@ export function updateEvents(dt) {
   if (!ps.length || G.threat.level < EVENTS.minLevel) return;
   ev.t -= dt;
   if (ev.t > 0) return;
-  ev.k = EVENT_KEYS[Math.floor(rnd() * EVENT_KEYS.length)]; ev.warnT = EVENTS.warn; ev.n++;
+  ev.k = pickEvent(); ev.warnT = EVENTS.warn; ev.n++;
   emit('event', { k: ev.k, phase: 'warn' });
-  sfx.creak(); shake(0.12);
+  if (!EVENTS[ev.k].good) { sfx.creak(); shake(0.12); }
 }
 
 function hit(k, ps) {
@@ -43,7 +44,76 @@ function hit(k, ps) {
     for (const p of ps) leak(p);
   } else if (k === 'karanlik') {
     G.evt.darkT = EVENTS.karanlik.t;
+  } else if (k === 'sessizlik') {
+    G.evt.hushT = EVENTS.sessizlik.t; G.threat.noise = Math.max(0, G.threat.noise - EVENTS.sessizlik.drop);
+    for (const p of ps) ring(p.x, p.y, '#d8d8e8', 40);
+  } else if (ps.length) {
+    const p = ps[Math.floor(rnd() * ps.length)];
+    if (k === 'suru') { sfx.rumble(); shake(0.3); swarm(p, 3 + Math.floor(stratumOfRow(Math.floor(p.y / TILE)) / 4)); }
+    else if (k === 'damar') vein(p);
+    else if (k === 'kese') satchel(p);
+    else if (k === 'sandik') chest(p);
   }
+}
+
+function pickEvent() {
+  let sum = 0;
+  for (const k of EVENT_KEYS) sum += EVENTS[k].w;
+  let x = rnd() * sum;
+  for (const k of EVENT_KEYS) if ((x -= EVENTS[k].w) < 0) return k;
+  return EVENT_KEYS[0];
+}
+
+// oyuncudan dmin..dmax blok uzakta, koşulu sağlayan hücre
+function spotNear(p, dmin, dmax, ok) {
+  const pc = Math.floor(p.x / TILE), pr = Math.floor(p.y / TILE);
+  for (let tries = 0; tries < 80; tries++) {
+    const a = rnd() * Math.PI * 2, d = dmin + rnd() * (dmax - dmin);
+    const c = pc + Math.round(Math.cos(a) * d), r = pr + Math.round(Math.sin(a) * d);
+    if (c < PLAY_MIN_COL || c > PLAY_MAX_COL || r <= GROUND_ROW + 1 || r >= ROWS - 3) continue;
+    if (ok(c, r)) return { c, r };
+  }
+  return null;
+}
+// ödül yerini göster: açığa çıkar, işaret koy
+function mark(c, r, col) {
+  G.rev[r * COLS + c] = 1;
+  const x = c * TILE + 8, y = r * TILE + 8;
+  G.pings.push({ pi: -1, x, y, t: 14, born: 0, col });
+  ring(x, y, col, 18); sparks(x, y, col, 10, 80); flashLight(x, y, 5, 0.6);
+}
+const rich = r => { const s = stratumOfRow(r); return s >= 6 ? (rnd() < 0.5 ? T.CRYSTAL : T.GOLD) : s >= 3 ? (rnd() < 0.5 ? T.GOLD : T.COBALT) : rnd() < 0.5 ? T.GOLD : T.IRON; };
+
+// parlayan damar: yakındaki sıradan kaya cevhere döner
+function vein(p) {
+  const at = spotNear(p, 4, 8, (c, r) => isPlain(tileAt(c, r)));
+  if (!at) return;
+  let n = 0;
+  for (let dr = -1; dr <= 1 && n < EVENTS.damar.tiles; dr++) for (let dc = -1; dc <= 1 && n < EVENTS.damar.tiles; dc++) {
+    const c = at.c + dc, r = at.r + dr;
+    if (r <= GROUND_ROW || !isPlain(tileAt(c, r))) continue;
+    setTile(c, r, rich(r)); G.rev[r * COLS + c] = 1; n++;
+  }
+  mark(at.c, at.r, '#ffd870'); sfx.oreReveal();
+}
+
+// kayıp kese: kayaya gömülü, derinliğe göre dolu bir çanta
+function satchel(p) {
+  const at = spotNear(p, 5, 9, (c, r) => { const d = TD[tileAt(c, r)]; return d.solid && !d.unbreakable && !d.chest && !d.heart && !d.relic && !d.nest; });
+  if (!at) return;
+  const s = Math.max(0, stratumOfRow(at.r));
+  setTile(at.c, at.r, T.AIR);
+  const bag = { iron: 3 + s, water: 2, cobalt: s >= 2 ? 2 + (s >> 1) : 0, gold: s >= 3 ? 1 + (s >> 2) : 0, crystal: s >= 6 ? 1 + (s >> 2) : 0 };
+  G.satchels.push({ x: at.c * TILE + 8, y: at.r * TILE + 8, bag, heart: false, owner: -1, echo: true, lost: true });
+  mark(at.c, at.r, '#74efcf'); sfx.chest();
+}
+
+// unutulmuş sandık: kalıntı sandığı belirir
+function chest(p) {
+  const at = spotNear(p, 5, 9, (c, r) => isPlain(tileAt(c, r)));
+  if (!at) return;
+  setTile(at.c, at.r, T.CHEST);
+  mark(at.c, at.r, '#ffd24a'); sfx.chest();
 }
 
 // oyuncunun üstündeki desteksiz tavan kayaları gevşer ve düşer

@@ -2,7 +2,7 @@
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y, GROUND_ROW, BASE_X } from '../config.js';
 import { T, TD, isMineable } from '../data/tiles.js';
-import { DYNAMITE, MINE, MEDKIT, RECALL, ITEMS, THREAT } from '../data/balance.js';
+import { DYNAMITE, MINE, MEDKIT, RECALL, ITEMS, THREAT, ROLES } from '../data/balance.js';
 import { addNoise } from './threat.js';
 import { G } from './state.js';
 import { tileAt } from '../world/map.js';
@@ -69,14 +69,15 @@ export function useItem(k, p = G.player) {
 
 // dinamit patlaması: kaya kırar, düşmanları savurur, sana da dokunur
 function detonate(b) {
-  const c0 = Math.floor(b.x / TILE), r0 = Math.floor((b.y - 4) / TILE), R = DYNAMITE.radius;
+  const owner = G.players[b.owner | 0] || G.players[0], blast = owner.role === 'yikici' ? ROLES.yikici.blast : 1;
+  const c0 = Math.floor(b.x / TILE), r0 = Math.floor((b.y - 4) / TILE), R = DYNAMITE.radius * blast;
   const cx = c0 * TILE + 8, cy = r0 * TILE + 8;
   for (let dr = -3; dr <= 3; dr++) for (let dc = -3; dc <= 3; dc++) {
     if (Math.hypot(dc, dr) > R) continue;
     const c = c0 + dc, r = r0 + dr, t = tileAt(c, r);
     if (r < GROUND_ROW) continue;
     if (t === T.BARRICADE) hurtBarricade(c, r, 40);
-    else if ((isMineable(t) || TD[t].blastable) && !TD[t].heart) { breakTile(c, r, G.players[b.owner | 0] || G.players[0]); G.stats.blasted++; }
+    else if ((isMineable(t) || TD[t].blastable) && !TD[t].heart) { breakTile(c, r, owner); G.stats.blasted++; }
   }
   const rad = R * TILE + 4;
   for (const e of G.enemies) {
@@ -84,7 +85,7 @@ function detonate(b) {
     const d = Math.hypot(e.x - cx, e.y - cy);
     if (d < rad + e.r) damageEnemy(e, DYNAMITE.dmg, (e.x - cx) / (d || 1), (e.y - cy) / (d || 1), 2.5);
   }
-  for (const p of G.players) if (!p.dead && Math.hypot(p.x - cx, p.y - cy) < 26) damagePlayer(p, DYNAMITE.selfDmg, cx, cy);
+  for (const p of G.players) if (!p.dead && p.role !== 'yikici' && Math.hypot(p.x - cx, p.y - cy) < 26 * blast) damagePlayer(p, DYNAMITE.selfDmg, cx, cy);
   sfx.explode(); shake(0.5); hitstop(0.06); haptic(50);
   addNoise(THREAT.noise.boom, cx, cy);
   ring(cx, cy, '#ffb050', rad); sparks(cx, cy, '#ffd48a', 22, 160); sparks(cx, cy, '#ff7a3a', 10, 110);
