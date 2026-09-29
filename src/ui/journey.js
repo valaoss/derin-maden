@@ -173,7 +173,7 @@ export function mountJourney(cv, J) {
       ctx.globalAlpha = 0.35 * pulse; ctx.fillStyle = q.col; ctx.beginPath(); ctx.arc(x, y, 6 + pulse * 2, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
       ctx.fillStyle = P.ink; ctx.beginPath(); ctx.arc(x, y, 4.5, 0, 7); ctx.fill();
       ctx.fillStyle = q.col; ctx.beginPath(); ctx.arc(x, y, 3, 0, 7); ctx.fill();
-      if (n > 1) label(q.name.toUpperCase(), x, y - 11, q.col, 'center');
+      if (n > 1) label(q.name.toUpperCase(), x, J.players.indexOf(q) ? y + 12 : y - 11, q.col, 'center');
     }
     ctx.restore();
     // derinlik etiketleri
