@@ -185,8 +185,8 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .row.relicrow .name { color: #ffd870; }
 
 /* ---------- toast / coach / banner ---------- */
-#toasts { position: absolute; left: 0; right: 0; top: calc(var(--sat) + 178px); display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
-.toast { display: flex; align-items: center; gap: 8px; padding: 7px 14px 9px; font-size: 15px; font-weight: 600; animation: toastIn .18s ease-out; }
+#toasts { position: absolute; left: 0; right: 0; top: calc(var(--sat) + 178px); display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: none; }
+.toast { display: flex; align-items: center; gap: 6px; padding: 4px 10px 5px; font-size: 13px; font-weight: 600; max-width: 82%; animation: toastIn .18s ease-out; }
 .toast.bad { background: #4a1420; }
 .toast.out { animation: toastOut .25s ease-in forwards; }
 @keyframes toastIn { from { transform: translateY(-10px); opacity: 0; } }
@@ -203,17 +203,17 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 @keyframes drag { 0% { transform: translateY(-20px); opacity: 0; } 20% { opacity: 1; } 80% { transform: translateY(26px); opacity: 1; } 100% { transform: translateY(30px); opacity: 0; } }
 @keyframes dragUp { 0% { transform: translateY(26px); opacity: 0; } 20% { opacity: 1; } 80% { transform: translateY(-20px); opacity: 1; } 100% { opacity: 0; } }
 
-#banner { position: absolute; left: 0; right: 0; top: 34%; display: flex; flex-direction: column; align-items: center; pointer-events: none; opacity: 0; }
+#banner { position: absolute; left: 0; right: 0; top: 24%; display: flex; flex-direction: column; align-items: center; pointer-events: none; opacity: 0; }
 #banner.on { animation: bannerIn 2.6s ease-out forwards; }
-#banner .k { font-size: 13px; letter-spacing: 3px; color: var(--dim); }
-#banner .n { font-size: 34px; font-weight: 700; color: var(--helm); letter-spacing: 1px; text-align: center; padding: 0 12px;
+#banner .k { font-size: 11px; letter-spacing: 2px; color: var(--dim); }
+#banner .n { font-size: 22px; font-weight: 700; color: var(--helm); letter-spacing: 1px; text-align: center; padding: 0 12px;
   text-shadow: 2px 0 var(--ink), -2px 0 var(--ink), 0 2px var(--ink), 0 -2px var(--ink), 2px 2px var(--ink), -2px 2px var(--ink), 2px -2px var(--ink), -2px -2px var(--ink), 0 5px var(--ink); }
 #banner.red .n { color: #ff6a5a; }
 #banner.gold .n { color: #ffd870; text-shadow: 0 0 14px rgba(255, 200, 80, .55); }
 #dS.legend { color: #ffd870; }
-#banner .rule { width: 0; height: 3px; background: var(--helm); margin-top: 8px; animation: rule .5s .1s ease-out forwards; box-shadow: 0 2px var(--ink); }
+#banner .rule { width: 0; height: 3px; background: var(--helm); margin-top: 5px; animation: rule .5s .1s ease-out forwards; box-shadow: 0 2px var(--ink); }
 #banner.red .rule { background: #ff6a5a; }
-@keyframes rule { to { width: 160px; } }
+@keyframes rule { to { width: 100px; } }
 @keyframes bannerIn { 0% { opacity: 0; transform: scale(1.15); } 10% { opacity: 1; transform: scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-10px); } }
 
 #vignette { position: absolute; inset: 0; pointer-events: none; opacity: 0; box-shadow: inset 0 0 0 3px rgba(236,74,74,.6), inset 0 0 36px 6px rgba(150,20,30,.5); }

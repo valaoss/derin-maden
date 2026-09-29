@@ -91,31 +91,29 @@ export function initUI(root, h) {
   on('stratum', s => {
     const b = STRATA[biomeOf(s)];
     banner((b.legend ? 'EFSANEVİ BİYOM' : 'BİYOM ' + (s + 1)) + ' · ' + s * STRATUM_ROWS + 'M', b.name.toUpperCase(), b.legend ? 'gold' : false);
-    if (b.desc) setTimeout(() => toast(b.desc, 'depth'), 2600);
+    if (b.desc && once('b' + biomeOf(s))) setTimeout(() => toast(b.desc, 'depth'), 2600);
   });
   on('modChanged', () => { if (sheetOpen()) refreshSheet(); refreshHUD(true); });
   on('modUsed', () => refreshHUD(true));
-  on('web', () => toast('Ağa yakalandın', 'skull', true));
   on('chill', () => { const v = $('#vignette'); v.classList.add('cold'); setTimeout(() => v.classList.remove('cold'), 1800); });
   on('threat', d => {
     const lv = d.level;
-    if (!d.up) { if (lv === 0) toast('Maden sustu', 'wave'); return; }
-    if (lv === 1) { toast('Kıpırtı… bir şey seni duydu', 'wave', true); if (G.tutorial && !G.tutorial.noiseSeen) { G.tutorial.noiseSeen = true; coach('Kazma gürültü yapar. Gürültü yuvaları uyandırır: sessiz kal ya da yuvayı yık.', '', 7); } }
-    else if (lv === 2) banner('UYANIŞ', 'YUVALAR UYANDI', true);
-    else if (lv === 3) banner('ÖFKE', 'ELİTLER GELİYOR', true);
+    if (!d.up) return;
+    if (lv === 1) { if (G.tutorial && !G.tutorial.noiseSeen) { G.tutorial.noiseSeen = true; coach('Kazma gürültü yapar. Gürültü yuvaları uyandırır: sessiz kal ya da yuvayı yık.', '', 7); } }
+    else if (lv === 2) toast('Yuvalar uyandı', 'wave', true);
+    else if (lv === 3) toast('Elitler geliyor', 'skull', true);
     else if (lv === 4) { const B = ENEMIES[G.threat.bossType]; banner(B ? up(B.name) : 'AV', B ? up(B.title) : 'SENİ AVLIYOR', true); }
   });
   on('nestDown', d => {
     toast(d.left ? `Yuva yıkıldı · bu biyomda ${d.left} kaldı` : 'Yuva yıkıldı', 'wave');
     if (G.tutorial && !G.tutorial.done) { G.tutorial.done = true; App.meta.tutorialDone = true; saveMeta(App.meta); coach('Harika. Derine in: yeni katmanlar, daha değerli cevherler.', '', 5); }
   });
-  on('beacon', s => banner('BİYOM TEMİZ', 'FENER DİKİLDİ · ' + STRATA[biomeOf(s)].name.toUpperCase()));
+  on('beacon', () => toast('Biyom temiz · fener dikildi', 'lamp'));
   on('bossDown', k => banner((ENEMIES[k] ? up(ENEMIES[k].name) : 'BOSS') + ' DÜŞTÜ', 'MADEN SUSUYOR'));
   on('bossWarn', k => banner((ENEMIES[k] ? up(ENEMIES[k].name) : 'BİR ŞEY') + ' UYANIYOR', 'HEMEN SUS YA DA KAÇ', true));
-  on('bossSpawn', k => { const B = ENEMIES[k]; if (B) setTimeout(() => toast(B.lore, 'skull', true), 2600); });
+  on('bossSpawn', k => { const B = ENEMIES[k]; if (B && once(k)) setTimeout(() => toast(B.lore, 'skull', true), 2600); });
   on('bossPhase', k => { const B = ENEMIES[k]; if (B) banner(up(B.name), 'ÖFKELENDİ', true); });
   on('event', d => { const e = EVENTS[d.k]; if (!e) return; if (d.phase === 'warn') banner(e.name, e.sub, true); else if (d.k === 'karanlik') toast('Fenerin kısıldı · ' + e.t + ' sn', 'lamp', true); });
-  on('revived', () => toast('Ayaktasın', 'heart'));
   on('ping', d => { if (!G.mp) return; const p = G.players[d.pi]; if (d.pi !== G.localIdx) { toast((p && p.name || 'Partner') + ' işaret bıraktı', 'hand'); sfx.ping(); } else sfx.click(); });
   on('deployed', () => refreshHUD(true));
   on('relic', d => {
@@ -132,9 +130,8 @@ export function initUI(root, h) {
   on('perkTaken', d => { if (d.pi !== G.localIdx) toast('Partner seçti: ' + PERKS[d.k].name, PERKS[d.k].icon); });
   on('blind', () => { const f = $('#flash'); f.classList.remove('on'); void f.offsetWidth; f.classList.add('on'); });
   on('fear', () => { const v = $('#vignette'); v.classList.add('fear'); setTimeout(() => v.classList.remove('fear'), 2400); });
-  on('pickTier', l => { const t = PICK_TIERS[Math.min(PICK_TIERS.length - 1, l)]; toast(t.name + ' hazır', 'drill'); });
   on('cmdDone', d => { if (!d.ok && (d.cmd.t === CMD.BUILD)) toast('Yetersiz kaynak', 'bag', true); });
-  on('heart', () => { banner('KALP KRİSTALİ', 'YÜZEYE TAŞI!', true); toast('Dalgalar sıklaşıyor — acele et', 'heart', true); });
+  on('heart', () => banner('KALP KRİSTALİ', 'YÜZEYE TAŞI!', true));
   on('playerDown', d => toast(d.autoUp ? 'Bayıldın — ikinci nefes!' : G.mp ? 'Bayıldın — partnerin seni kaldırabilir' : 'Bayıldın', 'skull', true));
   on('respawn', () => {});
   on('upgraded', () => { refreshSheet(); });
@@ -279,9 +276,18 @@ function anyAffordable() {
 }
 
 // ---------------- bildirimler ----------------
+const seen = new Set();
+const once = k => !seen.has(k) && !!seen.add(k);
+const lastShown = new Map();
+function recent(k, ms) {
+  const now = performance.now(), t = lastShown.get(k);
+  if (t && now - t < ms) return true;
+  lastShown.set(k, now); return false;
+}
 export function toast(text, icon, bad) {
+  if (recent(text, 10000)) return;
   const box = $('#toasts');
-  while (box.children.length > 2) box.firstChild.remove();
+  while (box.children.length > 1) box.firstChild.remove();
   const t = document.createElement('div');
   t.className = 'plate toast' + (bad ? ' bad' : '');
   t.innerHTML = (icon ? ic(icon) : '') + '<span></span>';
@@ -292,6 +298,7 @@ export function toast(text, icon, bad) {
 }
 let bannerTO = 0;
 export function banner(k, n, red) {
+  if (recent(k + n, 20000)) return;
   const b = $('#banner');
   b.querySelector('.k').textContent = k; b.querySelector('.n').textContent = n;
   b.className = red === 'gold' ? 'gold' : red ? 'red' : '';
@@ -471,7 +478,6 @@ function contractsHTML() {
 export function showContractsToast() {
   if (!G || !G.contracts.length) return;
   toast('Kontrat: ' + CONTRACTS[G.contracts[0].k].text(G.contracts[0].n), 'contract');
-  setTimeout(() => { if (G && G.contracts[1]) toast('Kontrat: ' + CONTRACTS[G.contracts[1].k].text(G.contracts[1].n), 'contract'); }, 700);
 }
 
 // ---------------- alet geri alma (dokun) ----------------
