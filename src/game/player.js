@@ -3,7 +3,7 @@
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y, GROUND_ROW, PLAYER_MIN_Y, WORLD_W, BASE_X, BASE_Y, stratumOfRow, depthOfY } from '../config.js';
 import { T, TD, isMineable, isPlain } from '../data/tiles.js';
-import { PLAYER, UPGRADES, PERKS, RES_KEYS, PICK_TIERS, RELIC_OF_BIOME, DEEP_ORES } from '../data/balance.js';
+import { PLAYER, UPGRADES, PERKS, RES_KEYS, PICK_TIERS, RELIC_OF_BIOME, DEEP_ORES, DIG_DEPTH } from '../data/balance.js';
 import { RES_COL } from '../data/palette.js';
 import { G, App, biomeOf } from './state.js';
 import { tileAt, solidAt, setTile, damageTile, matOf } from '../world/map.js';
@@ -215,7 +215,7 @@ function updateOne(p, dt) {
 
 function digHit(p, t) {
   const tile = tileAt(t.c, t.r), mat = matOf(t.c, t.r), d = TD[tile];
-  const dmg = pickDmg() * lastStand(p) * (d.nest && hasPerk('yuvaAvcisi') ? 3 : 1);
+  const dmg = pickDmg() * lastStand(p) * (d.nest && hasPerk('yuvaAvcisi') ? 3 : 1) / (1 + Math.max(0, stratumOfRow(t.r)) * DIG_DEPTH);
   p.digAnim = 1;
   p.swingN = (p.swingN | 0) + 1;
   p.squash = 0.6;
@@ -252,7 +252,8 @@ export function unbury(c, r, p = null) {
   if (c < 0 || c > 16 || !G.buried || !G.buried[i]) return;
   G.buried[i] = 0; G.dirty.push(c, r); G.mapVersion++;
   const x = c * TILE + 8, y = r * TILE + 8, d = TD[G.map[i]];
-  sparks(x, y, RES_COL[d.ore] || '#fff0a0', 10, 70); flashLight(x, y, 3, 0.4);
+  sparks(x, y, d.nest ? '#ff5a8a' : RES_COL[d.ore] || '#fff0a0', d.nest ? 18 : 10, 70); flashLight(x, y, 3, 0.4);
+  if (d.nest && p && isLocal(p)) emit('toast', { text: 'Yuva buldun', icon: 'wave' });
   if (p && hear(p, x, y)) sfx.oreReveal();
 }
 export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {

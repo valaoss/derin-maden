@@ -298,7 +298,7 @@ function drawNestArrows(camX, camY) {
   const vw = view.vw, vh = view.vh, t = G.time;
   const pulse = Math.floor(t * 4) % 2 === 0;
   for (const n of G.nests) {
-    if (!n.awake) continue;
+    if (!n.awake || G.buried[n.r * COLS + n.c]) continue;
     const sx = Math.round(clamp(n.x - camX, 8, vw - 8));
     let sy = null, dir = 0;
     if (n.y - camY > vh - 6) { sy = vh - 14; dir = 1; }
@@ -523,7 +523,7 @@ function drawTileOverlays(r0, r1) {
   // Hazine Kokusu: gömülü cevher ara ara pırıldar
   if (hasPerk('hazineKokusu') && G.buried) for (let r = r0; r <= r1; r++) for (let c = 0; c < COLS; c++) {
     const i = r * COLS + c;
-    if (!G.buried[i] || Math.floor(G.time * 2 + hash2(c, r, 5) * 9) % 5) continue;
+    if (!G.buried[i] || !TD[G.map[i]].ore || Math.floor(G.time * 2 + hash2(c, r, 5) * 9) % 5) continue;
     ctx.fillStyle = RES_COL[TD[G.map[i]].ore] || '#fff0a0';
     const x = c * TILE + 4 + Math.floor(hash2(c, r, 2) * 8), y = r * TILE + 4 + Math.floor(hash2(r, c, 3) * 8);
     ctx.fillRect(x, y, 1, 1); ctx.globalAlpha = 0.5; ctx.fillRect(x - 1, y, 3, 1); ctx.fillRect(x, y - 1, 1, 3); ctx.globalAlpha = 1;
@@ -545,7 +545,7 @@ function drawTileOverlays(r0, r1) {
       for (let i = 0; i < 5; i++) ctx.fillRect(x + 2 + Math.floor(hash2(c, r, 40 + i) * 12), y + 2 + Math.floor(hash2(c, r, 60 + i) * 12), 1, 1);
     }
     else if (t === T.CHEST) spr(SPR.chest, x + 8, y + 9);
-    else if (t === T.NEST) { const n = G.nests.find(q => q.c === c && q.r === r); const aw = n && n.awake; const fr = aw ? Math.floor(G.time * 6) % 2 : Math.floor(G.time * 1.5) % 2; const j = n && n.burst > 0 ? ((Math.floor(G.time * 30) % 2) ? 1 : -1) : 0; ctx.drawImage(SPR.nest[fr].cv, x + j, y); }
+    else if (t === T.NEST && !G.buried[r * COLS + c]) { const n = G.nests.find(q => q.c === c && q.r === r); const aw = n && n.awake; const fr = aw ? Math.floor(G.time * 6) % 2 : Math.floor(G.time * 1.5) % 2; const j = n && n.burst > 0 ? ((Math.floor(G.time * 30) % 2) ? 1 : -1) : 0; ctx.drawImage(SPR.nest[fr].cv, x + j, y); }
     else if (t === T.HEART) spr(SPR.heart, x + 8, y + 8 + Math.round(Math.sin(G.time * 2) * 1));
     else if (t === T.RELIC) spr(SPR.relic, x + 8, y + 8 + Math.round(Math.sin(G.time * 1.6) * 1));
     else if (t === T.ARKEN) spr(SPR.arken[Math.floor(G.time * 3) % 2], x + 8, y + 8);
@@ -1153,7 +1153,7 @@ function drawEmissive(r0, r1, alpha, opts) {
   }
   // yuvalar: uyuyanlar hafif, uyanıklar hızlı nabız
   for (const n of G.nests) {
-    if (n.r < r0 || n.r > r1) continue;
+    if (n.r < r0 || n.r > r1 || G.buried[n.r * COLS + n.c]) continue;
     const aw = n.awake, a = aw ? 0.7 + Math.sin(t * 8 + n.pulse) * 0.3 : 0.35 + Math.sin(t * 1.6 + n.pulse) * 0.15;
     glow(n.x, n.y, aw ? 'rgba(255,60,90,0.8)' : 'rgba(200,60,120,0.5)', aw ? 22 : 14, a);
     sprE(SPR.nest[aw ? Math.floor(t * 6) % 2 : Math.floor(t * 1.5) % 2], n.x, n.y + 8);

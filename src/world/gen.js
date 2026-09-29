@@ -305,9 +305,9 @@ export function generate(seed, opts = {}) {
     set(tc, GROUND_ROW + 5, T.IRON);
     set(tc + 1, GROUND_ROW + 5, T.IRON);
   }
-  // gömülü cevher: değerlilerin üçte biri kaya gibi görünür, yanından kazınca ya da çok yaklaşınca belirir
+  // gömülü cevher ve yuva: değerli cevherin üçte biri ve tüm yuvalar kaya gibi görünür, yanından kazınca ya da çok yaklaşınca belirir
   const buried = new Uint8Array(COLS * ROWS), HIDE = ['cobalt', 'crystal', 'gold', ...DEEP_ORES];
-  for (let i = 0; i < map.length; i++) { const d = TD[map[i]]; if (d && d.ore && !d.plain && HIDE.includes(d.ore) && rnd() < 0.33) buried[i] = 1; }
+  for (let i = 0; i < map.length; i++) { const d = TD[map[i]]; if (d && d.ore && !d.plain && HIDE.includes(d.ore) && rnd() < 0.33) buried[i] = 1; else if (d && d.nest && !opts.tutorial) buried[i] = 1; }
   return { map, heartRow: hr, order, buried };
 }
 export { HOST_TILE };

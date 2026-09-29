@@ -618,6 +618,7 @@ section('Gömülü cevher');
   const g = fresh(960); let val = 0, hid = 0;
   for (let k = 0; k < g.map.length; k++) { const d = TD[g.map[k]]; if (d.ore && !d.plain && d.ore !== 'iron' && d.ore !== 'water') { val++; if (g.buried[k]) hid++; } }
   ok('değerli cevherin yaklaşık üçte biri gömülü', hid / val > 0.2 && hid / val < 0.45, `${hid}/${val}`);
+  ok('yuvalar gizli başlar', G.nests.length > 0 && G.nests.every(n => g.buried[n.r * COLS + n.c] === 1));
   ok('demir ve su gömülmez', g.map.every((t, k) => !g.buried[k] || (TD[t].ore !== 'iron' && TD[t].ore !== 'water')));
   const k = g.buried.findIndex((b, j) => b && Math.floor(j / COLS) > GROUND_ROW + 4 && j % COLS > 2 && j % COLS < 14);
   const c = k % COLS, r = Math.floor(k / COLS);

@@ -27,6 +27,8 @@ export const PLAYER = {
 export const BASE = { hp: 400, calmRegen: 0.9, radius: 22, armor: 0.4, gun: { range: 76, dmg: 8, cd: 0.65 } };
 
 // Kazma kademeleri: satın alınır (sırayla). Görünüm (renk, parıltı, kıvılcım) + kazı gücü + vuruş aralığı.
+// her biyom kazıyı biraz ağırlaştırır: kazma hasarı / (1 + biyom × DIG_DEPTH)
+export const DIG_DEPTH = 0.08;
 export const PICK_TIERS = [
   { name: 'Odun Kazma',     dmg: 1,    interval: 0.22, head: '#8a5a2a', headL: '#b07a42', handle: '#5a3a1a', spark: '#d8b080', glow: null },
   { name: 'Taş Kazma',      dmg: 1.8,  interval: 0.21, head: '#6a6166', headL: '#948a8c', handle: '#6a4a2a', spark: '#c8c0c0', glow: null },
