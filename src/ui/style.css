@@ -323,6 +323,10 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 #sheetBack.on { display: block; animation: fadeIn .2s; }
 #sheet .head { display: flex; align-items: center; justify-content: space-between; padding: 14px 14px 8px; }
 #sheet .head h2 { font-size: 22px; color: var(--helm); letter-spacing: 1px; }
+.row.sub { margin-top: -4px; padding-left: 44px; opacity: 0.95; }
+.row.sub .name { font-size: 13px; }
+.btn.buy.lock { display: flex; align-items: center; gap: 3px; font-size: 13px; }
+.eff.lockn { color: var(--warn, #f2c14e); }
 #sheet .test { margin-left: auto; margin-right: 6px; padding: 6px 10px; font-size: 13px; background: var(--danger, #c03a3a); color: #fff; }
 #sheet .test.hide { display: none; }
 #sheet .close { width: 44px; height: 44px; font-size: 22px; font-weight: 700; color: var(--dim); }

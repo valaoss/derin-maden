@@ -8,7 +8,8 @@ import { tileAt, damageTile } from '../world/map.js';
 import { damageEnemy, losClear, damageStructure, burnEnemy } from './enemies.js';
 import { damagePlayer, webPlayer, chillPlayer, breakTile, nearestPlayer } from './player.js';
 import { addNoise } from './threat.js';
-import { hasPerk, hear, hasMod, isLocal, roleOf, lastStand, weaponOf } from './run.js';
+import { hasPerk, hear, hasMod, isLocal, roleOf, lastStand, weaponOf, weaponLvl, toolDmgMul } from './run.js';
+import { WEAPON_UP } from '../data/balance.js';
 import { sparks, flashLight, particle, ring, shake, debris, hitstop } from './fx.js';
 import { igniteGas } from './hazards.js';
 import { sfx } from '../audio/audio.js';
@@ -76,11 +77,12 @@ function updateGun(p, dt) {
   const ang = Math.atan2(tgt.y - sp.y, tgt.x - sp.x);
   p.aim = ang; p.aimT = 0.6;
   if (p.fireCd > 0) return;
-  let cd = W.flame ? W.cd : UPGRADES.blaster.cd[lv] * W.cd;
+  const wl = weaponLvl(p.wpn || 'blaster');
+  let cd = (W.flame ? W.cd : UPGRADES.blaster.cd[lv] * W.cd) * (1 - WEAPON_UP.cd * wl);
   if (hasMod('rapid')) cd *= 0.7;
   if ((G.gear.active.overdrive || 0) > 0) cd /= 3;
   p.fireCd = cd;
-  const dmg = UPGRADES.blaster.dmg[lv] * W.dmg * (roleOf(p).dmg || 1) * lastStand(p) * (G.lvl.yildizCekirdek ? 1.4 : 1);
+  const dmg = UPGRADES.blaster.dmg[lv] * W.dmg * (1 + WEAPON_UP.dmg * wl) * (roleOf(p).dmg || 1) * lastStand(p) * (G.lvl.yildizCekirdek ? 1.4 : 1);
   if ((G.gear.active.overdrive || 0) > 0) sparks(sp.x, sp.y, '#ffe79a', 1, 30);
   if (W.flame) { flameCone(p, sp, ang, range, dmg); return; }
   if (W.zap) { zapChain(p, sp, tgt, dmg, W.zap); return; }
@@ -258,7 +260,7 @@ export function updateShells(dt) {
     for (const e of G.enemies) {
       if (e.dead) continue;
       const d = Math.hypot(e.x - sh.tx, e.y - sh.ty);
-      if (d < b.splash + e.r) damageEnemy(e, b.dmg * (d < 10 ? 1 : 0.7), (e.x - sh.tx) / (d || 1), (e.y - sh.ty) / (d || 1), 1.5);
+      if (d < b.splash + e.r) damageEnemy(e, b.dmg * (sh.mul || 1) * (d < 10 ? 1 : 0.7), (e.x - sh.tx) / (d || 1), (e.y - sh.ty) / (d || 1), 1.5);
     }
     sfx.mortarHit(); shake(0.12);
     ring(sh.tx, sh.ty, '#ffb050', b.splash); sparks(sh.tx, sh.ty, '#ffd48a', 12, 110); debris(sh.tx, sh.ty, 'dirt', 5);
@@ -283,7 +285,7 @@ export function updateStructures(dt) {
         s.aim += Math.atan2(Math.sin(ang - s.aim), Math.cos(ang - s.aim)) * Math.min(1, dt * 14);
         if (s.cd <= 0 && s.buildT <= 0) {
           s.cd = b.cd / rate;
-          fire(s.x + Math.cos(s.aim) * 7, s.y - 4 + Math.sin(s.aim) * 7, s.aim, 230, b.dmg, 't', 0);
+          fire(s.x + Math.cos(s.aim) * 7, s.y - 4 + Math.sin(s.aim) * 7, s.aim, 230, b.dmg * toolDmgMul('turret'), 't', 0);
           s.recoil = 1; flashLight(s.x, s.y, 2, 0.06);
           sfx.turret();
         }
@@ -308,7 +310,7 @@ export function updateStructures(dt) {
             if (d > b.range + e.r) continue;
             const ea = Math.atan2(e.y - (s.y - 4), e.x - s.x);
             if (Math.abs(Math.atan2(Math.sin(ea - s.aim), Math.cos(ea - s.aim))) > 0.55 || !losClear(s.x, s.y - 4, e.x, e.y, true)) continue;
-            damageEnemy(e, b.dps * 0.1, Math.cos(ea), Math.sin(ea), 0.1, true);
+            damageEnemy(e, b.dps * 0.1 * toolDmgMul('flame'), Math.cos(ea), Math.sin(ea), 0.1, true);
           }
           sfx.flame(); flashLight(s.x + Math.cos(s.aim) * 14, s.y - 4 + Math.sin(s.aim) * 14, 3, 0.1);
         }
@@ -324,7 +326,7 @@ export function updateStructures(dt) {
           // hedefin yürüdüğü yöne kabaca öncül
           const lead = 0.55 + d / 400;
           const tx = tgt.x + (tgt.x - tgt.px) * 60 * lead, ty = tgt.y + (tgt.y - tgt.py) * 60 * lead;
-          G.shells.push({ sx: s.x, sy: s.y - 8, tx, ty, t: 0, T: lead });
+          G.shells.push({ sx: s.x, sy: s.y - 8, tx, ty, t: 0, T: lead, mul: toolDmgMul('mortar') });
           sfx.mortar(); sparks(s.x, s.y - 10, '#ffd48a', 5, 60); flashLight(s.x, s.y - 8, 3, 0.1);
         }
       }

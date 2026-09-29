@@ -88,9 +88,11 @@ export const ORE_RAMP = {
   inci:     ['#3a3a4a', '#9a9ab0', '#eeeef8', '#ffffff'],
   akik:     ['#4a0830', '#a01a6a', '#ff5ab0', '#ffd0f0'],
   yildiz:   ['#104840', '#30b0a0', '#b8fff4', '#ffffff'],
+  elmas:    ['#0a0a12', '#3a3a50', '#b0b8d0', '#ffffff'],
+  kehribar: ['#4a2008', '#b0601a', '#ffb040', '#fff0c0'],
 };
 
-export const RES_COL = { iron: '#e8a060', water: '#6fd0ff', cobalt: '#5a86ff', crystal: '#e070ff', gold: '#ffd24a', yesim: '#5ae08a', opal: '#ff4a3a', inci: '#eeeef8', akik: '#ff5ab0', yildiz: '#b8fff4' };
+export const RES_COL = { iron: '#e8a060', water: '#6fd0ff', cobalt: '#5a86ff', crystal: '#e070ff', gold: '#ffd24a', yesim: '#5ae08a', opal: '#ff4a3a', inci: '#eeeef8', akik: '#ff5ab0', yildiz: '#b8fff4', elmas: '#c8d0ff', kehribar: '#ffb040' };
 
 // Biyomlar (20): isim, HUD kısaltması, karanlık rengi, süs türü, parçacık efekti, ton
 // decor: 'mush' mantar, 'crys' kristal, 'root' kök sarkıtı, 'icicle' buz sarkıtı, 'bone' kemik, 'ember' kor, 'shard' obsidyen, 'star' boşluk ışığı,

@@ -9,7 +9,7 @@ export const T = {
   QUICK: 26, MERCURY: 27, STORM: 28, BOLT: 29, GILT: 30, GATE: 31, FUNGUS: 32, SPORE: 33, GLASS: 34,
   TITAN: 35, PULSE: 36, CHRONO: 37, HOURGLASS: 38, BLOOD: 39, BLOODVEIN: 40, ECHO: 41, HUSH: 42, GENESIS: 43, SEED: 44, RELIC: 45, ARKEN: 46,
   // derin cevherler (bant başına bir)
-  YESIM: 47, OPAL: 48, INCI: 49, AKIK: 50, YILDIZ: 51,
+  YESIM: 47, OPAL: 48, INCI: 49, AKIK: 50, YILDIZ: 51, ELMAS: 52, KEHRIBAR: 53,
 };
 
 // mat: doku/ses/parçacık malzemesi ('host' => katmanın ana kayası); plain: sıradan kaya (damar/tehlike/dönüşüm yerleşebilir)
@@ -72,7 +72,9 @@ TD[T.OPAL]     = { solid: true, hp: 12, mat: 'host', ore: 'opal', amt: 1, glow: 
 TD[T.INCI]     = { solid: true, hp: 20, mat: 'host', ore: 'inci', amt: 1, glow: 1.4 };
 TD[T.AKIK]     = { solid: true, hp: 30, mat: 'host', ore: 'akik', amt: 1, glow: 1.4 };
 TD[T.YILDIZ]   = { solid: true, hp: 45, mat: 'host', ore: 'yildiz', amt: 1, glow: 1.8 };
-export const DEEP_TILE = [T.YESIM, T.OPAL, T.INCI, T.AKIK, T.YILDIZ];
+TD[T.ELMAS]    = { solid: true, hp: 60, mat: 'host', ore: 'elmas', amt: 1, glow: 1.6 };
+TD[T.KEHRIBAR] = { solid: true, hp: 75, mat: 'host', ore: 'kehribar', amt: 1, glow: 2 };
+export const DEEP_TILE = [T.YESIM, T.OPAL, T.INCI, T.AKIK, T.YILDIZ, T.ELMAS, T.KEHRIBAR];
 
 export const isSolid = t => TD[t].solid;
 export const isMineable = t => TD[t].solid && !TD[t].unbreakable && !TD[t].built;

@@ -6,7 +6,9 @@ import { G, App, biomeOf } from '../game/state.js';
 import { iconURL, HELMETS } from '../render/sprites.js';
 import { on, emit } from '../core/events.js';
 import { bagCount, hasPerk, isUnlocked, contractProgress, pickDmg, pickInterval, modSlots } from '../game/run.js';
-import { canAfford, upgradeCost, craftState } from '../game/economy.js';
+import { canAfford, upgradeCost, craftState, beaconLack, weaponUpCost, toolUpCost, itemCost } from '../game/economy.js';
+import { WEAPON_UP, TOOL_UP, beaconReq } from '../data/balance.js';
+import { weaponLvl, toolLvl } from '../game/run.js';
 import { itemUsable } from '../game/items.js';
 import { dispatch, CMD } from '../game/commands.js';
 import { PICK_TIERS } from '../data/balance.js';
@@ -275,7 +277,8 @@ export function refreshHUD(force = false) {
 }
 function fmt(t) { t = Math.max(0, Math.ceil(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); }
 function anyAffordable() {
-  for (const k of UPGRADE_KEYS.concat(PICK_KEYS, MASTER_KEYS)) { const c = upgradeCost(k); if (c && canAfford(c)) return true; }
+  for (const k of UPGRADE_KEYS.concat(PICK_KEYS, MASTER_KEYS)) { const c = upgradeCost(k); if (c && canAfford(c) && !beaconLack(k)) return true; }
+  for (const k of G.gear.wOwn) { const c = weaponUpCost(k); if (c && canAfford(c)) return true; }
   for (const k of MOD_KEYS) if (!G.gear.owned.includes(k) && canAfford(MODS[k].cost)) return true;
   for (const k of WEAPON_KEYS) if (!G.gear.wOwn.includes(k) && canAfford(WEAPONS[k].cost)) return true;
   for (const k of PICK_TYPE_KEYS) if (!G.gear.pOwn.includes(k) && canAfford(PICK_TYPES[k].cost)) return true;
@@ -370,6 +373,19 @@ export function sheetOpen() { return $('#sheet').classList.contains('on'); }
 function costHTML(c) {
   return '<span class="cost">' + Object.keys(c).map(k => `<span class="${(G.store[k] || 0) >= c[k] ? '' : 'no'}">${ic(k, 's')}${c[k]}</span>`).join('') + '</span>';
 }
+// AL düğmesi; Fener kilidi varsa kilitli düğme
+function buyBtn(k, c) {
+  const lack = c ? beaconLack(k) : 0;
+  if (lack) return `<button class="btn buy lock" disabled>${ic('base', 's')}${beaconReq(k, G.lvl[k])}</button>`;
+  return `<button class="btn buy" ${c && canAfford(c) ? '' : 'disabled'}>AL</button>`;
+}
+const lockNote = k => { const c = upgradeCost(k), n = c ? beaconLack(k) : 0; return n ? `<div class="eff lockn">${n} Fener daha yak (biyomun tüm yuvalarını yık)</div>` : ''; };
+// silah ustalığı / alet seviyesi satırı
+function lvRow(g, k, justKey) {
+  const w = g === 'w', l = w ? weaponLvl(k) : toolLvl(k), max = w ? WEAPON_UP.max : TOOL_UP.max, c = w ? weaponUpCost(k) : toolUpCost(k);
+  const eff = w ? `Hasar +%${Math.round(WEAPON_UP.dmg * 100 * l)} · atış hızı +%${Math.round(WEAPON_UP.cd * 100 * l)}` : `Hasar +%${Math.round(TOOL_UP.dmg * 100 * l)} · dayanıklılık +%${Math.round(TOOL_UP.hp * 100 * l)}`;
+  return `<div class="plate row sub ${c ? '' : 'max'} ${justKey === g + k ? 'just' : ''}" data-lvup="${g}:${k}"><div class="main"><div class="name">${w ? 'Ustalık' : 'Seviye'} ${pips(l, max)}</div><div class="eff">${eff}</div>${c ? costHTML(c) : ''}</div>${c ? `<button class="btn buy" ${canAfford(c) ? '' : 'disabled'}>GELİŞTİR</button>` : ''}</div>`;
+}
 function pips(l, max) { let s = '<span class="pips">'; for (let i = 0; i < max; i++) s += `<i class="${i < l ? 'on' : ''}"></i>`; return s + '</span>'; }
 
 // test düğmesi: geliştirmede ya da adreste ?test varken görünür
@@ -387,8 +403,8 @@ function refreshSheet(justKey) {
     const eff = c ? `${u.desc(l)} → <b>${u.desc(l + 1).replace(/^[^\d×]*/, '')}</b>` : u.desc(l);
     return `<div class="plate row ${c ? '' : 'max'} ${justKey === k ? 'just' : ''}" data-up="${k}">
       ${ic(u.icon, 'l')}
-      <div class="main"><div class="name">${u.name} ${pips(l, max)}</div><div class="eff">${eff}</div>${c ? costHTML(c) : ''}</div>
-      <button class="btn buy" ${c && canAfford(c) ? '' : 'disabled'}>AL</button></div>`;
+      <div class="main"><div class="name">${u.name} ${pips(l, max)}</div><div class="eff">${eff}</div>${c ? costHTML(c) : ''}${lockNote(k)}</div>
+      ${buyBtn(k, c)}</div>`;
   };
   // kazma/silah türü satırı: sahipsen TAK, değilsen fiyat + AL
   const gearRow = (g, k) => {
@@ -402,8 +418,8 @@ function refreshSheet(justKey) {
     h += `<div class="plate pickcard"><img class="sw" src="${pickIconURL(G.lvl.drill)}" alt=""><div class="main"><div class="name">${t.name} · ${PICK_TYPES[G.player.pk].name}</div><div class="eff">Kazı gücü <b>${pickDmg().toFixed(1)}</b> · vuruş aralığı <b>${pickInterval().toFixed(2)} sn</b></div></div></div>`;
     h += '<div class="sec">SATIN AL</div>';
     if (next) h += `<div class="plate row ${justKey === 'drill' ? 'just' : ''}" data-up="drill"><img class="sw" style="width:28px;height:28px;image-rendering:pixelated" src="${pickIconURL(G.lvl.drill + 1)}" alt="">
-      <div class="main"><div class="name">${next.name}</div><div class="eff">Güç ×${next.dmg} · aralık ${next.interval} sn${next.glow ? ' · parlar' : ''}</div>${costHTML(c)}</div>
-      <button class="btn buy" ${canAfford(c) ? '' : 'disabled'}>AL</button></div>`;
+      <div class="main"><div class="name">${next.name}</div><div class="eff">Güç ×${next.dmg} · aralık ${next.interval} sn${next.glow ? ' · parlar' : ''}</div>${costHTML(c)}${lockNote('drill')}</div>
+      ${buyBtn('drill', c)}</div>`;
     else h += '<div class="note">En güçlü kazma sende. Boşluk bile sana dayanamaz.</div>';
     h += '<div class="sec">GELİŞTİR</div>';
     h += upRow('sharp') + upRow('swing');
@@ -413,7 +429,7 @@ function refreshSheet(justKey) {
   } else if (sheetTab === 'mods') {
     h += '<div class="sec">SİLAH GÜCÜ · TÜM SİLAHLAR</div>' + upRow('blaster');
     h += '<div class="sec">SİLAHLAR · HER MADENCİ KENDİNİ SEÇER</div>';
-    for (const k of WEAPON_KEYS) h += gearRow('w', k);
+    for (const k of WEAPON_KEYS) { h += gearRow('w', k); if (G.gear.wOwn.includes(k)) h += lvRow('w', k, justKey); }
     const slots = modSlots();
     h += `<div class="sec">EKLENTİLER · ${G.gear.eq.length}/${slots} YUVA</div>`;
     for (const k of MOD_KEYS) {
@@ -431,8 +447,8 @@ function refreshSheet(justKey) {
       const eff = c ? `${u.desc(l)} → <b>${u.desc(l + 1).replace(/^[^\d×]*/, '')}</b>` : u.desc(l);
       h += `<div class="plate row ${c ? '' : 'max'} ${justKey === k ? 'just' : ''}" data-up="${k}">
         ${ic(u.icon, 'l')}
-        <div class="main"><div class="name">${u.name} ${pips(l, max)}</div><div class="eff">${eff}</div>${c ? costHTML(c) : ''}</div>
-        <button class="btn buy" ${c && canAfford(c) ? '' : 'disabled'}>AL</button></div>`;
+        <div class="main"><div class="name">${u.name} ${pips(l, max)}</div><div class="eff">${eff}</div>${c ? costHTML(c) : ''}${lockNote(k)}</div>
+        ${buyBtn(k, c)}</div>`;
     }
     const master = MASTER_KEYS.filter(k => G.lvl[k] || RES_KEYS.some(o => RES[o].master === k && (G.store[o] > 0 || G.player.bag[o] > 0)));
     if (master.length) {
@@ -462,8 +478,9 @@ function refreshSheet(justKey) {
         continue;
       }
       h += `<div class="plate row ${justKey === k ? 'just' : ''}" data-craft="${k}">${ic(d.icon, 'l')}
-        <div class="main"><div class="name">${d.name} <span class="have">${G.items[k]}/${d.max}</span></div><div class="eff">${d.desc}</div>${costHTML(d.cost)}</div>
+        <div class="main"><div class="name">${d.name} <span class="have">${G.items[k]}/${d.max}</span></div><div class="eff">${d.desc}</div>${costHTML(itemCost(k))}</div>
         <button class="btn buy" ${st === 'ok' ? '' : 'disabled'}>${st === 'full' ? 'DOLU' : 'ÜRET'}</button></div>`;
+      if (d.build) h += lvRow('t', k, justKey);
     }
   }
   const scroll = body.scrollTop;
@@ -478,6 +495,10 @@ function refreshSheet(justKey) {
   body.querySelectorAll('[data-gear] .buy').forEach(b => tap(b, () => {
     const [g, k] = b.closest('[data-gear]').dataset.gear.split(':');
     if (dispatch({ t: CMD.GEAR, g, k })) { refreshSheet(k); refreshHUD(true); }
+  }));
+  body.querySelectorAll('[data-lvup] .buy').forEach(b => tap(b, () => {
+    const [g, k] = b.closest('[data-lvup]').dataset.lvup.split(':');
+    if (dispatch({ t: CMD.LVUP, g, k })) { refreshSheet(g + k); refreshHUD(true); }
   }));
   body.querySelectorAll('[data-craft] .buy').forEach(b => tap(b, () => {
     const k = b.closest('[data-craft]').dataset.craft;

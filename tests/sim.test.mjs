@@ -5,7 +5,7 @@ import { updatePlayer, updateOrbs, updateDeposit, bindEnemyDamage, breakTile, da
 const damagePlayerX = (p, d) => { p.iframes = 0; damagePlayer(p, d, p.x, p.y + 20); };
 import { updateEnemies, damageEnemy, spawnEnemy, killEnemy } from '../src/game/enemies.js';
 import { updatePlayerGun, updateBullets, updateStructures, updateShells, useMod } from '../src/game/combat.js';
-import { buyUpgrade, buyMod, toggleMod, upgradeCost, applyPerk } from '../src/game/economy.js';
+import { buyUpgrade, buyMod, toggleMod, upgradeCost, applyPerk, beaconLack, levelUp, itemCost } from '../src/game/economy.js';
 import { updateItems, useItem } from '../src/game/items.js';
 import { updateHazards } from '../src/game/hazards.js';
 import { updateThreat, addNoise, nestsInStratum } from '../src/game/threat.js';
@@ -126,6 +126,9 @@ section('Ekonomi');
   const give = () => { for (const k of RES_KEYS) G.store[k] = 9999; };
   ok('başlangıç kazması', G.lvl.drill === 0 && PICK_TIERS[0].name.startsWith('Odun'));
   let dmg = pickDmg(), int = pickInterval();
+  G.lvl.drill = 3; give(); ok('Fener kilidi: son kademeler Fener ister', !buyUpgrade('drill', p) && beaconLack('drill') > 0, `${beaconLack('drill')}`);
+  G.beacons = Array.from({ length: 30 }, (_, i) => i); ok('Fener yakınca kilit açılır', beaconLack('drill') === 0);
+  G.lvl.drill = 0; dmg = pickDmg(); int = pickInterval();
   for (let l = 1; l < PICK_TIERS.length; l++) {
     give(); const cost = upgradeCost('drill'); ok(`kazma ${l} fiyatı var`, !!cost && Object.keys(cost).length > 0);
     ok(`kazma ${l} alınır`, buyUpgrade('drill', p) && G.lvl.drill === l);
@@ -585,17 +588,17 @@ section('Kalıntılar');
 // ---------- 16. derin cevherler ----------
 section('Derin cevherler');
 {
-  const g = generate(3, {}); const bands = [0, 0, 0, 0, 0]; let wrong = 0;
-  for (let r = GROUND_ROW; r < ROWS; r++) for (let c = 0; c < COLS; c++) { const d = TD[g.map[r * COLS + c]]; const i = DEEP_ORES.indexOf(d && d.ore); if (i >= 0) { bands[i]++; if (Math.min(4, Math.floor(Math.floor((r - GROUND_ROW) / STRATUM_ROWS) / 4)) !== i) wrong++; } }
-  ok('her bantta kendi derin cevheri var', bands.every(n => n >= 3) && wrong === 0, bands.join(',') + ' / ' + wrong);
+  const g = generate(3, {}); const nb = Math.min(DEEP_ORES.length, Math.ceil(STRATA_COUNT / 4)), bands = DEEP_ORES.map(() => 0); let wrong = 0;
+  for (let r = GROUND_ROW; r < ROWS; r++) for (let c = 0; c < COLS; c++) { const d = TD[g.map[r * COLS + c]]; const i = DEEP_ORES.indexOf(d && d.ore); if (i >= 0) { bands[i]++; if (Math.min(DEEP_ORES.length - 1, Math.floor(Math.floor((r - GROUND_ROW) / STRATUM_ROWS) / 4)) !== i) wrong++; } }
+  ok('her bantta kendi derin cevheri var', bands.slice(0, nb).every(n => n >= 3) && wrong === 0, bands.join(',') + ' / ' + wrong);
   fresh(900); const p = G.player;
   ok('usta işi cevhersiz alınamaz', !buyUpgrade('akikKalkan', p));
-  G.store.akik = 3; G.store.gold = 10;
+  Object.assign(G.store, UPGRADES.akikKalkan.costs[0]);
   ok('usta işi alınır', buyUpgrade('akikKalkan', p) && G.lvl.akikKalkan === 1 && G.store.akik === 0 && !upgradeCost('akikKalkan'));
   const hp0 = p.hp; damagePlayerX(p, 20); ok('Akik Kalkan darbeyi emer', p.hp === hp0 && p.shieldT > 0);
   damagePlayerX(p, 20); ok('kalkan dolarken darbe işler', p.hp === hp0 - 20);
-  G.store.yesim = 3; G.store.iron = 8; const m0 = p.maxHp; buyUpgrade('muska', p); ok('Yeşim Muska can verir', p.maxHp === m0 + 30);
-  G.store.yildiz = 3; G.store.crystal = 10; const d0 = pickDmg(); buyUpgrade('yildizCekirdek', p); ok('Yıldız Çekirdeği kazmayı güçlendirir', Math.abs(pickDmg() - d0 * 1.4) < 1e-9);
+  Object.assign(G.store, UPGRADES.muska.costs[0]); const m0 = p.maxHp; buyUpgrade('muska', p); ok('Yeşim Muska can verir', p.maxHp === m0 + 30);
+  Object.assign(G.store, UPGRADES.yildizCekirdek.costs[0]); const d0 = pickDmg(); buyUpgrade('yildizCekirdek', p); ok('Yıldız Çekirdeği kazmayı güçlendirir', Math.abs(pickDmg() - d0 * 1.4) < 1e-9);
   p.bag.opal = 2; ok('çanta derin cevheri sayar', bagCount(p) >= 2);
   ok('derin cevher Öz verir', ozForRun({ maxDepth: 0, nests: 0, beacons: 0, chests: 0, victory: false, collected: { yildiz: 2 } }) === 10);
 }
@@ -730,6 +733,32 @@ section('Yönetmen ve derinlik ölçeği');
   ok('dalga duyurulur', hordes >= 1, `${hordes}`);
   ok('dalgadan sonra nefes arası', rest);
   ok('gruplar numaralı', G.threat.dir.sid >= 4, `${G.threat.dir.sid}`);
+}
+
+section('Market');
+{
+  fresh(1200); const p = G.player; const give = () => { for (const k of RES_KEYS) G.store[k] = 99999; };
+  // fiyatlar katlanır: son seviye ilkinden çok pahalı
+  const sum = c => Object.values(c).reduce((a, b) => a + b, 0);
+  for (const k of ['drill', 'blaster', 'armor', 'bag']) { const cs = UPGRADES[k].costs; ok(`${k} fiyatı katlanır`, sum(cs[cs.length - 1]) > sum(cs[0]) * 40, `${sum(cs[0])} → ${sum(cs[cs.length - 1])}`); }
+  ok('Silah Gücü 15 seviye', UPGRADES.blaster.costs.length === 15 && UPGRADES.blaster.dmg.length === 16);
+  // silah ustalığı: sahip olmadan geliştirilmez, seviye hasarı artırır
+  give(); ok('sahip olunmayan silah geliştirilmez', !levelUp('w', 'sacma', p));
+  const { updatePlayerGun: _g } = await import('../src/game/combat.js');
+  ok('blaster ustalığı', levelUp('w', 'blaster', p) && levelUp('w', 'blaster', p) && G.gear.wLvl.blaster === 2);
+  for (let i = 0; i < 5; i++) levelUp('w', 'blaster', p); ok('ustalık sınırı', G.gear.wLvl.blaster === 5);
+  // alet seviyesi: kurulu aletin canı da artar
+  shaft(8, GROUND_ROW + 6); p.x = 8 * TILE + 8; p.y = (GROUND_ROW + 4) * TILE + 8; p.px = p.x; p.py = p.y;
+  G.items.turret = 1; placeBuild('turret', p); const s0 = G.structures[0], m0 = s0.maxHp;
+  ok('alet seviyesi', levelUp('t', 'turret', p) && G.gear.tLvl.turret === 1 && s0.maxHp > m0);
+  G.meta.schem = []; ok('şemasız alet geliştirilmez', !levelUp('t', 'mortar', p));
+  // üretim fiyatı derinlikle artar
+  const c0 = itemCost('medkit').water; G.maxStratum = 20; ok('üretim fiyatı derinde artar', itemCost('medkit').water > c0 * 2, `${c0} → ${itemCost('medkit').water}`);
+  // kayıt: ustalık ve alet seviyesi korunur
+  const g2 = deserialize(JSON.parse(JSON.stringify(serialize())));
+  ok('ustalık kayıtla gelir', g2.gear.wLvl.blaster === 5 && g2.gear.tLvl.turret === 1);
+  // test düğmesi Fener kilidini de açar
+  fresh(1201); G.lvl.blaster = 10; testFunds(G.player); ok('test düğmesi kilidi açar', beaconLack('blaster') === 0 && buyUpgrade('blaster', G.player));
 }
 
 console.log(`\n${checks - fails}/${checks} kontrol geçti${fails ? `, ${fails} HATA` : ''}`);

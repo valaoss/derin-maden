@@ -2,10 +2,10 @@
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_ROW } from '../config.js';
 import { T } from '../data/tiles.js';
-import { UPGRADES, BUILDS, PERKS, ITEMS, MODS, DEPLOY_MAX, WEAPONS, PICK_TYPES, RES_KEYS, SCHEMATICS } from '../data/balance.js';
+import { UPGRADES, BUILDS, PERKS, ITEMS, MODS, DEPLOY_MAX, WEAPONS, PICK_TYPES, RES_KEYS, SCHEMATICS, WEAPON_UP, TOOL_UP, ITEM_SCALE, beaconReq } from '../data/balance.js';
 import { G, App } from './state.js';
 import { tileAt } from '../world/map.js';
-import { makeStructure, recompute, hasPerk, isUnlocked, isLocal, modSlots, teamHas } from './run.js';
+import { makeStructure, recompute, hasPerk, isUnlocked, isLocal, modSlots, teamHas, weaponLvl, toolLvl } from './run.js';
 import { sparks, ring, dust } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
 import { emit } from '../core/events.js';
@@ -17,9 +17,11 @@ export function upgradeCost(key) {
   const u = UPGRADES[key], l = G.lvl[key];
   return l < u.costs.length ? u.costs[l] : null;
 }
+// Fener kilidi: bu seviye için gereken ve eksik Fener sayısı (0: açık)
+export function beaconLack(key) { return G.testUnlock ? 0 : Math.max(0, beaconReq(key, G.lvl[key]) - G.beacons.length); }
 export function buyUpgrade(key, p = G.player) {
   const c = upgradeCost(key);
-  if (!c || !canAfford(c)) { if (isLocal(p)) sfx.deny(); return false; }
+  if (!c || !canAfford(c) || beaconLack(key) > 0) { if (isLocal(p)) sfx.deny(); return false; }
   pay(c); G.lvl[key]++; recompute();
   sfx.buy(); if (isLocal(p)) haptic(15);
   ring(p.x, p.y, '#f2c14e', 18); sparks(p.x, p.y, '#ffe79a', 10, 70);
@@ -49,6 +51,20 @@ export function toggleMod(k, p = G.player) {
 }
 
 // Kazma/silah türü: sahip değilse satın al (ekip), sonra komutu veren madenciye tak
+// silah ustalığı ve alet seviyesi: ekip ortak, her biri kendi seviyesini alır
+export function weaponUpCost(k) { const l = weaponLvl(k); return WEAPONS[k] && G.gear.wOwn.includes(k) && l < WEAPON_UP.max ? WEAPON_UP.costs[l] : null; }
+export function toolUpCost(k) { const l = toolLvl(k); return BUILDS[k] && isUnlocked(k) && l < TOOL_UP.max ? TOOL_UP.costs[l] : null; }
+export function levelUp(kind, k, p = G.player) {
+  const w = kind === 'w', c = w ? weaponUpCost(k) : toolUpCost(k);
+  if (!c || !canAfford(c)) { if (isLocal(p)) sfx.deny(); return false; }
+  pay(c); const L = w ? G.gear.wLvl : G.gear.tLvl; L[k] = (L[k] | 0) + 1;
+  if (!w) for (const s of G.structures) if (s.type === k) { const m = makeStructure(k, s.c, s.r).maxHp; s.hp += m - s.maxHp; s.maxHp = m; }
+  sfx.buy(); if (isLocal(p)) haptic(15);
+  ring(p.x, p.y, '#ffd24a', 20); sparks(p.x, p.y, '#ffe79a', 12, 80);
+  emit('gearChanged', { kind: w ? 'wl' : 'tl', k, pi: p.i });
+  return true;
+}
+
 export function gearPick(kind, k, p = G.player) {
   const w = kind === 'w', D = w ? WEAPONS : PICK_TYPES, own = w ? G.gear.wOwn : G.gear.pOwn, d = D[k];
   if (!d) return false;
@@ -67,6 +83,7 @@ export function gearPick(kind, k, p = G.player) {
 export const TEST_FUNDS = 99999;
 export function testFunds(p = G.player) {
   for (const k of RES_KEYS) G.store[k] = TEST_FUNDS;
+  G.testUnlock = true;
   G.meta.schem = SCHEMATICS.map(s => s.key);
   sfx.buy(); ring(p.x, p.y, '#f2c14e', 22);
   emit('store'); emit('gearChanged', { kind: 'test', pi: p.i });
@@ -106,15 +123,21 @@ export function pickupBuild(i, p = G.player) {
 }
 
 // Üretim: kaynak -> kemerdeki eşya
+// üretim fiyatı ulaşılan en derin biyomla artar
+export function itemCost(key) {
+  const c = ITEMS[key].cost, m = 1 + ITEM_SCALE * (G.maxStratum | 0), out = {};
+  for (const k in c) out[k] = Math.ceil(c[k] * m);
+  return out;
+}
 export function craftState(key) {
   const d = ITEMS[key];
   if (!d || !isUnlocked(key)) return 'locked';
   if (G.items[key] >= d.max) return 'full';
-  return canAfford(d.cost) ? 'ok' : 'poor';
+  return canAfford(itemCost(key)) ? 'ok' : 'poor';
 }
 export function craftItem(key, p = G.player) {
   if (craftState(key) !== 'ok') { if (isLocal(p)) sfx.deny(); return false; }
-  pay(ITEMS[key].cost); G.items[key]++; G.stats.crafted++;
+  pay(itemCost(key)); G.items[key]++; G.stats.crafted++;
   sfx.craft(); if (isLocal(p)) haptic(12);
   emit('crafted', key);
   return true;

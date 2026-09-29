@@ -3,7 +3,7 @@
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y, GROUND_ROW, PLAYER_MIN_Y, WORLD_W, BASE_X, BASE_Y, stratumOfRow, depthOfY } from '../config.js';
 import { T, TD, isMineable, isPlain } from '../data/tiles.js';
-import { PLAYER, UPGRADES, PERKS, RES_KEYS, PICK_TIERS, RELIC_OF_BIOME, DEEP_ORES, DIG_DEPTH, ADREN } from '../data/balance.js';
+import { PLAYER, UPGRADES, PERKS, RES_KEYS, PICK_TIERS, RELIC_OF_BIOME, DEEP_ORES, DIG_DEPTH, ADREN, KEHRIBAR } from '../data/balance.js';
 import { RES_COL } from '../data/palette.js';
 import { G, App, biomeOf } from './state.js';
 import { tileAt, solidAt, setTile, damageTile, matOf } from '../world/map.js';
@@ -101,6 +101,11 @@ function updateOne(p, dt) {
   if (p.shieldT > 0) p.shieldT -= dt;
   if (p.barrierT > 0 && (p.barrierT -= dt) <= 0) p.barrier = 0;
   if (p.adrenT > 0) p.adrenT -= dt;
+  // Kehribar Kalp: 20 sn'de bir kalkan dolar
+  if (G.lvl.kehribarKalp && !p.dead && (p.amberT = (p.amberT || 0) - dt) <= 0) {
+    p.amberT = KEHRIBAR.cd;
+    if (p.barrier < KEHRIBAR.hp) { p.barrier = KEHRIBAR.hp; p.barrierT = KEHRIBAR.cd; ring(p.x, p.y, '#ffb040', 16); sparks(p.x, p.y, '#ffd890', 8, 60); }
+  }
   if (p.webT > 0) p.webT -= dt;
   if (p.burnT > 0) { p.burnT -= dt; p.burnTick = (p.burnTick || 0) - dt; if (p.burnTick <= 0) { p.burnTick = 0.5; poisonPlayer(p, 2); } }
   // kanama (Kan Sülüğü ısırığı): yavaş can kaybı, kırmızı damlalar
@@ -494,6 +499,7 @@ export function damagePlayer(p, amount, sx, sy) {
     if (hear(p)) sfx.chirp();
     return;
   }
+  if (G.lvl.elmasDeri) amount *= 0.75;
   // Kalkan Hücresi: darbeyi önce kalkan emer
   if (p.barrier > 0) {
     const a = Math.min(p.barrier, amount); p.barrier -= a; amount -= a;

@@ -1,6 +1,6 @@
 // Sefer oluşturma, türetilmiş değerler ve kayıt/yükleme.
 import { COLS, ROWS, TILE, GROUND_ROW, BASE_X, BASE_Y, CENTER_COL, STRATUM_ROWS, stratumOfRow, PLAY_MIN_COL, PLAY_MAX_COL } from '../config.js';
-import { UPGRADES, PLAYER, BUILDS, ITEMS, ITEM_KEYS, SCHEMATICS, CONTRACTS, kademeMods, MOD_SLOTS, PICK_TIERS, ROLES, RES_KEYS, MASTER_KEYS, PICK_TYPES, WEAPONS, ADREN } from '../data/balance.js';
+import { UPGRADES, PLAYER, BUILDS, ITEMS, ITEM_KEYS, SCHEMATICS, CONTRACTS, kademeMods, MOD_SLOTS, PICK_TIERS, ROLES, RES_KEYS, MASTER_KEYS, PICK_TYPES, WEAPONS, ADREN, TOOL_UP, WEAPON_UP, BUILD_KEYS } from '../data/balance.js';
 import { T, TD } from '../data/tiles.js';
 import { makeThreat, scanNests } from './threat.js';
 import { makeEvents } from './events.js';
@@ -83,7 +83,7 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
     store: emptyRes(), collected: emptyRes(),
     lvl: { drill: Math.min(2, ml.keskinUc | 0), sharp: 0, swing: 0, bag: 0, armor: 0, blaster: Math.min(2, ml.ayarliBl | 0), lamp: 0, ...Object.fromEntries(MASTER_KEYS.map(k => [k, 0])) },
     perks: [], items: emptyItems(), perkOffer: null,
-    gear: { owned: [], eq: [], cd: {}, active: {}, wOwn: ['blaster'], pOwn: ['std'] },
+    gear: { owned: [], eq: [], cd: {}, active: {}, wOwn: ['blaster'], pOwn: ['std'], wLvl: {}, tLvl: {} },
     kademe, mods, daily, contracts: [],
     bombs: [], rocks: [], falls: [], gas: [], shells: [], hazT: 0,
     structures: [], enemies: [], bullets: [], ebullets: [], orbs: [], particles: [], pIdx: 0, flashes: [], lightSrc: [],
@@ -142,7 +142,7 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
 
 export function makeStructure(type, c, r) {
   const b = BUILDS[type];
-  const hp = Math.round(b.hp * (1 + 0.3 * ((G.meta.lv || {}).tahkimat | 0)) * (teamHas('muhendis') ? ROLES.muhendis.buildHp : 1));
+  const hp = Math.round(b.hp * (1 + 0.3 * ((G.meta.lv || {}).tahkimat | 0)) * (teamHas('muhendis') ? ROLES.muhendis.buildHp : 1) * (1 + TOOL_UP.hp * toolLvl(type)));
   return { type, c, r, x: c * TILE + 8, y: r * TILE + 14, hp, maxHp: hp, cd: 0.5, aim: -Math.PI / 2, buildT: 0.5, hurtT: 0 };
 }
 
@@ -154,6 +154,10 @@ export function teamHas(role) { return G.players.some(p => p.role === role); }
 export function lastStand(p) { return (hasPerk('sonDirenis') && p.hp < p.maxHp * 0.35 ? 2 : 1) * (p.adrenT > 0 ? ADREN.dmg : 1); }
 export function pickType(p = G.player) { return PICK_TYPES[p && p.pk] || PICK_TYPES.std; }
 export function weaponOf(p = G.player) { return WEAPONS[p && p.wpn] || WEAPONS.blaster; }
+export function weaponLvl(k) { return Math.min(WEAPON_UP.max, (G.gear.wLvl && G.gear.wLvl[k]) | 0); }
+export function toolLvl(k) { return Math.min(TOOL_UP.max, (G.gear.tLvl && G.gear.tLvl[k]) | 0); }
+// alet hasarı: kendi seviyesi + Silah Gücü (aletler derinde de işe yarasın)
+export function toolDmgMul(k) { return (1 + TOOL_UP.dmg * toolLvl(k)) * (1 + 0.15 * G.lvl.blaster); }
 
 // Seviye/perk/meta'ya bağlı değerler
 export function recompute(fill = false) {
@@ -190,7 +194,7 @@ function unb64(s) { const b = atob(s), u = new Uint8Array(b.length); for (let i 
 export function serialize() {
   const g = G;
   return {
-    v: 8, seed: g.seed, rng: g.rng, heartRow: g.heartRow, order: g.order, map: b64(g.map), rev: b64(g.rev), buried: b64(g.buried), bhp: g.bhp, gear: { owned: g.gear.owned, eq: g.gear.eq, wOwn: g.gear.wOwn, pOwn: g.gear.pOwn },
+    v: 8, seed: g.seed, rng: g.rng, heartRow: g.heartRow, order: g.order, map: b64(g.map), rev: b64(g.rev), buried: b64(g.buried), bhp: g.bhp, gear: { owned: g.gear.owned, eq: g.gear.eq, wOwn: g.gear.wOwn, pOwn: g.gear.pOwn, wLvl: g.gear.wLvl, tLvl: g.gear.tLvl },
     base: { hp: g.base.hp }, bag: g.player.bag, store: g.store, collected: g.collected, lvl: g.lvl, perks: g.perks,
     items: g.items, structures: g.structures.map(s => ({ type: s.type, c: s.c, r: s.r, hp: s.hp })),
     kademe: g.kademe, daily: g.daily, contracts: g.contracts,
@@ -206,8 +210,10 @@ export function deserialize(d) {
   g.buried = d.buried ? unb64(d.buried) : new Uint8Array(COLS * ROWS);
   if (g.map.length !== COLS * ROWS) throw new Error('harita boyutu uyumsuz'); g.bhp = d.bhp || {}; g.heartRow = d.heartRow; if (d.order) g.order = d.order;
   Object.assign(g.player.bag, d.bag); Object.assign(g.store, d.store); Object.assign(g.collected, d.collected);
-  Object.assign(g.lvl, d.lvl); g.perks = d.perks || [];
-  if (d.gear) { g.gear.owned = d.gear.owned || []; g.gear.eq = d.gear.eq || []; g.gear.wOwn = (d.gear.wOwn || ['blaster']).filter(k => WEAPONS[k]); g.gear.pOwn = (d.gear.pOwn || ['std']).filter(k => PICK_TYPES[k]); }
+  for (const k in d.lvl || {}) if (k in g.lvl) g.lvl[k] = Math.max(0, Math.min(UPGRADES[k].costs.length, d.lvl[k] | 0)); g.perks = d.perks || [];
+  if (d.gear) { g.gear.owned = d.gear.owned || []; g.gear.eq = d.gear.eq || []; g.gear.wOwn = (d.gear.wOwn || ['blaster']).filter(k => WEAPONS[k]); g.gear.pOwn = (d.gear.pOwn || ['std']).filter(k => PICK_TYPES[k]);
+    for (const k in d.gear.wLvl || {}) if (WEAPONS[k]) g.gear.wLvl[k] = Math.min(WEAPON_UP.max, d.gear.wLvl[k] | 0);
+    for (const k in d.gear.tLvl || {}) if (BUILD_KEYS.includes(k)) g.gear.tLvl[k] = Math.min(TOOL_UP.max, d.gear.tLvl[k] | 0); }
   for (const k of ITEM_KEYS) if (d.items && d.items[k]) g.items[k] = d.items[k] | 0;
   if (d.contracts) g.contracts = d.contracts;
   g.structures = (d.structures || []).filter(s => BUILDS[s.type] && s.c !== undefined).map(s => Object.assign(makeStructure(s.type, s.c, s.r), { hp: s.hp, buildT: 0 }));
