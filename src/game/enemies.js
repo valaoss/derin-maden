@@ -16,8 +16,10 @@ import { emit } from '../core/events.js';
 import { setTile } from '../world/map.js';
 import { igniteGas } from './hazards.js';
 import { addNoise } from './threat.js';
+import { updateBoss } from './bosses.js';
 
-const ENEMY_COL = { rodent: '#b07a4a', bug: '#5a9a5a', spitter: '#9a5ac0', flyer: '#7a64a0', boomer: '#e070ff', brute: '#8a7c78', worm: '#c07890', boss: '#c24a64',
+const ENEMY_COL = { rodent: '#b07a4a', bug: '#5a9a5a', spitter: '#9a5ac0', flyer: '#7a64a0', boomer: '#e070ff', brute: '#8a7c78', worm: '#c07890',
+  karakok: '#78b43c', kavurgan: '#ff6a1a', otegoz: '#b080ff', sultan: '#ffd870', ezeli: '#fff4c0',
   glarer: '#ffe79a', lurker: '#6a8a5a', howler: '#8a5a7a', shade: '#4a3a6a',
   spider: '#6a4a8a', spiderling: '#8a6aaa', broodmother: '#5a2a6a', frostbat: '#9ad8ff', skitter: '#d0c0a0', magmite: '#ff7a3a', voidling: '#7a6aff', ogolem: '#4a3e68',
   quickling: '#c8d8e4', droplet: '#c8d8e4', voltbat: '#3a8aff', gilded: '#ffd870', sporeling: '#a8f070', mirrorling: '#d8f8ff', titanling: '#7a9a78', chronoling: '#ffd890', leech: '#c02a30', echoer: '#8a86b0', seraph: '#fff4e8' };
@@ -29,7 +31,7 @@ export function spawnEnemy(type, x, y, wave) {
   const e = {
     type, d, x, y, px: x, py: y, hp, maxHp: hp, r: d.r, face: 1, anim: rnd() * 4,
     hitT: 0, kx: 0, ky: 0, atkCd: 0.6, fireCd: 1 + rnd(), emergeT: 0.9, wob: rnd() * 6,
-    summonT: 5, stuckT: 0, lastC: -1, lastR: -1, slowT: 0, trail: d.burrow ? [] : null,
+    stuckT: 0, lastC: -1, lastR: -1, slowT: 0, trail: d.burrow ? [] : null,
     wind: 0, lunge: 0, dieT: 0, lastF: 0, vx: 0, vy: 0,
     blindCd: 2 + rnd() * 2, flashT: 0, tongue: 0, tongueCd: 1.5, tx: 0, ty: 0, howlCd: 2 + rnd() * 2, howlT: 0,
     burnT: 0, burnTick: 0, blinkCd: 1.5 + rnd() * 2, blinkT: 0, broodT: d.brood || 0, elite: false, scale: 1, dmgMul: 1, breathe: rnd() * 6, lostT: 0,
@@ -68,7 +70,7 @@ export function losClear(x0, y0, x1, y1, ignoreBarricade = false) {
 }
 
 export function damageEnemy(e, dmg, dx = 0, dy = 0, knock = 1, silent = false) {
-  if (e.hp <= 0 || e.dead || e.emergeT > 0.3) return;
+  if (e.hp <= 0 || e.dead || e.emergeT > 0.3 || e.under) return;
   const real = dmg * (1 - (e.d.armor || 0));
   e.hp -= real; e.hitT = 0.09; e.hitDx = dx; e.hitDy = dy;
   const kr = 1 - (e.d.knockResist || 0);
@@ -124,8 +126,8 @@ export function killEnemy(e) {
     for (let i = 0; i < e.d.spawnOnDeath[1]; i++) spawnEnemy(e.d.spawnOnDeath[0], e.x + (i ? 4 : -4), e.y, G.wave.num).emergeT = 0.25;
   }
   if (e.d.boom) explode(e.x, e.y, e.d.boom, e.d.dmg * e.dmgMul);
-  if (e.d.boss) { for (let i = 0; i < 5; i++) spawnOrb(e.x, e.y, 'cobalt', true); for (let i = 0; i < 3; i++) spawnOrb(e.x, e.y, 'crystal', true);
-    shake(0.6); hitstop(0.15); ring(e.x, e.y, '#ff8aa8', 40); flashLight(e.x, e.y, 7, 0.6); }
+  if (e.d.boss) { for (const [res, n] of e.d.loot) for (let i = 0; i < n; i++) spawnOrb(e.x, e.y, res, true);
+    shake(0.7); hitstop(0.2); ring(e.x, e.y, e.d.col, 50); ring(e.x, e.y, '#ffffff', 30); sparks(e.x, e.y, e.d.col, 30, 170); flashLight(e.x, e.y, 9, 0.8); haptic([40, 60, 120]); }
   else if (e.d.loot) { for (const [res, n] of e.d.loot) for (let i = 0; i < n; i++) spawnOrb(e.x, e.y, res, true); shake(0.25); }
   if (e.sack > 0) { for (let i = 0; i < e.sack; i++) spawnOrb(e.x, e.y, 'gold', true); ring(e.x, e.y, '#ffd870', 24); emit('toast', { text: 'Çalınan ' + e.sack + ' altın geri düştü', icon: 'gold' }); }
   else if (e.type === 'brute' || e.type === 'worm' || e.type === 'lurker') { spawnOrb(e.x, e.y, 'iron', true); spawnOrb(e.x, e.y, 'iron', true); spawnOrb(e.x, e.y, 'cobalt', true); shake(0.25); }
@@ -193,13 +195,13 @@ export function updateEnemies(dt) {
       continue;
     }
     // sıkışma kurtarma: kutusu kayaya taşmışsa hücre merkezine kay (doğuş/savrulma kenar durumları)
-    if (!e.d.fly && blocked(e, e.x, e.y)) {
+    if (!e.d.fly && !e.under && blocked(e, e.x, e.y)) {
       const cx = Math.floor(e.x / TILE) * TILE + 8, cy = Math.floor(e.y / TILE) * TILE + 8;
       e.x += Math.sign(cx - e.x) * Math.min(Math.abs(cx - e.x), 40 * dt);
       e.y += Math.sign(cy - e.y) * Math.min(Math.abs(cy - e.y), 40 * dt);
     }
     // savrulma
-    if (e.kx || e.ky) {
+    if ((e.kx || e.ky) && !e.under) {
       moveE(e, e.kx * dt, e.ky * dt);
       e.kx *= Math.exp(-10 * dt); e.ky *= Math.exp(-10 * dt);
       if (Math.abs(e.kx) + Math.abs(e.ky) < 2) e.kx = e.ky = 0;
@@ -213,9 +215,10 @@ export function updateEnemies(dt) {
     // yeraltında oyuncu yok ya da çok uzak: izi kaybeder, geri çekilir
     const anyUnder = G.players.some(q => !q.dead && q.y >= GROUND_Y);
     if (!anyUnder || (dp > 420 && !e.d.boss)) { e.lostT += dt; if (e.lostT > (e.d.boss ? 12 : 5)) { retreat(e); continue; } } else e.lostT = 0;
+    if (e.d.boss && updateBoss(e, dt, p, dp)) continue;
 
     // Kaya Devi adımları: kare değişiminde toz ve yer sarsıntısı
-    if (e.type === 'brute' || e.d.boss || e.d.stomp) {
+    if (e.type === 'brute' || (e.d.boss && !e.d.fly) || e.d.stomp) {
       const f = Math.floor(e.anim) % 2;
       if (f !== e.lastF && (Math.abs(e.x - e.px) > 0.05 || Math.abs(e.y - e.py) > 0.05)) { dust(e.x, e.y + e.r, 1, 'rgba(160,140,130,0.45)'); if (nearLocal(e)) shake(e.d.boss ? 0.08 : 0.04); }
       e.lastF = f;
@@ -394,15 +397,6 @@ export function updateEnemies(dt) {
         if (!a.d.boss) moveE(a, -ux * push, -uy * push);
         if (!b.d.boss) moveE(b, ux * push, uy * push);
       }
-    }
-  }
-  // boss çağırması
-  for (const e of es) if (e.d.boss && !e.dead && e.emergeT <= 0) {
-    e.summonT -= dt;
-    if (e.summonT <= 0) {
-      e.summonT = 6;
-      for (let k = 0; k < 2; k++) spawnEnemy('rodent', Math.floor(e.x / TILE) * TILE + 8 + (k ? 2 : -2), Math.floor(e.y / TILE) * TILE + 8, G.wave.num).emergeT = 0.4;
-      ring(e.x, e.y, '#c24a64', 24); sfx.rumble();
     }
   }
   for (const e of es) {

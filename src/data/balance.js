@@ -144,7 +144,7 @@ export const HAZARD = { fallDelay: 0.9, fallDmg: 22, fallEnemyDmg: 45, gasTime: 
 export const THREAT = {
   decay: 0.9, decayPerLevel: 0.45, surfaceDecay: 9, quietAfter: 1.2, depthMul: 0.1,
   noise: { dig: 0.25, brk: 0.42, ore: 0.35, shot: 0.12, boom: 8, mine: 4, chest: 3 },
-  bossDelay: 4,                     // ölçer tepedeyken Derin Ana'nın uyanmasına kalan süre (sn)
+  bossDelay: 4,                     // ölçer tepedeyken bossun uyanmasına kalan süre (sn)
   range: [7, 13, 20, 30, 45],       // yuvanın uyanma menzili (tile), seviyeye göre (sessizken de yakın yuva tepki verir)
   cd: [8, 3.5, 2.3, 1.5, 1.1],           // yuva çıkarma aralığı (sn)
   cap: [4, 10, 16, 24, 32],          // sahadaki canlı düşman üst sınırı
@@ -161,7 +161,17 @@ export const ENEMIES = {
   boomer:  { name: 'Kristalböcek', hp: 24, speed: 40, dmg: 26, r: 5, boom: 26, cost: 2 },
   brute:   { name: 'Kaya Devi', hp: 140, speed: 20, dmg: 22, r: 8, armor: 0.4, dig: 99, digRate: 5, knockResist: 0.85, cost: 5 },
   worm:    { name: 'Maden Solucanı', hp: 60, speed: 24, dmg: 10, r: 6, armor: 0.2, burrow: true, dig: 99, digRate: 7, knockResist: 0.7, cost: 3 },
-  boss:    { name: 'Derin Ana', hp: 540, speed: 21, dmg: 28, r: 11, armor: 0.3, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0 },
+  // bosslar (bosses.js): ölçer tepede kalınca derinliğe göre biri uyanır; %50 canda öfkelenir
+  karakok:  { name: 'Karakök', title: 'Toprağın Düğümü', col: '#78b43c', hp: 480, speed: 22, dmg: 24, r: 11, armor: 0.3, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0,
+    loot: [['cobalt', 4], ['iron', 4], ['crystal', 2]], lore: 'Madenin ilk kökü. Toprağa dalar, altından çıkar; yerde kök çatlarsa kaç.' },
+  kavurgan: { name: 'Kavurgan', title: 'Kül ve Kemik Ejderi', col: '#ff6a1a', hp: 540, speed: 23, dmg: 26, r: 11, armor: 0.35, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0,
+    loot: [['cobalt', 5], ['crystal', 3], ['gold', 2]], lore: 'Kor katmanında yanan kemik. Nefesi koni, küllü yer patlar; arkasında dur.' },
+  otegoz:   { name: 'Ötegöz', title: 'Boşluğa Bakan', col: '#b080ff', hp: 560, speed: 30, dmg: 22, r: 10, armor: 0.2, fly: true, dig: 99, digRate: 7, knockResist: 1, blink: true, blinkCd: 6, boss: true, cost: 0,
+    loot: [['crystal', 5], ['gold', 3]], lore: 'Karanlığın ötesinden bakar. Küreleri seni kovalar, bakışı çeker; ışınını kayayla kes.' },
+  sultan:   { name: 'Taçsız Sultan', title: 'Altın Sarayın Laneti', col: '#ffd870', hp: 640, speed: 22, dmg: 30, r: 11, armor: 0.45, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0,
+    loot: [['gold', 8], ['crystal', 3]], lore: 'Tacını kaybeden hükümdar. Kayayı yararak hücum eder; hücumdan sonra sersemler.' },
+  ezeli:    { name: 'Ezelî', title: 'Çekirdeğin Rüyası', col: '#fff4c0', hp: 720, speed: 26, dmg: 26, r: 11, armor: 0.3, fly: true, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0,
+    loot: [['gold', 6], ['crystal', 6]], lore: 'Yaratılıştan önce vardı. Işık sütunları iner; halkası geldiğinde kayanın ardına saklan.' },
   // derin katman yaratıkları: her biri farklı bir "sürpriz"
   glarer:  { name: 'Parıldak', hp: 34, speed: 34, dmg: 5, r: 5, fly: true, blind: true, blindRange: 48, blindCd: 4.5, cost: 2.5 },
   lurker:  { name: 'Çekici', hp: 70, speed: 18, dmg: 14, r: 7, armor: 0.25, pull: true, pullRange: 80, cost: 3 },
@@ -190,6 +200,9 @@ export const ENEMIES = {
   echoer:     { name: 'Yankıcı', hp: 95, speed: 32, dmg: 14, r: 6, howl: true, howlRange: 110, howlCd: 5.5, echoNoise: 10, cost: 4 }, // ulumasi ölçeri yükseltir, sürüyü hızlandırır
   seraph:     { name: 'Işık Bekçisi', hp: 120, speed: 42, dmg: 16, r: 5, fly: true, blind: true, blindRange: 52, blindCd: 4, judge: 5, judgeRange: 120, loot: [['crystal', 1]], cost: 5 }, // yargı ışını: nişan alır, kaçmazsan çarpar
 };
+
+// derinlik bandı (her 4 biyom) -> boss
+export const BOSS_BANDS = ['karakok', 'kavurgan', 'otegoz', 'sultan', 'ezeli'];
 
 // Elit: Öfke seviyesinde yuvalardan şansla çıkar (can ×2.2, boyut ×1.25, altın düşürür)
 export const ELITE = { hp: 2.2, dmg: 1.4, scale: 1.25, gold: 3, fromWave: 3 };

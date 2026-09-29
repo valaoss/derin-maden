@@ -24,12 +24,13 @@ import { placeBuild, pickupBuild, craftItem } from '../src/game/economy.js';
 import { STRATA } from '../src/data/palette.js';
 import { COLS, ROWS, GROUND_ROW, GROUND_Y, STRATUM_ROWS, STRATA_COUNT, TILE } from '../src/config.js';
 import { on } from '../src/core/events.js';
+import { bossForY } from '../src/game/bosses.js';
 
 App.settings = { sfx: false, music: false, haptics: false, shake: false };
 App.meta = { lv: {}, tutorialDone: true };
 bindEnemyDamage(damageEnemy);
 let allDown = false; on('allDown', () => { allDown = true; });
-const events = {}; for (const n of ['heart', 'web', 'chill', 'relic', 'stratum', 'modChanged', 'modUsed', 'perkOffer', 'toast', 'threat', 'nestDown', 'beacon', 'bossDown', 'revived', 'event', 'station', 'elevatorDone']) on(n, () => { events[n] = (events[n] || 0) + 1; });
+const events = {}; for (const n of ['heart', 'web', 'chill', 'relic', 'bossPhase', 'bossSpawn', 'stratum', 'modChanged', 'modUsed', 'perkOffer', 'toast', 'threat', 'nestDown', 'beacon', 'bossDown', 'revived', 'event', 'station', 'elevatorDone']) on(n, () => { events[n] = (events[n] || 0) + 1; });
 
 const STEP = 1 / 60;
 let fails = 0, checks = 0;
@@ -179,7 +180,7 @@ section('Uyanış ve yuvalar');
   for (let i = 0; i < 60 * (THREAT.bossDelay + 1); i++) { G.threat.noise = 100; step(); }
   ok('gürültü 100 (sürekli) -> seviye 4', G.threat.level === 4, `${G.threat.level}`);
   ok('seviye olayları yayınlandı', (events.threat | 0) - ev0 >= 4);
-  ok('Derin Ana uyanır', G.enemies.some(e => e.d.boss), G.enemies.map(e => e.type).join(','));
+  ok('boss uyanır', G.enemies.some(e => e.d.boss), G.enemies.map(e => e.type).join(','));
   // yuva yakın oyuncuya düşman çıkarır (uyanış seviyesi)
   fresh(502); const r = G.player;
   const nest = G.nests.slice().sort((a, b) => a.r - b.r)[0];
@@ -422,7 +423,7 @@ section('Asansör');
 section('Performans');
 {
   fresh(77); const p = G.player; shaft(8, GROUND_ROW + 30); p.x = 8 * TILE + 8; p.y = (GROUND_ROW + 1) * TILE + 8; p.px = p.x; p.py = p.y; G.threat.noise = 60; forceFlow();
-  const types = Object.keys(ENEMIES).filter(k => k !== 'boss');
+  const types = Object.keys(ENEMIES).filter(k => !ENEMIES[k].boss);
   for (let i = 0; i < 60; i++) { const e = spawnEnemy(types[i % types.length], 8 * TILE + 8, (GROUND_ROW + 2 + (i % 28)) * TILE + 8, 8); e.emergeT = 0; }
   G.gear.eq = ['chain', 'split', 'boom'];
   const t0 = performance.now(); run(20); const ms = (performance.now() - t0) / (20 * 60);
@@ -509,6 +510,38 @@ section('İmza davranışları');
   { const p = arena(609); const e = spawnEnemy('seraph', p.x + 60, p.y - 10, 3); e.emergeT = 0; e.judgeCd = 0; e.blindCd = 99; const hp0 = p.hp; run(1.5);
     ok('Işık Bekçisi yargı ışını', p.hp < hp0 && p.blindT > 0, `hp ${p.hp}`); }
   ok('yeni düşmanlar deterministik', (() => { const h = []; for (let i = 0; i < 2; i++) { const p = arena(610, 6); for (const t of ['quickling', 'voltbat', 'gilded', 'sporeling', 'mirrorling', 'titanling', 'chronoling', 'leech', 'echoer', 'seraph']) { const e = spawnEnemy(t, p.x + 20 + (h.length * 0), p.y, 4); e.emergeT = 0; } run(6); h.push(hash()); } return h[0] === h[1]; })());
+}
+
+// ---------- 14. bosslar ----------
+section('Bosslar');
+{
+  const rowOf = st => GROUND_ROW + st * STRATUM_ROWS + 10;
+  ok('derinlik bandı -> boss', [[0, 'karakok'], [3, 'karakok'], [5, 'kavurgan'], [9, 'otegoz'], [13, 'sultan'], [18, 'ezeli']].every(([st, k]) => bossForY(rowOf(st) * TILE) === k));
+  // ölçer tepede: en derindeki madencinin bandındaki boss uyanır
+  { fresh(700); const p = G.player; shaft(8, rowOf(9) + 2); p.x = 8 * TILE + 8; p.y = rowOf(9) * TILE + 8; p.px = p.x; p.py = p.y; G.maxStratum = 9; forceFlow();
+    for (let i = 0; i < 60 * (THREAT.bossDelay + 1); i++) { G.threat.noise = 100; step(); }
+    ok('Boşluk bandında Ötegöz uyanır', G.enemies.some(e => e.type === 'otegoz'), G.enemies.filter(e => e.d.boss).map(e => e.type).join(',')); }
+  const arena = (seed, k) => { fresh(seed); const p = G.player; for (let r = GROUND_ROW + 1; r <= GROUND_ROW + 12; r++) for (let c = 3; c <= 13; c++) setTile(c, r, T.AIR);
+    p.x = 8 * TILE + 8; p.y = (GROUND_ROW + 9) * TILE + 8; p.px = p.x; p.py = p.y; p.hp = p.maxHp = 9999; forceFlow();
+    const e = spawnEnemy(k, 8 * TILE + 8, (GROUND_ROW + 4) * TILE + 8, 3); e.emergeT = 0; e.hp = e.maxHp = 1e6; return [p, e]; };
+  for (const k of ['karakok', 'kavurgan', 'otegoz', 'sultan', 'ezeli']) {
+    const [p, e] = arena(710, k); const seen = new Set();
+    for (let i = 0; i < 60 * 12; i++) { step(); if (e.bs && e.bs.act) seen.add(e.bs.act.k); p.hp = Math.max(p.hp, 5000); }
+    ok(`${ENEMIES[k].name}: saldırı döngüsü`, seen.size >= 2 && p.hp < 9999, [...seen].join(','));
+    const ev = events.bossPhase | 0; damageEnemy(e, e.maxHp * 0.6 / (1 - ENEMIES[k].armor), 0, 0, 0); run(0.3);
+    ok(`${ENEMIES[k].name}: %50 canda öfkelenir`, e.bs.phase === 2 && (events.bossPhase | 0) === ev + 1, `faz ${e.bs.phase} ölü ${e.dead} can ${Math.round(e.hp)} emerge ${e.emergeT}`);
+  }
+  // Karakök toprağa dalar: altındayken vurulamaz, altından çıkınca vurur
+  { const [p, e] = arena(720, 'karakok'); e.bs = null; step(); e.bs.cd.spikes = 99; e.bs.cd.burrow = 0; p.y = (GROUND_ROW + 11) * TILE + 8; p.py = p.y;
+    let under = false, hitUnder = false;
+    for (let i = 0; i < 60 * 5; i++) { step(); if (e.under) { under = true; const h = e.hp; damageEnemy(e, 50, 0, 0, 0); if (e.hp !== h) hitUnder = true; } }
+    ok('Karakök toprağa dalar ve çıkar', under && !e.under && !hitUnder && p.hp < 9999, `${under} ${e.under} ${hitUnder} ${p.hp}`); }
+  // Ezelî halkası kayanın arkasına geçmez
+  { const [p, e] = arena(730, 'ezeli'); step(); e.bs.cd.pillars = 99; e.bs.cd.doom = 0;
+    for (let c = 3; c <= 13; c++) setTile(c, GROUND_ROW + 7, T.BEDROCK || T.STONE);
+    p.hp = 9999; e.px = e.x; for (let i = 0; i < 60 * 2.6; i++) { step(); e.x = e.px = 8 * TILE + 8; e.y = e.py = (GROUND_ROW + 4) * TILE + 8; }
+    ok('Kıyamet Halkası siperde vurmaz', p.hp === 9999, `hp ${p.hp}`); }
+  ok('bosslar deterministik', (() => { const h = []; for (let i = 0; i < 2; i++) { arena(740, 'sultan'); spawnEnemy('ezeli', 6 * TILE + 8, (GROUND_ROW + 3) * TILE + 8, 3).emergeT = 0; run(8); h.push(hash()); } return h[0] === h[1]; })());
 }
 
 console.log(`\n${checks - fails}/${checks} kontrol geçti${fails ? `, ${fails} HATA` : ''}`);

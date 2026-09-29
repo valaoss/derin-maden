@@ -41,7 +41,7 @@ export function initUI(root, h) {
     </div>
     <div class="plate" id="wave">${ic('wave', 's')}<span class="l">SESSİZ</span><span class="t"></span></div>
     <div class="plate" id="goal">${ic('base', 's')}<span class="g"></span></div>
-    <div class="plate" id="boss">${ic('skull', 's')}<span>DERİN ANA</span><div class="bar"><i></i></div></div>
+    <div class="plate" id="boss">${ic('skull', 's')}<span class="bn"></span><div class="bar"><i></i></div></div>
     <div class="plate" id="partner">${ic('heart', 's')}<span class="pn">PARTNER</span><div class="bar"><i></i></div><span class="d"></span><span class="ping"></span></div>
   </div>
   <div class="plate" id="netstall">BAĞLANTI BEKLENİYOR…</div>
@@ -103,15 +103,17 @@ export function initUI(root, h) {
     if (lv === 1) { toast('Kıpırtı… bir şey seni duydu', 'wave', true); if (G.tutorial && !G.tutorial.noiseSeen) { G.tutorial.noiseSeen = true; coach('Kazma gürültü yapar. Gürültü yuvaları uyandırır: sessiz kal ya da yuvayı yık.', '', 7); } }
     else if (lv === 2) banner('UYANIŞ', 'YUVALAR UYANDI', true);
     else if (lv === 3) banner('ÖFKE', 'ELİTLER GELİYOR', true);
-    else if (lv === 4) banner('DERİN ANA UYANDI', 'SENİ AVLIYOR', true);
+    else if (lv === 4) { const B = ENEMIES[G.threat.bossType]; banner(B ? up(B.name) : 'AV', B ? up(B.title) : 'SENİ AVLIYOR', true); }
   });
   on('nestDown', d => {
     toast(d.left ? `Yuva yıkıldı · bu biyomda ${d.left} kaldı` : 'Yuva yıkıldı', 'wave');
     if (G.tutorial && !G.tutorial.done) { G.tutorial.done = true; App.meta.tutorialDone = true; saveMeta(App.meta); coach('Harika. Derine in: yeni katmanlar, daha değerli cevherler.', '', 5); }
   });
   on('beacon', s => banner('BİYOM TEMİZ', 'FENER DİKİLDİ · ' + STRATA[biomeOf(s)].name.toUpperCase()));
-  on('bossDown', () => banner('DERİN ANA DÜŞTÜ', 'MADEN SUSUYOR'));
-  on('bossWarn', () => { banner('DERİN ANA UYANIYOR', 'HEMEN SUS YA DA KAÇ', true); });
+  on('bossDown', k => banner((ENEMIES[k] ? up(ENEMIES[k].name) : 'BOSS') + ' DÜŞTÜ', 'MADEN SUSUYOR'));
+  on('bossWarn', k => banner((ENEMIES[k] ? up(ENEMIES[k].name) : 'BİR ŞEY') + ' UYANIYOR', 'HEMEN SUS YA DA KAÇ', true));
+  on('bossSpawn', k => { const B = ENEMIES[k]; if (B) setTimeout(() => toast(B.lore, 'skull', true), 2600); });
+  on('bossPhase', k => { const B = ENEMIES[k]; if (B) banner(up(B.name), 'ÖFKELENDİ', true); });
   on('event', d => { const e = EVENTS[d.k]; if (!e) return; if (d.phase === 'warn') banner(e.name, e.sub, true); else if (d.k === 'karanlik') toast('Fenerin kısıldı · ' + e.t + ' sn', 'lamp', true); });
   on('revived', () => toast('Ayaktasın', 'heart'));
   on('ping', d => { if (!G.mp) return; const p = G.players[d.pi]; if (d.pi !== G.localIdx) { toast((p && p.name || 'Partner') + ' işaret bıraktı', 'hand'); sfx.ping(); } else sfx.click(); });
@@ -230,8 +232,9 @@ export function refreshHUD(force = false) {
   const gtxt = st < 0 ? (G.beacons.length ? `FENER ${G.beacons.length}/${STRATA_COUNT}` : 'DERİNE İN') : G.beacons.includes(gs) ? 'BİYOM TEMİZ' : tot ? `YUVA ${tot - left}/${tot}` : 'YUVA ARA';
   set(0, 'goal', gtxt + '|' + (st >= 0 && !G.beacons.includes(gs) && left === 0 && tot === 0 ? 'x' : ''), () => { $('#goal .g').textContent = gtxt; $('#goal').classList.toggle('done', st >= 0 && G.beacons.includes(gs)); });
   const boss = G.enemies.find(e => e.d.boss && !e.dead);
-  set(0, 'boss', boss ? Math.ceil(boss.hp) : -1, v => {
-    $('#boss').classList.toggle('on', v >= 0);
+  set(0, 'boss', boss ? boss.type + Math.ceil(boss.hp) : -1, v => {
+    $('#boss').classList.toggle('on', v !== -1);
+    if (boss) $('#boss .bn').textContent = up(boss.d.name);
     if (boss) $('#boss .bar > i').style.width = `calc(${boss.hp / boss.maxHp * 100}% - 4px)`;
   });
 
@@ -615,6 +618,8 @@ export function showRoom(L) {
 }
 
 // ---------------- menü ----------------
+const up = s => s.toLocaleUpperCase('tr-TR');
+
 export function showMenu(hasSave) {
   const m = App.meta, S = App.settings;
   const s = $('#menu');

@@ -121,7 +121,7 @@ export function updateItems(dt) {
   for (const m of ms) {
     if (m.arm > 0) { m.arm -= dt; if (m.arm <= 0) sfx.arm(); ms[j++] = m; continue; }
     let boom = false;
-    for (const e of G.enemies) if (!e.dead && e.emergeT <= 0 && Math.hypot(e.x - m.x, e.y - m.y) < MINE.trigger + e.r) { boom = true; break; }
+    for (const e of G.enemies) if (!e.dead && e.emergeT <= 0 && !e.under && Math.hypot(e.x - m.x, e.y - m.y) < MINE.trigger + e.r) { boom = true; break; }
     if (boom) { mineBlast(m); continue; }
     ms[j++] = m;
   }

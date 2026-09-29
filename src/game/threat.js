@@ -1,5 +1,5 @@
 // Uyanış: dalga yok, zamanlayıcı yok. Kazma, ateş ve patlama gürültü üretir; gürültü yuvaları uyandırır.
-// Seviyeler: 0 sessiz · 1 kıpırtı · 2 uyanış · 3 öfke · 4 Derin Ana (seni avlar).
+// Seviyeler: 0 sessiz · 1 kıpırtı · 2 uyanış · 3 öfke · 4 boss (derinliğe göre biri uyanır, seni avlar).
 // Yuvalar haritaya gömülü kovanlardır (T.NEST). Uyanık yuva yakınındaki oyuncuya düşman çıkarır; yıkılınca ganimet ve sessizlik.
 // Bir biyomdaki tüm yuvalar yıkılınca Fener dikilir (kalıcı ilerleme).
 import { rnd } from '../core/rng.js';
@@ -10,14 +10,15 @@ import { G, biomeOf } from './state.js';
 import { STRATA } from '../data/palette.js';
 import { tileAt, setTile } from '../world/map.js';
 import { spawnEnemy, aliveEnemies, makeElite } from './enemies.js';
+import { bossForY } from './bosses.js';
 import { spawnOrb } from './player.js';
 import { debris, dust, ring, sparks, shake, flashLight } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
 import { emit } from '../core/events.js';
 
-export const LEVEL_NAMES = ['SESSİZ', 'KIPIRTI', 'UYANIŞ', 'ÖFKE', 'DERİN ANA'];
+export const LEVEL_NAMES = ['SESSİZ', 'KIPIRTI', 'UYANIŞ', 'ÖFKE', 'AV'];
 
-export function makeThreat() { return { noise: 0, level: 0, quietT: 0, seepT: 0, bossUp: false, bossCd: 0, peak: 0, fullT: 0, warned: false }; }
+export function makeThreat() { return { noise: 0, level: 0, quietT: 0, seepT: 0, bossUp: false, bossCd: 0, peak: 0, fullT: 0, warned: false, bossType: '' }; }
 
 // haritadaki yuvaları listele (sefer başı ve yükleme)
 export function scanNests() {
@@ -118,9 +119,11 @@ function spawnBoss(p) {
     const d = TD[tileAt(c, r)];
     if (d.unbreakable || d.chest || d.heart || d.nest) continue;
     if (d.solid) setTile(c, r, T.AIR);
-    const e = spawnEnemy('boss', c * TILE + 8, r * TILE + 8, hpTier(G.maxStratum, 4));
-    e.emergeT = 1.4;
-    debris(e.x, e.y, 'stone', 16); ring(e.x, e.y, '#c24a64', 30); shake(0.5); flashLight(e.x, e.y, 6, 0.6);
+    const type = G.threat.bossType || bossForY(p.y);
+    const e = spawnEnemy(type, c * TILE + 8, r * TILE + 8, hpTier(G.maxStratum, 4));
+    e.emergeT = 1.4; G.threat.bossType = type;
+    debris(e.x, e.y, 'stone', 16); ring(e.x, e.y, e.d.col, 30); shake(0.5); flashLight(e.x, e.y, 6, 0.6);
+    emit('bossSpawn', type);
     sfx.alarm(); haptic([40, 60, 40, 60, 80]);
     return true;
   }
@@ -139,11 +142,14 @@ export function updateThreat(dt) {
   if (anyUnder && G.players.every(p => p.dead || !p.moving)) decay *= 1.6;
   if (!bossAlive) th.noise = Math.max(0, th.noise - decay * dt);
   // boss öldü: ölçer sakinleşir
-  if (th.bossUp && !bossAlive) { th.bossUp = false; th.noise = Math.min(th.noise, THREAT.afterBoss); th.bossCd = 20; G.stats.bosses++; emit('bossDown'); }
+  if (th.bossUp && !bossAlive) { th.bossUp = false; th.noise = Math.min(th.noise, THREAT.afterBoss); th.bossCd = 20; G.stats.bosses++; emit('bossDown', th.bossType); th.bossType = ''; }
   if (th.bossCd > 0) th.bossCd -= dt;
-  // tepe: Derin Ana hemen değil, birkaç saniye sonra uyanır (sessizleşme şansı)
-  if (lvBefore === 4 || levelOf(th.noise) === 4) { th.fullT += dt; if (!th.warned) { th.warned = true; emit('bossWarn'); } }
-  else { th.fullT = 0; if (th.noise < 90) th.warned = false; }
+  // tepe: boss hemen değil, birkaç saniye sonra uyanır (sessizleşme şansı); hangisi olduğu uyarıda belli olur
+  if (lvBefore === 4 || levelOf(th.noise) === 4) {
+    th.fullT += dt;
+    if (!th.warned) { th.warned = true; const p = deepestUnder(); if (!bossAlive && p) th.bossType = bossForY(p.y); emit('bossWarn', th.bossType); }
+  }
+  else { th.fullT = 0; if (th.noise < 90) { th.warned = false; if (!bossAlive && !th.bossUp) th.bossType = ''; } }
   let lv = Math.min(3, Math.max(levelOf(th.noise), lvBefore));
   if (th.fullT >= THREAT.bossDelay && !th.bossUp && th.bossCd <= 0) lv = 4;
   if (bossAlive) lv = 4;
@@ -157,7 +163,7 @@ export function updateThreat(dt) {
   G.wave.num = lv; G.wave.boss = lv === 4;
 
   const cap = Math.round(THREAT.cap[lv] * (G.mp ? 1.5 : 1));
-  // Derin Ana
+  // boss
   if (lv === 4 && !bossAlive && th.bossCd <= 0) {
     const p = deepestUnder();
     if (p && spawnBoss(p)) th.bossUp = true; else th.bossCd = 3;

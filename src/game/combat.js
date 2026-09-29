@@ -6,7 +6,7 @@ import { UPGRADES, BUILDS, MODS, BURN, THREAT } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, damageTile } from '../world/map.js';
 import { damageEnemy, losClear, damageStructure, burnEnemy } from './enemies.js';
-import { damagePlayer, webPlayer, breakTile } from './player.js';
+import { damagePlayer, webPlayer, chillPlayer, breakTile, nearestPlayer } from './player.js';
 import { addNoise } from './threat.js';
 import { hasPerk, hear, hasMod, isLocal, roleOf } from './run.js';
 import { sparks, flashLight, particle, ring, shake, debris, hitstop } from './fx.js';
@@ -17,7 +17,7 @@ import { emit } from '../core/events.js';
 function nearestTarget(x, y, range) {
   let best = null, bd = range * range;
   for (const e of G.enemies) {
-    if (e.dead || e.emergeT > 0.2) continue;
+    if (e.dead || e.emergeT > 0.2 || e.under) continue;
     const d = (e.x - x) ** 2 + (e.y - y) ** 2;
     if (d < bd && losClear(x, y, e.x, e.y, true)) { bd = d; best = e; }
   }
@@ -128,7 +128,7 @@ export function updateBullets(dt) {
     if (wall) { sparks(b.x - b.vx * dt * 0.5, b.y - b.vy * dt * 0.5, '#ffd48a', 3, 50); continue; }
     let dead = b.life <= 0;
     if (!dead) for (const e of G.enemies) {
-      if (e.dead || e.emergeT > 0.3 || e === b.hit) continue;
+      if (e.dead || e.emergeT > 0.3 || e.under || e === b.hit) continue;
       if (Math.abs(e.x - b.x) < e.r + 3 && Math.abs(e.y - b.y) < e.r + 3) {
         const s = Math.hypot(b.vx, b.vy) || 1;
         damageEnemy(e, b.dmg, b.vx / s, b.vy / s, b.from === 'p' ? 1 : 0.6);
@@ -138,12 +138,12 @@ export function updateBullets(dt) {
         if (b.fire) { burnEnemy(e, BURN.t); sparks(b.x, b.y, '#ff9a4a', 3, 40); }
         if (b.chain) {
           let best = null, bd = 44 * 44;
-          for (const o of G.enemies) { if (o === e || o.dead || o.emergeT > 0.3) continue; const d2 = (o.x - e.x) ** 2 + (o.y - e.y) ** 2; if (d2 < bd) { bd = d2; best = o; } }
+          for (const o of G.enemies) { if (o === e || o.dead || o.emergeT > 0.3 || o.under) continue; const d2 = (o.x - e.x) ** 2 + (o.y - e.y) ** 2; if (d2 < bd) { bd = d2; best = o; } }
           if (best) { damageEnemy(best, b.dmg * 0.5, 0, 0, 0.3, true); G.zaps.push({ x0: e.x, y0: e.y - 2, x1: best.x, y1: best.y - 2, t: 0.12 }); sparks(best.x, best.y, '#bff4ff', 4, 60); if (hear(G.player, e.x, e.y)) sfx.zap(); }
         }
         if (b.boom) {
           ring(b.x, b.y, '#ffb050', 14); sparks(b.x, b.y, '#ffd48a', 6, 80); flashLight(b.x, b.y, 2.5, 0.12);
-          for (const o of G.enemies) { if (o === e || o.dead || o.emergeT > 0.3) continue; const d = Math.hypot(o.x - b.x, o.y - b.y); if (d < 14 + o.r) damageEnemy(o, b.dmg * 0.6, (o.x - b.x) / (d || 1), (o.y - b.y) / (d || 1), 0.5, true); }
+          for (const o of G.enemies) { if (o === e || o.dead || o.emergeT > 0.3 || o.under) continue; const d = Math.hypot(o.x - b.x, o.y - b.y); if (d < 14 + o.r) damageEnemy(o, b.dmg * 0.6, (o.x - b.x) / (d || 1), (o.y - b.y) / (d || 1), 0.5, true); }
           igniteGas(b.x, b.y, 14);
         }
         if (b.pierce > 0) { b.pierce--; b.hit = e; } else dead = true;
@@ -156,11 +156,14 @@ export function updateBullets(dt) {
 
   const eb = G.ebullets; j = 0;
   for (const b of eb) {
+    // güdümlü (Ötegöz küreleri): en yakın madenciye yavaşça döner
+    if (b.home) { const q = nearestPlayer(b.x, b.y); if (q) { const a = Math.atan2(b.vy, b.vx), s = Math.hypot(b.vx, b.vy); let d = Math.atan2(q.y - 3 - b.y, q.x - b.x) - a; d = Math.atan2(Math.sin(d), Math.cos(d)); const na = a + Math.max(-b.home * dt, Math.min(b.home * dt, d)); b.vx = Math.cos(na) * s; b.vy = Math.sin(na) * s; } }
     b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
-    if (rnd() < 0.5) particle(b.x, b.y, 0, 0, 0.18, b.web ? '#f0f0ff' : '#9af060', 1, 1, 0);
-    if (TD[tileAt(Math.floor(b.x / TILE), Math.floor(b.y / TILE))].solid) { sparks(b.x, b.y, b.web ? '#f0f0ff' : '#9af060', 4, 40); continue; }
+    const bc = b.col || (b.web ? '#f0f0ff' : '#9af060');
+    if (rnd() < 0.5) particle(b.x, b.y, 0, 0, 0.18, bc, 1, 1, 0);
+    if (TD[tileAt(Math.floor(b.x / TILE), Math.floor(b.y / TILE))].solid) { sparks(b.x, b.y, bc, 4, 40); continue; }
     let hitP = false;
-    for (const p of G.players) if (!p.dead && Math.abs(b.x - p.x) < 6 && Math.abs(b.y - p.y) < 7) { damagePlayer(p, b.dmg, b.x, b.y); if (b.web) { webPlayer(p, 1.6); sparks(b.x, b.y, '#f0f0ff', 6, 40); } else sparks(b.x, b.y, '#9af060', 5, 50); hitP = true; break; }
+    for (const p of G.players) if (!p.dead && Math.abs(b.x - p.x) < 6 && Math.abs(b.y - p.y) < 7) { damagePlayer(p, b.dmg, b.x, b.y); if (b.web) webPlayer(p, 1.6); if (b.slow) chillPlayer(p, b.slow); sparks(b.x, b.y, bc, 6, 50); hitP = true; break; }
     if (hitP) continue;
     let hit = false;
     for (const s of G.structures) if (!s.dead && Math.abs(b.x - s.x) < 7 && Math.abs(b.y - s.y) < 7) { damageStructure(s, b.dmg); hit = true; break; }
@@ -174,7 +177,7 @@ export function updateBullets(dt) {
 function mortarTarget(s, b) {
   let best = null, bd = 1e9;
   for (const e of G.enemies) {
-    if (e.dead || e.emergeT > 0.2) continue;
+    if (e.dead || e.emergeT > 0.2 || e.under) continue;
     const d = Math.hypot(e.x - s.x, e.y - s.y);
     if (d < b.minRange || d > b.range) continue;
     if (d < bd) { bd = d; best = e; }
@@ -236,7 +239,7 @@ export function updateStructures(dt) {
         if (s.cd <= 0) {
           s.cd = 0.1 / rate;
           for (const e of G.enemies) {
-            if (e.dead || e.emergeT > 0.2) continue;
+            if (e.dead || e.emergeT > 0.2 || e.under) continue;
             const d = Math.hypot(e.x - s.x, e.y - (s.y - 4));
             if (d > b.range + e.r) continue;
             const ea = Math.atan2(e.y - (s.y - 4), e.x - s.x);
