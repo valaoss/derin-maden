@@ -3,7 +3,7 @@
 import { COLS, ROWS, TILE, GROUND_Y, GROUND_ROW, WORLD_W, WORLD_H, BASE_X, CENTER_COL, STRATUM_ROWS, stratumOfRow } from '../config.js';
 import { T, TD } from '../data/tiles.js';
 import { P, RES_COL, ORE_RAMP, STRATA, MAT_RAMP } from '../data/palette.js';
-import { PICK_TIERS } from '../data/balance.js';
+import { PICK_TIERS, AFFIX } from '../data/balance.js';
 import { G, biomeOf } from '../game/state.js';
 import { SPR, sprCanvas, sprEm, glowSprite, playerSprites, HELMETS } from './sprites.js';
 import { drawTiles, flushDirty } from './tiles.js';
@@ -293,6 +293,17 @@ function drawStationArrow(camX, camY) {
 function drawNestArrows(camX, camY) {
   const vw = view.vw, vh = view.vh, t = G.time;
   const pulse = Math.floor(t * 4) % 2 === 0;
+  // dalga kaynağı: uyarıda ve dalga boyunca turuncu-beyaz yanıp sönen büyük ok ya da halka
+  const D = G.threat.dir;
+  if (D && D.src && (D.phase === 'warn' || D.phase === 'wave')) {
+    const sx = Math.round(clamp(D.src.x - camX, 10, vw - 10)), py = D.src.y - camY;
+    const col = Math.floor(t * 8) % 2 ? '#ffffff' : '#ff8a3a';
+    if (py > vh - 6 || py < 44) {
+      const dir = py > vh - 6 ? 1 : -1, sy = dir > 0 ? vh - 16 : 58, bob = pulse ? 2 : 0;
+      ctx.fillStyle = P.ink; for (let i = 0; i < 11; i++) ctx.fillRect(sx - 11 + i, sy + dir * (i - 5) + bob * dir, 23 - i * 2, 2);
+      ctx.fillStyle = col; for (let i = 0; i < 9; i++) ctx.fillRect(sx - 8 + i, sy + dir * (i - 4) + bob * dir, 17 - i * 2, 1);
+    } else { ctx.globalAlpha = 0.8; ringPx(sx, Math.round(py), 10 + (t * 20) % 14, col, 1); ctx.globalAlpha = 1; }
+  }
   for (const n of G.nests) {
     if (!n.awake || G.buried[n.r * COLS + n.c]) continue;
     const sx = Math.round(clamp(n.x - camX, 8, vw - 8));
@@ -767,6 +778,9 @@ function drawEnemy(e, alpha, camY, vh) {
     ctx.fillStyle = P.ink; ctx.fillRect(cx - 4, cy - 3, 9, 5);
     ctx.fillStyle = '#ffd24a'; ctx.fillRect(cx - 3, cy, 7, 1); ctx.fillRect(cx - 3, cy - 2, 1, 2); ctx.fillRect(cx, cy - 2, 1, 2); ctx.fillRect(cx + 3, cy - 2, 1, 2);
     ctx.fillStyle = '#fff4c0'; ctx.fillRect(cx, cy - 2, 1, 1);
+    // özellikler: tacın altında renkli noktalar; kalkan dolu ise mavi halka
+    if (e.aff) e.aff.forEach((k, i) => { const ax = cx - (e.aff.length - 1) * 2 + i * 4; ctx.fillStyle = P.ink; ctx.fillRect(ax - 1, cy + 3, 3, 3); ctx.fillStyle = AFFIX[k].col; ctx.fillRect(ax, cy + 4, 1, 1); });
+    if (e.shield > 0) { ctx.globalAlpha = 0.35 + 0.5 * e.shield / e.shieldMax; ringPx(ox, oy, Math.max(f.w, f.h) * 0.6 * sy + 2, AFFIX.kalkan.col, Math.floor(G.time * 6) % 2); ctx.globalAlpha = 1; }
   }
   if (e.hp < e.maxHp && !e.d.boss) {
     const w = Math.max(8, f.w - 4), fr = Math.max(0, e.hp / e.maxHp);

@@ -113,6 +113,8 @@ export function initUI(root, h) {
   });
   on('beacon', () => toast('Biyom temiz · fener dikildi', 'lamp'));
   on('bossDown', k => banner((ENEMIES[k] ? up(ENEMIES[k].name) : 'BOSS') + ' DÜŞTÜ', 'MADEN SUSUYOR'));
+  on('horde', () => banner('DALGA GELİYOR', 'OK YÖNÜNE HAZIRLAN', true));
+  on('hordeDone', () => toast('Dalga bitti · kısa bir nefes arası', 'wave'));
   on('bossWarn', k => banner((ENEMIES[k] ? up(ENEMIES[k].name) : 'BİR ŞEY') + ' UYANIYOR', 'HEMEN SUS YA DA KAÇ', true));
   on('bossSpawn', k => { const B = ENEMIES[k]; if (B && once(k)) setTimeout(() => toast(B.lore, 'skull', true), 2600); });
   on('bossPhase', k => { const B = ENEMIES[k]; if (B) banner(up(B.name), 'ÖFKELENDİ', true); });

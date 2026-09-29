@@ -4,7 +4,7 @@
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y, GROUND_ROW, stratumOfRow } from '../config.js';
 import { T, TD } from '../data/tiles.js';
-import { ENEMIES, WAVES, BARRICADE, BUILDS, ELITE, BURN } from '../data/balance.js';
+import { ENEMIES, BARRICADE, BUILDS, ELITE, BURN, AFFIX, AFFIX_KEYS, enemyHpMul, enemyDmgMul } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, solidAt, damageTile, idx, matOf } from '../world/map.js';
 import { FIELD, flowAt, nextStep, FLOW_INF } from '../world/flow.js';
@@ -26,17 +26,18 @@ const ENEMY_COL = { rodent: '#b07a4a', bug: '#5a9a5a', spitter: '#9a5ac0', flyer
   quickling: '#c8d8e4', droplet: '#c8d8e4', voltbat: '#3a8aff', gilded: '#ffd870', sporeling: '#a8f070', mirrorling: '#d8f8ff', titanling: '#7a9a78', chronoling: '#ffd890', leech: '#c02a30', echoer: '#8a86b0', seraph: '#fff4e8' };
 export { ENEMY_COL };
 
-export function spawnEnemy(type, x, y, wave) {
-  const d = ENEMIES[type];
-  const hp = d.hp * WAVES.hpScale(wave) * (G.mods ? G.mods.hp : 1);
+// lv: uyanış seviyesi (0..4); can ve hasar doğduğu biyomun derinliğiyle ölçeklenir
+export function spawnEnemy(type, x, y, lv = 0) {
+  const d = ENEMIES[type], st = Math.max(0, stratumOfRow(Math.floor(y / TILE)));
+  const hp = d.hp * enemyHpMul(st, lv, d.boss) * (G.mods ? G.mods.hp : 1);
   const e = {
     type, d, x, y, px: x, py: y, hp, maxHp: hp, r: d.r, face: 1, anim: rnd() * 4,
     hitT: 0, kx: 0, ky: 0, atkCd: 0.6, fireCd: 1 + rnd(), emergeT: 0.9, wob: rnd() * 6,
     stuckT: 0, lastC: -1, lastR: -1, slowT: 0, trail: d.burrow ? [] : null,
     wind: 0, lunge: 0, dieT: 0, lastF: 0, vx: 0, vy: 0,
     blindCd: 2 + rnd() * 2, flashT: 0, tongue: 0, tongueCd: 1.5, tx: 0, ty: 0, howlCd: 2 + rnd() * 2, howlT: 0,
-    burnT: 0, burnTick: 0, blinkCd: 1.5 + rnd() * 2, blinkT: 0, broodT: d.brood || 0, elite: false, scale: 1, dmgMul: (G.mods && G.mods.dmg) || 1, breathe: rnd() * 6, lostT: 0,
-    zapCd: 1.5, puffT: d.puff || 0, mirrorCd: 0, quakeCd: 2.5, rewindCd: 3, judgeCd: 2.5, beamT: 0, beamP: -1, sack: 0, baseMax: hp,
+    burnT: 0, burnTick: 0, blinkCd: 1.5 + rnd() * 2, blinkT: 0, broodT: d.brood || 0, elite: false, scale: 1, dmgMul: ((G.mods && G.mods.dmg) || 1) * enemyDmgMul(st), breathe: rnd() * 6, lostT: 0,
+    zapCd: 1.5, puffT: d.puff || 0, mirrorCd: 0, quakeCd: 2.5, rewindCd: 3, judgeCd: 2.5, beamT: 0, beamP: -1, sack: 0, baseMax: hp, aff: null, shield: 0, shieldMax: 0, sinceHit: 9, spMul: 1,
   };
   G.enemies.push(e);
   return e;
@@ -44,8 +45,17 @@ export function spawnEnemy(type, x, y, wave) {
 // Elit: daha dayanıklı, daha büyük, altın düşürür; çizimde altın aura
 export function makeElite(e) {
   e.elite = true; e.hp *= ELITE.hp; e.maxHp = e.hp; e.scale = ELITE.scale; e.r = e.r * 1.2; e.dmgMul *= ELITE.dmg;
+  // derin elitler özellik kazanır (biyom 6+: 1, 14+: 2, 22+: 3)
+  const st = Math.max(0, stratumOfRow(Math.floor(e.y / TILE))), n = ELITE.affixAt.filter(s => st >= s).length;
+  if (n) {
+    const pool = AFFIX_KEYS.slice(); e.aff = [];
+    while (e.aff.length < n && pool.length) e.aff.push(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
+    if (e.aff.includes('kalkan')) e.shield = e.shieldMax = e.maxHp * AFFIX.kalkan.shield;
+    if (e.aff.includes('hizli')) e.spMul = AFFIX.hizli.speed;
+  }
   return e;
 }
+export function eliteName(e) { return (e.aff || []).map(k => AFFIX[k].name).concat(e.d.name).join(' '); }
 
 function hs(e) { return Math.min(e.r, 6); }
 function blocked(e, x, y) {
@@ -72,7 +82,9 @@ export function losClear(x0, y0, x1, y1, ignoreBarricade = false) {
 
 export function damageEnemy(e, dmg, dx = 0, dy = 0, knock = 1, silent = false) {
   if (e.hp <= 0 || e.dead || e.emergeT > 0.3 || e.under) return;
-  const real = dmg * (1 - (e.d.armor || 0));
+  let real = dmg * (1 - (e.d.armor || 0));
+  e.sinceHit = 0;
+  if (e.shield > 0) { const a = Math.min(e.shield, real); e.shield -= a; real -= a; if (rnd() < 0.5) sparks(e.x, e.y, AFFIX.kalkan.col, 2, 50); }
   e.hp -= real; e.hitT = 0.09; e.hitDx = dx; e.hitDy = dy;
   const kr = 1 - (e.d.knockResist || 0);
   e.kx += dx * 55 * knock * kr; e.ky += dy * 55 * knock * kr;
@@ -122,7 +134,11 @@ export function killEnemy(e) {
     const n = ELITE.gold * (hasPerk('altinDamar') ? 2 : 1);
     for (let i = 0; i < n; i++) spawnOrb(e.x, e.y, 'gold', true);
     ring(e.x, e.y, '#ffd24a', 30); sparks(e.x, e.y, '#ffd24a', 14, 120); flashLight(e.x, e.y, 5, 0.4); shake(0.2);
-    emit('toast', { text: 'Elit ' + e.d.name + ' düştü', icon: 'elite' });
+    emit('toast', { text: 'Elit ' + eliteName(e) + ' düştü', icon: 'elite' });
+    if (e.aff && e.aff.includes('patlar')) explode(e.x, e.y, AFFIX.patlar.boom, 20 * e.dmgMul);
+    if (e.aff && e.aff.includes('bolun') && !e.d.boss) for (let k = 0; k < AFFIX.bolun.split; k++) {
+      const c = spawnEnemy(e.type, e.x + (k ? 6 : -6), e.y, 0); c.hp = c.maxHp = e.maxHp / ELITE.hp * AFFIX.bolun.hp; c.scale = 0.8; c.emergeT = 0; c.kx = k ? 50 : -50; c.dmgMul = e.dmgMul / ELITE.dmg;
+    }
   }
   if (e.d.spawnOnDeath && rnd() < e.d.spawnOnDeath[2]) {
     for (let i = 0; i < e.d.spawnOnDeath[1]; i++) spawnEnemy(e.d.spawnOnDeath[0], e.x + (i ? 4 : -4), e.y, G.wave.num).emergeT = 0.25;
@@ -181,6 +197,11 @@ export function updateEnemies(dt) {
     e.anim += dt * (e.d.fly ? 12 : 7);
     if (e.hitT > 0) e.hitT -= dt;
     if (e.flashT > 0) e.flashT -= dt;
+    e.sinceHit += dt;
+    if (e.aff) {
+      if (e.shieldMax && e.sinceHit > AFFIX.kalkan.refill && e.shield < e.shieldMax) e.shield = Math.min(e.shieldMax, e.shield + e.shieldMax * 0.25 * dt);
+      if (e.aff.includes('yenilen') && e.sinceHit > AFFIX.yenilen.after) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * AFFIX.yenilen.regen * dt);
+    }
     if (e.blinkT > 0) e.blinkT -= dt;
     // yanma: periyodik hasar + alev parçacığı
     if (e.burnT > 0) {
@@ -212,7 +233,7 @@ export function updateEnemies(dt) {
     e.atkCd -= dt;
     e.wind = 0;
     if (e.slowT > 0) e.slowT -= dt; else if (e.slowT < 0) e.slowT = Math.min(0, e.slowT + dt);
-    const sp = e.d.speed * (e.slowT > 0 ? 0.5 : e.slowT < 0 ? 1.35 : 1);
+    const sp = e.d.speed * e.spMul * (e.slowT > 0 ? 0.5 : e.slowT < 0 ? 1.35 : 1);
     const p = nearestPlayer(e.x, e.y);
     const dp = p ? Math.hypot(p.x - e.x, p.y - e.y) : 1e9;
     // yeraltında oyuncu yok ya da çok uzak: izi kaybeder, geri çekilir
@@ -238,7 +259,9 @@ export function updateEnemies(dt) {
     // --- özel yetenekler ---
     if (e.d.brood) {
       e.broodT -= dt;
-      if (e.broodT <= 0) {
+      // yavru sınırı: çevrede 4 yavru varken yenisini bırakmaz (sonsuz sürü olmasın)
+      if (e.broodT <= 0 && G.enemies.filter(o => !o.dead && o.type === 'spiderling' && Math.hypot(o.x - e.x, o.y - e.y) < 120).length >= 4) e.broodT = 1;
+      else if (e.broodT <= 0) {
         e.broodT = e.d.brood;
         for (let k = 0; k < 2; k++) spawnEnemy('spiderling', e.x + (k ? 5 : -5), e.y + 2, G.wave.num).emergeT = 0.3;
         ring(e.x, e.y, '#8a6aaa', 20); if (nearLocal(e)) sfx.brood();

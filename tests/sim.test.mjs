@@ -21,7 +21,7 @@ import { generate, biomeOrder } from '../src/world/gen.js';
 import { T, TD, HOST_TILE } from '../src/data/tiles.js';
 import { ENEMIES, MODS, MOD_KEYS, PICK_TIERS, UPGRADES, ELITE, RES_KEYS, THREAT, BUILDS, ITEMS, RELICS, RELIC_KEYS, PERKS, ROLES, EVENT_KEYS, DEEP_ORES, ozForRun } from '../src/data/balance.js';
 import { placeBuild, pickupBuild, craftItem, gearPick, testFunds, TEST_FUNDS } from '../src/game/economy.js';
-import { WEAPON_KEYS, PICK_TYPE_KEYS, SHIELD, AUGER } from '../src/data/balance.js';
+import { WEAPON_KEYS, PICK_TYPE_KEYS, SHIELD, AUGER, DIRECTOR, AFFIX, enemyHpMul } from '../src/data/balance.js';
 import { playerSpeed } from '../src/game/player.js';
 import { STRATA } from '../src/data/palette.js';
 import { COLS, ROWS, GROUND_ROW, GROUND_Y, STRATUM_ROWS, STRATA_COUNT, TILE } from '../src/config.js';
@@ -697,6 +697,39 @@ section('Test düğmesi');
   fresh(990); const t = G.player;
   ok('test düğmesi cevheri doldurur', testFunds(t) && RES_KEYS.every(k => G.store[k] === TEST_FUNDS));
   ok('test düğmesi şemaları açar', craftItem('adren', t) && G.items.adren === 1);
+}
+
+section('Yönetmen ve derinlik ölçeği');
+{
+  // derinlik: aynı tür derinde daha dayanıklı ve daha sert vurur
+  fresh(1100); const a = spawnEnemy('bug', 100, (GROUND_ROW + 2) * TILE, 0), b = spawnEnemy('bug', 100, (GROUND_ROW + 10 * STRATUM_ROWS + 2) * TILE, 0);
+  ok('derinde can katlanır', b.maxHp / a.maxHp > 3 && Math.abs(b.maxHp / a.maxHp - enemyHpMul(10, 0) / enemyHpMul(0, 0)) < 1e-6, `${a.maxHp} ${b.maxHp}`);
+  ok('derinde hasar artar', b.dmgMul > a.dmgMul * 1.6, `${a.dmgMul} ${b.dmgMul}`);
+  // elit özellikleri: sığda yok, derinde var; kalkan hasarı emer
+  const { makeElite } = await import('../src/game/enemies.js');
+  const s0 = makeElite(spawnEnemy('bug', 100, (GROUND_ROW + 2) * TILE, 0)); ok('sığ elitte özellik yok', !s0.aff);
+  let got = new Set(), n2 = 0;
+  for (let k = 0; k < 40; k++) { const d = makeElite(spawnEnemy('bug', 100, (GROUND_ROW + 15 * STRATUM_ROWS + 2) * TILE, 0)); n2 += d.aff.length === 2 ? 1 : 0; d.aff.forEach(x => got.add(x)); }
+  ok('derin elit 2 özellik', n2 === 40, `${n2}`);
+  ok('tüm özellikler çıkar', got.size === Object.keys(AFFIX).length, [...got].join(','));
+  const sh = spawnEnemy('bug', 100, (GROUND_ROW + 15 * STRATUM_ROWS + 2) * TILE, 0); sh.emergeT = 0; sh.shield = sh.shieldMax = 50; const hp0 = sh.hp;
+  damageEnemy(sh, 40); ok('kalkan hasarı emer', sh.hp === hp0 && sh.shield < 50, `${sh.hp} ${sh.shield}`);
+  // tempo: öfkede sınır yavaş yükselir, dalga duyurulur, ardından nefes arası
+  fresh(1101); const p = G.player; const R = GROUND_ROW + 5 * STRATUM_ROWS + 10;
+  shaft(8, R + 1); for (let c = 4; c <= 12; c++) setTile(c, R, T.AIR);
+  p.x = 8 * TILE + 8; p.y = R * TILE + 8; p.px = p.x; p.py = p.y; G.lvl.blaster = 6; recompute(); forceFlow();
+  let hordes = 0, rest = false, max10 = 0, maxAll = 0; const off = on('horde', () => hordes++);
+  for (let t = 0; t < 150; t += STEP) {
+    G.threat.noise = Math.max(G.threat.noise, 80); p.hp = p.maxHp; p.dead = false; step();
+    const alive = G.enemies.filter(e => !e.dead && e.type !== 'spiderling').length;
+    if (t < 10) max10 = Math.max(max10, alive); maxAll = Math.max(maxAll, alive);
+    if (G.threat.dir.phase === 'rest') rest = true;
+  }
+  ok('ilk 10 sn ordu gelmez', max10 <= 6, `${max10}`);
+  ok('sahadaki düşman sınırı aşılmaz', maxAll <= Math.ceil(THREAT.cap[3] * 1.3) + 6, `${maxAll}`);
+  ok('dalga duyurulur', hordes >= 1, `${hordes}`);
+  ok('dalgadan sonra nefes arası', rest);
+  ok('gruplar numaralı', G.threat.dir.sid >= 4, `${G.threat.dir.sid}`);
 }
 
 console.log(`\n${checks - fails}/${checks} kontrol geçti${fails ? `, ${fails} HATA` : ''}`);

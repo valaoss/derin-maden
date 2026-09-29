@@ -194,12 +194,9 @@ export const THREAT = {
   noise: { dig: 0.25, brk: 0.42, ore: 0.35, shot: 0.12, boom: 8, mine: 4, chest: 3 },
   bossDelay: 4,                     // ölçer tepedeyken bossun uyanmasına kalan süre (sn)
   range: [7, 13, 20, 30, 45],       // yuvanın uyanma menzili (tile), seviyeye göre (sessizken de yakın yuva tepki verir)
-  cd: [7, 3, 2, 1.4, 1],           // yuva çıkarma aralığı (sn)
-  cap: [5, 12, 18, 26, 34],          // sahadaki canlı düşman üst sınırı
-  seepCd: [9, 6, 4, 3, 2.2],        // yakın yuva yoksa kayadan sızma aralığı (sessizde de tek tük)
+  cap: [5, 12, 18, 26, 34],          // sahadaki canlı düşman üst sınırı (yönetmen yavaşça yaklaşır)
   eliteChance: 0.3, nestRelief: 18, afterBoss: 55,
   floorPerStratum: 4, floorMax: 40, // derinde maden tam susmaz: gürültü bu tabanın altına sönmez
-  seepDepth: 0.08,                   // her biyom sızmayı biraz sıklaştırır
 };
 
 // Düşmanlar: r = çarpışma yarıçapı, dig = kazabildiği maks kaya hp'si
@@ -254,13 +251,35 @@ export const ENEMIES = {
 // derinlik bandı (her 4 biyom) -> boss
 export const BOSS_BANDS = ['karakok', 'kavurgan', 'otegoz', 'sultan', 'ezeli'];
 
-// Elit: Öfke seviyesinde yuvalardan şansla çıkar (can ×2.2, boyut ×1.25, altın düşürür)
-export const ELITE = { hp: 2.2, dmg: 1.4, scale: 1.25, gold: 3, fromWave: 3 };
+// Elit: Öfke seviyesinde yuvalardan şansla çıkar (can ×2.2, boyut ×1.25, altın düşürür); derinde özellik kazanır
+export const ELITE = { hp: 2.2, dmg: 1.4, scale: 1.25, gold: 3, fromWave: 3, affixAt: [6, 14, 22] };
+export const AFFIX = {
+  kalkan: { name: 'Kalkanlı', col: '#8ab4ff', shield: 0.45, refill: 3 },
+  hizli:  { name: 'Hızlı', col: '#5fe0b8', speed: 1.45 },
+  yenilen:{ name: 'Yenilenen', col: '#a8f070', regen: 0.05, after: 2 },
+  patlar: { name: 'Patlayan', col: '#ff7a3a', boom: 26 },
+  bolun:  { name: 'Bölünen', col: '#e070ff', split: 2, hp: 0.35 },
+};
+export const AFFIX_KEYS = Object.keys(AFFIX);
+
+// Derinlik ölçeği: düşman canı biyom başına ×1.13 (boss ×1.1), hasarı +%8; uyanış seviyesi canı +%10
+export const SCALE = { hp: 1.13, bossHp: 1.1, dmg: 0.08, lv: 0.1 };
+export function enemyHpMul(st, lv, boss) { return Math.pow(boss ? SCALE.bossHp : SCALE.hp, Math.max(0, st)) * (1 + SCALE.lv * Math.max(0, lv)); }
+export function enemyDmgMul(st) { return 1 + SCALE.dmg * Math.max(0, st); }
+
+// Yönetmen: tek ortak bütçe, karışık gruplar, duyurulan dalgalar ve sonrasında nefes arası
+export const DIRECTOR = {
+  rate: [0.12, 0.35, 0.7, 1.1],       // seviye başına saniyede bütçe puanı (düşman bedeli ENEMIES.cost)
+  depthRate: 0.04, mpRate: 1.4, bankMax: 30,
+  squad: [[1, 2], [2, 3], [3, 4], [4, 6]],
+  gap: [16, 11, 8, 6], maxWait: 14,   // gruplar arası en kısa süre; önceki grup yaşasa da en çok bu kadar beklenir
+  waveMin: 2, waveEvery: [80, 110], waveWarn: 4, waveLen: 12, waveSquads: 3, rest: 18,
+  capRamp: 3,                        // sahadaki sınır her 3 sn'de en çok 1 artar
+};
 
 export const WAVES = {
   firstCalm: 48, calm: 27, warn: 10, heartCalm: 12,
   budget: (wave, stratum, mult = 1) => (3.0 + wave * 2.6 + stratum * 3.4 + Math.max(0, wave - 5) * 1.0) * mult,
-  hpScale: wave => 1 + 0.08 * (wave - 1),
   bossEvery: 5,
   spawnGap: 0.42,
   nests: 3,

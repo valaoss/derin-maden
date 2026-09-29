@@ -540,7 +540,7 @@ if ('serviceWorker' in navigator && import.meta.env.PROD && !isNative) {
 // geliştirme/test erişimi
 if (import.meta.env.DEV) window.__dm = {
   get G() { return G; }, App, UI, hooks, step, render, view, input, net, link, pred,
-  spawn(type, c, r) { const e = spawnEnemy(type, c * TILE + 8, r * TILE + 8, 1 + G.maxStratum); e.emergeT = 0; return e; },
+  spawn(type, c, r) { const e = spawnEnemy(type, c * TILE + 8, r * TILE + 8, 1); e.emergeT = 0; return e; },
   noise(v) { G.threat.noise = v; },
   dropLink() { try { link.conn && link.conn.close(); } catch (e) { /* yok */ } },
   get recon() { return recon; },
