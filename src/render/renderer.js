@@ -551,7 +551,11 @@ function drawTileOverlays(r0, r1) {
       ctx.fillStyle = '#5a7a30';
       for (let i = 0; i < 5; i++) ctx.fillRect(x + 2 + Math.floor(hash2(c, r, 40 + i) * 12), y + 2 + Math.floor(hash2(c, r, 60 + i) * 12), 1, 1);
     }
-    else if (t === T.CHEST) spr(SPR.chest, x + 8, y + 9);
+    else if (TD[t].chest) {
+      // Taklitçi ara ara kıpırdar (dikkatli bakan fark eder)
+      const k = TD[t].chest, twitch = k === 'mimic' && Math.floor(G.time * 2 + c * 3) % 9 === 0 ? 1 : 0;
+      spr(SPR.chests[k], x + 8 + twitch, y + 9);
+    }
     else if (t === T.NEST && !G.buried[r * COLS + c]) { const n = G.nests.find(q => q.c === c && q.r === r); const aw = n && n.awake; const fr = aw ? Math.floor(G.time * 6) % 2 : Math.floor(G.time * 1.5) % 2; const j = n && n.burst > 0 ? ((Math.floor(G.time * 30) % 2) ? 1 : -1) : 0; ctx.drawImage(SPR.nest[fr].cv, x + j, y); }
     else if (t === T.HEART) spr(SPR.heart, x + 8, y + 8 + Math.round(Math.sin(G.time * 2) * 1));
     else if (t === T.RELIC) spr(SPR.relic, x + 8, y + 8 + Math.round(Math.sin(G.time * 1.6) * 1));
@@ -665,6 +669,7 @@ function drawRock(k) {
   ctx.fillStyle = R[4]; ctx.fillRect(x + 2, y + 1, 3, 1);
 }
 
+const CHEST_GLOW = { wood: 'rgba(255,210,74,0.3)', iron: 'rgba(223,230,240,0.25)', mimic: 'rgba(223,230,240,0.25)', gold: 'rgba(255,230,120,0.45)', arms: 'rgba(255,138,58,0.35)', ore: 'rgba(120,160,255,0.35)', supply: 'rgba(236,74,74,0.3)', cursed: 'rgba(255,58,106,0.4)', ancient: 'rgba(90,255,234,0.45)' };
 // ---------- düşmanlar ----------
 const EN_OFFSET = { rodent: 1, bug: 1, spitter: 2, flyer: -2, boomer: 1, brute: 1, worm: 0, glarer: -3, lurker: 2, howler: 1, shade: 0 };
 const DIE_T = e => (e.d.boss ? 0.9 : 0.42);
@@ -1113,9 +1118,9 @@ function drawEmissive(r0, r1, alpha, opts) {
       const f = 0.5 + Math.sin(t * 5 + c * 2 + r) * 0.3; glow(c * TILE + 8, r * TILE + 8, 'rgba(255,120,40,0.3)', 12, f);
       const gx = c * TILE + 3 + Math.floor(hash2(c, r, 100) * 9), gy = r * TILE + 3 + Math.floor(hash2(c, r, 200) * 9);
       ctx.globalAlpha = f; ctx.fillStyle = '#ffd24a'; ctx.fillRect(gx, gy, 1, 1); ctx.globalAlpha = 1;
-    } else if (tt === T.CHEST) {
-      sprE(SPR.chest, c * TILE + 8, r * TILE + 9);
-      glow(c * TILE + 8, r * TILE + 9, 'rgba(255,210,74,0.3)', 10, 0.6 + Math.sin(t * 3) * 0.3);
+    } else if (d.chest) {
+      sprE(SPR.chests[d.chest], c * TILE + 8, r * TILE + 9);
+      glow(c * TILE + 8, r * TILE + 9, CHEST_GLOW[d.chest] || CHEST_GLOW.wood, d.chest === 'gold' || d.chest === 'ancient' ? 14 : 10, 0.6 + Math.sin(t * 3) * 0.3);
     } else if (tt === T.HEART) {
       sprE(SPR.heart, c * TILE + 8, r * TILE + 8 + Math.round(Math.sin(t * 2)));
       glow(c * TILE + 8, r * TILE + 8, 'rgba(255,58,106,0.5)', 26, 0.7 + Math.sin(t * 2) * 0.2);

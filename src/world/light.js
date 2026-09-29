@@ -93,7 +93,7 @@ export function glowTileSources(g, r0, r1, out) {
   for (let r = Math.max(GROUND_ROW, r0); r <= Math.min(ROWS - 1, r1); r++) for (let c = 0; c < COLS; c++) {
     const t = g.map[r * COLS + c];
     if (g.buried && g.buried[r * COLS + c]) continue;
-    if (t === T.CHEST) out.push({ x: c * TILE + 8, y: r * TILE + 8, s: 2.6 });
+    if (TD[t].chest) out.push({ x: c * TILE + 8, y: r * TILE + 8, s: TD[t].chest === 'gold' || TD[t].chest === 'ancient' ? 3.4 : 2.6 });
     else if (t === T.NEST) out.push({ x: c * TILE + 8, y: r * TILE + 8, s: 2.4 });
     else if (t === T.HEART) out.push({ x: c * TILE + 8, y: r * TILE + 8, s: 6.5 });
     else if (TD[t].ore === 'crystal' || TD[t].ore === 'cobalt') out.push({ x: c * TILE + 8, y: r * TILE + 8, s: 1.9 });

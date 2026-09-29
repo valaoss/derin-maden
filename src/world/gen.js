@@ -1,8 +1,9 @@
 // Katmanlı dünya üretimi (v5: 20 biyom): malzeme kümeleri, cevher damarları, mağaralar, biyom özellikleri, sandıklar, çekirdek odası.
 // Biyom sırası tohuma göre karışır: Toprak hep ilk, Yaratılış Çekirdeği hep son; aradakiler zorluk bantları içinde yer değiştirir.
 import { COLS, ROWS, GROUND_ROW, STRATUM_ROWS, STRATA_COUNT, PLAY_MIN_COL, PLAY_MAX_COL, CENTER_COL } from '../config.js';
-import { T, TD, HOST_TILE, isPlain, DEEP_TILE } from '../data/tiles.js';
-import { DEEP_ORES } from '../data/balance.js';
+import { T, TD, HOST_TILE, isPlain, DEEP_TILE, CHEST_TILE } from '../data/tiles.js';
+import { DEEP_ORES, chestWeights } from '../data/balance.js';
+import { STRATA } from '../data/palette.js';
 import { mulberry32, fbm, vnoise } from '../core/util.js';
 
 // zorluk bantları: her bant kendi içinde karışır (ana kaya sertliği ve düşman gücü derinlikle artmaya devam eder)
@@ -54,6 +55,12 @@ export function generate(seed, opts = {}) {
   const inPlay = (c, r) => c >= PLAY_MIN_COL && c <= PLAY_MAX_COL && r >= GROUND_ROW && r < BOTTOM;
   const plain = t => isPlain(t);
   const GEN = s => STRATA_GEN[order[s]];
+  // sandık türü: biyom konumuna göre ağırlıklı
+  const chestAt = (s, legend) => {
+    const w = chestWeights(s, legend || !!(STRATA[order[s]] && STRATA[order[s]].legend)); let r = rnd() * w.reduce((a, x) => a + x[1], 0);
+    for (const [k, v] of w) { r -= v; if (r < 0) return CHEST_TILE[k]; }
+    return T.CHEST;
+  };
 
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
@@ -172,7 +179,7 @@ export function generate(seed, opts = {}) {
       }
       for (let r = h0 + 2; r <= h1 - 2; r++) { set(6, r, T.GILT); set(10, r, T.GILT); }
       for (let c = c0 + 1; c < c1; c++) { set(c, h1 - 1, c % 2 ? T.GOLD : T.GILT); if (c % 3 === 0) set(c, h0 + 1, T.GOLD); }
-      set(8, h1 - 1, T.CHEST); set(8, h0 + 1, T.CHEST); chests.push([8, h1 - 1], [8, h0 + 1]);
+      set(8, h1 - 1, T.CHEST_GOLD); set(8, h0 + 1, T.CHEST_ANCIENT); chests.push([8, h1 - 1], [8, h0 + 1]);
       set(8, r0 + 19, T.GILT); set(8, r0 + 18, T.RELIC);                       // taht: Altın Taç
     } else if (feat === 'spore') scatter(r0, T.SPORE, 10, nearAir);        // spor keseleri: mağara kenarlarında
     else if (feat === 'cathedral') {
@@ -232,7 +239,7 @@ export function generate(seed, opts = {}) {
         const c = PLAY_MIN_COL + 1 + Math.floor(rnd() * 11);
         const r = r0 + 8 + Math.floor(rnd() * (STRATUM_ROWS - 11));
         if (!plain(get(c, r)) || chests.some(o => Math.abs(o[1] - r) < 5)) continue;
-        set(c, r, T.CHEST); chests.push([c, r]); break;
+        set(c, r, chestAt(s)); chests.push([c, r]); break;
       }
     }
   }
@@ -246,9 +253,9 @@ export function generate(seed, opts = {}) {
       const r = r0 + 4 + Math.floor(rnd() * (STRATUM_ROWS - 8));
       const wallC = left ? PLAY_MIN_COL - 1 : PLAY_MAX_COL + 1;
       const capC = left ? PLAY_MIN_COL : PLAY_MAX_COL;
-      if (get(capC, r) === T.AIR || get(capC, r) === T.CHEST) continue;
+      if (get(capC, r) === T.AIR || TD[get(capC, r)].chest) continue;
       set(capC, r, T.VAULT);
-      const prize = rnd() < 0.3 ? T.CHEST : s >= 6 ? T.CRYSTAL : s >= 3 ? (rnd() < 0.5 ? T.GOLD : T.COBALT) : s >= 1 ? (rnd() < 0.5 ? T.GOLD : T.IRON) : rnd() < 0.5 ? T.IRON : T.WATER;
+      const prize = rnd() < 0.3 ? (s >= 6 ? T.CHEST_GOLD : T.CHEST_IRON) : s >= 6 ? T.CRYSTAL : s >= 3 ? (rnd() < 0.5 ? T.GOLD : T.COBALT) : s >= 1 ? (rnd() < 0.5 ? T.GOLD : T.IRON) : rnd() < 0.5 ? T.IRON : T.WATER;
       set(wallC, r, prize);
       if (rnd() < 0.6) set(wallC, r + 1, s >= 4 ? T.GOLD : T.IRON);
     }

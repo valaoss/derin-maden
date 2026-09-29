@@ -366,6 +366,9 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .card .desc { font-size: 13px; color: var(--text); opacity: .85; line-height: 1.35; margin-top: 3px; }
 @keyframes cardIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 .perkhead { text-align: center; margin-bottom: 14px; }
+.card .tag { font-size: 10px; letter-spacing: 2px; color: var(--dim); }
+.card.t2 { box-shadow: inset 0 0 0 2px #5a86ff; } .card.t2 .tag { color: #8ab0ff; }
+.card.t3 { box-shadow: inset 0 0 0 2px #ff9a3a, 0 0 14px rgba(255,154,58,.35); } .card.t3 .tag { color: #ffb050; } .card.t3 .name { color: #ffb050; }
 .perkhead .k { font-size: 12px; letter-spacing: 3px; color: var(--dim); }
 .perkhead .n { font-size: 30px; font-weight: 700; color: #ffd24a; text-shadow: 0 3px var(--ink); }
 

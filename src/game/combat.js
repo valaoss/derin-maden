@@ -32,6 +32,7 @@ export function updatePlayerGun(dt) {
   const g = G.gear;
   for (const k in g.cd) if (g.cd[k] > 0) g.cd[k] -= dt;
   for (const k in g.active) if (g.active[k] > 0) g.active[k] -= dt;
+  if (G.rageT > 0) G.rageT -= dt;
   for (const p of G.players) updateGun(p, dt);
   // yıldırım çizgileri (kozmetik)
   let j = 0; for (const z of G.zaps) { z.t -= dt; if (z.t > 0) G.zaps[j++] = z; } G.zaps.length = j;
@@ -70,7 +71,13 @@ function updateGun(p, dt) {
   p.fireCd -= dt;
   if (p.aimT > 0) p.aimT -= dt;
   if (p.flameT > 0) p.flameT -= dt;
-  const W = weaponOf(p), lv = G.lvl.blaster, range = (UPGRADES.blaster.range[lv] + (roleOf(p).range || 0)) * W.range;
+  const W = weaponOf(p), lv = G.lvl.blaster, range = (UPGRADES.blaster.range[lv] + (roleOf(p).range || 0)) * W.range * (hasPerk('tetikci') ? 1.3 : 1);
+  // Nova Kalbi: düşman yakındayken 8 sn'de bir otomatik halka
+  if (hasPerk('novaKalbi') && (p.novaT = (p.novaT || 0) - dt) <= 0 && nearestTarget(p.x, p.y - 4, 70)) {
+    p.novaT = 8; const nd = UPGRADES.blaster.dmg[lv] * 0.8;
+    for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; tagBullet(fire(p.x + Math.cos(a) * 6, p.y - 4 + Math.sin(a) * 6, a, 230, nd, 'p', 0, p.i)); }
+    ring(p.x, p.y - 4, '#bff4ff', 26); flashLight(p.x, p.y, 5, 0.25); if (hear(p)) sfx.nova();
+  }
   const sp = shoulderPos(p);
   const tgt = nearestTarget(sp.x, sp.y, range);
   if (!tgt) return;
@@ -80,20 +87,24 @@ function updateGun(p, dt) {
   const wl = weaponLvl(p.wpn || 'blaster');
   let cd = (W.flame ? W.cd : UPGRADES.blaster.cd[lv] * W.cd) * (1 - WEAPON_UP.cd * wl);
   if (hasMod('rapid')) cd *= 0.7;
+  if (hasPerk('hizliTetik')) cd /= 1.25;
+  if (G.rageT > 0) cd /= 1 + 0.08 * (G.rage | 0);
   if ((G.gear.active.overdrive || 0) > 0) cd /= 3;
   p.fireCd = cd;
-  const dmg = UPGRADES.blaster.dmg[lv] * W.dmg * (1 + WEAPON_UP.dmg * wl) * (roleOf(p).dmg || 1) * lastStand(p) * (G.lvl.yildizCekirdek ? 1.4 : 1);
+  const dmg = UPGRADES.blaster.dmg[lv] * W.dmg * (1 + WEAPON_UP.dmg * wl) * (hasPerk('kalibre') ? 1.25 : 1) * (roleOf(p).dmg || 1) * lastStand(p) * (G.lvl.yildizCekirdek ? 1.4 : 1);
   if ((G.gear.active.overdrive || 0) > 0) sparks(sp.x, sp.y, '#ffe79a', 1, 30);
   if (W.flame) { flameCone(p, sp, ang, range, dmg); return; }
   if (W.zap) { zapChain(p, sp, tgt, dmg, W.zap); return; }
   const shots = hasPerk('ciftNamlu') ? [-0.09, 0.09] : [0];
-  const pierce = (hasPerk('delici') ? 1 : 0) + (W.pierce || 0), n = W.pellets || 1;
+  const pierce = (hasPerk('delici') ? 2 : 0) + (W.pierce || 0), n = W.pellets || 1;
   const mx = sp.x + Math.cos(ang) * 6, my = sp.y + Math.sin(ang) * 6;
   for (const o of shots) for (let i = 0; i < n; i++) {
     const a = ang + o + (n > 1 ? (i / (n - 1) - 0.5) * W.spread : 0) + (W.jitter ? (rnd() - 0.5) * W.jitter : 0);
     const b = tagBullet(fire(mx, my, a, W.speed * (n > 1 ? 0.9 + rnd() * 0.2 : 1), dmg, 'p', pierce, p.i));
     if (W.life) b.life = W.life;
     if (W.knock) b.knock = W.knock;
+    if (hasPerk('sarsici')) { b.knock = (b.knock || 1) * 2; b.stun = 0.4; }
+    if (hasPerk('tetikci')) { b.ox = mx; b.oy = my; b.far = range * 0.5; }
     if (W.blast) { b.blast = W.blast; b.freeze = W.freeze || 0; b.rocket = !W.freeze; }
   }
   if (hasMod('split') && n === 1) for (const o of [-0.3, 0.3]) tagBullet(fire(mx, my, ang + o, W.speed * 0.92, dmg * 0.5, 'p', pierce, p.i));
@@ -112,7 +123,7 @@ function flameCone(p, sp, ang, range, dmg) {
     if (d > range + e.r) continue;
     const ea = Math.atan2(e.y - sp.y, e.x - sp.x);
     if (Math.abs(Math.atan2(Math.sin(ea - ang), Math.cos(ea - ang))) > 0.5 || !losClear(sp.x, sp.y, e.x, e.y, true)) continue;
-    damageEnemy(e, dmg, Math.cos(ea), Math.sin(ea), 0.15, true);
+    const h0 = e.hp; damageEnemy(e, dmg, Math.cos(ea), Math.sin(ea), 0.15, true); vamp(p, h0 - Math.max(0, e.hp));
     burnEnemy(e, BURN.t);
     if (hasMod('frost')) e.slowT = Math.max(e.slowT, 1.2);
   }
@@ -130,7 +141,7 @@ function zapChain(p, sp, tgt, dmg, n) {
   const hit = [];
   let cur = tgt, x0 = sp.x, y0 = sp.y;
   for (let i = 0; i <= n && cur; i++) {
-    damageEnemy(cur, dmg * (i ? 0.75 : 1), (cur.x - x0) / 40, (cur.y - y0) / 40, 0.4, i > 0);
+    const h0 = cur.hp; damageEnemy(cur, dmg * (i ? 0.75 : 1), (cur.x - x0) / 40, (cur.y - y0) / 40, 0.4, i > 0); vamp(p, h0 - Math.max(0, cur.hp));
     if (hasMod('frost')) cur.slowT = Math.max(cur.slowT, 1.2);
     if (hasMod('fire') || G.lvl.opalNamlu) burnEnemy(cur, BURN.t);
     G.zaps.push({ x0, y0, x1: cur.x, y1: cur.y - 2, t: 0.14 });
@@ -158,6 +169,8 @@ function blastAt(b, x, y, skip) {
   else if (hear(G.player, x, y)) sfx.frost();
 }
 
+// Vampir Mermi: verilen hasarın %4'ü can olarak döner
+function vamp(p, real) { if (p && !p.dead && real > 0 && hasPerk('vampir')) p.hp = Math.min(p.maxHp, p.hp + real * 0.04); }
 function fire(x, y, ang, speed, dmg, from, pierce, pi = -1) {
   G.bullets.push({ x, y, px: x, py: y, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, life: 0.7, dmg, from, pierce, hit: null, pi });
   return G.bullets[G.bullets.length - 1];
@@ -197,7 +210,10 @@ export function updateBullets(dt) {
       if (e.dead || e.emergeT > 0.3 || e.under || e === b.hit) continue;
       if (Math.abs(e.x - b.x) < e.r + 3 && Math.abs(e.y - b.y) < e.r + 3) {
         const s = Math.hypot(b.vx, b.vy) || 1;
-        damageEnemy(e, b.dmg, b.vx / s, b.vy / s, b.knock || (b.from === 'p' ? 1 : 0.6));
+        const bd = b.dmg * (b.far && Math.hypot(e.x - b.ox, e.y - b.oy) > b.far ? 1.5 : 1), hp0 = e.hp;
+        damageEnemy(e, bd, b.vx / s, b.vy / s, b.knock || (b.from === 'p' ? 1 : 0.6));
+        if (b.stun) e.atkCd = Math.max(e.atkCd, b.stun);
+        if (b.from === 'p' && b.pi >= 0) vamp(G.players[b.pi], hp0 - Math.max(0, e.hp));
         if (b.blast) { if (b.freeze) e.slowT = Math.max(e.slowT, b.freeze); blastAt(b, b.x, b.y, e); }
         sparks(b.x, b.y, '#fff4c2', 3, 60);
         if (b.frost) { e.slowT = Math.max(e.slowT, 1.2); sparks(b.x, b.y, '#bff4ff', 3, 40); }

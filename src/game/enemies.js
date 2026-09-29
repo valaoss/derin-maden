@@ -16,6 +16,7 @@ import { emit } from '../core/events.js';
 import { setTile } from '../world/map.js';
 import { igniteGas } from './hazards.js';
 import { addNoise } from './threat.js';
+import { mimicDown } from './chests.js';
 import { updateBoss } from './bosses.js';
 import { markJourney } from './journey.js';
 
@@ -23,7 +24,7 @@ const ENEMY_COL = { rodent: '#b07a4a', bug: '#5a9a5a', spitter: '#9a5ac0', flyer
   karakok: '#78b43c', kavurgan: '#ff6a1a', otegoz: '#b080ff', sultan: '#ffd870', ezeli: '#fff4c0',
   glarer: '#ffe79a', lurker: '#6a8a5a', howler: '#8a5a7a', shade: '#4a3a6a',
   spider: '#6a4a8a', spiderling: '#8a6aaa', broodmother: '#5a2a6a', frostbat: '#9ad8ff', skitter: '#d0c0a0', magmite: '#ff7a3a', voidling: '#7a6aff', ogolem: '#4a3e68',
-  quickling: '#c8d8e4', droplet: '#c8d8e4', voltbat: '#3a8aff', gilded: '#ffd870', sporeling: '#a8f070', mirrorling: '#d8f8ff', titanling: '#7a9a78', chronoling: '#ffd890', leech: '#c02a30', echoer: '#8a86b0', seraph: '#fff4e8' };
+  quickling: '#c8d8e4', droplet: '#c8d8e4', voltbat: '#3a8aff', gilded: '#ffd870', sporeling: '#a8f070', mirrorling: '#d8f8ff', titanling: '#7a9a78', chronoling: '#ffd890', leech: '#c02a30', echoer: '#8a86b0', seraph: '#fff4e8', mimic: '#b07a42' };
 export { ENEMY_COL };
 
 // lv: uyanış seviyesi (0..4); can ve hasar doğduğu biyomun derinliğiyle ölçeklenir
@@ -82,13 +83,15 @@ export function losClear(x0, y0, x1, y1, ignoreBarricade = false) {
 
 export function damageEnemy(e, dmg, dx = 0, dy = 0, knock = 1, silent = false) {
   if (e.hp <= 0 || e.dead || e.emergeT > 0.3 || e.under) return;
-  let real = dmg * (1 - (e.d.armor || 0));
+  let real = dmg * (1 - (e.d.armor || 0)) * ((e.elite || e.d.boss) && hasPerk('elitAvcisi') ? 1.4 : 1);
   e.sinceHit = 0;
   if (e.shield > 0) { const a = Math.min(e.shield, real); e.shield -= a; real -= a; if (rnd() < 0.5) sparks(e.x, e.y, AFFIX.kalkan.col, 2, 50); }
   e.hp -= real; e.hitT = 0.09; e.hitDx = dx; e.hitDy = dy;
   const kr = 1 - (e.d.knockResist || 0);
   e.kx += dx * 55 * knock * kr; e.ky += dy * 55 * knock * kr;
   if (!silent && nearLocal(e)) sfx.hit();
+  // Cellat: canı %20 altına düşen (boss olmayan) düşman ölür
+  if (e.hp > 0 && !e.d.boss && !e.illusion && hasPerk('cellat') && e.hp < e.maxHp * 0.2) { e.hp = 0; sparks(e.x, e.y, '#ec4a4a', 8, 90); }
   if (e.hp <= 0) { killEnemy(e); return; }
   // Cıva Damlası: yarı canda ikiye bölünür
   if (e.d.split && !e.splitDone && e.hp < e.maxHp * 0.5) {
@@ -131,7 +134,7 @@ export function killEnemy(e) {
   G.stats.kills++;
   if (e.elite) {
     G.stats.elites++;
-    const n = ELITE.gold * (hasPerk('altinDamar') ? 2 : 1);
+    const n = ELITE.gold * (hasPerk('altinDamar') ? 3 : 1) + (hasPerk('altinDokunus') ? 5 : 0);
     for (let i = 0; i < n; i++) spawnOrb(e.x, e.y, 'gold', true);
     ring(e.x, e.y, '#ffd24a', 30); sparks(e.x, e.y, '#ffd24a', 14, 120); flashLight(e.x, e.y, 5, 0.4); shake(0.2);
     emit('toast', { text: 'Elit ' + eliteName(e) + ' düştü', icon: 'elite' });
@@ -151,8 +154,16 @@ export function killEnemy(e) {
   else if (e.type === 'brute' || e.type === 'worm' || e.type === 'lurker') { spawnOrb(e.x, e.y, 'iron', true); spawnOrb(e.x, e.y, 'iron', true); spawnOrb(e.x, e.y, 'cobalt', true); shake(0.25); }
   else if (e.type === 'glarer' && rnd() < 0.6) spawnOrb(e.x, e.y, 'crystal', true);
   else if (rnd() < 0.35) spawnOrb(e.x, e.y, rnd() < 0.75 ? 'iron' : 'water', true);
-  if (hasPerk('yasamOzu')) for (const p of G.players) if (!p.dead) p.hp = Math.min(p.maxHp, p.hp + 3);
-  if (hasPerk('lesKazisi') && rnd() < 0.25) { const st = stratumOfRow(Math.floor(e.y / TILE)); spawnOrb(e.x, e.y, st >= 8 ? 'crystal' : st >= 4 ? 'gold' : st >= 2 ? 'cobalt' : 'iron', true); }
+  if (hasPerk('yasamOzu')) for (const p of G.players) if (!p.dead) p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.02);
+  if (hasPerk('altinDokunus')) spawnOrb(e.x, e.y, 'gold', true);
+  if (hasPerk('ofke')) { G.rage = Math.min(6, (G.rageT > 0 ? G.rage | 0 : 0) + 1); G.rageT = 4; }
+  if (e.type === 'mimic') mimicDown(e);
+  // Leş Bombası: çevresine azami canının yarısı kadar hasar (zincirleme)
+  if (hasPerk('lesBombasi') && !e.d.boss) {
+    ring(e.x, e.y, '#ffb050', 22); sparks(e.x, e.y, '#ffd48a', 8, 90);
+    for (const o of G.enemies) if (!o.dead && o !== e && Math.hypot(o.x - e.x, o.y - e.y) < 26 + o.r) damageEnemy(o, e.maxHp * 0.5, (o.x - e.x) / 26, (o.y - e.y) / 26, 1, true);
+  }
+  if (hasPerk('lesKazisi') && rnd() < 0.4) { const st = stratumOfRow(Math.floor(e.y / TILE)); spawnOrb(e.x, e.y, st >= 8 ? 'crystal' : st >= 4 ? 'gold' : st >= 2 ? 'cobalt' : 'iron', true); }
 }
 
 export function explode(x, y, rad, dmg) {

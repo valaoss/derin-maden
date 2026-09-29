@@ -1,8 +1,9 @@
 // Harcama: yükseltmeler, kazma/silah türleri, aletler, üretim, perk'ler.
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_ROW } from '../config.js';
-import { T } from '../data/tiles.js';
-import { UPGRADES, BUILDS, PERKS, ITEMS, MODS, DEPLOY_MAX, WEAPONS, PICK_TYPES, RES_KEYS, SCHEMATICS, WEAPON_UP, TOOL_UP, ITEM_SCALE, beaconReq } from '../data/balance.js';
+import { T, TD } from '../data/tiles.js';
+import { applyOffer, itemMax } from './chests.js';
+import { UPGRADES, BUILDS, PERKS, ITEMS, MODS, DEPLOY_MAX, WEAPONS, PICK_TYPES, RES_KEYS, SCHEMATICS, WEAPON_UP, TOOL_UP, ITEM_SCALE, beaconReq, ITEM_KEYS } from '../data/balance.js';
 import { G, App } from './state.js';
 import { tileAt } from '../world/map.js';
 import { makeStructure, recompute, hasPerk, isUnlocked, isLocal, modSlots, teamHas, weaponLvl, toolLvl } from './run.js';
@@ -99,7 +100,7 @@ export function placeBuild(type, p = G.player) {
   if (G.structures.some(s => s.c === c && s.r === r)) { if (isLocal(p)) sfx.deny(); return false; }
   while (G.structures.length >= deployLimit()) {
     const old = G.structures.shift();
-    if ((G.items[old.type] | 0) < ITEMS[old.type].max) G.items[old.type]++;
+    if ((G.items[old.type] | 0) < itemMax(old.type)) G.items[old.type]++;
     dust(old.x, old.y, 3); emit('toast', { text: old.type === type ? 'Eski alet kemere döndü' : BUILDS[old.type].name + ' kemere döndü', icon: BUILDS[old.type].icon });
   }
   G.items[type]--;
@@ -115,7 +116,7 @@ export function pickupBuild(i, p = G.player) {
   const s = G.structures[i];
   if (!s || p.dead || Math.hypot(s.x - p.x, s.y - p.y) > 40) return false;
   G.structures.splice(i, 1);
-  if ((G.items[s.type] | 0) < ITEMS[s.type].max) G.items[s.type]++;
+  if ((G.items[s.type] | 0) < itemMax(s.type)) G.items[s.type]++;
   sfx.click(); if (isLocal(p)) haptic(10);
   dust(s.x, s.y, 3); sparks(s.x, s.y, '#ffe79a', 5, 40);
   emit('deployed', s.type);
@@ -132,7 +133,7 @@ export function itemCost(key) {
 export function craftState(key) {
   const d = ITEMS[key];
   if (!d || !isUnlocked(key)) return 'locked';
-  if (G.items[key] >= d.max) return 'full';
+  if (G.items[key] >= itemMax(key)) return 'full';
   return canAfford(itemCost(key)) ? 'ok' : 'poor';
 }
 export function craftItem(key, p = G.player) {
@@ -142,18 +143,14 @@ export function craftItem(key, p = G.player) {
   emit('crafted', key);
   return true;
 }
-export function perkChoices() {
-  const n = (G.meta.lv.kalintiBil ? 4 : 3);
-  const pool = Object.keys(PERKS).filter(k => !G.perks.includes(k));
-  const out = [];
-  while (out.length < n && pool.length) out.push(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
-  return out;
-}
 export function applyPerk(k, p = G.player) {
+  if (k.includes(':')) { if (!applyOffer(k, p)) return false; G.perkOffer = null; sfx.buy(); ring(p.x, p.y, '#ffd24a', 24); sparks(p.x, p.y, '#ffd24a', 14, 90); emit('perkTaken', { k, pi: p.i }); return true; }
   if (G.perks.includes(k) || !PERKS[k]) return false;
   G.perks.push(k);
   if (k === 'ikinciNefes') G.selfRevive++;
-  if (k === 'hazineKokusu') for (let i = 0; i < G.map.length; i++) if (G.map[i] === T.CHEST) G.rev[i] = 1;
+  if (k === 'hazineKokusu') for (let i = 0; i < G.map.length; i++) if (TD[G.map[i]] && TD[G.map[i]].chest) G.rev[i] = 1;
+  if (k === 'kalkanUstasi') G.items.kalkan = itemMax('kalkan');
+  if (k === 'bolKemer') for (const q of ITEM_KEYS) if (isUnlocked(q)) G.items[q] = Math.min(itemMax(q), (G.items[q] | 0) + 1);
   recompute();
   ring(p.x, p.y, '#ffd24a', 24); sparks(p.x, p.y, '#ffd24a', 14, 90);
   sfx.buy();

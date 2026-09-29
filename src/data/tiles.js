@@ -10,6 +10,8 @@ export const T = {
   TITAN: 35, PULSE: 36, CHRONO: 37, HOURGLASS: 38, BLOOD: 39, BLOODVEIN: 40, ECHO: 41, HUSH: 42, GENESIS: 43, SEED: 44, RELIC: 45, ARKEN: 46,
   // derin cevherler (bant başına bir)
   YESIM: 47, OPAL: 48, INCI: 49, AKIK: 50, YILDIZ: 51, ELMAS: 52, KEHRIBAR: 53,
+  // sandık türleri (T.CHEST: ahşap)
+  CHEST_IRON: 54, CHEST_GOLD: 55, CHEST_ARMS: 56, CHEST_ORE: 57, CHEST_SUPPLY: 58, CHEST_CURSED: 59, CHEST_ANCIENT: 60, MIMIC: 61,
 };
 
 // mat: doku/ses/parçacık malzemesi ('host' => katmanın ana kayası); plain: sıradan kaya (damar/tehlike/dönüşüm yerleşebilir)
@@ -23,7 +25,7 @@ TD[T.BEDROCK]  = { solid: true, hp: Infinity, mat: 'bedrock', unbreakable: true 
 TD[T.IRON]     = { solid: true, hp: 2, mat: 'host', ore: 'iron', amt: 2 };
 TD[T.WATER]    = { solid: true, hp: 3, mat: 'host', ore: 'water', amt: 2 };
 TD[T.COBALT]   = { solid: true, hp: 8, mat: 'host', ore: 'cobalt', amt: 2 };
-TD[T.CHEST]    = { solid: true, hp: 4, mat: 'host', chest: true };
+TD[T.CHEST]    = { solid: true, hp: 4, mat: 'host', chest: 'wood' };
 TD[T.CRYSTAL]  = { solid: true, hp: 14, mat: 'host', ore: 'crystal', amt: 2 };
 TD[T.HEART]    = { solid: true, hp: 36, mat: 'host', heart: true };
 TD[T.BARRICADE] = { solid: true, hp: Infinity, mat: 'metal', built: true, playerUnbreakable: true };
@@ -74,6 +76,15 @@ TD[T.AKIK]     = { solid: true, hp: 30, mat: 'host', ore: 'akik', amt: 1, glow: 
 TD[T.YILDIZ]   = { solid: true, hp: 45, mat: 'host', ore: 'yildiz', amt: 1, glow: 1.8 };
 TD[T.ELMAS]    = { solid: true, hp: 60, mat: 'host', ore: 'elmas', amt: 1, glow: 1.6 };
 TD[T.KEHRIBAR] = { solid: true, hp: 75, mat: 'host', ore: 'kehribar', amt: 1, glow: 2 };
+TD[T.CHEST_IRON]    = { solid: true, hp: 8, mat: 'host', chest: 'iron' };
+TD[T.CHEST_GOLD]    = { solid: true, hp: 12, mat: 'host', chest: 'gold' };
+TD[T.CHEST_ARMS]    = { solid: true, hp: 8, mat: 'host', chest: 'arms' };
+TD[T.CHEST_ORE]     = { solid: true, hp: 8, mat: 'host', chest: 'ore' };
+TD[T.CHEST_SUPPLY]  = { solid: true, hp: 6, mat: 'host', chest: 'supply' };
+TD[T.CHEST_CURSED]  = { solid: true, hp: 14, mat: 'host', chest: 'cursed' };
+TD[T.CHEST_ANCIENT] = { solid: true, hp: 20, mat: 'host', chest: 'ancient' };
+TD[T.MIMIC]         = { solid: true, hp: 8, mat: 'host', chest: 'mimic' };
+export const CHEST_TILE = { wood: T.CHEST, iron: T.CHEST_IRON, gold: T.CHEST_GOLD, arms: T.CHEST_ARMS, ore: T.CHEST_ORE, supply: T.CHEST_SUPPLY, cursed: T.CHEST_CURSED, ancient: T.CHEST_ANCIENT, mimic: T.MIMIC };
 export const DEEP_TILE = [T.YESIM, T.OPAL, T.INCI, T.AKIK, T.YILDIZ, T.ELMAS, T.KEHRIBAR];
 
 export const isSolid = t => TD[t].solid;

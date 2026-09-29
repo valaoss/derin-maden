@@ -2,8 +2,8 @@
 // Uyarı afişinden birkaç saniye sonra vurur; oyuncuya tepki verme şansı bırakır.
 import { rnd } from '../core/rng.js';
 import { TILE, COLS, GROUND_Y, GROUND_ROW, ROWS, PLAY_MIN_COL, PLAY_MAX_COL, stratumOfRow } from '../config.js';
-import { T, TD, isPlain } from '../data/tiles.js';
-import { EVENTS, EVENT_KEYS } from '../data/balance.js';
+import { T, TD, isPlain, CHEST_TILE } from '../data/tiles.js';
+import { EVENTS, EVENT_KEYS, chestWeights } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, setTile } from '../world/map.js';
 import { spawnGas } from './hazards.js';
@@ -112,7 +112,11 @@ function satchel(p) {
 function chest(p) {
   const at = spotNear(p, 5, 9, (c, r) => isPlain(tileAt(c, r)));
   if (!at) return;
-  setTile(at.c, at.r, T.CHEST);
+  // derinliğe göre tür (taklitçi ve lanetli çıkmaz: işaretli sandık güvenilir)
+  const w = chestWeights(Math.max(0, stratumOfRow(at.r)), false).filter(([k]) => k !== 'mimic' && k !== 'cursed');
+  let x = rnd() * w.reduce((a, q) => a + q[1], 0), tt = T.CHEST;
+  for (const [k, v] of w) { x -= v; if (x < 0) { tt = CHEST_TILE[k]; break; } }
+  setTile(at.c, at.r, tt);
   mark(at.c, at.r, '#ffd24a'); sfx.chest();
 }
 

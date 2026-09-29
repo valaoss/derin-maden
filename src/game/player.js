@@ -9,7 +9,7 @@ import { G, App, biomeOf } from './state.js';
 import { tileAt, solidAt, setTile, damageTile, matOf } from '../world/map.js';
 import { hasPerk, hasRelic, bagCount, recompute, unlockSchematic, hear, isLocal, pickDmg, pickInterval, roleOf, lastStand, pickType } from './run.js';
 import { HAZARD } from '../data/balance.js';
-import { perkChoices } from './economy.js';
+import { openChest, itemMax } from './chests.js';
 import { spawnGas } from './hazards.js';
 import { addNoise, nestDestroyed } from './threat.js';
 import { openStation, updateRide } from './elevator.js';
@@ -62,7 +62,7 @@ function laneOpen(p, dx, dy) {
 }
 
 export function playerSpeed(p) {
-  return PLAYER.speed * (hasPerk('hafifBot') ? 1.2 : 1) * (p.adrenT > 0 ? ADREN.speed : 1) * (p.carrying ? 0.85 : 1) * (p.fearT > 0 ? 0.6 : 1) * (p.slowT > 0 ? 0.55 : 1) * (p.webT > 0 ? 0.35 : 1) * (p.hasteT > 0 ? 1.45 : 1);
+  return PLAYER.speed * (hasPerk('hafifBot') ? 1.3 : 1) * (p.adrenT > 0 ? ADREN.speed : 1) * (p.carrying ? 0.85 : 1) * (p.fearT > 0 ? 0.6 : 1) * (p.slowT > 0 ? 0.55 : 1) * (p.webT > 0 ? 0.35 : 1) * (p.hasteT > 0 ? 1.45 : 1);
 }
 
 export function alivePlayers() { return G.players.filter(p => !p.dead); }
@@ -88,7 +88,7 @@ export function updatePlayer(dt) {
 
 function updateOne(p, dt) {
   p.px = p.x; p.py = p.y;
-  if (!p.dead && G.buried) { const pc = Math.floor(p.x / TILE), pr = Math.floor(p.y / TILE), R = pickType(p).sense || 2; for (let k = -R; k <= R; k++) for (let j = -R; j <= R; j++) if (k * k + j * j <= R * R) unbury(pc + k, pr + j, p); }
+  if (!p.dead && G.buried) { const pc = Math.floor(p.x / TILE), pr = Math.floor(p.y / TILE), R = Math.max(pickType(p).sense || 2, hasPerk('kesifGozu') ? 5 : 0); for (let k = -R; k <= R; k++) for (let j = -R; j <= R; j++) if (k * k + j * j <= R * R) unbury(pc + k, pr + j, p); }
   if (p.iframes > 0) p.iframes -= dt;
   if (p.hurtT > 0) p.hurtT -= dt;
   if (p.gasT > 0) p.gasT -= dt;
@@ -107,6 +107,12 @@ function updateOne(p, dt) {
     if (p.barrier < KEHRIBAR.hp) { p.barrier = KEHRIBAR.hp; p.barrierT = KEHRIBAR.cd; ring(p.x, p.y, '#ffb040', 16); sparks(p.x, p.y, '#ffd890', 8, 60); }
   }
   if (p.webT > 0) p.webT -= dt;
+  // Derin Nefes ve Kan Bağı: yeraltında can yenilenir
+  if (!p.dead && p.y >= GROUND_Y && p.hp < p.maxHp) {
+    let rg = hasPerk('derinNefes') ? 0.01 : 0;
+    if (hasPerk('kanBagi') && G.players.some(q => q !== p && !q.dead && Math.hypot(q.x - p.x, q.y - p.y) < 96)) rg += 0.02;
+    if (rg) p.hp = Math.min(p.maxHp, p.hp + p.maxHp * rg * dt);
+  }
   if (p.burnT > 0) { p.burnT -= dt; p.burnTick = (p.burnTick || 0) - dt; if (p.burnTick <= 0) { p.burnTick = 0.5; poisonPlayer(p, 2); } }
   // kanama (Kan Sülüğü ısırığı): yavaş can kaybı, kırmızı damlalar
   if (p.bleedT > 0) { p.bleedT -= dt; p.bleedTick = (p.bleedTick || 0) - dt; if (p.bleedTick <= 0) { p.bleedTick = 0.5; poisonPlayer(p, 1.5); particle(p.x + (rnd() - 0.5) * 6, p.y + 2, 0, 20, 0.5, '#e02a3a', 1, 0, 200); } }
@@ -227,20 +233,20 @@ function digHit(p, t) {
   p.hitTile = { c: t.c, r: t.r, t: 0.12 };
   const hx = t.c * TILE + 8 - t.dx * 7, hy = t.r * TILE + 8 - t.dy * 7;
   if (hear(p)) sfx.dig(mat, G.lvl.drill);
-  if (!(d.ore && hasPerk('sessizDamar'))) addNoise(THREAT.noise.dig * (d.hp >= 6 ? 1.4 : 1) * (roleOf(p).digNoise || 1) * (pt.noise || 1), hx, hy);
+  if (!(d.ore && hasPerk('sessizDamar'))) addNoise(THREAT.noise.dig * (d.hp >= 6 ? 1.4 : 1) * (roleOf(p).digNoise || 1) * (pt.noise || 1) * (hasPerk('sessizAdim') ? 0.6 : 1), hx, hy);
   debris(hx, hy, mat, 3, 0.6);
   // kazma ucu kıvılcımı: kademe rengi
   const tier = PICK_TIERS[Math.min(PICK_TIERS.length - 1, G.lvl.drill)];
   sparks(hx, hy, tier.spark, d.hp >= 6 ? 3 : 1, 55);
   if (isLocal(p)) kick(t.dx, t.dy, 1.2);
   if (hasPerk('kazmaDarbesi')) {
-    for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - (p.x + t.dx * 12), e.y - (p.y + t.dy * 12)) < 14 + e.r) damageEnemyExt(e, 18, t.dx, t.dy);
+    for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - (p.x + t.dx * 12), e.y - (p.y + t.dy * 12)) < 14 + e.r) damageEnemyExt(e, UPGRADES.blaster.dmg[G.lvl.blaster] * 2, t.dx, t.dy);
   }
   // Balyoz: önündeki düşmanı savurur
   if (pt.bash) for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - (p.x + t.dx * 12), e.y - (p.y + t.dy * 12)) < 16 + e.r) { damageEnemyExt(e, pt.bash * lastStand(p), t.dx, t.dy, 2.5); sparks(e.x, e.y, tier.spark, 5, 70); }
   if (damageTile(t.c, t.r, dmg)) {
     breakTile(t.c, t.r, p, t.dx, t.dy);
-    if (hasPerk('zincir') && rnd() < 0.35) {
+    if (hasPerk('zincir') && rnd() < 0.5) {
       const nc = t.c + t.dx, nr = t.r + t.dy, nt = tileAt(nc, nr);
       if (isMineable(nt) && !TD[nt].chest && !TD[nt].heart && !TD[nt].relic) breakTile(nc, nr, p, t.dx, t.dy);
     }
@@ -283,9 +289,11 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
   const p = byPlayer, near = hear(p, x, y), local = isLocal(p);
   G.stats.dug++;
   if (pickType(p).leech && p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + pickType(p).leech);
-  if (!(d.ore && hasPerk('sessizDamar'))) addNoise((THREAT.noise.brk + (d.ore ? THREAT.noise.ore : 0)) * (roleOf(p).digNoise || 1), x, y);
+  if (!(d.ore && hasPerk('sessizDamar'))) addNoise((THREAT.noise.brk + (d.ore ? THREAT.noise.ore : 0)) * (roleOf(p).digNoise || 1) * (hasPerk('sessizAdim') ? 0.6 : 1), x, y);
+  // Maden Ustası: her 30 blok bir dinamit
+  if (hasPerk('madenUstasi') && (p.mineN = (p.mineN | 0) + 1) >= 30) { p.mineN = 0; if ((G.items.dynamite | 0) < itemMax('dynamite')) { G.items.dynamite = (G.items.dynamite | 0) + 1; if (local) emit('toast', { text: 'Maden Ustası: +1 dinamit', icon: 'dynamite' }); } }
   if (d.nest) { nestDestroyed(c, r, p); if (hasPerk('yuvaAvcisi')) G.threat.noise = Math.max(0, G.threat.noise - 25); }
-  if (hasPerk('depremVurus') && !p.quake && (p.quakeN = (p.quakeN | 0) + 1) >= 8) { p.quakeN = 0; quake(c, r, p); }
+  if (hasPerk('depremVurus') && !p.quake && (p.quakeN = (p.quakeN | 0) + 1) >= 5) { p.quakeN = 0; quake(c, r, p); }
   debris(x, y, mat, 9);
   dust(x, y, 3);
   if (near) sfx.breakBlock(mat);
@@ -349,22 +357,20 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
     if (DEEP_ORES.includes(d.ore)) markJourney('gem', x, y, p.i, d.ore);
     const rare = d.ore === 'cobalt' || d.ore === 'crystal' || d.ore === 'gold';
     const n = d.amt + (hasPerk('damar') && !d.iceDrop ? 1 : 0) + (rare && roleOf(p).rare ? 1 : 0) + (pickType(p).ore && !d.plain ? pickType(p).ore : 0);
-    const res = !rare || d.ore === 'cobalt' ? (hasPerk('simya') && rnd() < 0.15 ? 'gold' : d.ore) : d.ore;
+    const res = !rare || d.ore === 'cobalt' ? (hasPerk('simya') && rnd() < 0.25 ? 'gold' : d.ore) : d.ore;
     for (let i = 0; i < n; i++) spawnOrb(x, y, res);
-    if (d.ore === 'water' && hasPerk('sifaPinari')) { p.hp = Math.min(p.maxHp, p.hp + 6); sparks(p.x, p.y - 4, '#8ad0ff', 5, 50); }
+    if (d.ore === 'water' && hasPerk('sifaPinari')) { p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.08); sparks(p.x, p.y - 4, '#8ad0ff', 5, 50); }
     sparks(x, y, RES_COL[d.ore], 6, 70);
     flashLight(x, y, 3, 0.25);
   }
   if (d.chest) {
-    G.stats.chests++; markJourney('chest', x, y, p.i);
+    markJourney('chest', x, y, p.i);
     sfx.chest(); hitstop(0.08); if (local) shake(0.2);
-    sparks(x, y, '#ffd24a', 14, 110); ring(x, y, '#ffd24a', 22); flashLight(x, y, 5, 0.5);
-    const sc = unlockSchematic();
+    sparks(x, y, '#ffd24a', 14, 110);
+    const sc = d.chest !== 'mimic' && unlockSchematic();
     if (sc) emit('schematic', sc);
     addNoise(THREAT.noise.chest, x, y);
-    const keys = perkChoices();
-    if (keys.length) { G.perkOffer = { pi: p.i, keys }; emit('perkOffer', p.i); }
-    else if (local) emit('toast', { text: 'Sandık boş çıktı', icon: 'chest' });
+    openChest(p, d.chest, x, y, c, r);
   }
   if (d.heart) {
     p.carrying = true; markJourney('heart', x, y, p.i);
@@ -500,6 +506,7 @@ export function damagePlayer(p, amount, sx, sy) {
     return;
   }
   if (G.lvl.elmasDeri) amount *= 0.75;
+  if (hasPerk('kalinDeri')) amount *= 0.8;
   // Kalkan Hücresi: darbeyi önce kalkan emer
   if (p.barrier > 0) {
     const a = Math.min(p.barrier, amount); p.barrier -= a; amount -= a;
@@ -508,21 +515,28 @@ export function damagePlayer(p, amount, sx, sy) {
     if (amount <= 0) { p.iframes = 0.25; if (hear(p)) sfx.ping(); return; }
   }
   p.hp -= amount;
-  p.iframes = PLAYER.iframes; p.hurtT = 0.2;
+  p.iframes = hasPerk('hayaletDeri') ? 1.5 : PLAYER.iframes; p.hurtT = 0.2;
   const d = Math.hypot(p.x - sx, p.y - sy) || 1;
   moveAxis(p, (p.x - sx) / d * 5, 0); moveAxis(p, 0, (p.y - sy) / d * 5);
   if (hear(p)) sfx.playerHurt();
   hitstop(0.04);
   if (isLocal(p)) { haptic(30); shake(0.28); emit('hurt', amount); }
   if (hasPerk('kacis')) p.hasteT = Math.max(p.hasteT || 0, 2);
-  if (hasPerk('dikenZirh')) for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - p.x, e.y - p.y) < e.r + 16) { damageEnemyExt(e, 15, (e.x - p.x) / 16, (e.y - p.y) / 16, 1); sparks(e.x, e.y, '#dfe6f0', 4, 60); }
+  if (hasPerk('dikenZirh')) for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - p.x, e.y - p.y) < e.r + 16) { damageEnemyExt(e, p.maxHp * 0.15, (e.x - p.x) / 16, (e.y - p.y) / 16, 1); sparks(e.x, e.y, '#dfe6f0', 4, 60); }
   if (hasPerk('sokDalgasi') && p.shockCd <= 0) {
     p.shockCd = 4; ring(p.x, p.y, '#ffe79a', 34); flashLight(p.x, p.y, 4, 0.2);
     for (const e of G.enemies) {
       if (e.dead) continue;
       const ed = Math.hypot(e.x - p.x, e.y - p.y);
-      if (ed < 40) damageEnemyExt(e, 20, (e.x - p.x) / (ed || 1), (e.y - p.y) / (ed || 1), 3);
+      if (ed < 40) damageEnemyExt(e, UPGRADES.blaster.dmg[G.lvl.blaster] * 3, (e.x - p.x) / (ed || 1), (e.y - p.y) / (ed || 1), 3);
     }
+  }
+  // Zaman Kalkanı: can %30 altına düşünce çevredeki düşmanlar yavaşlar ve vuramaz
+  if (hasPerk('zamanKalkani') && p.hp > 0 && p.hp < p.maxHp * 0.3 && G.time >= (p.tsT || 0)) {
+    p.tsT = G.time + 60; p.iframes = Math.max(p.iframes, 1);
+    for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - p.x, e.y - p.y) < 220) { e.slowT = Math.max(e.slowT, 5); e.atkCd = Math.max(e.atkCd, 5); e.fireCd = Math.max(e.fireCd || 0, 5); }
+    ring(p.x, p.y, '#ffd890', 60); ring(p.x, p.y, '#ffffff', 36); flashLight(p.x, p.y, 8, 0.6); hitstop(0.12);
+    if (isLocal(p)) emit('toast', { text: 'Zaman Kalkanı: düşmanlar yavaşladı', icon: 'gear' });
   }
   if (p.hp <= 0) die(p);
 }

@@ -151,19 +151,22 @@ export function hasRelic(k) { return !!(G.meta.relics && G.meta.relics.includes(
 export function roleOf(p) { return ROLES[p.role] || {}; }
 export function teamHas(role) { return G.players.some(p => p.role === role); }
 // Son Direniş (düşük canda) ve Adrenalin: iki kat vuruş
-export function lastStand(p) { return (hasPerk('sonDirenis') && p.hp < p.maxHp * 0.35 ? 2 : 1) * (p.adrenT > 0 ? ADREN.dmg : 1); }
+export function lastStand(p) {
+  const bond = hasPerk('kanBagi') && G.players.some(q => q !== p && !q.dead && Math.hypot(q.x - p.x, q.y - p.y) < 96);
+  return (hasPerk('sonDirenis') && p.hp < p.maxHp * 0.35 ? 2 : 1) * (p.adrenT > 0 ? ADREN.dmg : 1) * (bond ? 1.25 : 1);
+}
 export function pickType(p = G.player) { return PICK_TYPES[p && p.pk] || PICK_TYPES.std; }
 export function weaponOf(p = G.player) { return WEAPONS[p && p.wpn] || WEAPONS.blaster; }
 export function weaponLvl(k) { return Math.min(WEAPON_UP.max, (G.gear.wLvl && G.gear.wLvl[k]) | 0); }
 export function toolLvl(k) { return Math.min(TOOL_UP.max, (G.gear.tLvl && G.gear.tLvl[k]) | 0); }
 // alet hasarı: kendi seviyesi + Silah Gücü (aletler derinde de işe yarasın)
-export function toolDmgMul(k) { return (1 + TOOL_UP.dmg * toolLvl(k)) * (1 + 0.15 * G.lvl.blaster); }
+export function toolDmgMul(k) { return (1 + TOOL_UP.dmg * toolLvl(k)) * (1 + 0.15 * G.lvl.blaster) * (hasPerk('taretAsiri') ? 1.5 : 1); }
 
 // Seviye/perk/meta'ya bağlı değerler
 export function recompute(fill = false) {
   const ml = G.meta.lv || {};
-  G.bagCap = Math.round((UPGRADES.bag.cap[G.lvl.bag] + 10 * (ml.genisCanta | 0)) * (hasPerk('derinCep') ? 1.25 : 1));
-  const maxHp = UPGRADES.armor.hp[G.lvl.armor] + (hasRelic('kalp') ? 40 : 0) + (G.lvl.muska ? 30 : 0);
+  G.bagCap = Math.round((UPGRADES.bag.cap[G.lvl.bag] + 10 * (ml.genisCanta | 0)) * (hasPerk('derinCep') ? 1.5 : 1));
+  const maxHp = Math.round((UPGRADES.armor.hp[G.lvl.armor] + (hasRelic('kalp') ? 40 : 0) + (G.lvl.muska ? 30 : 0)) * (hasPerk('kristalDeri') ? 1.35 : 1));
   for (const p of G.players) {
     const d = maxHp - p.maxHp;
     p.maxHp = maxHp;

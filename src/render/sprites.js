@@ -971,6 +971,21 @@ const CHEST = [
   'kHhhhhhhhhHk',
   '.kkkkkkkkkk.',
 ];
+// sandık türleri: aynı kalıp, farklı ahşap/metal/kilit rengi (kilit karanlıkta parlar)
+const CHEST_PAL = {
+  wood: { G: '#ffd24a' },
+  iron: { h: '#5a6278', H: '#8a92aa', m: '#3a3e50', G: '#dfe6f0' },
+  gold: { h: '#c08a1a', H: '#ffe07a', m: '#fff4c0', G: '#ffffff' },
+  arms: { h: '#6a2a2a', H: '#a04a3a', m: '#a7b0c4', G: '#ff8a3a' },
+  ore: { h: '#2c48c8', H: '#5a86ff', m: '#141c5a', G: '#c4d4ff' },
+  supply: { h: '#2a6a4a', H: '#4aa070', m: '#dfe6f0', G: '#ec4a4a' },
+  cursed: { h: '#2a1030', H: '#5a2a6a', m: '#1a0a1a', G: '#ff3a6a' },
+  ancient: { h: '#a898b0', H: '#fff4e8', m: '#3a9a90', G: '#5affea' },
+};
+CHEST_PAL.mimic = CHEST_PAL.iron;
+// Taklitçi: ağzı açık demir sandık, dişler ve dil
+const MIMIC_A = ['.kkkkkkkkkk.', 'kHHHHHHHHHHk', 'khrhhhhhhrhk', 'kmmmmmmmmmmk', 'kWkWkWkWkWkk', 'kkRRRRRRRRkk', 'kkRRRRRRRRkk', 'kWkWkWkWkWkk', 'kmmmmmmmmmmk', 'kHhhhhhhhhHk', 'kHhhhhhhhhHk', '.kkkkkkkkkk.'];
+const MIMIC_B = ['............', '.kkkkkkkkkk.', 'kHHHHHHHHHHk', 'khrhhhhhhrhk', 'kmmmmmmmmmmk', 'kWkWkWkWkWkk', 'kkRRRRRRRRkk', 'kWkWkWkWkWkk', 'kmmmmmmmmmmk', 'kHhhhhhhhhHk', 'kHhhhhhhhhHk', '.kkkkkkkkkk.'];
 const HEART = [
   '.....kk.....',
   '....kXZk....',
@@ -1331,6 +1346,8 @@ export function buildSprites() {
   SPR.echoer = [makeSprite(ECHOER_A, ECHOER_PAL, 'rW'), makeSprite(ECHOER_B, ECHOER_PAL, 'rW')];
   SPR.seraph = [makeSprite(SERAPH_A, SERAPH_PAL, 'eEH'), makeSprite(SERAPH_B, SERAPH_PAL, 'eEH')];
   SPR.chest = makeSprite(CHEST, { G: '#ffd24a' }, 'G');
+  SPR.chests = Object.fromEntries(Object.entries(CHEST_PAL).map(([k, pal]) => [k, makeSprite(CHEST, pal, 'G')]));
+  SPR.mimic = [makeSprite(MIMIC_A, Object.assign({ r: '#ff5a4a' }, CHEST_PAL.iron), 'r'), makeSprite(MIMIC_B, Object.assign({ r: '#ff5a4a' }, CHEST_PAL.iron), 'r')];
   SPR.relic = makeSprite(RELIC, { G: '#ffd24a', g: '#a8701e', W: '#fff4c0', Z: '#ffffff' }, 'WZ');
   SPR.droplet = SPR.quickling;
   SPR.arken = [makeSprite(ARKEN_A, ARKEN_PAL, 'BWZ'), makeSprite(ARKEN_B, ARKEN_PAL, 'BWZ')];

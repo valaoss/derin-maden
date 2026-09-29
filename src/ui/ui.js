@@ -9,6 +9,8 @@ import { bagCount, hasPerk, isUnlocked, contractProgress, pickDmg, pickInterval,
 import { canAfford, upgradeCost, craftState, beaconLack, weaponUpCost, toolUpCost, itemCost } from '../game/economy.js';
 import { WEAPON_UP, TOOL_UP, beaconReq } from '../data/balance.js';
 import { weaponLvl, toolLvl } from '../game/run.js';
+import { offerInfo } from '../game/chests.js';
+import { CHESTS } from '../data/balance.js';
 import { itemUsable } from '../game/items.js';
 import { dispatch, CMD } from '../game/commands.js';
 import { PICK_TIERS } from '../data/balance.js';
@@ -134,7 +136,7 @@ export function initUI(root, h) {
     refreshHUD(true);
   });
   on('perkOffer', pi => { if (pi === G.localIdx) showPerks(); else toast('Partnerin bir kalıntı buldu', 'chest'); });
-  on('perkTaken', d => { if (d.pi !== G.localIdx) toast('Partner seçti: ' + PERKS[d.k].name, PERKS[d.k].icon); });
+  on('perkTaken', d => { if (d.pi !== G.localIdx) { const o = offerInfo(d.k); toast('Partner seçti: ' + o.name, o.icon); } });
   on('blind', () => { const f = $('#flash'); f.classList.remove('on'); void f.offsetWidth; f.classList.add('on'); });
   on('fear', () => { const v = $('#vignette'); v.classList.add('fear'); setTimeout(() => v.classList.remove('fear'), 2400); });
   on('cmdDone', d => { if (!d.ok && (d.cmd.t === CMD.BUILD)) toast('Yetersiz kaynak', 'bag', true); });
@@ -586,13 +588,14 @@ function showPerks() {
   const ch = off.keys;
   hooks.pause(false, true); cancelStick();
   const s = $('#perk');
-  s.innerHTML = `<div class="perkhead"><div class="k">KALINTI SANDIĞI</div><div class="n">Birini seç</div>${G.mp ? '<div class="k" style="margin-top:6px">OYUN DEVAM EDİYOR</div>' : ''}</div>
-    <div class="cards">${ch.map((k, i) => `<button class="plate card" data-k="${k}" style="animation-delay:${0.08 + i * 0.07}s">${ic(PERKS[k].icon, 'xl')}
-      <div><div class="name">${PERKS[k].name}</div><div class="desc">${PERKS[k].desc}</div></div></button>`).join('')}</div>`;
+  const cn = ((CHESTS[off.chest] || CHESTS.wood).name).toLocaleUpperCase('tr');
+  s.innerHTML = `<div class="perkhead"><div class="k">${cn}</div><div class="n">Birini seç</div>${G.mp ? '<div class="k" style="margin-top:6px">OYUN DEVAM EDİYOR</div>' : ''}</div>
+    <div class="cards">${ch.map((k, i) => { const o = offerInfo(k); return `<button class="plate card t${o.t}" data-k="${k}" style="animation-delay:${0.08 + i * 0.07}s">${ic(o.icon, 'xl')}
+      <div><div class="tag">${o.tag}</div><div class="name">${o.name}</div><div class="desc">${o.desc}</div></div></button>`; }).join('')}</div>`;
   s.classList.add('on');
   s.querySelectorAll('.card').forEach(c => tap(c, () => {
     dispatch({ t: CMD.PERK, k: c.dataset.k }); s.classList.remove('on'); hooks.resume(); refreshHUD(true);
-    toast(PERKS[c.dataset.k].name, PERKS[c.dataset.k].icon);
+    const o = offerInfo(c.dataset.k); toast(o.name, o.icon);
   }));
 }
 export function setNetStall(v) { const el = $('#netstall'); el.classList.toggle('on', !!v); if (v && el.textContent !== v) el.textContent = v; }

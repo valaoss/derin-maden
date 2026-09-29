@@ -9,7 +9,7 @@ import { tileAt } from '../world/map.js';
 import { placeBuild } from './economy.js';
 import { breakTile, damagePlayer, unbury } from './player.js';
 import { damageEnemy, hurtBarricade } from './enemies.js';
-import { isLocal, hear } from './run.js';
+import { isLocal, hear, hasPerk } from './run.js';
 import { igniteGas } from './hazards.js';
 import { sparks, ring, shake, hitstop, flashLight, dust, particle } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
@@ -72,7 +72,7 @@ export function useItem(k, p = G.player) {
     ring(p.x, p.y, '#d8d8e8', 40); ring(p.x, p.y, '#ffffff', 24); dust(p.x, p.y, 3, 'rgba(220,220,235,0.5)');
     if (hear(p)) sfx.chirp();
   } else if (k === 'kalkan') {
-    p.barrier = SHIELD.hp; p.barrierT = SHIELD.t;
+    p.barrier = SHIELD.hp * (hasPerk('kalkanUstasi') ? 2 : 1); p.barrierT = SHIELD.t;
     ring(p.x, p.y, '#6fd0ff', 18); sparks(p.x, p.y, '#bff4ff', 12, 70);
     if (hear(p)) sfx.heal();
   } else if (k === 'burgu') {
