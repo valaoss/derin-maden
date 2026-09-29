@@ -10,6 +10,7 @@ import { tileAt, solidAt, setTile, damageTile, matOf } from '../world/map.js';
 import { hasPerk, hasRelic, bagCount, recompute, unlockSchematic, hear, isLocal, pickDmg, pickInterval, roleOf, lastStand, pickType } from './run.js';
 import { HAZARD } from '../data/balance.js';
 import { openChest, itemMax } from './chests.js';
+import { onBreak, onSpecial, inWater } from './biomes.js';
 import { spawnGas } from './hazards.js';
 import { addNoise, nestDestroyed } from './threat.js';
 import { openStation, updateRide } from './elevator.js';
@@ -62,7 +63,7 @@ function laneOpen(p, dx, dy) {
 }
 
 export function playerSpeed(p) {
-  return PLAYER.speed * (hasPerk('hafifBot') ? 1.3 : 1) * (p.adrenT > 0 ? ADREN.speed : 1) * (p.carrying ? 0.85 : 1) * (p.fearT > 0 ? 0.6 : 1) * (p.slowT > 0 ? 0.55 : 1) * (p.webT > 0 ? 0.35 : 1) * (p.hasteT > 0 ? 1.45 : 1);
+  return PLAYER.speed * (hasPerk('hafifBot') ? 1.3 : 1) * (p.adrenT > 0 ? ADREN.speed : 1) * (p.carrying ? 0.85 : 1) * (p.fearT > 0 ? 0.6 : 1) * (p.slowT > 0 ? 0.55 : 1) * (p.webT > 0 ? 0.35 : 1) * (p.hasteT > 0 ? 1.45 : 1) * (inWater(p.x, p.y) ? 0.6 : 1);
 }
 
 export function alivePlayers() { return G.players.filter(p => !p.dead); }
@@ -107,6 +108,8 @@ function updateOne(p, dt) {
     if (p.barrier < KEHRIBAR.hp) { p.barrier = KEHRIBAR.hp; p.barrierT = KEHRIBAR.cd; ring(p.x, p.y, '#ffb040', 16); sparks(p.x, p.y, '#ffd890', 8, 60); }
   }
   if (p.webT > 0) p.webT -= dt;
+  // Yılanbalığı yapışması: sudan çıkana kadar can yer
+  if (p.latchT > 0) { p.latchT -= dt; if (!inWater(p.x, p.y)) p.latchT = 0; else if ((p.latchTick = (p.latchTick || 0) - dt) <= 0) { p.latchTick = 0.4; poisonPlayer(p, p.latchDmg || 4); particle(p.x, p.y, 0, -20, 0.4, '#6fd0ff', 1, 1, 0); } }
   // Derin Nefes ve Kan Bağı: yeraltında can yenilenir
   if (!p.dead && p.y >= GROUND_Y && p.hp < p.maxHp) {
     let rg = hasPerk('derinNefes') ? 0.01 : 0;
@@ -281,6 +284,7 @@ export function unbury(c, r, p = null) {
 export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
   const t = tileAt(c, r), d = TD[t], mat = matOf(c, r);
   setTile(c, r, T.AIR);
+  onBreak(c, r, t);
   if (G.buried) { G.buried[r * 17 + c] = 0; for (let k = -1; k <= 1; k++) for (let j = -1; j <= 1; j++) if (k || j) unbury(c + k, r + j, byPlayer); }
   const x = c * TILE + 8, y = r * TILE + 8;
   if (d.gas) spawnGas(x, y);
@@ -346,6 +350,9 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
     sparks(x, y, '#fff0a0', 24, 140); ring(x, y, '#ffd24a', 40); flashLight(x, y, 9, 0.8); hitstop(0.1); if (local) shake(0.3); sfx.chest();
   }
   if (d.gate && local) emit('toast', { text: 'Saray kapısı açıldı', icon: 'chest' });
+  if (d.lure || d.node || d.egg || d.lumen || d.amber) onSpecial(d, c, r, p, x, y);
+  // Dünya Tohumu: sıradan kaya bazen kristal verir
+  if (d.plain && hasRelic('tohum') && rnd() < 0.04) { spawnOrb(x, y, 'crystal'); sparks(x, y, '#e070ff', 6, 70); }
   if (d.relic) markJourney('relic', x, y, p.i);
   if (d.relic) takeRelic(p, x, y, typeof d.relic === 'string' ? d.relic : RELIC_OF_BIOME[biomeOf(stratumOfRow(r))]);
   // Altın Taç: sıradan kaya bazen altın verir
@@ -506,6 +513,8 @@ export function damagePlayer(p, amount, sx, sy) {
     return;
   }
   if (G.lvl.elmasDeri) amount *= 0.75;
+  // Aynalı Taç: hasarın yarısı en yakın saldırana yansır
+  if (hasRelic('aynaTac')) { let best = null, bd = 40; for (const e of G.enemies) { if (e.dead || e.d.boss) continue; const d = Math.hypot(e.x - sx, e.y - sy); if (d < bd) { bd = d; best = e; } } if (best) { damageEnemyExt(best, amount * 0.5, 0, 0, 0.3); sparks(best.x, best.y, '#c8d0ff', 5, 60); } }
   if (hasPerk('kalinDeri')) amount *= 0.8;
   // Kalkan Hücresi: darbeyi önce kalkan emer
   if (p.barrier > 0) {

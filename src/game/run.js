@@ -87,7 +87,7 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
     kademe, mods, daily, contracts: [],
     bombs: [], rocks: [], falls: [], gas: [], shells: [], hazT: 0,
     structures: [], enemies: [], bullets: [], ebullets: [], orbs: [], particles: [], pIdx: 0, flashes: [], lightSrc: [],
-    satchels: [], zaps: [], pings: [], evt: makeEvents(), echo: null, stations: [], journey: makeJourney(mp ? 2 : 1),
+    satchels: [], zaps: [], pings: [], regrow: [], eggs: [], corpses: [], hungerT: 15, seaT: 0, nodeT: 0, seenStratum: 0, evt: makeEvents(), echo: null, stations: [], journey: makeJourney(mp ? 2 : 1),
     // uyanış: dalga yok; G.wave yalnızca gök rengi/ambiyans uyumu için türetilir
     wave: { num: 0, phase: 'calm', t: Infinity, nests: [], boss: false },
     threat: makeThreat(), nests: [], nestTotal: [], beacons: [], selfRevive: (ml.sigorta | 0) ? 1 : 0, allDownT: 0,
@@ -176,13 +176,16 @@ export function recompute(fill = false) {
 }
 
 // kazma: kademe + tür + keskinlik + hızlı sallama
-export function pickDmg(p = G.player) { return PICK_TIERS[G.lvl.drill].dmg * pickType(p).dmg * UPGRADES.sharp.mult[G.lvl.sharp] * (hasRelic('kivilcim') ? 2 : 1) * (G.lvl.yildizCekirdek ? 1.4 : 1); }
+export function pickDmg(p = G.player) { return PICK_TIERS[G.lvl.drill].dmg * pickType(p).dmg * UPGRADES.sharp.mult[G.lvl.sharp] * (hasRelic('kivilcim') ? 2 : 1) * (G.lvl.yildizCekirdek ? 1.4 : 1) * (hasRelic('sifirTasi') ? 1.4 : 1); }
 export function pickInterval(p = G.player) { return PICK_TIERS[G.lvl.drill].interval * pickType(p).int * UPGRADES.swing.mult[G.lvl.swing]; }
 export function modSlots() { return MOD_SLOTS + (hasPerk('dorduncuYuva') ? 1 : 0); }
 export function hasMod(k) { return G.gear.eq.includes(k); }
 
 export function lampTiles() {
   const r = UPGRADES.lamp.radius[G.lvl.lamp] + (hasPerk('parlakFener') ? 2 : 0) + (hasRelic('kivilcim') ? 1 : 0) + (hasRelic('arken') ? 3 : 0) + (G.lvl.inciFener ? 3 : 0);
+  // Işık Yiyen yakındayken fener söner
+  const lp = G.player, eaten = lp && G.enemies.some(e => !e.dead && e.d.eatLight && Math.hypot(e.x - lp.x, e.y - lp.y) < e.d.eatLight);
+  if (eaten) return 2;
   return G.evt && G.evt.darkT > 0 && !G.lvl.inciFener ? Math.max(2, Math.ceil(r / 2)) : r;
 }
 export function bagCount(p = G.player) { let n = 0; for (const k of RES_KEYS) n += p.bag[k] || 0; return n; }

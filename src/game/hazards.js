@@ -10,6 +10,7 @@ import { damagePlayer, poisonPlayer } from './player.js';
 import { damageEnemy, hurtBarricade, killEnemy } from './enemies.js';
 import { debris, dust, shake, particle, ring, sparks, flashLight } from './fx.js';
 import { sfx } from '../audio/audio.js';
+import { updateBiomes } from './biomes.js';
 
 function queueFall(c, r) {
   if (G.falls.some(f => f.c === c && f.r === r)) return;
@@ -48,6 +49,7 @@ function shatter(k) {
 }
 
 export function updateHazards(dt) {
+  updateBiomes(dt);
   // açılan hücreler: üstünde gevşek kaya var mı
   const cl = G.cleared;
   for (let i = 0; i < cl.length; i += 2) checkAbove(cl[i], cl[i + 1]);

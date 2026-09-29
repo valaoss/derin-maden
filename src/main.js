@@ -256,7 +256,7 @@ function endRun(reason) {
   const collected = {};
   for (const k in G.collected) collected[k] = G.collected[k] + (victory ? G.player.bag[k] : 0);
   const contractOz = G.contracts.filter(c => c.done).reduce((a, c) => a + CONTRACTS[c.k].oz, 0);
-  const oz = Math.round((ozForRun({ ...s, collected }) + contractOz) * G.mods.oz * (G.perks.includes('ozHasadi') ? 1.4 : 1));
+  const oz = Math.round((ozForRun({ ...s, collected }) + contractOz) * G.mods.oz * (G.perks.includes('ozHasadi') ? 1.4 : 1) * ((G.meta.relics || []).includes('sifirTasi') ? 1.5 : 1));
   const newDepth = s.maxDepth > m.bestDepth;
   const prevStratum = m.maxStratum | 0;
   m.oz += oz; m.runs++; m.bestDepth = Math.max(m.bestDepth, s.maxDepth); m.bestNests = Math.max(m.bestNests | 0, s.nests);

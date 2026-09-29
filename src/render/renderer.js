@@ -2,7 +2,8 @@
 // v3: prosedürel ezilme/gerilme, saldırı öncesi hazırlık, ölüm animasyonu, kazma kademeleri, ortam süsleri, partner.
 import { COLS, ROWS, TILE, GROUND_Y, GROUND_ROW, WORLD_W, WORLD_H, BASE_X, CENTER_COL, STRATUM_ROWS, stratumOfRow } from '../config.js';
 import { T, TD } from '../data/tiles.js';
-import { P, RES_COL, ORE_RAMP, STRATA, MAT_RAMP } from '../data/palette.js';
+import { P, RES_COL, ORE_RAMP, STRATA, MAT_RAMP, TIDE_COL } from '../data/palette.js';
+import { tideLevel } from '../game/biomes.js';
 import { PICK_TIERS, AFFIX } from '../data/balance.js';
 import { G, biomeOf } from '../game/state.js';
 import { SPR, sprCanvas, sprEm, glowSprite, playerSprites, HELMETS } from './sprites.js';
@@ -183,6 +184,7 @@ export function render(alpha, opts = {}) {
   const r0 = Math.max(0, Math.floor(camY / TILE) - 1), r1 = Math.min(ROWS - 1, Math.floor((camY + vh) / TILE) + 1);
   drawDecor(r0, r1);
   drawTileOverlays(r0, r1);
+  drawTide(camY, vh);
   drawBeacons(r0, r1);
   drawStations(r0, r1);
   // maden kulesi makarası: biri derindeyken döner
@@ -246,6 +248,17 @@ export function render(alpha, opts = {}) {
 // asansör şaftı: raylar + halat, biyom istasyonlarında platform ve fener
 const SHAFT_X = CENTER_COL * TILE + 8;
 const stationRowOf = s => GROUND_ROW + s * STRATUM_ROWS + 1;
+// gelgit: biyomun altından yükselen su, dalgalı yüzey
+function drawTide(camY, vh) {
+  const L = tideLevel(); if (!L || L.f <= 0) return;
+  const y0 = Math.max(L.y, camY), y1 = Math.min(L.bot, camY + vh);
+  if (y1 <= y0) return;
+  ctx.fillStyle = TIDE_COL; ctx.fillRect(0, Math.round(y0), COLS * TILE, Math.round(y1 - y0));
+  if (L.y > camY - 4 && L.y < camY + vh) {
+    ctx.fillStyle = 'rgba(180,230,255,0.7)';
+    for (let x = 0; x < COLS * TILE; x += 2) ctx.fillRect(x, Math.round(L.y + Math.sin(G.time * 3 + x * 0.2) * 1.5), 2, 1);
+  }
+}
 function drawStations(r0, r1) {
   const S = G.stations; if (!S.length) return;
   const x = SHAFT_X, last = stationRowOf(S[S.length - 1]);
@@ -501,6 +514,16 @@ function drawDecor(r0, r1) {
       // yaratılış zerresi: yavaşça süzülen altın-beyaz nokta
       const oy = Math.round(Math.sin(G.time * 1.2 + c * 2 + r) * 3);
       ctx.fillStyle = '#fff4e8'; ctx.fillRect(x, y - 8 + oy, 1, 1); ctx.fillStyle = '#ffd870'; ctx.fillRect(x + 1, y - 8 + oy, 1, 1);
+    } else if (k === 'amber') {
+      // kehribar damlası: içinde donmuş böcek
+      ctx.fillStyle = P.ink; ctx.fillRect(x - 3, y - 6, 7, 6); ctx.fillRect(x - 2, y - 7, 5, 1);
+      ctx.fillStyle = '#b0601a'; ctx.fillRect(x - 2, y - 5, 5, 4); ctx.fillStyle = '#ffb040'; ctx.fillRect(x - 2, y - 5, 2, 2);
+      ctx.fillStyle = P.ink; ctx.fillRect(x + 1, y - 3, 1, 1);
+    } else if (k === 'lumen') {
+      // ışık mantarı: ince sap, parlayan mavi kapak
+      ctx.fillStyle = P.ink; ctx.fillRect(x - 1, y - 5, 3, 5); ctx.fillRect(x - 3, y - 8, 7, 3);
+      ctx.fillStyle = '#5a8a9a'; ctx.fillRect(x, y - 5, 1, 4);
+      ctx.fillStyle = Math.floor(G.time * 2 + c) % 3 ? '#2a8ab0' : '#8af0ff'; ctx.fillRect(x - 2, y - 7, 5, 1);
     } else if (k === 'mush') {
       // mantar: sap + kapak, ikinci küçük mantar
       ctx.fillStyle = P.ink; ctx.fillRect(x - 2, y - 5, 5, 4); ctx.fillRect(x, y - 2, 1, 2);
@@ -518,7 +541,7 @@ function drawDecor(r0, r1) {
   }
 }
 const DECOR_LIGHT = { mush: 1.7, crys: 2.2, root: 1.2, icicle: 1.3, ember: 2.6, shard: 0.9, star: 1.8, bone: 0,
-  drip: 1, arc: 1.6, coin: 1.8, shroom: 2.4, pane: 1.4, vein: 1.5, gear: 0.6, pool: 0.8, ring: 0.5, halo: 2.2 };
+  drip: 1, arc: 1.6, coin: 1.8, shroom: 2.4, pane: 1.4, vein: 1.5, gear: 0.6, pool: 0.8, ring: 0.5, halo: 2.2, amber: 1.6, lumen: 3 };
 function decorLights(r0, r1, out) {
   for (let r = Math.max(GROUND_ROW, r0); r <= r1; r++) for (let c = 0; c < COLS; c++) {
     const k = decorAt(c, r); if (!k || !DECOR_LIGHT[k]) continue;
@@ -773,6 +796,10 @@ function drawEnemy(e, alpha, camY, vh) {
       ctx.fillStyle = '#fff4c0'; ctx.fillRect(Math.round(q.x) - 3, Math.round(q.y) - 4, 7, 1); ctx.fillRect(Math.round(q.x), Math.round(q.y) - 7, 1, 7);
     }
   }
+  // Örücü: kapatacağı hücre kırmızı yanıp söner
+  if (e.sealT > 0 && Math.floor(G.time * 12) % 2) { const sx = e.sealC * TILE, sy = e.sealR * TILE; ctx.strokeStyle = '#ff5a6a'; ctx.strokeRect(sx + 0.5, sy + 0.5, 15, 15); }
+  // Cevher Faresi: sırtındaki çalıntı kese
+  if (e.fleeT > 0) { ctx.fillStyle = P.ink; ctx.fillRect(Math.round(ox) - 3, Math.round(oy) - 9, 6, 5); ctx.fillStyle = '#ffd870'; ctx.fillRect(Math.round(ox) - 2, Math.round(oy) - 8, 4, 3); }
   if (e.slowT > 0) {
     ctx.fillStyle = '#bff4ff';
     for (let i = 0; i < 3; i++) ctx.fillRect(Math.round(ox - f.w / 2 + hash2(i, Math.floor(G.time * 5), 3) * f.w), Math.round(oy - f.h / 2 + hash2(i, Math.floor(G.time * 5), 7) * f.h), 1, 1);
@@ -804,7 +831,7 @@ function drawMound(x, y) {
   ctx.fillStyle = '#78b43c'; ctx.fillRect(cx + 2, fy - 6 - w, 1, 2); ctx.fillRect(cx - 4, fy - 6 + w, 1, 2);
 }
 // boss uyarıları ve saldırı görselleri: ışık katmanında çizilir, karanlıkta da okunur
-const FX_COL = { root: '#b8f060', ember: '#ff7a2a', light: '#fff4c0', rise: '#b8f060' };
+const FX_COL = { root: '#b8f060', ember: '#ff7a2a', light: '#fff4c0', rise: '#b8f060', egg: '#d8f0a0', amber: '#ffb040', spike: '#ff3a6a', rock: '#c8b8a0' };
 const rgbaCache = new Map();
 function rgba(hex, a) { const k = hex + a; let s = rgbaCache.get(k); if (!s) { s = 'rgba(' + hexToRgb(hex).join(',') + ',' + a + ')'; rgbaCache.set(k, s); } return s; }
 function ringPx(x, y, r, col, dash = 0) {
@@ -838,6 +865,9 @@ function drawBossFx(e, alpha) {
       for (let i = -1; i <= 1; i++) { const h = Math.round((i ? 9 : 14) * k + 2); ctx.fillStyle = '#b8f060'; ctx.fillRect(mx + i * 4, my - h, 1, h); ctx.fillStyle = '#ffd060'; ctx.fillRect(mx + i * 4, my - h, 1, 1); }
       glow(m.x, m.y, 'rgba(184,240,96,0.35)', 12, k);
     } else if (m.kind === 'ember') glow(m.x, m.y, 'rgba(255,120,40,0.6)', Math.round(m.r * 1.6), k);
+    else if (m.kind === 'spike') { for (let i = -1; i <= 1; i++) { const h = Math.round((i ? 7 : 11) * k + 2); ctx.fillStyle = '#ff3a6a'; ctx.fillRect(mx + i * 3, my - h, 1, h); ctx.fillStyle = '#ffd0d8'; ctx.fillRect(mx + i * 3, my - h, 1, 1); } glow(m.x, m.y, 'rgba(255,58,106,0.4)', 12, k); }
+    else if (m.kind === 'amber') glow(m.x, m.y, 'rgba(255,176,64,0.6)', Math.round(m.r * 1.6), k);
+    else if (m.kind === 'egg') glow(m.x, m.y, 'rgba(216,240,160,0.5)', 10, k);
     else if (m.kind === 'light') { ctx.globalAlpha = k; ctx.fillStyle = '#fff4c0'; ctx.fillRect(mx - 3, my - 90, 7, 90); ctx.fillStyle = '#ffffff'; ctx.fillRect(mx - 1, my - 90, 3, 90); ctx.globalAlpha = 1; glow(m.x, m.y, 'rgba(255,244,192,0.6)', 18, k); }
   }
   for (const R of B.rings) {

@@ -971,6 +971,140 @@ const CHEST = [
   'kHhhhhhhhhHk',
   '.kkkkkkkkkk.',
 ];
+// ---------- v6 biyom yaratıkları ----------
+// Kör Avcı: gözsüz, dev kulaklar, dişli ağız
+const KOR_PAL = { a: '#545a6a', A: '#8a90a0', q: '#22242c' };
+const KOR_TOP = [
+  '..kk......kk..',
+  '.kAAk....kAAk.',
+  '.kAak....kaAk.',
+  '..kaakkkkaak..',
+  '..kaAAAAAAak..',
+  '.kaAAAAAAAAak.',
+  '.kaAkWkWkWAak.',
+  '.kaakRRRRRkak.',
+  '..kaakWkWkak..',
+  '..kaaaaaaaak..',
+];
+const KOR_A = KOR_TOP.concat(['.kqk.kqqk.kqk.', '.kk..kkkk..kk.']);
+const KOR_B = KOR_TOP.concat(['..kqk.kk.kqk..', '..kk......kk..']);
+// Batak Yılanbalığı: uzun gövde, parlayan yüzgeç çizgisi
+const YILAN_PAL = { e: '#16444e', E: '#2a8ab0', l: '#8af0ff', r: '#ffe79a' };
+const YILAN_A = ['......kkkkkk....', '..kkkkEEEEEEkk..', '.kEEEEEEEElEErk.', 'kEeeEEeeEEEEEEkk', '.kkeeekkeeeeekk.', '...kkk..kkkkk...'];
+const YILAN_B = ['....kkkkkk......', '.kkkEEEEEEkkkk..', 'kEEEEEEEEEElErk.', '.kkeEEeeEEEEEEkk', '...kkeekkeeeekk.', '.....kk..kkkk...'];
+// Örücü: etli gövde, çok bacaklı dokumacı
+const ORUCU_PAL = { f: '#5e1a26', F: '#8a2e3a', p: '#d06070', r: '#ffe79a' };
+const ORUCU_TOP = ['....kkkkkk....', '...kFFFFFFk...', '..kFpFFFFpFk..', '.kFFFrkkrFFFk.', '.kfFFFFFFFFfk.'];
+const ORUCU_A = ORUCU_TOP.concat(['k.kfffffffk.k.', 'kk.kffkffk.kk.', '.kk.kk.kk.kk..', '..k.k...k.k...']);
+const ORUCU_B = ORUCU_TOP.concat(['.kkfffffffkk..', 'k..kffkffk..k.', 'kk.kk...kk.kk.', '.k..k...k..k..']);
+// Kalkanlı Muhafız: miğfer, önde (sağda) büyük ayna kalkan
+const KALK_PAL = { q: '#2e3040', Q: '#8a90aa', U: '#e0e8ff', s: '#50546a' };
+const KALK_TOP = [
+  '....kkkkk.......',
+  '...kQQQQQk......',
+  '...kQkrkQk..kk..',
+  '...kQQQQQk.kUUk.',
+  '..kkkQQQkkkUQQUk',
+  '.kQQkQQQkQkUQQUk',
+  'kQQQkQQQkQkUQrUk',
+  'kQskkQQQkkkUQQUk',
+  '.kk.kQQQk.kUQQUk',
+  '....kqqqk..kUUk.',
+];
+const KALK_A = KALK_TOP.concat(['...kqqkqqk..kk..', '...kqk.kqk......', '...kkk.kkk......']);
+const KALK_B = KALK_TOP.concat(['...kqqkqqk..kk..', '..kqk...kqk.....', '..kkk...kkk.....']);
+// Diriltici: kehribar kafatası maskeli, süzülen şaman
+const DIR_PAL = { j: '#6a3a10', J: '#ffb040', e: '#fff0c0', E: '#ffd890', z: '#3e2008' };
+const DIR_A = ['.....kkk.....', '....kJeJk....', '...kJJJJJk...', '..kJkekekJk..', '..kJJJzJJJk..', '...kJzzzJk...', '.kk.kjjjk.kk.', 'kEk.kjjjk.kEk', '.k..kjjjk..k.', '....kjkjk....', '.....k.k.....'];
+const DIR_B = ['.....kkk.....', '....kJeJk....', '...kJJJJJk...', '..kJkekekJk..', '..kJJJzJJJk..', 'kEkkJzzzJkkEk', '.kk.kjjjk.kk.', '....kjjjk....', '....kjjjk....', '....kjkjk....', '.....k.k.....'];
+// Demir Kene: çelik plakalı kene
+const KENE_PAL = { m: '#6e3a32', M: '#a8604e', i: '#a7b0c4', I: '#dfe6f0' };
+const KENE_TOP = ['....kkkkkk....', '..kkIiiiiIkk..', '.kIiMMMMMMiIk.', 'kiMMmMMmMMMMik', 'kiMmMMMMmMMrik', 'kiMMMmMMMMMMik', '.kiMMMMMMMMik.'];
+const KENE_A = KENE_TOP.concat(['k.kkiiiiiikk.k', '.k.k.k..k.k.k.', 'k.k..k..k..k.k']);
+const KENE_B = KENE_TOP.concat(['.kkkiiiiiikkk.', 'k..k.k..k.k..k', '.k..k....k..k.']);
+// Cevher Faresi: altın dişli fare
+const FARE_PAL = { a: '#62622e', A: '#9a9a50', G: '#ffd24a', p: '#e0a0a0' };
+const FARE_TOP = ['.kk.........', 'kpAk..kkkk..', '.kAAkkAAAAk.', '.kArAAAAAAAk', 'kGkAAAaaAAk.'];
+const FARE_A = FARE_TOP.concat(['.kkkaAkkaAkk', '...kk.kk.kk.']);
+const FARE_B = FARE_TOP.concat(['.kkkaAk.kaAk', '..kk..kk..k.']);
+// Tozböcek: minik kum böceği
+const TOZ_PAL = { a: '#8a8040', A: '#c8c080' };
+const TOZ_A = ['.kkkk..', 'kAAAAk.', 'kArAAAk', '.kaaak.', 'k.k.k..'];
+const TOZ_B = ['.kkkk..', 'kAAAAk.', 'kArAAAk', '.kaaak.', '.k.k.k.'];
+// Yumurtacı: şişkin yumurta kesesi taşıyan yaratık
+const YUM_PAL = { g: '#34401e', G: '#7e9a50', l: '#d8f0a0' };
+const YUM_TOP = ['....kkkkk.....', '..kkGGGGGkk...', '.kGGlGGGGGGk..', 'kGGGGGGGGGGGk.', 'kGlGGgGGGrGGkk', 'kGGGGGGGGGGkGk', 'kGGlGGgGGGGkkk', '.kGGGGGGGGGk..', '..kggkggkggk..'];
+const YUM_A = YUM_TOP.concat(['.kgk.kgk.kgk..', '.kk..kk..kk...']);
+const YUM_B = YUM_TOP.concat(['..kgk.kgkgk...', '..kk..kk.kk...']);
+// Işık Yiyen: karanlık denizanası, ışığı içine çeker
+const ISIK_PAL = { d: '#0c1a3a', D: '#16305a', l: '#3a6aa8', e: '#8af0ff' };
+const ISIK_TOP = ['....kkkkkk....', '..kkDDDDDDkk..', '.kDDDlDDlDDDk.', 'kDDDkekkekDDDk', 'kDdDDDDDDDDdDk', '.kdkDDddDDkdk.'];
+const ISIK_A = ISIK_TOP.concat(['..k.kdkkdk.k..', '...k.k..k.k...', '..k..k..k..k..', '.....k..k.....']);
+const ISIK_B = ISIK_TOP.concat(['..kk.dkkd.kk..', '..k..k..k..k..', '...k.k..k.k...', '....k....k....']);
+// Aynasız Hükümdar: taç, ayna yüz, geniş pelerin
+const AYNA_PAL = { c: '#ffd870', C: '#b08a30', q: '#2e3040', Q: '#8a90aa', U: '#e0e8ff', m: '#c8d0ff', M: '#ffffff', e: '#ff5a8a' };
+const AYNA_A = [
+  '.......k.k.k.k.......',
+  '......kckckckck......',
+  '......kCcCcCcCk......',
+  '.....kkkkkkkkkkk.....',
+  '....kUUUUUUUUUUUk....',
+  '....kUmMmmmmmMmUk....',
+  '....kUmmekmekmmUk....',
+  '....kUmMmmmmmMmUk....',
+  '.....kUUUUUUUUUk.....',
+  '...kkkQQQQQQQQQkkk...',
+  '..kQQkQUQQQQQUQkQQk..',
+  '.kQQQkQQQQQQQQQkQQQk.',
+  '.kQUQkQQQQcQQQQkQUQk.',
+  '.kQQQkqQQQQQQQqkQQQk.',
+  '..kkkkqqQQQQQqqkkkk..',
+  '.....kqqqqqqqqqk.....',
+  '.....kqqk...kqqk.....',
+  '.....kkkk...kkkk.....',
+];
+const AYNA_B = AYNA_A.map((row, i) => i === 5 || i === 7 ? row.replace(/M/g, 'm').replace(/mm/, 'MM') : row);
+// Kehribar Ana: kovan kraliçesi, kanatlı kehribar gövde
+const KANA_PAL = { a: '#6a3a10', A: '#b0601a', B: '#ffb040', l: '#fff0c0', w: '#ffd890' };
+const KANA_A = [
+  '...kk.............kk...',
+  '....kk...kkkkk...kk....',
+  '.....kk.kBBBBBk.kk.....',
+  '......kkBrkBkrBkk......',
+  '.......kBBBBBBBk.......',
+  '..kkk..kkAAAAAkk..kkk..',
+  '.kwwwkkAAABBBAAAkkwwwk.',
+  'kwwlwwkABBBBBBBAkwwlwwk',
+  '.kwwwkAABBlBBlBBAkwwwk.',
+  '..kkkkAABBBBBBBBAkkkk..',
+  '....kAAaBBlBBBaAAk.....',
+  '.....kaaaAAAAAaaak.....',
+  '......kkaaaaaaakk......',
+  '...kk.k.kkkkkkk.k.kk...',
+  '..k..k.k.......k.k..k..',
+];
+const KANA_B = KANA_A.map((row, i) => i >= 6 && i <= 8 ? row.replace(/w/g, 'l').replace(/l(?=w|k)/, 'w') : row);
+// Madenin Kalbi: damarlı dev kalp
+const KALBI_PAL = { h: '#8a1a2a', H: '#c02a40', x: '#ff3a6a', X: '#ff8aa8', v: '#4a0a14', Z: '#ffffff', e: '#ffe79a' };
+const KALBI_A = [
+  '.....kkkk.....kkkk.....',
+  '...kkHHHHkk.kkHHHHkk...',
+  '..kHHxxxHHHkHHHxxxHHk..',
+  '.kHHxXXxxHHHHHxXXxxHHk.',
+  '.kHxXZXxxHHvHHxXZXxxHk.',
+  'kHHxXXxxHHvHvHHxXXxxHHk',
+  'kHHHxxxHHvHHHvHHxxxHHHk',
+  'kHvHHHHHvHHeHHvHHHHHvHk',
+  '.kHvHHHvHHeeeHHvHHHvHk.',
+  '..kHvvvHHHHeHHHHvvvHk..',
+  '...kHHHvHHHHHHHvHHHk...',
+  '....kkHHvHHHHHvHHkk....',
+  '......kkHHvHvHHkk......',
+  '........kkHHHkk........',
+  '..........kkk..........',
+];
+const KALBI_B = KALBI_A.map(row => row.replace(/x/g, 'X'));
+
 // sandık türleri: aynı kalıp, farklı ahşap/metal/kilit rengi (kilit karanlıkta parlar)
 const CHEST_PAL = {
   wood: { G: '#ffd24a' },
@@ -1346,6 +1480,12 @@ export function buildSprites() {
   SPR.echoer = [makeSprite(ECHOER_A, ECHOER_PAL, 'rW'), makeSprite(ECHOER_B, ECHOER_PAL, 'rW')];
   SPR.seraph = [makeSprite(SERAPH_A, SERAPH_PAL, 'eEH'), makeSprite(SERAPH_B, SERAPH_PAL, 'eEH')];
   SPR.chest = makeSprite(CHEST, { G: '#ffd24a' }, 'G');
+  const two = (a, b, pal, em) => [makeSprite(a, pal, em), makeSprite(b, pal, em)];
+  SPR.korAvci = two(KOR_A, KOR_B, KOR_PAL, 'R'); SPR.yilan = two(YILAN_A, YILAN_B, YILAN_PAL, 'rl'); SPR.orucu = two(ORUCU_A, ORUCU_B, ORUCU_PAL, 'r');
+  SPR.kalkanli = two(KALK_A, KALK_B, KALK_PAL, 'rU'); SPR.diriltici = two(DIR_A, DIR_B, DIR_PAL, 'eE'); SPR.kene = two(KENE_A, KENE_B, KENE_PAL, 'r');
+  SPR.fare = two(FARE_A, FARE_B, FARE_PAL, 'rG'); SPR.tozbocek = two(TOZ_A, TOZ_B, TOZ_PAL, 'r'); SPR.yumurtaci = two(YUM_A, YUM_B, YUM_PAL, 'rl');
+  SPR.isikYiyen = two(ISIK_A, ISIK_B, ISIK_PAL, 'e');
+  SPR.aynasiz = two(AYNA_A, AYNA_B, AYNA_PAL, 'eMc'); SPR.kehribarAna = two(KANA_A, KANA_B, KANA_PAL, 'rl'); SPR.madenKalbi = two(KALBI_A, KALBI_B, KALBI_PAL, 'xXZe');
   SPR.chests = Object.fromEntries(Object.entries(CHEST_PAL).map(([k, pal]) => [k, makeSprite(CHEST, pal, 'G')]));
   SPR.mimic = [makeSprite(MIMIC_A, Object.assign({ r: '#ff5a4a' }, CHEST_PAL.iron), 'r'), makeSprite(MIMIC_B, Object.assign({ r: '#ff5a4a' }, CHEST_PAL.iron), 'r')];
   SPR.relic = makeSprite(RELIC, { G: '#ffd24a', g: '#a8701e', W: '#fff4c0', Z: '#ffffff' }, 'WZ');

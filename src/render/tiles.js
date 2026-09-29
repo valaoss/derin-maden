@@ -19,7 +19,8 @@ for (const k in WALL_RAMP) ramp('w_' + k, WALL_RAMP[k]);
 for (const k in ORE_RAMP) ramp('o_' + k, ORE_RAMP[k]);
 ramp('grass', [P.ink, P.grass0, P.grass1, P.grass2]);
 const MAT_SEED = { dirt: 11, stone: 23, hard: 37, dense: 53, bedrock: 71, found: 83, vault: 97, moss: 101, ice: 113, bone: 127, magma: 131, obsidian: 139, void: 149,
-  quick: 151, storm: 157, gilt: 163, gate: 167, fungus: 173, glass: 179, titan: 181, chrono: 191, blood: 193, echo: 197, genesis: 199 };
+  quick: 151, storm: 157, gilt: 163, gate: 167, fungus: 173, glass: 179, titan: 181, chrono: 191, blood: 193, echo: 197, genesis: 199,
+  mute: 211, tide: 223, flesh: 227, mirror: 229, amber: 233, magnet: 239, hunger: 241, rootwood: 251, sea: 257, zero: 263 };
 const gemCache = new Map();
 function gemRamp(gem) { let r = gemCache.get(gem); if (!r) { r = gem.map(hexToRgb); gemCache.set(gem, r); } return r; }
 
@@ -228,6 +229,78 @@ function baseShade(mat, wx, wy, s) {
       if (Math.abs(v - 0.5) < 0.03) return 1;
       if (h < 0.03) return 4;
       return m > 0.6 || m < 0.35 ? 3 : 2;
+    }
+    case 'mute': {
+      // sağır taş: yumuşak gri keçe, yatay sessiz çizgiler
+      const band = ((wy + Math.floor(vnoise(wx / 14, wy / 20, s + 2) * 4)) % 5 + 5) % 5;
+      if (band === 0 && h < 0.8) return 1;
+      if (h < 0.01) return 3;
+      return n > 0.62 ? 3 : 2;
+    }
+    case 'tide': {
+      // gelgit taşı: ıslak, dalgalı açık çizgiler, damla izleri
+      const w = Math.sin(wx / 4 + vnoise(wx / 8, wy / 8, s) * 5) * 1.3, band = ((Math.floor(wy + w) % 7) + 7) % 7;
+      if (band === 0) return 3; if (band === 1) return 1;
+      if (h < 0.02) return 4;
+      return n > 0.6 ? 2 : 1;
+    }
+    case 'flesh': {
+      // yaşayan kaya: kıvrık etli kıvrımlar, koyu damarlar
+      const v = vnoise(wx / 5, wy / 5, s + 3), m = vnoise(wx / 9, wy / 9, s + 7);
+      if (Math.abs(v - 0.5) < 0.03) return 1;
+      if (Math.abs(m - 0.5) < 0.02) return 4;
+      return m > 0.58 ? 3 : 2;
+    }
+    case 'mirror': {
+      // ayna taşı: büyük levhalar, çapraz beyaz yansıma bantları
+      const lx = ((wx % 16) + 16) % 16, ly = ((wy % 12) + 12) % 12, d1 = (((wx + wy) % 14) + 14) % 14;
+      if (lx === 0 || ly === 0) return 1;
+      if (d1 === 0 || d1 === 1) return 4;
+      return n > 0.55 ? 3 : 2;
+    }
+    case 'amber': {
+      // kehribar taşı: sarımsı katmanlar, içinde koyu kabarcıklar
+      const band = ((wy + Math.floor(vnoise(wx / 12, 0, s + 2) * 5)) % 8 + 8) % 8;
+      if (hash2(wx >> 1, wy >> 1, s + 5) < 0.03) return 1;
+      if (band === 0) return 4;
+      return band < 3 ? 3 : 2;
+    }
+    case 'magnet': {
+      // mıknatıs taşı: pas kabuk, dikey çelik lifler
+      const col = ((wx + Math.floor(vnoise(0, wy / 6, s + 4) * 3)) % 5 + 5) % 5;
+      if (col === 0) return 1;
+      if (col === 1 && h < 0.6) return 3;
+      if (h < 0.015) return 4;
+      return n > 0.62 ? 2 : 1;
+    }
+    case 'hunger': {
+      // açlık taşı: kurumuş, kemirilmiş delikler
+      const cx = Math.floor(wx / 6), cy = Math.floor(wy / 6), hole = hash2(cx, cy, s + 1) < 0.22;
+      if (hole) { const dx = wx - (cx * 6 + 3), dy = wy - (cy * 6 + 3); if (dx * dx + dy * dy < 3) return 0; if (dx * dx + dy * dy < 5) return 1; }
+      if (h < 0.02) return 4;
+      return n > 0.6 ? 3 : 2;
+    }
+    case 'rootwood': {
+      // kök odunu: dikey lifler, budak halkaları
+      const col = ((wx + Math.floor(vnoise(0, wy / 11, s + 4) * 4)) % 4 + 4) % 4;
+      if (col === 0) return 1;
+      const cx = Math.floor(wx / 20) * 20 + 10, cy = Math.floor(wy / 20) * 20 + 10, d = Math.hypot(wx - cx, wy - cy);
+      if (hash2(cx, cy, s) < 0.35 && d < 5 && Math.floor(d) % 2 === 0) return 4;
+      return n > 0.6 ? 3 : 2;
+    }
+    case 'sea': {
+      // sessiz deniz: çok koyu, yavaş dalgalar ve biyolüminesan noktalar
+      const w = vnoise(wx / 12, wy / 6, s + 2);
+      if (h < 0.006) return 4;
+      if (Math.abs(w - 0.5) < 0.025) return 3;
+      return w > 0.6 ? 2 : 1;
+    }
+    case 'zero': {
+      // sıfır taşı: saf beyaz-gri, keskin ızgara kırıkları
+      const lx = ((wx % 10) + 10) % 10, ly = ((wy % 10) + 10) % 10;
+      if ((lx === 0 || ly === 0) && hash2(wx >> 3, wy >> 3, s) < 0.5) return 1;
+      if (h < 0.02) return 4;
+      return n > 0.58 ? 3 : 2;
     }
     default: // bedrock
       return n > 0.72 ? 3 : n > 0.4 ? 2 : 1;

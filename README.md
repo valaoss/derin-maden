@@ -41,8 +41,15 @@ npm run build      # dist/ — statik olarak herhangi bir yerde yayınlanabilir
   ASANSÖR düğmesi çıkar, Kamp ya da açılmış biyomu seç, kabin seni taşır (kabinde hasar yok, Kalp Kristali ile yavaş). Her biyomda git-gel yok.
   İstasyonlar şaftta platform + fener olarak görünür ve çevresini aydınlatır; en yakın istasyon ekran dışındaysa şaft hizasında altın kenar oku gösterir.
   Sonuç ekranında **ANA MENÜ** düğmesi vardır.
-- **Düşman yoğunluğu:** Sessizde bile yakın yuva (7 blok) tek tük düşman verir, kayadan sızma her seviyede; üst sınır 4/10/16/24/32,
-  Uyanış'ta 1-2, Öfke'de 2-3 düşman birden çıkar. İlk biyom yeni oyuncu için daha seyrek. `npm run sim` ~40 düşman/dk gösterir.
+- **Yönetmen (düşman temposu):** Düşmanlar tek bir bütçeden karışık gruplar halinde gelir (4+ kişide bir ağır, 3+ kişide bir menzilli);
+  önceki grup büyük ölçüde ölmeden yenisi gelmez, sahadaki sınır 3 sn'de en çok 1 artar. Uyanış ve üstünde 80-110 sn'de bir **DALGA**
+  4 sn önceden duyurulur (turuncu ok), 3 grup gelir, ardından 18 sn nefes arası. Düşman canı biyom başına ×1.13, hasarı +%8;
+  derin elitler özellik kazanır (Kalkanlı, Hızlı, Yenilenen, Patlayan, Bölünen).
+- **Market:** fiyatlar katlanır; son seviyeler bandın derin cevherini (Yeşim → Opal → İnci → Akik → Yıldız → Kara Elmas → Ezel Kehribarı)
+  ve bu seferde yakılmış Fener ister (en çok 8). Her silahın 5 ustalık seviyesi, her aletin 5 seviyesi var; üretim fiyatı derinlikle artar.
+- **Sandıklar:** Ahşap, Demir, Altın, Silah, Cevher, Erzak, Lanetli (3 elit bekçi, güçlü kalıntı), Kadim ve Taklitçi (sandık kılığında saldırır).
+  Kalıntılar Sıradan / Nadir / Efsanevi (50+).
+- **Test düğmesi:** adrese `?test` eklenince Atölye'de TEST ∞: her cevherden 99999, tüm şemalar, Fener kilidi açık.
 - **Roller:** Madenci kartında seçilir; Kazıcı (kazma %20 hızlı, kazı gürültüsü %25 az), Nişancı (blaster hasarı +%25, menzil +12),
   Mühendis (alet sınırı +1, aletler %40 dayanıklı). Co-op'ta partnerin rolü koltuk kartında görünür.
 - **Maden olayları:** Yeraltında ve ölçer sessiz değilken 55-95 sn'de bir olay: **Sarsıntı** (uyarıdan 2.5 sn sonra tavan çöker),
@@ -56,7 +63,7 @@ npm run build      # dist/ — statik olarak herhangi bir yerde yayınlanabilir
   BİRLİKTE · GÜNÜN MADENİ · KAMP üçlü karo; altta eser rafı ve rekor satırı.
 - **Fotoğraf modu:** Duraklat > Fotoğraf Çek; HUD'suz kare + filigran, telefonda paylaşım menüsü, masaüstünde PNG indirme.
 
-- **20 biyom, ~720 m, karışık sıra:** Toprak hep ilk, Yaratılış Çekirdeği hep son; aradakiler tohuma göre zorluk bantları içinde
+- **30 biyom, ~1080 m, karışık sıra:** Toprak hep ilk, Yaratılış Çekirdeği 20., Sıfır Noktası hep son; aradakiler tohuma göre zorluk bantları içinde
   yer değiştirir (`biomeOrder(seed)`: [1-2] [3-5] [6-7] [8-9] [10-11] [12-14] [15-18]). Ana kaya sertliği derinlikle artar (Boşluk 60 → Yaratılış 350),
   iki yeni kazma kademesi (Yıldız Demiri, Yaratılış Kazması). Her biyomun imza düşmanı yuvalardan sık çıkar; derin biyomların imzaları yalnız kendi biyomunda.
 - **Derin biyomlar (10-19), her birinin kendine özgü taşı:**
@@ -70,6 +77,18 @@ npm run build      # dist/ — statik olarak herhangi bir yerde yayınlanabilir
   - **Kan Gölü:** kan damarı → 3 demir + 20 can, ölçer +25; tehlike çarpanı en yüksek; Kan Sülüğü kayada yüzer.
   - **Yankı Boşluğu:** her gürültü ×2; sessiz taş ölçeri 30 düşürür; Yankıcı korkutur.
   - **★ Yaratılış Çekirdeği (efsanevi):** yaratılış tohumu → çevredeki 8 sıradan kaya altın/kristale döner; Kalp Kristali burada; Işık Bekçisi kör eder.
+- **Öte Yüz ve İlk Taş (20-29):** çekirdeğin öbür tarafı.
+  - **Sağır Mağaralar:** düşmanlar görmez, son sese koşar; tuzak taşı onları başka yere çeker. Kör Avcı.
+  - **Gelgit Kuyuları:** su dakikada bir yükselir; suda yavaşlarsın, silah ateş etmez. Batak Yılanbalığı suda yapışır.
+  - **Yaşayan Kaya:** kazılan tünel 20 sn'de kapanır; sinir düğümü 40 sn durdurur. Örücü arkandaki tüneli örer.
+  - **★ Ters Saray (efsanevi):** baş aşağı salon, Kara Elmas avizeler, taht tavanda (Aynalı Taç). Kalkanlı Muhafız önden gelen vuruşu keser.
+  - **Kehribar Mezarı:** kehribar kırılınca ganimet ya da uyanan elit. Diriltici ölen dostlarını geri getirir.
+  - **Mıknatıs Çekirdeği:** bol demir; Demir Kene mermileri kendine çeker ve mermiye dayanıklıdır.
+  - **Açlık Yatağı:** damarlar 15 sn'de bir kararır; Cevher Faresi çantandan çalıp kaçar, Tozböcek sürüleri.
+  - **★ Kök Tahtı (efsanevi):** taht odasında Dünya Tohumu; Yumurtacı duvara yumurta bırakır (8 sn içinde kır).
+  - **Sessiz Deniz:** ölçer sönmez, durmadan dolar; ışık mantarları iyileştirir; Işık Yiyen fenerini söndürür.
+  - **★ Sıfır Noktası (efsanevi):** Kalp Kristali ve Sıfır Taşı burada.
+  - Yeni bosslar: **Aynasız Hükümdar** (taktığın silahı kopyalar), **Kehribar Ana** (yumurta yağmuru, reçine), **Madenin Kalbi** (duvarlardan diken, tavan çöküşü, nabız halkası).
   Efsanevi biyomlar altın afişle girilir, fazladan sandık taşır; biyoma girince kısa ipucu çıkar.
 - **Efsanevi eserler (kalıcı):** her efsanevi biyomun kalbinde tek bir eser taşı; kırınca altın afiş + beyaz flaş, eser kamp rafına
   ve ana menüdeki rafa girer ve her seferde çalışır (co-op'ta iki oyuncu da kazanır; ikinci kez bulunursa altın yağmuru).

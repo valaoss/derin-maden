@@ -12,6 +12,9 @@ export const T = {
   YESIM: 47, OPAL: 48, INCI: 49, AKIK: 50, YILDIZ: 51, ELMAS: 52, KEHRIBAR: 53,
   // sandık türleri (T.CHEST: ahşap)
   CHEST_IRON: 54, CHEST_GOLD: 55, CHEST_ARMS: 56, CHEST_ORE: 57, CHEST_SUPPLY: 58, CHEST_CURSED: 59, CHEST_ANCIENT: 60, MIMIC: 61,
+  // v6 biyomlar (20-29): ana kaya + biyoma özgü taş
+  MUTE: 62, TIDE: 63, FLESH: 64, MIRROR: 65, AMBERROCK: 66, MAGNETROCK: 67, HUNGER: 68, ROOTWOOD: 69, SEA: 70, ZERO: 71,
+  LURE: 72, CLAM: 73, NODE: 74, AMBER: 75, MAGNET: 76, EGG: 77, LUMEN: 78,
 };
 
 // mat: doku/ses/parçacık malzemesi ('host' => katmanın ana kayası); plain: sıradan kaya (damar/tehlike/dönüşüm yerleşebilir)
@@ -84,15 +87,35 @@ TD[T.CHEST_SUPPLY]  = { solid: true, hp: 6, mat: 'host', chest: 'supply' };
 TD[T.CHEST_CURSED]  = { solid: true, hp: 14, mat: 'host', chest: 'cursed' };
 TD[T.CHEST_ANCIENT] = { solid: true, hp: 20, mat: 'host', chest: 'ancient' };
 TD[T.MIMIC]         = { solid: true, hp: 8, mat: 'host', chest: 'mimic' };
+// v6 biyom kayaları: sertlik derinlikle artmaya devam eder
+TD[T.MUTE]       = { solid: true, hp: 370, mat: 'mute', plain: true };                                  // Sağır Mağaralar
+TD[T.TIDE]       = { solid: true, hp: 390, mat: 'tide', plain: true };                                  // Gelgit Kuyuları
+TD[T.FLESH]      = { solid: true, hp: 260, mat: 'flesh', plain: true };                                 // Yaşayan Kaya: yumuşak ama yeniden büyür
+TD[T.MIRROR]     = { solid: true, hp: 430, mat: 'mirror', plain: true };                                // Ters Saray
+TD[T.AMBERROCK]  = { solid: true, hp: 450, mat: 'amber', plain: true };                                 // Kehribar Mezarı
+TD[T.MAGNETROCK] = { solid: true, hp: 470, mat: 'magnet', plain: true };                                // Mıknatıs Çekirdeği
+TD[T.HUNGER]     = { solid: true, hp: 490, mat: 'hunger', plain: true };                                // Açlık Yatağı
+TD[T.ROOTWOOD]   = { solid: true, hp: 510, mat: 'rootwood', plain: true };                              // Kök Tahtı
+TD[T.SEA]        = { solid: true, hp: 530, mat: 'sea', plain: true };                                   // Sessiz Deniz
+TD[T.ZERO]       = { solid: true, hp: 560, mat: 'zero', plain: true };                                  // Sıfır Noktası
+TD[T.LURE]   = { solid: true, hp: 12, mat: 'host', lure: true, glow: 1.4, gem: ['#2a2a3a', '#6a6a8a', '#c0c0e0', '#ffffff'] };     // tuzak taşı: kırınca sağır düşmanlar oraya koşar
+TD[T.CLAM]   = { solid: true, hp: 18, mat: 'host', ore: 'gold', amt: 3, glow: 1.2 };                                              // istiridye: bol altın
+TD[T.NODE]   = { solid: true, hp: 30, mat: 'host', node: true, glow: 2, gem: ['#4a0a1a', '#c02a4a', '#ff8aa0', '#ffe0e8'] };      // sinir düğümü: büyümeyi durdurur
+TD[T.AMBER]  = { solid: true, hp: 20, mat: 'host', amber: true, glow: 1.8, gem: ['#4a2008', '#b0601a', '#ffb040', '#fff0c0'] };   // kehribar kütlesi: ganimet ya da uyanan yaratık
+TD[T.MAGNET] = { solid: true, hp: 16, mat: 'host', ore: 'iron', amt: 4, glow: 1 };                                                 // mıknatıs taşı: bol demir
+TD[T.EGG]    = { solid: true, hp: 10, mat: 'host', egg: true, glow: 1.6, gem: ['#2a3a1a', '#7aa040', '#d8f0a0', '#ffffff'] };     // yumurta: kırılmazsa çatlar
+TD[T.LUMEN]  = { solid: true, hp: 8, mat: 'host', lumen: true, glow: 3.2, gem: ['#0a2a3a', '#2a8ab0', '#8af0ff', '#ffffff'] };    // ışık mantarı: iyileştirir, aydınlatır
 export const CHEST_TILE = { wood: T.CHEST, iron: T.CHEST_IRON, gold: T.CHEST_GOLD, arms: T.CHEST_ARMS, ore: T.CHEST_ORE, supply: T.CHEST_SUPPLY, cursed: T.CHEST_CURSED, ancient: T.CHEST_ANCIENT, mimic: T.MIMIC };
 export const DEEP_TILE = [T.YESIM, T.OPAL, T.INCI, T.AKIK, T.YILDIZ, T.ELMAS, T.KEHRIBAR];
 
 export const isSolid = t => TD[t].solid;
 export const isMineable = t => TD[t].solid && !TD[t].unbreakable && !TD[t].built;
 export const isPlain = t => !!TD[t].plain;
-// Biyomun ana kayası (cevher tile'larının etrafı ve arka duvar): 20 biyom (kimliğe göre)
+// Biyomun ana kayası (cevher tile'larının etrafı ve arka duvar): 30 biyom (kimliğe göre)
 export const HOST_MAT = ['dirt', 'stone', 'moss', 'hard', 'ice', 'bone', 'magma', 'dense', 'obsidian', 'void',
-  'quick', 'storm', 'gilt', 'fungus', 'glass', 'titan', 'chrono', 'blood', 'echo', 'genesis'];
+  'quick', 'storm', 'gilt', 'fungus', 'glass', 'titan', 'chrono', 'blood', 'echo', 'genesis',
+  'mute', 'tide', 'flesh', 'mirror', 'amber', 'magnet', 'hunger', 'rootwood', 'sea', 'zero'];
 // Biyomun ana kaya tile'ı
 export const HOST_TILE = [T.DIRT, T.STONE, T.MOSS, T.HARD, T.ICE, T.BONE, T.MAGMA, T.DENSE, T.OBSIDIAN, T.VOID,
-  T.QUICK, T.STORM, T.GILT, T.FUNGUS, T.GLASS, T.TITAN, T.CHRONO, T.BLOOD, T.ECHO, T.GENESIS];
+  T.QUICK, T.STORM, T.GILT, T.FUNGUS, T.GLASS, T.TITAN, T.CHRONO, T.BLOOD, T.ECHO, T.GENESIS,
+  T.MUTE, T.TIDE, T.FLESH, T.MIRROR, T.AMBERROCK, T.MAGNETROCK, T.HUNGER, T.ROOTWOOD, T.SEA, T.ZERO];

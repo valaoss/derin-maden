@@ -267,12 +267,29 @@ export const ENEMIES = {
   chronoling: { name: 'Zaman Gözü', hp: 85, speed: 32, dmg: 20, r: 5, fly: true, blink: true, blinkCd: 2.6, rewind: 6, rewindRange: 110, cost: 4.5 }, // seni 3 sn önceki yerine geri sarar
   leech:      { name: 'Kan Sülüğü', hp: 140, speed: 26, dmg: 16, r: 6, armor: 0.25, burrow: true, dig: 99, digRate: 7, knockResist: 0.75, drain: true, loot: [['iron', 3]], cost: 5 }, // ısırınca kan emer: iyileşir ve büyür, sen kanarsın
   echoer:     { name: 'Yankıcı', hp: 95, speed: 32, dmg: 14, r: 6, howl: true, howlRange: 110, howlCd: 5.5, echoNoise: 10, cost: 4 }, // ulumasi ölçeri yükseltir, sürüyü hızlandırır
+  // v6 biyom imzaları
+  korAvci:    { name: 'Kör Avcı', hp: 160, speed: 34, dmg: 42, r: 6, armor: 0.2, deaf: true, dash: 1.8, cost: 5 },                 // görmez; son sese koşar, çok sert vurur
+  yilan:      { name: 'Batak Yılanbalığı', hp: 120, speed: 30, dmg: 14, r: 5, fly: true, swim: true, latch: 2.5, cost: 4 },         // suda çok hızlı; yapışır, sudan çıkana kadar yer
+  orucu:      { name: 'Örücü', hp: 180, speed: 26, dmg: 16, r: 6, armor: 0.3, seal: 5, sealRange: 130, cost: 5 },                  // arkandaki tüneli örer
+  kalkanli:   { name: 'Kalkanlı Muhafız', hp: 260, speed: 22, dmg: 26, r: 8, armor: 0.3, front: 0.9, dig: 99, digRate: 5, knockResist: 0.8, cost: 7 }, // önden gelen vuruşu keser
+  diriltici:  { name: 'Diriltici', hp: 140, speed: 30, dmg: 12, r: 6, fly: true, revive: 6, reviveRange: 110, keepAway: 64, cost: 6 }, // ölen dostlarını diriltir, uzak durur
+  kene:       { name: 'Demir Kene', hp: 200, speed: 30, dmg: 18, r: 6, magnet: 56, bulletArmor: 0.65, cost: 5 },                    // mermileri üstüne çeker; mermiye dayanıklı
+  fare:       { name: 'Cevher Faresi', hp: 90, speed: 72, dmg: 6, r: 4, steal: 12, cost: 3 },                                       // çantandan çalar, kaçar
+  tozbocek:   { name: 'Tozböcek', hp: 14, speed: 70, dmg: 4, r: 3, small: true, pack: 4, cost: 0.6 },                                // sürü halinde gelir
+  yumurtaci:  { name: 'Yumurtacı', hp: 170, speed: 24, dmg: 14, r: 7, armor: 0.25, lay: 6, cost: 6 },                               // duvara yumurta bırakır
+  isikYiyen:  { name: 'Işık Yiyen', hp: 130, speed: 40, dmg: 20, r: 5, fly: true, eatLight: 72, cost: 5 },                         // yakındayken fenerin söner
+  aynasiz:  { name: 'Aynasız Hükümdar', title: 'Yansımanın Efendisi', col: '#c8d0ff', hp: 800, speed: 26, dmg: 30, r: 11, armor: 0.35, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0,
+    loot: [['crystal', 8], ['gold', 6], ['elmas', 2]], lore: 'Senin silahını senden iyi kullanır. Elindekine dikkat et.' },
+  kehribarAna: { name: 'Kehribar Ana', title: 'Kovanların Kraliçesi', col: '#ffb040', hp: 900, speed: 20, dmg: 28, r: 11, armor: 0.3, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0,
+    loot: [['crystal', 10], ['gold', 8], ['kehribar', 2]], lore: 'Yumurtaları yere düşünce çatlar; reçinesi seni yere yapıştırır.' },
+  madenKalbi: { name: 'Madenin Kalbi', title: 'FALL', col: '#ff3a6a', hp: 1100, speed: 16, dmg: 30, r: 12, armor: 0.3, fly: true, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0,
+    loot: [['crystal', 14], ['gold', 12], ['kehribar', 3]], lore: 'Maden yaşıyor. Duvarlar ona ait: duvara yaslanma, yerinde durma.' },
   mimic:      { name: 'Taklitçi', hp: 110, speed: 50, dmg: 22, r: 6, armor: 0.2, knockResist: 0.5, cost: 4 },                         // sandık kılığında; ölünce gerçek sandık teklifi
   seraph:     { name: 'Işık Bekçisi', hp: 120, speed: 42, dmg: 16, r: 5, fly: true, blind: true, blindRange: 52, blindCd: 4, judge: 5, judgeRange: 120, loot: [['crystal', 1]], cost: 5 }, // yargı ışını: nişan alır, kaçmazsan çarpar
 };
 
 // derinlik bandı (her 4 biyom) -> boss
-export const BOSS_BANDS = ['karakok', 'kavurgan', 'otegoz', 'sultan', 'ezeli'];
+export const BOSS_BANDS = ['karakok', 'kavurgan', 'otegoz', 'sultan', 'ezeli', 'aynasiz', 'kehribarAna', 'madenKalbi'];
 
 // Elit: Öfke seviyesinde yuvalardan şansla çıkar (can ×2.2, boyut ×1.25, altın düşürür); derinde özellik kazanır
 export const ELITE = { hp: 2.2, dmg: 1.4, scale: 1.25, gold: 3, fromWave: 3, affixAt: [6, 14, 22] };
@@ -415,7 +432,10 @@ export const RELICS = {
   tac:      { name: 'Altın Taç', icon: 'crown', biome: 12, desc: 'Kazdığın sıradan kaya %10 ihtimalle altın düşürür; sefere +12 altınla başlarsın. Başında taç parlar.', lore: 'Altın Saray’ın tahtında.' },
   kalp:     { name: 'Devin Kalbi', icon: 'heart', biome: 15, desc: 'Azami can +40. Bayılacağın an nabız dalgası yayılır: düşmanlar savrulur, yarı canla ayakta kalırsın (her seferde bir kez).', lore: 'Uyuyan Dev’in göğsünde.' },
   arken:    { name: 'Arkentaş', icon: 'arken', biome: 18, desc: 'Dağın kalbi. Görüşün +3 blok, cevherler karanlıkta parıldar; ışığına giren düşman yarı hıza düşer. Göğsünde yanar.', lore: 'Yankı Boşluğu’nun karanlığında, kayaya gömülü; ışığı uzaktan sızar.' },
-  kivilcim: { name: 'Yaratılış Kıvılcımı', icon: 'spark', biome: 19, desc: 'Kazman iki kat vurur ve ışık saçar; kırdığın her blok yakındaki düşmanı 12 yakar.', lore: 'Yaratılış Çekirdeği’nde, Kalp’in yanında.' },
+  kivilcim: { name: 'Yaratılış Kıvılcımı', icon: 'spark', biome: 19, desc: 'Kazman iki kat vurur ve ışık saçar; kırdığın her blok yakındaki düşmanı yakar.', lore: 'Yaratılış Çekirdeği’nin dibinde, küçük bir mabette.' },
+  aynaTac:  { name: 'Aynalı Taç', icon: 'crown', biome: 23, desc: 'Sana vurulan hasarın yarısı vurana yansır; silah hasarın +%15.', lore: 'Ters Saray’ın tavanında, baş aşağı tahtta.' },
+  tohum:    { name: 'Dünya Tohumu', icon: 'gem', biome: 27, desc: 'Her yeni biyoma girişte ekip tamamen iyileşir; kırdığın kaya %4 ihtimalle kristal verir.', lore: 'Kök Tahtı’nın kalbinde, köklerin arasında.' },
+  sifirTasi:{ name: 'Sıfır Taşı', icon: 'oz', biome: 29, desc: 'Kazma ve silah hasarın ×1.4; sefer sonunda %50 fazla Öz.', lore: 'Sıfır Noktası’nda, Kalp’in yanında.' },
 };
 export const RELIC_KEYS = Object.keys(RELICS);
 export const RELIC_OF_BIOME = Object.fromEntries(RELIC_KEYS.map(k => [RELICS[k].biome, k]));

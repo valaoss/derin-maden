@@ -47,6 +47,17 @@ export const MAT_RAMP = {
   blood:    ['#120204', '#2e060a', '#4e0c12', '#7a141c', '#c02a30'],
   echo:     ['#08070c', '#181622', '#262234', '#3a3450', '#5e5880'],
   genesis:  ['#14100c', '#3a2e3a', '#6a5a70', '#a898b0', '#fff4e8'],
+  // v6 biyomlar
+  mute:     ['#0c0c10', '#22242c', '#383c48', '#545a6a', '#8a90a0'],
+  tide:     ['#041014', '#0c2a34', '#16444e', '#2a6a74', '#5aa8b0'],
+  flesh:    ['#140406', '#3a0e16', '#5e1a26', '#8a2e3a', '#d06070'],
+  mirror:   ['#0e0e16', '#2e3040', '#50546a', '#8a90aa', '#e0e8ff'],
+  amber:    ['#140a02', '#3e2008', '#6a3a10', '#a8641c', '#ffb040'],
+  magnet:   ['#100808', '#2e1614', '#4a2420', '#6e3a32', '#a8604e'],
+  hunger:   ['#0e0e06', '#2a2a12', '#44441e', '#62622e', '#9a9a50'],
+  rootwood: ['#0a0c06', '#1e2612', '#34401e', '#4e5e2e', '#7e9a50'],
+  sea:      ['#02040c', '#060e22', '#0c1a3a', '#16305a', '#3a6aa8'],
+  zero:     ['#101010', '#3a3a3a', '#6a6a6a', '#a8a8a8', '#ffffff'],
   bedrock:  ['#07050b', '#110d18', '#1a1524', '#241d31', '#30283f'],
   found:    ['#0f0c16', '#2a2c3c', '#3e4256', '#5a6078', '#8a92aa'],
   vault:    ['#0a0810', '#2a1e2e', '#3e2c44', '#5a4262', '#8a6a8e'],
@@ -73,6 +84,16 @@ export const WALL_RAMP = {
   blood:    ['#080102', '#140204', '#1e0406', '#2a060a'],
   echo:     ['#040308', '#0a0810', '#100c18', '#161220'],
   genesis:  ['#0a0808', '#1a1416', '#262022', '#342c30'],
+  mute:     ['#060608', '#0c0d10', '#121418', '#181b20'],
+  tide:     ['#02080a', '#061216', '#0a1a20', '#0e222a'],
+  flesh:    ['#0a0204', '#140408', '#1e080c', '#280c12'],
+  mirror:   ['#06060a', '#0c0c14', '#12121e', '#181a28'],
+  amber:    ['#0a0501', '#140a03', '#1e1005', '#281608'],
+  magnet:   ['#080404', '#100808', '#180c0c', '#201010'],
+  hunger:   ['#060603', '#0e0e06', '#14140a', '#1c1c0e'],
+  rootwood: ['#050603', '#0a0e06', '#10160a', '#161e0e'],
+  sea:      ['#010206', '#02060e', '#040a16', '#060e1e'],
+  zero:     ['#080808', '#121212', '#1a1a1a', '#222222'],
   bedrock:  ['#040306', '#08060b', '#0c0a10', '#100d15'],
   vault:    ['#06040a', '#0c0812', '#120c1a', '#181022'],
 };
@@ -93,8 +114,9 @@ export const ORE_RAMP = {
 };
 
 export const RES_COL = { iron: '#e8a060', water: '#6fd0ff', cobalt: '#5a86ff', crystal: '#e070ff', gold: '#ffd24a', yesim: '#5ae08a', opal: '#ff4a3a', inci: '#eeeef8', akik: '#ff5ab0', yildiz: '#b8fff4', elmas: '#c8d0ff', kehribar: '#ffb040' };
+export const TIDE_COL = 'rgba(40,120,190,0.32)';
 
-// Biyomlar (20): isim, HUD kısaltması, karanlık rengi, süs türü, parçacık efekti, ton
+// Biyomlar (30): isim, HUD kısaltması, karanlık rengi, süs türü, parçacık efekti, ton
 // decor: 'mush' mantar, 'crys' kristal, 'root' kök sarkıtı, 'icicle' buz sarkıtı, 'bone' kemik, 'ember' kor, 'shard' obsidyen, 'star' boşluk ışığı,
 //        'drip' cıva damlası, 'arc' statik kıvılcım, 'coin' altın yığını, 'shroom' dev mantar, 'pane' cam dikeni, 'vein' nabız damarı, 'gear' dişli, 'pool' kan birikintisi, 'ring' yankı halkası, 'halo' ışık zerresi
 // fx: 'spore' sporlar, 'snow' kar, 'ember' kor, 'ash' kül, 'star' yıldız tozu, 'mist' cıva buharı, 'spark' kıvılcım, 'gleam' altın pırıltı, 'glint' cam parıltısı, 'sand' zaman kumu, 'blood' kan damlası, 'echo' yankı zerresi, 'halo' ışık
@@ -120,5 +142,16 @@ export const STRATA = [
   { name: 'Zaman Kırığı',      short: 'ZAMAN',    dark: [8, 6, 3],    decor: 'gear',   fx: 'sand',  tint: 'rgba(220,170,80,0.05)', sig: 'chronoling', desc: 'Zaman taşı düşmanı dondurur, seni hızlandırır.' },
   { name: 'Kan Gölü',          short: 'KAN',      dark: [12, 2, 4],   decor: 'pool',   fx: 'blood', tint: 'rgba(200,20,40,0.07)', sig: 'leech', desc: 'Kan damarları demir ve can verir; göl uyanır.' },
   { name: 'Yankı Boşluğu',     short: 'YANKI',    dark: [5, 4, 8],    decor: 'ring',   fx: 'echo',  tint: null, sig: 'echoer', noiseMul: 2, desc: 'Her ses iki kat; sessiz taşlar ölçeri düşürür.' },
-  { name: 'Yaratılış Çekirdeği', short: 'YARATILIŞ', dark: [10, 8, 12], decor: 'halo', fx: 'halo',  tint: 'rgba(255,240,200,0.06)', sig: 'seraph', legend: true, desc: 'Tohumlar çevre kayayı cevhere çevirir. Kalp burada.' },
+  { name: 'Yaratılış Çekirdeği', short: 'YARATILIŞ', dark: [10, 8, 12], decor: 'halo', fx: 'halo',  tint: 'rgba(255,240,200,0.06)', sig: 'seraph', legend: true, desc: 'Tohumlar çevre kayayı cevhere çevirir. Kıvılcım burada.' },
+  // v6: çekirdeğin öbür yüzü. Öte Yüz (20-23) · İlk Taş (24-27) · Son (28-29)
+  { name: 'Sağır Mağaralar',   short: 'SAĞIR',    dark: [6, 6, 8],    decor: 'ring',   fx: 'echo',  tint: null, sig: 'korAvci', deaf: true, desc: 'Burada düşmanlar görmez, yalnız duyar. Sus ya da tuzak taşıyla kandır.' },
+  { name: 'Gelgit Kuyuları',   short: 'GELGİT',   dark: [3, 8, 12],   decor: 'drip',   fx: 'mist',  tint: 'rgba(40,140,200,0.06)', sig: 'yilan', tide: true, desc: 'Su dakikada bir yükselir: suda yavaşlarsın, silah ateş etmez.' },
+  { name: 'Yaşayan Kaya',      short: 'ET',       dark: [12, 4, 6],   decor: 'vein',   fx: 'blood', tint: 'rgba(200,60,80,0.06)', sig: 'orucu', regrow: true, pulse: true, desc: 'Kazdığın tünel 20 sn’de kapanır. Sinir düğümü büyümeyi durdurur.' },
+  { name: 'Ters Saray',        short: 'TERS',     dark: [8, 8, 14],   decor: 'pane',   fx: 'glint', tint: 'rgba(200,210,255,0.05)', sig: 'kalkanli', legend: true, desc: 'Baş aşağı saray: tavandaki avizeler Kara Elmas, taht tavanda.' },
+  { name: 'Kehribar Mezarı',   short: 'KEHRİBAR', dark: [12, 7, 2],   decor: 'amber',  fx: 'gleam', tint: 'rgba(255,170,60,0.06)', sig: 'diriltici', desc: 'Kehribar kırılınca içinden ganimet ya da uyanan bir yaratık çıkar.' },
+  { name: 'Mıknatıs Çekirdeği', short: 'MIKNATIS', dark: [8, 5, 5],   decor: 'shard',  fx: 'spark', tint: 'rgba(255,90,90,0.04)', sig: 'kene', desc: 'Demir bol; mermiler Demir Kene’ye doğru kıvrılır.' },
+  { name: 'Açlık Yatağı',      short: 'AÇLIK',    dark: [8, 8, 4],    decor: 'bone',   fx: 'ash',   tint: 'rgba(160,160,60,0.05)', sig: 'fare', sig2: 'tozbocek', hunger: true, desc: 'Damarlar zamanla kararır; Cevher Faresi çantandan çalıp kaçar.' },
+  { name: 'Kök Tahtı',         short: 'TAHT',     dark: [4, 10, 5],   decor: 'root',   fx: 'spore', tint: 'rgba(90,200,90,0.06)', sig: 'yumurtaci', legend: true, desc: 'Dünya ağacının kökü. Yumurtaları 8 sn içinde kır.' },
+  { name: 'Sessiz Deniz',      short: 'DENİZ',    dark: [1, 2, 6],    decor: 'lumen',  fx: 'star',  tint: 'rgba(20,40,120,0.08)', sig: 'isikYiyen', sea: true, desc: 'Burada ölçer sönmez, durmadan dolar. Hızlı ol.' },
+  { name: 'Sıfır Noktası',     short: 'SIFIR',    dark: [10, 10, 10], decor: 'halo',   fx: 'halo',  tint: 'rgba(255,255,255,0.04)', sig: ['korAvci', 'kalkanli', 'diriltici', 'kene', 'yumurtaci', 'isikYiyen'], legend: true, desc: 'Her şeyin başladığı yer. Kalp burada.' },
 ];

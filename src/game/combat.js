@@ -10,6 +10,8 @@ import { damagePlayer, webPlayer, chillPlayer, breakTile, nearestPlayer } from '
 import { addNoise } from './threat.js';
 import { hasPerk, hear, hasMod, isLocal, roleOf, lastStand, weaponOf, weaponLvl, toolDmgMul } from './run.js';
 import { WEAPON_UP } from '../data/balance.js';
+import { inWater } from './biomes.js';
+import { hasRelic } from './run.js';
 import { sparks, flashLight, particle, ring, shake, debris, hitstop } from './fx.js';
 import { igniteGas } from './hazards.js';
 import { sfx } from '../audio/audio.js';
@@ -84,6 +86,8 @@ function updateGun(p, dt) {
   const ang = Math.atan2(tgt.y - sp.y, tgt.x - sp.x);
   p.aim = ang; p.aimT = 0.6;
   if (p.fireCd > 0) return;
+  // su altında silah ateş etmez
+  if (inWater(sp.x, sp.y)) { if (rnd() < 0.2) particle(sp.x, sp.y, (rnd() - 0.5) * 10, -20, 0.5, '#bff4ff', 1, 1, 0); return; }
   const wl = weaponLvl(p.wpn || 'blaster');
   let cd = (W.flame ? W.cd : UPGRADES.blaster.cd[lv] * W.cd) * (1 - WEAPON_UP.cd * wl);
   if (hasMod('rapid')) cd *= 0.7;
@@ -91,7 +95,7 @@ function updateGun(p, dt) {
   if (G.rageT > 0) cd /= 1 + 0.08 * (G.rage | 0);
   if ((G.gear.active.overdrive || 0) > 0) cd /= 3;
   p.fireCd = cd;
-  const dmg = UPGRADES.blaster.dmg[lv] * W.dmg * (1 + WEAPON_UP.dmg * wl) * (hasPerk('kalibre') ? 1.25 : 1) * (roleOf(p).dmg || 1) * lastStand(p) * (G.lvl.yildizCekirdek ? 1.4 : 1);
+  const dmg = UPGRADES.blaster.dmg[lv] * W.dmg * (1 + WEAPON_UP.dmg * wl) * (hasPerk('kalibre') ? 1.25 : 1) * (hasRelic('aynaTac') ? 1.15 : 1) * (hasRelic('sifirTasi') ? 1.4 : 1) * (roleOf(p).dmg || 1) * lastStand(p) * (G.lvl.yildizCekirdek ? 1.4 : 1);
   if ((G.gear.active.overdrive || 0) > 0) sparks(sp.x, sp.y, '#ffe79a', 1, 30);
   if (W.flame) { flameCone(p, sp, ang, range, dmg); return; }
   if (W.zap) { zapChain(p, sp, tgt, dmg, W.zap); return; }
@@ -180,6 +184,11 @@ export function updateBullets(dt) {
   const bs = G.bullets; let j = 0;
   for (const b of bs) {
     b.px = b.x; b.py = b.y; b.life -= dt;
+    // Demir Kene: yakındaki oyuncu mermilerini kendine çeker
+    if (b.from === 'p') for (const e of G.enemies) if (!e.dead && e.d.magnet && Math.hypot(e.x - b.x, e.y - b.y) < e.d.magnet) {
+      const a = Math.atan2(b.vy, b.vx), s = Math.hypot(b.vx, b.vy), d = Math.atan2(Math.sin(Math.atan2(e.y - b.y, e.x - b.x) - a), Math.cos(Math.atan2(e.y - b.y, e.x - b.x) - a));
+      const na = a + Math.max(-7 * dt, Math.min(7 * dt, d)); b.vx = Math.cos(na) * s; b.vy = Math.sin(na) * s; break;
+    }
     // iki alt adım: köşe kıyılarından sızmasın / takılmasın (LOS kontrolüyle aynı hassasiyet)
     let wall = false;
     for (let k = 0; k < 2 && !wall; k++) {
@@ -210,7 +219,7 @@ export function updateBullets(dt) {
       if (e.dead || e.emergeT > 0.3 || e.under || e === b.hit) continue;
       if (Math.abs(e.x - b.x) < e.r + 3 && Math.abs(e.y - b.y) < e.r + 3) {
         const s = Math.hypot(b.vx, b.vy) || 1;
-        const bd = b.dmg * (b.far && Math.hypot(e.x - b.ox, e.y - b.oy) > b.far ? 1.5 : 1), hp0 = e.hp;
+        const bd = b.dmg * (b.far && Math.hypot(e.x - b.ox, e.y - b.oy) > b.far ? 1.5 : 1) * (e.d.bulletArmor ? 1 - e.d.bulletArmor : 1), hp0 = e.hp;
         damageEnemy(e, bd, b.vx / s, b.vy / s, b.knock || (b.from === 'p' ? 1 : 0.6));
         if (b.stun) e.atkCd = Math.max(e.atkCd, b.stun);
         if (b.from === 'p' && b.pi >= 0) vamp(G.players[b.pi], hp0 - Math.max(0, e.hp));

@@ -91,7 +91,7 @@ for (let seed = 1; seed <= 12; seed++) {
 { const a = generate(99, {}).map, b = generate(99, {}).map; ok('aynı tohum aynı harita', a.every((v, i) => v === b[i])); }
 {
   const os = [1, 2, 3, 4, 5].map(biomeOrder);
-  ok('biyom sırası: Toprak ilk, Yaratılış son', os.every(o => o[0] === 0 && o[19] === 19));
+  ok('biyom sırası: Toprak ilk, Yaratılış 20., Sıfır son', os.every(o => o[0] === 0 && o[19] === 19 && o[29] === 29 && o[23] === 23 && o[27] === 27));
   ok('biyom sırası: her biyom bir kez', os.every(o => new Set(o).size === STRATA_COUNT));
   ok('biyom sırası tohuma göre değişir', new Set(os.map(o => o.join())).size >= 3);
   ok('biyom sırası zorluk bandında kalır', os.every(o => o.every((b, i) => Math.abs(b - i) <= 3)));
@@ -171,7 +171,7 @@ section('Uyanış ve yuvalar');
     ok(`tohum ${seed}: yuvalar sandıktan uzak`, G.nests.every(n => tileAt(n.c, n.r) === T.NEST));
   }
   // gürültü: kazı ölçeri doldurur, yüzeyde hızla söner
-  fresh(500); const p = G.player; shaft(8, GROUND_ROW + 20); p.x = 8 * TILE + 8; p.y = (GROUND_ROW + 18) * TILE + 8; p.px = p.x; p.py = p.y;
+  fresh(500); const p = G.player; G.lvl.drill = 3; shaft(8, GROUND_ROW + 20); p.x = 8 * TILE + 8; p.y = (GROUND_ROW + 18) * TILE + 8; p.px = p.x; p.py = p.y;
   Object.assign(p.inp, { x: 0, y: 1, mag: 1 }); run(10);
   ok('kazı gürültü üretir', G.threat.noise > 8 && G.stats.dug > 5, `noise ${G.threat.noise.toFixed(1)} dug ${G.stats.dug}`);
   const n1 = G.threat.noise; Object.assign(p.inp, { x: 0, y: 0, mag: 0 }); run(6);
@@ -341,7 +341,7 @@ section('Kayıt');
 }
 
 // ---------- 8. derin sefer ----------
-section('Derin sefer (20 biyom, ~24 dk sim)');
+section('Derin sefer (30 biyom, ~33 dk sim)');
 {
   fresh(2026); const p = G.player; const bottom = GROUND_ROW + STRATUM_ROWS * STRATA_COUNT - 8;
   const spawnedBy = {}; const origSpawn = G.enemies.push.bind(G.enemies);
@@ -796,6 +796,76 @@ section('Sandık türleri ve kalıntılar');
   { const p = setup(1316); applyPerk('zamanKalkani'); const e = spawnEnemy('bug', p.x + 20, p.y, 0); e.emergeT = 0; p.hp = 25; damagePlayerX(p, 1); ok('Zaman Kalkanı düşmanı yavaşlatır', e.slowT > 4); }
   { const p = setup(1317); applyPerk('novaKalbi'); const e = spawnEnemy('bug', p.x, p.y + 30, 0); e.emergeT = 0; step(); ok('Nova Kalbi halka atar', p.novaT > 7, `${p.novaT}`); }
   ok('Kan Bağı tek başına çıkmaz', (() => { fresh(1318); for (let i = 0; i < 40; i++) if (perkChoices('gold').includes('kanBagi')) return false; return true; })());
+}
+
+section('Yeni biyomlar (20-29)');
+{
+  const { STRATA: SB } = await import('../src/data/palette.js');
+  const { tideLevel, inWater } = await import('../src/game/biomes.js');
+  const { RELIC_KEYS: RK, BOSS_BANDS: BB } = await import('../src/data/balance.js');
+  ok('30 biyom tanımlı', SB.length === 30 && STRATA_COUNT === 30);
+  { const g = generate(11, {}); let rel = 0; for (const tt of g.map) if (TD[tt] && TD[tt].relic) rel++; ok('her efsanevi eser haritada', rel === RK.length, `${rel}/${RK.length}`); }
+  ok('yeni boss bantları', bossForY((GROUND_ROW + 21 * STRATUM_ROWS + 5) * TILE) === 'aynasiz' && bossForY((GROUND_ROW + 25 * STRATUM_ROWS + 5) * TILE) === 'kehribarAna' && bossForY((GROUND_ROW + 29 * STRATUM_ROWS + 5) * TILE) === 'madenKalbi');
+  // bir biyomun satırında oyuncu + açık oda
+  const at = (seed, bio) => { fresh(seed); const s = G.order.indexOf(bio), R = GROUND_ROW + s * STRATUM_ROWS + 12, p = G.player;
+    for (let r = R - 3; r <= R + 3; r++) for (let c = 3; c <= 13; c++) setTile(c, r, T.AIR);
+    p.x = 8 * TILE + 8; p.y = R * TILE + 8; p.px = p.x; p.py = p.y; G.maxStratum = s; G.seenStratum = s; forceFlow(); return { p, s, R }; };
+  // gelgit: su yükselince yavaşlatır, silah susar
+  { const { p, R } = at(1400, 21); G.time = 10; const sp0 = playerSpeed(p); ok('gelgit alçakken kuru', !inWater(p.x, p.y));
+    G.time = 50; ok('gelgit yükselince su', inWater(p.x, p.y) && tideLevel().f === 1); ok('suda yavaşlarsın', playerSpeed(p) < sp0 * 0.7);
+    const e = spawnEnemy('bug', p.x + 40, p.y, 0); e.emergeT = 0; const b0 = G.bullets.length; G.time = 50; for (let i = 0; i < 30; i++) { G.time = 50; step(); } ok('suda silah ateş etmez', G.bullets.length === b0); }
+  // Yaşayan Kaya: kırılan kaya 20 sn sonra kapanır, düğüm durdurur
+  { const { p, R } = at(1401, 22); const c = 12, r = R - 6; setTile(c, r, T.FLESH); breakTile(c, r, p); ok('et kaya kırılır', tileAt(c, r) === T.AIR && G.regrow.length >= 1);
+    run(21); ok('tünel yeniden kapanır', tileAt(c, r) !== T.AIR, `${tileAt(c, r)}`);
+    setTile(c, r, T.FLESH); breakTile(c, r, p); setTile(c + 1, r, T.NODE); breakTile(c + 1, r, p); run(21); ok('sinir düğümü büyümeyi durdurur', tileAt(c, r) === T.AIR); }
+  // Sağır Mağaralar: Kör Avcı sessiz oyuncuyu bulamaz, sese koşar
+  { const { p } = at(1402, 20); p.hp = p.maxHp = 9999; G.lvl.blaster = 0; const e = spawnEnemy('korAvci', p.x + 60, p.y, 0); e.emergeT = 0; G.threat.quietT = 5; G.threat.last = { x: p.x + 60, y: p.y };
+    let d0 = Math.hypot(e.x - p.x, e.y - p.y); for (let i = 0; i < 60; i++) { G.threat.quietT = 5; updateEnemies(STEP); }
+    ok('sağır avcı sessizken gelmez', Math.hypot(e.x - p.x, e.y - p.y) > d0 - 6, `${d0} → ${Math.hypot(e.x - p.x, e.y - p.y)}`);
+    setTile(4, Math.floor(p.y / TILE), T.LURE); breakTile(4, Math.floor(p.y / TILE), p); ok('tuzak taşı çağırır', G.threat.lure && G.threat.lure.t > 0);
+    for (let i = 0; i < 60; i++) updateEnemies(STEP); ok('sağır avcı tuzağa koşar', e.x < p.x + 50, `${e.x - p.x}`); }
+  // Açlık Yatağı: damarlar kararır
+  { const { p, R } = at(1403, 26); for (let c = 3; c <= 13; c++) setTile(c, R - 3, T.GOLD); const n0 = [...Array(11)].filter((_, i) => tileAt(3 + i, R - 3) === T.GOLD).length;
+    G.hungerT = 0; for (let k = 0; k < 4; k++) { G.hungerT = 0; step(); } const n1 = [...Array(11)].filter((_, i) => tileAt(3 + i, R - 3) === T.GOLD).length; ok('damarlar kararır', n1 < n0, `${n0} → ${n1}`); }
+  // Sessiz Deniz: ölçer sönmez
+  { const { p } = at(1404, 28); p.hp = p.maxHp = 1e7; G.threat.noise = 0; run(40); ok('sessiz denizde ölçer dolar', G.threat.noise >= 40, `${G.threat.noise.toFixed(1)}`); }
+  // Kök Tahtı: yumurta çatlar
+  { const { p, R } = at(1405, 27); setTile(12, R, T.EGG); G.eggs.push({ c: 12, r: R, t: G.time + 0.5 }); run(1); ok('yumurta çatlar', G.enemies.filter(e => e.type === 'tozbocek').length === 3 && tileAt(12, R) === T.AIR); }
+  // Kehribar: ganimet ya da yaratık
+  { let loot = 0, mob = 0; for (let k = 0; k < 10; k++) { const { p, R } = at(1406 + k, 24); setTile(12, R, T.AMBER); const o0 = G.orbs.length, e0 = G.enemies.length; breakTile(12, R, p); if (G.orbs.length > o0 + 5) loot++; if (G.enemies.length > e0) mob++; } ok('kehribar: ganimet ve yaratık', loot > 0 && mob > 0 && loot + mob === 10, `${loot}/${mob}`); }
+  // Kalkanlı Muhafız: önden gelen mermiyi keser, arkadan işler
+  { fresh(1420); const e = spawnEnemy('kalkanli', 100, 100, 0); e.emergeT = 0; e.face = 1; const h0 = e.hp; damageEnemy(e, 100, -1, 0, 0); const front = h0 - e.hp;
+    const h1 = e.hp; damageEnemy(e, 100, 1, 0, 0); const back = h1 - e.hp; ok('kalkan önü korur', front < back * 0.2, `${front} / ${back}`); }
+  // Demir Kene: mermileri çeker, mermiye dayanıklı
+  { fresh(1421); const q = G.player; for (let r = GROUND_ROW + 1; r <= GROUND_ROW + 8; r++) for (let c = 3; c <= 13; c++) setTile(c, r, T.AIR);
+    const e = spawnEnemy('kene', 8 * TILE + 8, (GROUND_ROW + 4) * TILE + 8, 0); e.emergeT = 0; e.atkCd = 99;
+    G.bullets.push({ x: 8 * TILE + 8 - 40, y: e.y - 30, px: 0, py: 0, vx: 250, vy: 0, life: 1, dmg: 50, from: 'p', pierce: 0, hit: null, pi: 0 });
+    const h0 = e.hp; for (let i = 0; i < 30; i++) updateBullets(STEP); ok('kene mermiyi çeker', e.hp < h0, `${e.hp}/${h0}`); ok('kene mermiye dayanıklı', h0 - e.hp < 50 * 0.5, `${h0 - e.hp}`); }
+  // Cevher Faresi: çalar, kaçar; yakalanınca iki katını düşürür
+  { const { p } = at(1422, 26); p.bag.crystal = 20; const f = spawnEnemy('fare', p.x + 4, p.y, 0); f.emergeT = 0; f.atkCd = 0; run(0.5);
+    ok('fare çalar ve kaçar', p.bag.crystal < 20 && f.fleeT > 0, `${p.bag.crystal} ${f.fleeT}`);
+    const stolen = 20 - p.bag.crystal, o0 = G.orbs.filter(o => o.res === 'crystal').length; killEnemy(f); ok('fare iki katını düşürür', G.orbs.filter(o => o.res === 'crystal').length - o0 === stolen * 2); }
+  // Diriltici: ölen dostu geri getirir
+  { const { p } = at(1423, 24); const b = spawnEnemy('bug', p.x + 70, p.y, 0); b.emergeT = 0; killEnemy(b); const d = spawnEnemy('diriltici', p.x + 90, p.y, 0); d.emergeT = 0; d.rvCd = 0;
+    const n0 = G.enemies.filter(e => e.type === 'bug' && !e.dead).length; for (let i = 0; i < 5; i++) updateEnemies(STEP); ok('diriltici diriltir', G.enemies.filter(e => e.type === 'bug' && !e.dead).length === n0 + 1); }
+  // Örücü: arkandaki tüneli örer
+  { const { p, R } = at(1424, 22); shaft(10, R); p.x = 10 * TILE + 8; p.y = R * TILE + 8; p.px = p.x; p.py = p.y; G.regrow.length = 0;
+    const o = spawnEnemy('orucu', p.x + 40, p.y, 0); o.emergeT = 0; o.sealCd = 0; o.atkCd = 99; for (let i = 0; i < 70; i++) updateEnemies(STEP);
+    ok('örücü tüneli örer', tileAt(10, R - 2) !== T.AIR || tileAt(10, R - 3) !== T.AIR || tileAt(9, R - 2) !== T.AIR || tileAt(11, R - 2) !== T.AIR); }
+  // yeni bosslar: saldırı döngüsü ve öfke çağrısı
+  const arena = (seed, k) => { fresh(seed); const p = G.player; for (let r = GROUND_ROW + 1; r <= GROUND_ROW + 12; r++) for (let c = 3; c <= 13; c++) setTile(c, r, T.AIR);
+    p.x = 8 * TILE + 8; p.y = (GROUND_ROW + 9) * TILE + 8; p.px = p.x; p.py = p.y; p.hp = p.maxHp = 9999; forceFlow();
+    const e = spawnEnemy(k, 8 * TILE + 8, (GROUND_ROW + 4) * TILE + 8, 3); e.emergeT = 0; e.hp = e.maxHp = 1e6; return [p, e]; };
+  for (const k of ['aynasiz', 'kehribarAna', 'madenKalbi']) {
+    for (const w of k === 'aynasiz' ? WEAPON_KEYS : ['blaster']) {
+      const [p, e] = arena(1430, k); G.gear.wOwn = WEAPON_KEYS.slice(); p.wpn = w; const seen = new Set(); let threw = null;
+      try { for (let i = 0; i < 60 * 12; i++) { step(); if (e.bs && e.bs.act) seen.add(e.bs.act.k); p.hp = Math.max(p.hp, 5000); } } catch (err) { threw = err; }
+      ok(`${ENEMIES[k].name} (${w}): saldırı döngüsü`, !threw && seen.size >= 2 && p.hp < 9999, threw ? threw.stack.split('\n').slice(0, 2).join(' ') : [...seen].join(','));
+    }
+    const [p, e] = arena(1431, k); const n0 = G.enemies.length; damageEnemy(e, e.maxHp * 0.6 / (1 - ENEMIES[k].armor), 0, 0, 0); run(0.3);
+    ok(`${ENEMIES[k].name}: öfkede yardım çağırır`, e.bs.phase === 2 && G.enemies.length > n0);
+  }
+  ok('boss bantları tam', BB.length === 8);
 }
 
 console.log(`\n${checks - fails}/${checks} kontrol geçti${fails ? `, ${fails} HATA` : ''}`);

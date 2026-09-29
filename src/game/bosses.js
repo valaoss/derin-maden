@@ -2,11 +2,11 @@
 // Her birinin kendi saldırı döngüsü, yerde yanıp sönen uyarıları ve %50 canda öfke evresi var.
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y, PLAY_MIN_COL, PLAY_MAX_COL, stratumOfRow } from '../config.js';
-import { TD } from '../data/tiles.js';
+import { T, TD } from '../data/tiles.js';
 import { BOSS_BANDS } from '../data/balance.js';
 import { G } from './state.js';
-import { tileAt, solidAt } from '../world/map.js';
-import { breakTile, damagePlayer, blindPlayer, pullPlayer } from './player.js';
+import { tileAt, solidAt, setTile, matOf } from '../world/map.js';
+import { breakTile, damagePlayer, blindPlayer, pullPlayer, webPlayer } from './player.js';
 import { spawnEnemy, losClear, damageStructure } from './enemies.js';
 import { sparks, debris, shake, ring, flashLight, dust, hitstop, particle } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
@@ -301,6 +301,109 @@ const KITS = {
   },
 };
 
+Object.assign(KITS, {
+  // AYNASIZ HÜKÜMDAR: hedefinin taktığı silahı kopyalar; ışınlanır; öfkede ayna kırıkları
+  aynasiz: {
+    cd: { mirror: 1.5, step: 5, shards: 3 },
+    choose(e, p, dp, B) {
+      if (B.cd.step <= 0 && dp < 210) return 'step';
+      if (B.cd.mirror <= 0 && dp < 150 && losClear(e.x, e.y, p.x, p.y)) return 'mirror';
+      if (B.phase === 2 && B.cd.shards <= 0 && dp < 170) return 'shards';
+      return null;
+    },
+    start: {
+      mirror(e, p, B) { B.cd.mirror = B.phase === 2 ? 2.4 : 3.2; B.act.T = 1.4; B.act.w = p.wpn || 'blaster'; B.act.tgt = p.i; B.act.n = 0; B.act.tick = 0; e.flashT = 0.6; sfx.arm(); },
+      step(e, p, B) {
+        B.cd.step = 6.5; B.act.T = 0.5;
+        const [x, y] = spotNear(p.x - p.face * 40, p.y, 30);
+        ring(e.x, e.y, '#c8d0ff', 24); sparks(e.x, e.y, '#ffffff', 12, 90);
+        if (openSpot(x, y)) { e.x = e.px = x; e.y = e.py = y; }
+        ring(e.x, e.y, '#c8d0ff', 30); flashLight(e.x, e.y, 5, 0.3); sfx.blink(); e.face = p.x >= e.x ? 1 : -1;
+      },
+      shards(e, p, B) {
+        B.cd.shards = 5.5; B.act.T = 0.4; e.lunge = 1; ring(e.x, e.y, '#e0e8ff', 26); sfx.shade();
+        const a0 = rnd() * TAU; for (let i = 0; i < 14; i++) bullet(e, a0 + i * TAU / 14, 90, 12, '#e0e8ff', { life: 2.4 });
+      },
+    },
+    run: {
+      mirror(e, dt, p, B) {
+        const A = B.act, t = 1.4 - A.T, q0 = G.players[A.tgt], q = q0 && !q0.dead ? q0 : p;
+        if (!q) return;
+        e.face = q.x >= e.x ? 1 : -1;
+        if (t < 0.55) { e.wind = t / 0.55; return; }
+        const a = Math.atan2(q.y - 3 - e.y, q.x - e.x);
+        A.tick -= dt; if (A.tick > 0) return;
+        const w = A.w;
+        if (w === 'sacma') { if (!A.n++) for (let i = 0; i < 5; i++) bullet(e, a + (i - 2) * 0.16, 140, 9, '#d8b080', { life: 0.9 }); }
+        else if (w === 'makineli') { A.tick = 0.08; bullet(e, a + (rnd() - 0.5) * 0.25, 170, 6, '#a7b0c4', { life: 1.2 }); }
+        else if (w === 'alev') { A.tick = 0.18; for (const o of live()) { const dx = o.x - e.x, dy = o.y - e.y; if (Math.hypot(dx, dy) < 70 && Math.abs(angDiff(Math.atan2(dy, dx), a)) < 0.45 && losClear(e.x, e.y, o.x, o.y)) { damagePlayer(o, 6 * e.dmgMul, e.x, e.y); o.burnT = 1.5; } } for (let i = 0; i < 4; i++) { const b = a + (rnd() - 0.5) * 0.7, s = 70 + rnd() * 60; particle(e.x, e.y, Math.cos(b) * s, Math.sin(b) * s, 0.4, rnd() < 0.5 ? '#ffd060' : '#e0502a', 2, 1, -30); } }
+        else if (w === 'tufek') { if (!A.n++) bullet(e, a, 320, 26, '#ffffff', { life: 1 }); }
+        else if (w === 'simsek') { if (!A.n++ && losClear(e.x, e.y, q.x, q.y)) { damagePlayer(q, 18 * e.dmgMul, e.x, e.y); G.zaps.push({ x0: e.x, y0: e.y, x1: q.x, y1: q.y - 4, t: 0.15 }); sfx.zap(); } }
+        else if (w === 'roket') { if (!A.n++) { mark(e, q.x, q.y, 16, 0.9, 22, 'ember'); bullet(e, a, 80, 6, '#ffb050', { life: 1 }); } }
+        else if (w === 'kirag') { if (A.n++ < 3) { A.tick = 0.2; bullet(e, a + (A.n - 2) * 0.12, 120, 9, '#bff4ff', { life: 1.6, slow: 1.5 }); } }
+        else { if (A.n++ < 3) { A.tick = 0.15; bullet(e, a, 150, 11, '#c8d0ff', { life: 1.4 }); } }
+      },
+    },
+  },
+  // KEHRİBAR ANA: yumurta yağmuru (çatlayınca tozböcek), reçine yelpazesi; öfkede kehribara hapseder
+  kehribarAna: {
+    cd: { eggs: 2, resin: 3, amber: 5 },
+    choose(e, p, dp, B) {
+      if (B.phase === 2 && B.cd.amber <= 0 && dp < 130) return 'amber';
+      if (B.cd.eggs <= 0 && dp < 180) return 'eggs';
+      if (B.cd.resin <= 0 && dp < 140 && losClear(e.x, e.y, p.x, p.y)) return 'resin';
+      return null;
+    },
+    start: {
+      eggs(e, p, B) {
+        B.cd.eggs = 5.5; B.act.T = 0.4; e.lunge = 1; sfx.brood();
+        for (const q of live()) { if (Math.hypot(q.x - e.x, q.y - e.y) > 190) continue; for (let i = 0; i < (B.phase === 2 ? 4 : 3); i++) { const [x, y] = i ? spotNear(q.x, q.y, 40) : [q.x, q.y]; mark(e, x, y, 9, 1.1 + i * 0.15, 10, 'egg'); } }
+      },
+      resin(e, p, B) {
+        B.cd.resin = 4; B.act.T = 0.4; e.lunge = 1; sfx.spit();
+        const a0 = Math.atan2(p.y - e.y, p.x - e.x); for (let i = 0; i < 5; i++) bullet(e, a0 + (i - 2) * 0.22, 110, 8, '#ffb040', { life: 1.6, web: true });
+      },
+      amber(e, p, B) { B.cd.amber = 7.5; B.act.T = 0.3; sfx.arm(); for (const q of live()) if (Math.hypot(q.x - e.x, q.y - e.y) < 190) mark(e, q.x, q.y, 12, 1.1, 14, 'amber'); },
+    },
+    run: {},
+  },
+  // MADENİN KALBİ: duvarlardan dikenler, tavan çöküşü, nabız halkası (kayanın ardına saklan)
+  madenKalbi: {
+    cd: { spikes: 1.5, fall: 4, beat: 5 },
+    choose(e, p, dp, B) {
+      if (B.cd.beat <= 0 && dp < 150) return 'beat';
+      if (B.cd.spikes <= 0 && dp < 210) return 'spikes';
+      if (B.cd.fall <= 0 && dp < 210) return 'fall';
+      return null;
+    },
+    start: {
+      spikes(e, p, B) {
+        B.cd.spikes = B.phase === 2 ? 2.4 : 3.2; B.act.T = 0.4; e.flashT = 0.4; sfx.creak();
+        for (const q of live()) {
+          if (Math.hypot(q.x - e.x, q.y - e.y) > 220) continue;
+          const pc = Math.floor(q.x / TILE), pr = Math.floor(q.y / TILE); let n = 0;
+          for (let tries = 0; tries < 30 && n < (B.phase === 2 ? 6 : 4); tries++) {
+            const c = pc + Math.round((rnd() - 0.5) * 6), r = pr + Math.round((rnd() - 0.5) * 6);
+            if (solidAt(c, r) || !(solidAt(c + 1, r) || solidAt(c - 1, r) || solidAt(c, r + 1) || solidAt(c, r - 1))) continue;
+            mark(e, c * TILE + 8, r * TILE + 8, 9, 0.9 + n * 0.1, 20, 'spike'); n++;
+          }
+          if (!n) mark(e, q.x, q.y, 9, 0.9, 20, 'spike');
+        }
+      },
+      fall(e, p, B) { B.cd.fall = 6; B.act.T = 0.3; sfx.rumble(); shake(0.3); for (const q of live()) if (Math.hypot(q.x - e.x, q.y - e.y) < 220) mark(e, q.x, q.y, 14, 1.0, 0, 'rock'); },
+      beat(e, p, B) { B.cd.beat = B.phase === 2 ? 5 : 7; B.act.T = 1; B.act.n = 0; sfx.arm(); },
+    },
+    run: {
+      beat(e, dt, p, B) {
+        const A = B.act; e.wind = 1 - Math.max(0, A.T) / 1;
+        const fire = () => { B.rings.push({ x: e.x, y: e.y, r: 10, R: 150, v: 120, dmg: 20 * e.dmgMul, hit: [], col: '#ff3a6a', los: true }); flashLight(e.x, e.y, 7, 0.4); shake(0.35); sfx.rumble(); haptic(40); };
+        if (A.T <= 0.5 && A.n === 0 && B.phase === 2) { A.n = 1; fire(); }
+        if (A.T <= dt && !A.done) { A.done = true; fire(); }
+      },
+    },
+  },
+});
+
 function initBoss(e) {
   const K = KITS[e.type];
   e.bs = { phase: 1, act: null, cd: Object.assign({}, K.cd), marks: [], rings: [], hinted: false };
@@ -311,6 +414,8 @@ function enrage(e) {
   e.flashT = 0.6; ring(e.x, e.y, e.d.col, 44); ring(e.x, e.y, '#ffffff', 26); sparks(e.x, e.y, e.d.col, 24, 140);
   shake(0.6); hitstop(0.12); flashLight(e.x, e.y, 8, 0.5); sfx.howl(); haptic([40, 60, 120]);
   if (e.type === 'ezeli') for (let k = 0; k < 2; k++) { const s = spawnEnemy('seraph', e.x + (k ? 18 : -18), e.y - 6, G.wave.num); s.emergeT = 0.3; }
+  const call = { aynasiz: ['kalkanli', 'kalkanli'], kehribarAna: ['yumurtaci', 'diriltici'], madenKalbi: ['korAvci', 'kalkanli', 'isikYiyen'] }[e.type];
+  if (call) call.forEach((t, k) => { const s = spawnEnemy(t, e.x + (k - (call.length - 1) / 2) * 20, e.y - 4, G.wave.num); s.emergeT = 0.4; });
   emit('bossPhase', e.type);
 }
 
@@ -326,6 +431,18 @@ function tickMarks(e, dt) {
         if (m.kind === 'root') { debris(m.x, m.y, 'dirt', 6); sparks(m.x, m.y, '#78b43c', 6, 70); sfx.creak(); }
         else if (m.kind === 'ember') { sparks(m.x, m.y, '#ff6a1a', 12, 100); sparks(m.x, m.y, '#ffd060', 6, 60); flashLight(m.x, m.y, 3, 0.2); igniteGas(m.x, m.y, 16); sfx.mortarHit(); }
         else if (m.kind === 'light') { sparks(m.x, m.y, '#fff4c0', 12, 110); flashLight(m.x, m.y, 5, 0.25); sfx.zap(); }
+        else if (m.kind === 'egg') { for (let k = 0; k < 2; k++) spawnEnemy('tozbocek', m.x + (k ? 3 : -3), m.y, G.wave.num).emergeT = 0.15; sparks(m.x, m.y, '#ffd890', 10, 80); sfx.brood(); }
+        else if (m.kind === 'amber') { for (const q of live()) if (Math.hypot(q.x - m.x, q.y - m.y) < m.r + 3) webPlayer(q, 2.2); sparks(m.x, m.y, '#ffb040', 14, 90); ring(m.x, m.y, '#ffb040', 18); sfx.web(); }
+        else if (m.kind === 'spike') { sparks(m.x, m.y, '#ff3a6a', 10, 110); debris(m.x, m.y, 'stone', 4); sfx.creak(); }
+        else if (m.kind === 'rock') {
+          // tavan çöker: işaretin üstündeki desteksiz kayalar düşer
+          const c0 = Math.floor(m.x / TILE), r0 = Math.floor(m.y / TILE); let n = 0;
+          for (let r = r0 - 1; r >= r0 - 6 && n < 3; r--) for (let c = c0 - 1; c <= c0 + 1 && n < 3; c++) {
+            const d = TD[tileAt(c, r)];
+            if (d.plain && !solidAt(c, r + 1)) { const mat = matOf(c, r); setTile(c, r, T.AIR); G.rocks.push({ x: c * TILE + 8, y: r * TILE + 8, vy: 30, mat }); n++; }
+          }
+          shake(0.3); sfx.rockfall();
+        }
       }
     } else m.post -= dt;
     if (m.t > 0 || m.post > 0) B.marks[j++] = m;

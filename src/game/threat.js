@@ -17,6 +17,7 @@ import { debris, dust, ring, sparks, shake, flashLight } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
 import { emit } from '../core/events.js';
 import { markJourney } from './journey.js';
+import { seaFloor } from './biomes.js';
 
 export const LEVEL_NAMES = ['SESSİZ', 'KIPIRTI', 'UYANIŞ', 'ÖFKE', 'AV'];
 
@@ -42,7 +43,7 @@ export function addNoise(a, x, y) {
   let m = (1 + st * THREAT.depthMul) * (G.mods.noise || 1) * (STRATA[biomeOf(st)].noiseMul || 1);
   if (G.evt && G.evt.hushT > 0) m *= 0.5;
   th.noise = Math.min(100, th.noise + a * m);
-  th.quietT = 0;
+  th.quietT = 0; th.last = { x, y };
   if (th.noise > th.peak) th.peak = th.noise;
 }
 
@@ -63,8 +64,9 @@ function deepestUnder() {
 
 // biyomun imza düşmanı sık çıkar; derin biyomların (10+) imzaları yalnız kendi biyomunda görülür
 function pickType(st, lv) {
-  const b = biomeOf(st), sig = STRATA[b].sig;
+  const b = biomeOf(st), S = STRATA[b], sig = Array.isArray(S.sig) ? S.sig[Math.floor(rnd() * S.sig.length)] : S.sig;
   const allowed = WAVES.allowed(2 + lv * 2, st).filter(t => !ENEMIES[t].boss && !ENEMIES[t].small);
+  if (S.sig2 && rnd() < 0.25) return S.sig2;
   if (sig && rnd() < (b >= 10 ? 0.55 : 0.4) && (b >= 10 || allowed.includes(sig))) return sig;
   return allowed[Math.floor(rnd() * allowed.length)] || 'rodent';
 }
@@ -99,7 +101,9 @@ function exitCell(n, p) {
 function emerge(type, x, y, lv, i, sid) {
   const e = spawnEnemy(type, x, y, lv);
   e.emergeT = 0.8 + i * 0.35; e.sq = sid;
-  if (lv >= 3 && rnd() < THREAT.eliteChance) makeElite(e);
+  if (lv >= 3 && rnd() < THREAT.eliteChance && !e.d.small) makeElite(e);
+  // sürü türü: yanında birkaç kardeşiyle çıkar
+  for (let k = 1; k < (e.d.pack || 0); k++) { const o = spawnEnemy(type, x + (k - 2) * 3, y, lv); o.emergeT = e.emergeT + k * 0.12; o.sq = sid; }
   return e;
 }
 function spawnFrom(n, p, lv, types, sid) {
@@ -195,6 +199,8 @@ export function updateThreat(dt) {
   const dp = deepestUnder(), dst = dp ? Math.max(0, stratumOfRow(Math.floor(dp.y / TILE))) : 0;
   const floor = Math.min(THREAT.floorMax, dst * THREAT.floorPerStratum);
   if (!bossAlive) th.noise = Math.max(Math.min(th.noise, floor), th.noise - decay * dt);
+  // Sessiz Deniz: ölçer sönmez, zamanla dolar
+  th.noise = Math.max(th.noise, seaFloor());
   // boss öldü: ölçer sakinleşir
   if (th.bossUp && !bossAlive) { th.bossUp = false; th.noise = Math.min(th.noise, THREAT.afterBoss); th.bossCd = 20; G.stats.bosses++; emit('bossDown', th.bossType); th.bossType = ''; }
   if (th.bossCd > 0) th.bossCd -= dt;

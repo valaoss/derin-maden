@@ -1,5 +1,5 @@
-// Katmanlı dünya üretimi (v5: 20 biyom): malzeme kümeleri, cevher damarları, mağaralar, biyom özellikleri, sandıklar, çekirdek odası.
-// Biyom sırası tohuma göre karışır: Toprak hep ilk, Yaratılış Çekirdeği hep son; aradakiler zorluk bantları içinde yer değiştirir.
+// Katmanlı dünya üretimi (v6: 30 biyom): malzeme kümeleri, cevher damarları, mağaralar, biyom özellikleri, sandıklar, çekirdek odası.
+// Biyom sırası tohuma göre karışır: Toprak hep ilk, Yaratılış Çekirdeği 20., Sıfır Noktası hep son; aradakiler zorluk bantları içinde yer değiştirir.
 import { COLS, ROWS, GROUND_ROW, STRATUM_ROWS, STRATA_COUNT, PLAY_MIN_COL, PLAY_MAX_COL, CENTER_COL } from '../config.js';
 import { T, TD, HOST_TILE, isPlain, DEEP_TILE, CHEST_TILE } from '../data/tiles.js';
 import { DEEP_ORES, chestWeights } from '../data/balance.js';
@@ -7,7 +7,7 @@ import { STRATA } from '../data/palette.js';
 import { mulberry32, fbm, vnoise } from '../core/util.js';
 
 // zorluk bantları: her bant kendi içinde karışır (ana kaya sertliği ve düşman gücü derinlikle artmaya devam eder)
-const BANDS = [[0], [1, 2], [3, 4, 5], [6, 7], [8, 9], [10, 11], [12, 13, 14], [15, 16, 17, 18], [19]];
+const BANDS = [[0], [1, 2], [3, 4, 5], [6, 7], [8, 9], [10, 11], [12, 13, 14], [15, 16, 17, 18], [19], [20, 21, 22], [23], [24, 25, 26], [27], [28], [29]];
 export function biomeOrder(seed) {
   const rnd = mulberry32((seed | 0) ^ 0x5bd1e995);
   const out = [];
@@ -42,6 +42,17 @@ const STRATA_GEN = [
   { mats: [[T.BLOOD, 0.7], [T.CHRONO, 0.1], [T.BONE, 0.2]],                          veins: { crystal: 6, gold: 6, iron: 4 },              chests: 3, caves: 0.3,  haz: 2.2, feat: 'bloodvein' },
   { mats: [[T.ECHO, 0.74], [T.BLOOD, 0.08], [T.VOID, 0.18]],                         veins: { crystal: 8, gold: 6 },                       chests: 3, caves: 0.14, haz: 1.4, feat: 'hush' },
   { mats: [[T.GENESIS, 0.72], [T.ECHO, 0.1], [T.OBSIDIAN, 0.18]],                    veins: { crystal: 10, gold: 8, cobalt: 4 },           chests: 4, caves: 0.22, haz: 1.5, feat: 'seed' },
+  // v6: çekirdeğin öbür yüzü
+  { mats: [[T.MUTE, 0.72], [T.ECHO, 0.1], [T.OBSIDIAN, 0.18]],                       veins: { crystal: 8, gold: 6, cobalt: 3 },            chests: 3, caves: 0.26, haz: 1.4, feat: 'lure' },
+  { mats: [[T.TIDE, 0.74], [T.ICE, 0.1], [T.VOID, 0.16]],                            veins: { crystal: 7, gold: 6, water: 6 },             chests: 3, caves: 0.34, haz: 1.2, feat: 'clam' },
+  { mats: [[T.FLESH, 0.76], [T.BLOOD, 0.1], [T.BONE, 0.14]],                         veins: { crystal: 8, gold: 6, iron: 4 },              chests: 3, caves: 0.2,  haz: 1.6, feat: 'node' },
+  { mats: [[T.MIRROR, 0.78], [T.GILT, 0.08], [T.VOID, 0.14]],                        veins: { gold: 9, crystal: 6 },                       chests: 4, caves: 0.16, haz: 1.3, feat: 'mirror' },
+  { mats: [[T.AMBERROCK, 0.72], [T.GENESIS, 0.1], [T.OBSIDIAN, 0.18]],               veins: { crystal: 9, gold: 7 },                       chests: 3, caves: 0.24, haz: 1.5, feat: 'amber' },
+  { mats: [[T.MAGNETROCK, 0.74], [T.STORM, 0.08], [T.DENSE, 0.18]],                  veins: { iron: 14, crystal: 7, gold: 6 },             chests: 3, caves: 0.22, haz: 1.5, feat: 'magnet' },
+  { mats: [[T.HUNGER, 0.74], [T.BONE, 0.12], [T.OBSIDIAN, 0.14]],                    veins: { crystal: 10, gold: 8, cobalt: 4 },           chests: 3, caves: 0.28, haz: 1.6 },
+  { mats: [[T.ROOTWOOD, 0.72], [T.MOSS, 0.1], [T.TITAN, 0.18]],                      veins: { crystal: 9, gold: 8 },                       chests: 4, caves: 0.22, haz: 1.4, feat: 'throne' },
+  { mats: [[T.SEA, 0.76], [T.VOID, 0.12], [T.ECHO, 0.12]],                           veins: { crystal: 10, gold: 8 },                      chests: 3, caves: 0.3,  haz: 1.2, feat: 'lumen' },
+  { mats: [[T.ZERO, 0.72], [T.GENESIS, 0.14], [T.MIRROR, 0.14]],                     veins: { crystal: 12, gold: 10, cobalt: 4 },          chests: 4, caves: 0.2,  haz: 1.6, feat: 'zero' },
 ];
 const ORE_T = { iron: T.IRON, water: T.WATER, cobalt: T.COBALT, crystal: T.CRYSTAL, gold: T.GOLD };
 
@@ -206,7 +217,41 @@ export function generate(seed, opts = {}) {
       for (let r = ar - 1; r <= ar + 1; r++) for (let c = ac - 2; c <= ac + 2; c++) if (inPlay(c, r) && plain(get(c, r))) set(c, r, T.AIR);
       set(ac, ar + 1, T.ECHO); set(ac, ar, T.ARKEN);
     }
-    else if (feat === 'seed') scatter(r0, T.SEED, 6);
+    else if (feat === 'seed') {
+      scatter(r0, T.SEED, 6);
+      // Yaratılış Kıvılcımı: biyomun dibinde küçük bir mabet
+      const kc = 4 + Math.floor(rnd() * 9), kr = r0 + 27 + Math.floor(rnd() * 4);
+      for (let r = kr - 1; r <= kr + 1; r++) for (let c = kc - 2; c <= kc + 2; c++) if (inPlay(c, r) && plain(get(c, r))) set(c, r, T.AIR);
+      set(kc, kr + 1, T.GENESIS); set(kc, kr, T.RELIC);
+    }
+    else if (feat === 'lure') scatter(r0, T.LURE, 8);
+    else if (feat === 'clam') scatter(r0, T.CLAM, 8, nearAir);
+    else if (feat === 'node') scatter(r0, T.NODE, 3);
+    else if (feat === 'mirror') {
+      // Ters Saray: kapılarla mühürlü salon; taht, sandıklar ve Kara Elmas avizeler tavanda
+      const h0 = r0 + 11, h1 = r0 + 22, c0 = 4, c1 = 12;
+      for (let r = h0; r <= h1; r++) for (let c = c0; c <= c1; c++) set(c, r, r === h0 || r === h1 || c === c0 || c === c1 ? T.GATE : T.AIR);
+      for (const cc of [5, 11]) { set(cc, h0 + 1, T.MIRROR); set(cc, h0 + 2, T.MIRROR); set(cc, h0 + 3, T.ELMAS); }
+      for (let c = c0 + 1; c < c1; c++) if (c !== 5 && c !== 11 && c !== 7) set(c, h0 + 1, c % 2 ? T.GOLD : T.MIRROR);
+      set(7, h0 + 1, T.GILT); set(7, h0 + 2, T.RELIC);
+      set(6, h0 + 2, T.CHEST_GOLD); set(10, h0 + 2, T.CHEST_ANCIENT); chests.push([6, h0 + 2], [10, h0 + 2]);
+      for (let c = c0 + 1; c < c1; c++) if (c % 3 === 0) set(c, h1 - 1, T.MIRROR);
+    }
+    else if (feat === 'amber') scatter(r0, T.AMBER, 9);
+    else if (feat === 'magnet') walk(r0, T.MAGNET, 5, 4, false);
+    else if (feat === 'throne') {
+      // Kök Tahtı: köklerle sarılı taht odası, ortasında Dünya Tohumu; odada iki yumurta
+      const tc = CENTER_COL + 3, tr = r0 + 19;
+      for (let r = tr - 4; r <= tr + 4; r++) for (let c = tc - 4; c <= tc + 4; c++) {
+        const dx = (c - tc) / 4.4, dy = (r - tr) / 4.4;
+        if (inPlay(c, r) && dx * dx + dy * dy < 1) set(c, r, T.AIR);
+      }
+      set(tc, tr + 1, T.ROOTWOOD); set(tc, tr, T.RELIC);
+      walk(r0, T.MOSS, 4, 5, true);
+      scatter(r0, T.EGG, 3, nearAir);
+    }
+    else if (feat === 'lumen') scatter(r0, T.LUMEN, 12, nearAir);
+    else if (feat === 'zero') { scatter(r0, T.LUMEN, 4, nearAir); scatter(r0, T.AMBER, 3); scatter(r0, T.LURE, 3); scatter(r0, T.NODE, 1); }
   }
 
   // tehlikeler: gevşek kaya kümeleri (tercihen mağara tavanlarında) ve gaz cepleri
