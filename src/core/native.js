@@ -43,5 +43,5 @@ export async function nativeShareImage(blob, name) {
     new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(blob); }),
   ]);
   const { uri } = await Filesystem.writeFile({ path: name, data, directory: Directory.Cache });
-  await nativeShare({ title: 'Derin Maden', files: [uri] });
+  await nativeShare({ title: 'FALL', files: [uri] });
 }

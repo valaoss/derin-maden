@@ -149,8 +149,8 @@ export function codeFromURL() {
 }
 export async function shareInvite(code) {
   const url = inviteURL(code);
-  if (isNative) { try { await nativeShare({ title: 'Derin Maden', text: 'Birlikte kazalım! Oda: ' + code, url }); return 'shared'; } catch (e) { return 'cancel'; } }
-  if (navigator.share) { try { await navigator.share({ title: 'Derin Maden', text: 'Birlikte kazalım! Oda: ' + code, url }); return 'shared'; } catch (e) { if (e && e.name === 'AbortError') return 'cancel'; } }
+  if (isNative) { try { await nativeShare({ title: 'FALL', text: 'Birlikte kazalım! Oda: ' + code, url }); return 'shared'; } catch (e) { return 'cancel'; } }
+  if (navigator.share) { try { await navigator.share({ title: 'FALL', text: 'Birlikte kazalım! Oda: ' + code, url }); return 'shared'; } catch (e) { if (e && e.name === 'AbortError') return 'cancel'; } }
   try { await navigator.clipboard.writeText(url); return 'copied'; } catch (e) { return 'fail'; }
 }
 

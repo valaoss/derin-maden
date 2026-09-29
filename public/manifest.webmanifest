@@ -1,6 +1,6 @@
 {
-  "name": "Derin Maden",
-  "short_name": "Derin Maden",
+  "name": "FALL",
+  "short_name": "FALL",
   "description": "Kaz, topla, üssünü savun, çekirdeğe in.",
   "start_url": "./",
   "display": "fullscreen",
@@ -11,6 +11,6 @@
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "icons/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

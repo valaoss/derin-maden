@@ -489,14 +489,14 @@ hooks.photo = () => {
   if (!G) return;
   const c = document.createElement('canvas'); c.width = canvas.width; c.height = canvas.height;
   const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(canvas, 0, 0);
-  const txt = 'DERİN MADEN · ' + G.stats.maxDepth + 'M' + (G.mp ? ' · ' + G.players.map(p => (p.name || 'MADENCİ').toUpperCase()).join(' & ') : '');
+  const txt = 'FALL · ' + G.stats.maxDepth + 'M' + (G.mp ? ' · ' + G.players.map(p => (p.name || 'MADENCİ').toUpperCase()).join(' & ') : '');
   x.font = '8px Tiny5, monospace'; x.textBaseline = 'bottom';
   x.fillStyle = 'rgba(0,0,0,0.7)'; x.fillText(txt, 5, c.height - 4); x.fillStyle = '#ffe79a'; x.fillText(txt, 4, c.height - 5);
   c.toBlob(async b => {
     if (!b) return;
-    if (isNative) { try { await nativeShareImage(b, 'derin-maden.png'); } catch (e) { /* iptal */ } return; }
-    const f = new File([b], 'derin-maden.png', { type: 'image/png' });
-    if (navigator.canShare && navigator.canShare({ files: [f] })) { try { await navigator.share({ files: [f], title: 'Derin Maden' }); return; } catch (e) { /* iptal */ } }
+    if (isNative) { try { await nativeShareImage(b, 'fall.png'); } catch (e) { /* iptal */ } return; }
+    const f = new File([b], 'fall.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [f] })) { try { await navigator.share({ files: [f], title: 'FALL' }); return; } catch (e) { /* iptal */ } }
     const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = f.name; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     UI.toast('Fotoğraf kaydedildi', 'check');

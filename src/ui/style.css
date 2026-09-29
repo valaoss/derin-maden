@@ -1,4 +1,4 @@
-/* Derin Maden — görsel dil: perçinli maden ekipmanı plakaları, basılınca çöken butonlar,
+/* FALL — görsel dil: perçinli maden ekipmanı plakaları, basılınca çöken butonlar,
    pixel ikonlar, tek palet. Gradient / glow / blur kullanılmaz. */
 :root {
   --ink: #140c1c; --night: #0b0712;
@@ -302,6 +302,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .title { font-size: 46px; line-height: .95; font-weight: 700; color: var(--helm); text-align: center; letter-spacing: 2px;
   text-shadow: 3px 0 var(--ink), -3px 0 var(--ink), 0 3px var(--ink), 0 -3px var(--ink), 3px 3px var(--ink), -3px 3px var(--ink), 3px -3px var(--ink), -3px -3px var(--ink), 0 7px var(--ink), 3px 7px var(--ink), -3px 7px var(--ink); }
 .title small { display: block; font-size: 58px; color: var(--text); }
+.logo { width: min(64%, 250px, 30dvh); margin-top: -4%; height: auto; display: block; filter: drop-shadow(0 6px 0 rgba(11,7,18,.55)); pointer-events: none; }
 .subtitle { margin-top: 14px; font-size: 14px; letter-spacing: 3px; color: var(--text); opacity: .85;
   text-shadow: 2px 0 var(--ink), -2px 0 var(--ink), 0 2px var(--ink), 0 -2px var(--ink); }
 .stack { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 320px; }

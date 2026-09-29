@@ -642,7 +642,7 @@ export function showMenu(hasSave) {
   const s = $('#menu');
   let k = Math.min(m.maxKademe | 0, m.lastKademe | 0);
   const role = ROLES[S.role];
-  s.innerHTML = `<div class="top"><div class="title">DERİN<small>MADEN</small></div><div class="subtitle">KAZ · SESSİZ KAL · DERİNE İN</div></div>
+  s.innerHTML = `<div class="top"><img class="logo" src="./logo.webp" alt="FALL"><div class="subtitle">KAZ · SESSİZ KAL · DERİNE İN</div></div>
     <div class="stack">
       <div class="mrow">
         <button class="plate mchip" id="mMe">${helmDot(S.helm)}<span class="nm">${esc(S.name)}</span>${role ? ic(role.icon, 's') : ''}<span class="chev">›</span></button>
