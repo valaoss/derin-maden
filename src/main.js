@@ -211,7 +211,7 @@ function toMenu() {
   UI.showHUD(false);
   UI.hideScreens();
   UI.showMenu(!!loadRun());
-  stopAmbience();
+  stopAmbience(); lastAmb = '';
 }
 
 // günün madeni: tarihten türeyen sabit tohum
@@ -293,7 +293,7 @@ function endRun(reason) {
   if (echo) goal += `<br><span style="color:var(--helm)">Ölüm yankısı: ${echo.n} cevherlik çantan ${depthOfY(echo.r * TILE)}m derinde seni bekliyor.</span>`;
   if (!victory && m.oz >= 20) goal += '<br><span style="color:var(--good)">Kampta harcayacak Öz\'ün var.</span>';
   if (victory) sfx.victory(); else sfx.defeat();
-  stopAmbience();
+  stopAmbience(); lastAmb = '';
   App.scene = 'results';
   const mp = G.mp;
   setTimeout(() => {
@@ -459,8 +459,8 @@ function tick(now, bg) {
     if (saveT > 8) { saveT = 0; autosave(); }
     const surf = G.player.y < GROUND_Y;
     const st = stratumGroup(stratumOfRow(Math.floor(G.player.y / TILE)));
-    const key = st + '|' + surf + '|' + (G.threat.level >= 2);
-    if (key !== lastAmb) { lastAmb = key; setAmbience(st, surf, G.threat.level >= 2); }
+    const boss = G.threat.bossUp, key = st + '|' + surf + '|' + G.threat.level + '|' + boss;
+    if (key !== lastAmb) { lastAmb = key; setAmbience(st, surf, G.threat.level, boss); }
   } else if (App.scene === 'play' && G.paused && G.mp) {
     G.paused = false; // çok oyunculuda duraklatma yok
   }

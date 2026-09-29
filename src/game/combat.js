@@ -59,7 +59,7 @@ export function useMod(k, p = G.player) {
 function tagBullet(b) {
   if (hasMod('ricochet')) b.bounce = 1;
   if (hasMod('frost')) b.frost = true;
-  if (hasMod('fire')) b.fire = true;
+  if (hasMod('fire') || G.lvl.opalNamlu) b.fire = true;
   if (hasMod('chain')) b.chain = true;
   if (hasMod('boom')) b.boom = true;
   return b;
@@ -79,7 +79,7 @@ function updateGun(p, dt) {
   if (hasMod('rapid')) cd *= 0.7;
   if ((G.gear.active.overdrive || 0) > 0) cd /= 3;
   p.fireCd = cd;
-  const dmg = UPGRADES.blaster.dmg[lv] * (roleOf(p).dmg || 1) * lastStand(p);
+  const dmg = UPGRADES.blaster.dmg[lv] * (roleOf(p).dmg || 1) * lastStand(p) * (G.lvl.yildizCekirdek ? 1.4 : 1);
   const shots = hasPerk('ciftNamlu') ? [-0.09, 0.09] : [0];
   const pierce = hasPerk('delici') ? 1 : 0;
   for (const o of shots) tagBullet(fire(sp.x + Math.cos(ang) * 6, sp.y + Math.sin(ang) * 6, ang + o, 250, dmg, 'p', pierce, p.i));

@@ -1,7 +1,7 @@
 // Katmanlı dünya üretimi (v5: 20 biyom): malzeme kümeleri, cevher damarları, mağaralar, biyom özellikleri, sandıklar, çekirdek odası.
 // Biyom sırası tohuma göre karışır: Toprak hep ilk, Yaratılış Çekirdeği hep son; aradakiler zorluk bantları içinde yer değiştirir.
 import { COLS, ROWS, GROUND_ROW, STRATUM_ROWS, STRATA_COUNT, PLAY_MIN_COL, PLAY_MAX_COL, CENTER_COL } from '../config.js';
-import { T, HOST_TILE, isPlain } from '../data/tiles.js';
+import { T, HOST_TILE, isPlain, DEEP_TILE } from '../data/tiles.js';
 import { mulberry32, fbm, vnoise } from '../core/util.js';
 
 // zorluk bantları: her bant kendi içinde karışır (ana kaya sertliği ve düşman gücü derinlikle artmaya devam eder)
@@ -266,6 +266,20 @@ export function generate(seed, opts = {}) {
   }
   set(CENTER_COL, hr, T.HEART);
   set(CENTER_COL + 2, hr, T.RELIC); // Yaratılış Kıvılcımı
+
+  // derin cevher: her biyomda bandına özgü birkaç küçük damar
+  for (let s = 0; s < STRATA_COUNT; s++) {
+    const r0 = GROUND_ROW + s * STRATUM_ROWS, tile = DEEP_TILE[Math.min(DEEP_TILE.length - 1, Math.floor(s / 4))];
+    const spare = (c, r) => plain(get(c, r)) && get(c, r) !== HOST_TILE[order[s]]; // ana kayayı azaltmaz
+    for (let i = 0; i < 3; i++) {
+      let at = null;
+      for (let tries = 0; tries < 60 && !at; tries++) { const c = PLAY_MIN_COL + Math.floor(rnd() * 13), r = r0 + 4 + Math.floor(rnd() * (STRATUM_ROWS - 8)); if (spare(c, r)) at = [c, r]; }
+      if (!at) continue;
+      set(at[0], at[1], tile);
+      const dc = rnd() < 0.5 ? 1 : -1;
+      if (rnd() < 0.5 && inPlay(at[0] + dc, at[1]) && spare(at[0] + dc, at[1])) set(at[0] + dc, at[1], tile);
+    }
+  }
 
   // öğretici: ilk seferde merkezin hemen altında garanti cevher
   if (opts.tutorial) {

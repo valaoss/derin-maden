@@ -316,37 +316,76 @@ export const sfx = {
 };
 
 // ---------------- Ambiyans / müzik ----------------
-// Katman başına alçak drone; dalga sırasında nabız gibi bas.
-let amb = null;
-const AMB_NOTES = [[55, 82.4], [49, 73.4], [43.6, 65.4], [41.2, 61.7]];
-export function setAmbience(stratum, surface, inWave) {
-  if (!ctx) return;
-  if (!amb) {
-    amb = { o1: ctx.createOscillator(), o2: ctx.createOscillator(), f: ctx.createBiquadFilter(), g: ctx.createGain(),
-      wind: ctx.createBufferSource(), wf: ctx.createBiquadFilter(), wg: ctx.createGain(),
-      pulse: ctx.createOscillator(), pg: ctx.createGain(), lfo: ctx.createOscillator(), lg: ctx.createGain() };
-    amb.o1.type = 'sawtooth'; amb.o2.type = 'sawtooth';
-    amb.f.type = 'lowpass'; amb.f.frequency.value = 220; amb.g.gain.value = 0;
-    amb.o1.connect(amb.f); amb.o2.connect(amb.f); amb.f.connect(amb.g); amb.g.connect(musBus);
-    amb.wind.buffer = noiseBuf; amb.wind.loop = true; amb.wf.type = 'bandpass'; amb.wf.frequency.value = 500; amb.wf.Q.value = 0.6;
-    amb.wg.gain.value = 0; amb.wind.connect(amb.wf); amb.wf.connect(amb.wg); amb.wg.connect(musBus);
-    // dalga nabzı: 55Hz, 2Hz LFO ile genlik
-    amb.pulse.type = 'sine'; amb.pulse.frequency.value = 55; amb.pg.gain.value = 0;
-    amb.lfo.frequency.value = 2; amb.lg.gain.value = 0; amb.lfo.connect(amb.lg); amb.lg.connect(amb.pg.gain);
-    amb.pulse.connect(amb.pg); amb.pg.connect(musBus);
-    amb.o1.start(); amb.o2.start(); amb.wind.start(); amb.pulse.start(); amb.lfo.start();
+// Sakin madende uğultu yok: seyrek damla ve uzak taş sesleri. Uyanış ve öfkede ritim girer; bossta ayrı, hızlı tema.
+let mus = null;
+const ROOTS = [55, 51.9, 49, 46.2]; // derinlikle koyulaşan kök nota
+const SONGS = {
+  tense: { bpm: 88, kick: [0, 10], hat: [4, 12], hatG: 0.02, bass: { 0: 0, 3: 0, 8: -2, 11: 3 }, prog: [0, 0, -4, -2], lead: null },
+  rage: { bpm: 104, kick: [0, 6, 8, 14], hat: [2, 6, 10, 14], hatG: 0.03, bass: { 0: 0, 2: 0, 4: 12, 6: 0, 8: -2, 10: -2, 12: 10, 14: 3 }, prog: [0, -4, 0, -2], lead: null },
+  boss: { bpm: 132, kick: [0, 4, 8, 12], hat: [2, 6, 10, 14], hatG: 0.035, bass: { 0: 0, 2: 12, 4: 0, 6: 12, 8: 0, 10: 12, 12: 0, 14: 12 }, prog: [0, -4, -2, -5], lead: [0, 3, 7, 12, 7, 3, 7, 10] },
+};
+const semi = (f, s) => f * Math.pow(2, s / 12);
+function mtone(t, dur, type, f, gain, f2 = null) {
+  const o = ctx.createOscillator(); o.type = type; o.frequency.setValueAtTime(f, t);
+  if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+  const g = ctx.createGain(); env(g, t, 0.005, gain, dur);
+  o.connect(g); g.connect(musBus); o.start(t); o.stop(t + dur + 0.05);
+}
+function mnoise(t, dur, type, f, gain, a = 0.002, f2 = null) {
+  const s = ctx.createBufferSource(); s.buffer = noiseBuf;
+  const fl = ctx.createBiquadFilter(); fl.type = type; fl.frequency.setValueAtTime(f, t);
+  if (f2) fl.frequency.exponentialRampToValueAtTime(f2, t + dur);
+  const g = ctx.createGain(); env(g, t, a, gain, dur);
+  s.connect(fl); fl.connect(g); g.connect(musBus);
+  s.start(t, Math.random() * 0.5); s.stop(t + dur + a + 0.05);
+}
+// sakin madenin sesleri: su damlası (yankılı) ya da uzakta kayan taş
+function ambient(now) {
+  if (now < mus.nextAmb) return;
+  mus.nextAmb = now + 3.5 + Math.random() * 6;
+  const t = now + 0.05;
+  if (Math.random() < 0.65) {
+    const f = 1300 + Math.random() * 900;
+    mtone(t, 0.09, 'sine', f, 0.05, f * 0.55);
+    mtone(t + 0.22, 0.09, 'sine', f, 0.018, f * 0.55);
+  } else mnoise(t, 0.7, 'lowpass', 260, 0.05, 0.12, 90);
+}
+function schedule() {
+  if (!ctx || !mus) return;
+  const now = ctx.currentTime;
+  if (!App.settings.music || ctx.state !== 'running') { mus.next = now + 0.1; return; }
+  const S = SONGS[mus.mode];
+  if (!S) { if (mus.mode === 'calm') ambient(now); return; }
+  if (mus.next < now) mus.next = now + 0.05;
+  const step = 60 / S.bpm / 4;
+  while (mus.next < now + 0.25) {
+    const i = mus.step % 16, t = mus.next;
+    const root = semi(mus.root, S.prog[Math.floor(mus.step / 16) % S.prog.length]);
+    if (S.kick.includes(i)) mtone(t, 0.16, 'sine', 120, 0.2, 42);
+    if (S.hat.includes(i)) mnoise(t, 0.03, 'highpass', 7000, S.hatG);
+    if (S.bass[i] !== undefined) mtone(t, step * 1.8, 'triangle', semi(root * 2, S.bass[i]), 0.1);
+    if (S.lead && i % 2 === 0) mtone(t, step * 1.4, 'square', semi(root * 8, S.lead[i / 2]), 0.02);
+    mus.step++; mus.next += step;
   }
-  const t = ctx.currentTime, n = AMB_NOTES[Math.max(0, Math.min(AMB_NOTES.length - 1, stratum))];
-  amb.o1.frequency.setTargetAtTime(n[0], t, 1.5);
-  amb.o2.frequency.setTargetAtTime(n[1] * 1.003, t, 1.5);
-  amb.g.gain.setTargetAtTime(surface ? 0.0 : 0.05, t, 1.2);
-  amb.wg.gain.setTargetAtTime(surface ? 0.05 : 0.0, t, 1.2);
-  amb.lg.gain.setTargetAtTime(inWave ? 0.09 : 0, t, 0.8);
+}
+export function setAmbience(stratum, surface, level = 0, boss = false) {
+  if (!ctx) return;
+  if (!mus) {
+    mus = { mode: '', root: ROOTS[0], step: 0, next: 0, nextAmb: 0, wind: ctx.createBufferSource(), wf: ctx.createBiquadFilter(), wg: ctx.createGain() };
+    mus.wind.buffer = noiseBuf; mus.wind.loop = true; mus.wf.type = 'bandpass'; mus.wf.frequency.value = 500; mus.wf.Q.value = 0.6;
+    mus.wg.gain.value = 0; mus.wind.connect(mus.wf); mus.wf.connect(mus.wg); mus.wg.connect(musBus); mus.wind.start();
+    setInterval(schedule, 60);
+  }
+  const t = ctx.currentTime;
+  const mode = surface ? 'surface' : boss ? 'boss' : level >= 3 ? 'rage' : level >= 2 ? 'tense' : 'calm';
+  mus.root = ROOTS[Math.max(0, Math.min(ROOTS.length - 1, stratum))];
+  if (mode !== mus.mode) { mus.mode = mode; mus.step = 0; mus.next = t + 0.05; mus.nextAmb = t + 2; }
+  mus.wg.gain.setTargetAtTime(surface ? 0.04 : 0, t, 1.2);
 }
 export function stopAmbience() {
-  if (!amb || !ctx) return;
-  const t = ctx.currentTime;
-  amb.g.gain.setTargetAtTime(0, t, 0.3); amb.wg.gain.setTargetAtTime(0, t, 0.3); amb.lg.gain.setTargetAtTime(0, t, 0.3);
+  if (!mus || !ctx) return;
+  mus.mode = 'off';
+  mus.wg.gain.setTargetAtTime(0, ctx.currentTime, 0.3);
 }
 
 export function haptic(ms) {

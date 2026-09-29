@@ -1,6 +1,6 @@
 // DOM arayüzü: HUD, atölye, perk seçimi, menüler, bildirimler, öğretici.
 import { TILE, GROUND_Y, stratumOfRow, STRATUM_ROWS } from '../config.js';
-import { UPGRADES, UPGRADE_KEYS, PICK_KEYS, MODS, MOD_KEYS, BUILDS, BUILD_KEYS, PERKS, META, META_KEYS, RES_KEYS, ENEMIES, ITEMS, ITEM_KEYS, CONTRACTS, KADEME, DEPLOY_MAX, ROLES, ROLE_KEYS, EVENTS, RELICS, RELIC_KEYS } from '../data/balance.js';
+import { UPGRADES, UPGRADE_KEYS, PICK_KEYS, MODS, MOD_KEYS, BUILDS, BUILD_KEYS, PERKS, META, META_KEYS, RES_KEYS, ENEMIES, ITEMS, ITEM_KEYS, CONTRACTS, RES, BASE_RES, MASTER_KEYS, KADEME, DEPLOY_MAX, ROLES, ROLE_KEYS, EVENTS, RELICS, RELIC_KEYS } from '../data/balance.js';
 import { STRATA } from '../data/palette.js';
 import { G, App, biomeOf } from '../game/state.js';
 import { iconURL, HELMETS } from '../render/sprites.js';
@@ -37,7 +37,7 @@ export function initUI(root, h) {
     </div>
     <div class="hud-row">
       <div class="plate meter bagm" id="bagM">${ic('bag')}<div class="bar bag"><i></i></div><span class="num" id="bagN">0/12</span></div>
-      <div class="plate res" id="resBox">${RES_KEYS.map(k => `<span class="chip" id="r_${k}">${ic(k, 's')}<span>0</span></span>`).join('')}</div>
+      <div class="plate res" id="resBox">${BASE_RES.map(k => `<span class="chip" id="r_${k}">${ic(k, 's')}<span>0</span></span>`).join('')}</div>
     </div>
     <div class="plate" id="wave">${ic('wave', 's')}<span class="l">SESSİZ</span><span class="t"></span></div>
     <div class="plate" id="goal">${ic('base', 's')}<span class="g"></span></div>
@@ -83,9 +83,9 @@ export function initUI(root, h) {
   document.querySelectorAll('#sheet .tab').forEach(t => tap(t, () => { sheetTab = t.dataset.tab; if (sheetTab === 'craft' && !App.meta.seenCraft) { App.meta.seenCraft = true; saveMeta(App.meta); } refreshSheet(); $('#sheetBody').scrollTop = 0; }));
 
   on('toast', d => toast(d.text, d.icon, d.bad));
-  on('bagPop', () => { const n = $('#bagN'); n.parentElement.classList.remove('shake'); });
+  on('bagPop', k => { const n = $('#bagN'); n.parentElement.classList.remove('shake'); if (RES[k] && RES[k].master && once('o' + k)) toast(RES[k].label + ' · Atölye’de ' + UPGRADES[RES[k].master].name + ' açar', k); });
   on('bagFull', () => { const m = $('#bagM'); m.classList.remove('shake'); void m.offsetWidth; m.classList.add('shake'); toast('Çanta dolu — yüzeye dön', 'bag', true); if (G.tutorial && G.tutorial.step < 2) tutStep(2); });
-  on('storePop', k => { const c = $('#r_' + k); c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop'); });
+  on('storePop', k => { const c = $('#r_' + k); if (!c) return; c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop'); });
   on('deposit', () => { refreshSheet(); });
   on('hurt', () => { const v = $('#vignette'); v.classList.remove('hit'); void v.offsetWidth; v.classList.add('hit'); });
   on('stratum', s => {
@@ -213,7 +213,7 @@ export function refreshHUD(force = false) {
     $('.bar.bag').classList.toggle('full', bc >= G.bagCap);
     const n = $('#bagN'); n.textContent = bc + '/' + G.bagCap; n.classList.toggle('full', bc >= G.bagCap);
   });
-  for (const k of RES_KEYS) set(0, 'r' + k, G.store[k], v => { $('#r_' + k + ' span').textContent = v; });
+  for (const k of BASE_RES) set(0, 'r' + k, G.store[k], v => { $('#r_' + k + ' span').textContent = v; });
   const row = Math.floor(p.y / TILE), depth = Math.max(0, row - 6);
   set(0, 'depth', depth, v => { $('#dM').textContent = v + 'm'; });
   const st = stratumOfRow(row);
@@ -270,7 +270,7 @@ export function refreshHUD(force = false) {
 }
 function fmt(t) { t = Math.max(0, Math.ceil(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); }
 function anyAffordable() {
-  for (const k of UPGRADE_KEYS.concat(PICK_KEYS)) { const c = upgradeCost(k); if (c && canAfford(c)) return true; }
+  for (const k of UPGRADE_KEYS.concat(PICK_KEYS, MASTER_KEYS)) { const c = upgradeCost(k); if (c && canAfford(c)) return true; }
   for (const k of MOD_KEYS) if (!G.gear.owned.includes(k) && canAfford(MODS[k].cost)) return true;
   return false;
 }
@@ -368,7 +368,7 @@ function pips(l, max) { let s = '<span class="pips">'; for (let i = 0; i < max; 
 let sheetTab = 'up';
 function refreshSheet(justKey) {
   if (!G) return;
-  $('#sheetStore').innerHTML = RES_KEYS.map(k => `<span class="chip">${ic(k, 's')}<span>${G.store[k]}</span></span>`).join('');
+  $('#sheetStore').innerHTML = RES_KEYS.filter(k => BASE_RES.includes(k) || G.store[k] > 0).map(k => `<span class="chip">${ic(k, 's')}<span>${G.store[k]}</span></span>`).join('');
   document.querySelectorAll('#sheet .tab').forEach(t => t.classList.toggle('on', t.dataset.tab === sheetTab));
   $('#sheet .tab[data-tab="craft"]').classList.toggle('new', !App.meta.seenCraft);
   const body = $('#sheetBody');
@@ -414,6 +414,16 @@ function refreshSheet(justKey) {
         ${ic(u.icon, 'l')}
         <div class="main"><div class="name">${u.name} ${pips(l, max)}</div><div class="eff">${eff}</div>${c ? costHTML(c) : ''}</div>
         <button class="btn buy" ${c && canAfford(c) ? '' : 'disabled'}>AL</button></div>`;
+    }
+    const master = MASTER_KEYS.filter(k => G.lvl[k] || RES_KEYS.some(o => RES[o].master === k && (G.store[o] > 0 || G.player.bag[o] > 0)));
+    if (master.length) {
+      h += '<div class="sec">USTA İŞİ · DERİN CEVHERLE</div>';
+      for (const k of master) {
+        const u = UPGRADES[k], c = upgradeCost(k);
+        h += `<div class="plate row ${c ? '' : 'max'} ${justKey === k ? 'just' : ''}" data-up="${k}">${ic(u.icon, 'l')}
+          <div class="main"><div class="name">${u.name}${c ? '' : ' <span class="have">ALINDI</span>'}</div><div class="eff">${u.desc()}</div>${c ? costHTML(c) : ''}</div>
+          ${c ? `<button class="btn buy" ${canAfford(c) ? '' : 'disabled'}>AL</button>` : ''}</div>`;
+      }
     }
     h += `<div class="note">Aletler (Nöbetçi, Fener Direği…) <b>ÜRET</b> sekmesinde. Kemerden durduğun yere kurulur; aynı anda ${DEPLOY_MAX + (hasPerk('ucuncuAlet') ? 1 : 0)} tane.</div>`;
     if (G.contracts.length) {

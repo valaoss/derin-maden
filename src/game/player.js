@@ -97,6 +97,7 @@ function updateOne(p, dt) {
   if (p.landT > 0) p.landT -= dt;
   if (p.slowT > 0) p.slowT -= dt;
   if (p.hasteT > 0) p.hasteT -= dt;
+  if (p.shieldT > 0) p.shieldT -= dt;
   if (p.webT > 0) p.webT -= dt;
   if (p.burnT > 0) { p.burnT -= dt; p.burnTick = (p.burnTick || 0) - dt; if (p.burnTick <= 0) { p.burnTick = 0.5; poisonPlayer(p, 2); } }
   // kanama (Kan Sülüğü ısırığı): yavaş can kaybı, kırmızı damlalar
@@ -200,7 +201,7 @@ function updateOne(p, dt) {
   for (let i = 0; i < G.satchels.length; i++) {
     const s = G.satchels[i];
     if (Math.hypot(s.x - p.x, s.y - p.y) < 12) {
-      for (const k of RES_KEYS) p.bag[k] += s.bag[k];
+      for (const k of RES_KEYS) p.bag[k] += s.bag[k] | 0;
       if (s.heart) { p.carrying = true; emit('heart'); }
       G.satchels.splice(i, 1); i--;
       if (hear(p)) sfx.chest();
@@ -456,6 +457,13 @@ export function updateDeposit(dt) {
 // ---------- hasar / ölüm ----------
 export function damagePlayer(p, amount, sx, sy) {
   if (p.dead || p.iframes > 0) return;
+  // Akik Kalkan: darbeyi emer, sonra dolar
+  if (G.lvl.akikKalkan && !(p.shieldT > 0)) {
+    p.shieldT = 15; p.iframes = 0.5;
+    ring(p.x, p.y, '#ff5ab0', 16); sparks(p.x, p.y, '#ffd0f0', 10, 80);
+    if (hear(p)) sfx.chirp();
+    return;
+  }
   p.hp -= amount;
   p.iframes = PLAYER.iframes; p.hurtT = 0.2;
   const d = Math.hypot(p.x - sx, p.y - sy) || 1;

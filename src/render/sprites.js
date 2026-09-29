@@ -197,7 +197,7 @@ const BRUTE_B = BRUTE_A.slice(0, 11).concat([
   '....kkkkk.kkkkk...',
 ]);
 
-// Karakök: yosun taçlı kök düğümü; çekik kehribar gözler, çatlak kor ağız, kök pençeler
+// Karakök: yosun taçlı kök düğümü; çekik yesim gözler, çatlak kor ağız, kök pençeler
 const KARAKOK_PAL = { q: '#2a1a12', Q: '#5e3c24', U: '#8e6238', n: '#3a6428', N: '#78b43c', e: '#ff9a2a', E: '#fff0a0', o: '#ff7a1a', O: '#ffd060' };
 const KARAKOK_A = [
   '.........kk.....kk.........',
@@ -1236,6 +1236,8 @@ const ORE_ICON_SHAPES = {
   crystal: ['....k.....', '...kdk.k..', '...kdkkck.', '..kkdcbkck', '.kdkcbbkbk',
     '.kdcbbakak', '.kcbbaak..', '..kbaak...', '...kkk....', '..........'],
 };
+
+Object.assign(ORE_ICON_SHAPES, { yesim: ORE_ICON_SHAPES.water, opal: ORE_ICON_SHAPES.gold, inci: ORE_ICON_SHAPES.iron, akik: ORE_ICON_SHAPES.cobalt, yildiz: ORE_ICON_SHAPES.crystal });
 
 const iconCache = {};
 export function iconURL(name, scale = 1) {

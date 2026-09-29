@@ -83,9 +83,14 @@ export const ORE_RAMP = {
   cobalt:  ['#141c5a', '#2c48c8', '#5a86ff', '#c4d4ff'],
   crystal: ['#3a0e52', '#9030c8', '#e070ff', '#ffd8ff'],
   gold:    ['#5a3a08', '#c08a1a', '#ffd24a', '#fff4c0'],
+  yesim:    ['#0a3a1a', '#1a8a4a', '#5ae08a', '#d8ffe0'],
+  opal:     ['#4a0808', '#b01a1a', '#ff4a3a', '#ffd0c0'],
+  inci:     ['#3a3a4a', '#9a9ab0', '#eeeef8', '#ffffff'],
+  akik:     ['#4a0830', '#a01a6a', '#ff5ab0', '#ffd0f0'],
+  yildiz:   ['#104840', '#30b0a0', '#b8fff4', '#ffffff'],
 };
 
-export const RES_COL = { iron: '#e8a060', water: '#6fd0ff', cobalt: '#5a86ff', crystal: '#e070ff', gold: '#ffd24a' };
+export const RES_COL = { iron: '#e8a060', water: '#6fd0ff', cobalt: '#5a86ff', crystal: '#e070ff', gold: '#ffd24a', yesim: '#5ae08a', opal: '#ff4a3a', inci: '#eeeef8', akik: '#ff5ab0', yildiz: '#b8fff4' };
 
 // Biyomlar (20): isim, HUD kısaltması, karanlık rengi, süs türü, parçacık efekti, ton
 // decor: 'mush' mantar, 'crys' kristal, 'root' kök sarkıtı, 'icicle' buz sarkıtı, 'bone' kemik, 'ember' kor, 'shard' obsidyen, 'star' boşluk ışığı,

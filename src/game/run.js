@@ -1,6 +1,6 @@
 // Sefer oluşturma, türetilmiş değerler ve kayıt/yükleme.
 import { COLS, ROWS, TILE, GROUND_ROW, BASE_X, BASE_Y, CENTER_COL, STRATUM_ROWS, stratumOfRow, PLAY_MIN_COL, PLAY_MAX_COL } from '../config.js';
-import { UPGRADES, PLAYER, BUILDS, ITEMS, ITEM_KEYS, SCHEMATICS, CONTRACTS, kademeMods, MOD_SLOTS, PICK_TIERS, ROLES } from '../data/balance.js';
+import { UPGRADES, PLAYER, BUILDS, ITEMS, ITEM_KEYS, SCHEMATICS, CONTRACTS, kademeMods, MOD_SLOTS, PICK_TIERS, ROLES, RES_KEYS, MASTER_KEYS } from '../data/balance.js';
 import { T, TD } from '../data/tiles.js';
 import { makeThreat, scanNests } from './threat.js';
 import { makeEvents } from './events.js';
@@ -9,7 +9,7 @@ import { createFields } from '../world/flow.js';
 import { G, setG, App } from './state.js';
 import { seedRng } from '../core/rng.js';
 
-const emptyRes = () => ({ iron: 0, water: 0, cobalt: 0, crystal: 0, gold: 0 });
+const emptyRes = () => Object.fromEntries(RES_KEYS.map(k => [k, 0]));
 // biyom grubu (0..3): kontrat hedefleri ve ambiyans için
 export const stratumGroup = s => Math.min(3, Math.floor(Math.max(0, s) * 0.4));
 const emptyItems = () => Object.fromEntries(ITEM_KEYS.map(k => [k, 0]));
@@ -77,7 +77,7 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
     player: null, players: [],
     base: { x: BASE_X, y: BASE_Y, hp: 0, maxHp: 0, hurtT: 0 },
     store: emptyRes(), collected: emptyRes(),
-    lvl: { drill: Math.min(2, ml.keskinUc | 0), sharp: 0, swing: 0, bag: 0, armor: 0, blaster: Math.min(2, ml.ayarliBl | 0), lamp: 0 },
+    lvl: { drill: Math.min(2, ml.keskinUc | 0), sharp: 0, swing: 0, bag: 0, armor: 0, blaster: Math.min(2, ml.ayarliBl | 0), lamp: 0, ...Object.fromEntries(MASTER_KEYS.map(k => [k, 0])) },
     perks: [], items: emptyItems(), perkOffer: null,
     gear: { owned: [], eq: [], cd: {}, active: {} },
     kademe, mods, daily, contracts: [],
@@ -153,7 +153,7 @@ export function lastStand(p) { return hasPerk('sonDirenis') && p.hp < p.maxHp * 
 export function recompute(fill = false) {
   const ml = G.meta.lv || {};
   G.bagCap = UPGRADES.bag.cap[G.lvl.bag] + 4 * (ml.genisCanta | 0) + (hasPerk('derinCep') ? 12 : 0);
-  const maxHp = UPGRADES.armor.hp[G.lvl.armor] + (hasRelic('kalp') ? 40 : 0);
+  const maxHp = UPGRADES.armor.hp[G.lvl.armor] + (hasRelic('kalp') ? 40 : 0) + (G.lvl.muska ? 30 : 0);
   for (const p of G.players) {
     const d = maxHp - p.maxHp;
     p.maxHp = maxHp;
@@ -163,16 +163,16 @@ export function recompute(fill = false) {
 }
 
 // kazma: kademe + keskinlik + hızlı sallama
-export function pickDmg() { return PICK_TIERS[G.lvl.drill].dmg * UPGRADES.sharp.mult[G.lvl.sharp] * (hasRelic('kivilcim') ? 2 : 1); }
+export function pickDmg() { return PICK_TIERS[G.lvl.drill].dmg * UPGRADES.sharp.mult[G.lvl.sharp] * (hasRelic('kivilcim') ? 2 : 1) * (G.lvl.yildizCekirdek ? 1.4 : 1); }
 export function pickInterval() { return PICK_TIERS[G.lvl.drill].interval * UPGRADES.swing.mult[G.lvl.swing]; }
 export function modSlots() { return MOD_SLOTS + (hasPerk('dorduncuYuva') ? 1 : 0); }
 export function hasMod(k) { return G.gear.eq.includes(k); }
 
 export function lampTiles() {
-  const r = UPGRADES.lamp.radius[G.lvl.lamp] + (hasPerk('parlakFener') ? 2 : 0) + (hasRelic('kivilcim') ? 1 : 0) + (hasRelic('arken') ? 3 : 0);
-  return G.evt && G.evt.darkT > 0 ? Math.max(2, Math.ceil(r / 2)) : r;
+  const r = UPGRADES.lamp.radius[G.lvl.lamp] + (hasPerk('parlakFener') ? 2 : 0) + (hasRelic('kivilcim') ? 1 : 0) + (hasRelic('arken') ? 3 : 0) + (G.lvl.inciFener ? 3 : 0);
+  return G.evt && G.evt.darkT > 0 && !G.lvl.inciFener ? Math.max(2, Math.ceil(r / 2)) : r;
 }
-export function bagCount(p = G.player) { const b = p.bag; return b.iron + b.water + b.cobalt + b.crystal + (b.gold || 0); }
+export function bagCount(p = G.player) { let n = 0; for (const k of RES_KEYS) n += p.bag[k] || 0; return n; }
 export function isLocal(p) { return p === G.player; }
 // ses için: yerel oyuncuya yakın mı (partnerin uzaktaki kazısı sessiz kalır)
 export function hear(p, x = p.x, y = p.y) { const l = G.player; return p === l || Math.hypot(l.x - x, l.y - y) < 170; }

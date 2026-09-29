@@ -1,6 +1,6 @@
 // Headless oyun testleri: gerçek modüller, DOM yok. Kullanım: node tests/sim.test.mjs
 import { App, G } from '../src/game/state.js';
-import { newRun, recompute, serialize, deserialize, pickDmg, pickInterval, modSlots, makeStructure } from '../src/game/run.js';
+import { newRun, recompute, serialize, deserialize, pickDmg, pickInterval, modSlots, makeStructure, bagCount } from '../src/game/run.js';
 import { updatePlayer, updateOrbs, updateDeposit, bindEnemyDamage, breakTile, damagePlayer, blindPlayer } from '../src/game/player.js';
 const damagePlayerX = (p, d) => { p.iframes = 0; damagePlayer(p, d, p.x, p.y + 20); };
 import { updateEnemies, damageEnemy, spawnEnemy, killEnemy } from '../src/game/enemies.js';
@@ -19,7 +19,7 @@ import { updateFlow, forceFlow } from '../src/world/flow.js';
 import { setTile, tileAt } from '../src/world/map.js';
 import { generate, biomeOrder } from '../src/world/gen.js';
 import { T, TD, HOST_TILE } from '../src/data/tiles.js';
-import { ENEMIES, MODS, MOD_KEYS, PICK_TIERS, UPGRADES, ELITE, RES_KEYS, THREAT, BUILDS, ITEMS, RELICS, RELIC_KEYS, PERKS, ROLES, EVENT_KEYS } from '../src/data/balance.js';
+import { ENEMIES, MODS, MOD_KEYS, PICK_TIERS, UPGRADES, ELITE, RES_KEYS, THREAT, BUILDS, ITEMS, RELICS, RELIC_KEYS, PERKS, ROLES, EVENT_KEYS, DEEP_ORES, ozForRun } from '../src/data/balance.js';
 import { placeBuild, pickupBuild, craftItem } from '../src/game/economy.js';
 import { STRATA } from '../src/data/palette.js';
 import { COLS, ROWS, GROUND_ROW, GROUND_Y, STRATUM_ROWS, STRATA_COUNT, TILE } from '../src/config.js';
@@ -578,6 +578,24 @@ section('Kalıntılar');
   { const p = setup(807); applyPerk('hazineKokusu'); const i = G.map.findIndex(t => t === T.CHEST); ok('Hazine Kokusu sandıkları gösterir', i < 0 || G.rev[i] === 1); }
   { const p = setup(808); applyPerk('lesKazisi'); let n = 0; for (let i = 0; i < 40; i++) { const e = spawnEnemy('rodent', p.x, p.y - 30, 1); const o0 = G.orbs.length; killEnemy(e); n += G.orbs.length - o0; }
     ok('Leş Kazısı ganimeti artırır', n > 40 * 0.35 * 1.1, `${n}`); }
+}
+
+// ---------- 16. derin cevherler ----------
+section('Derin cevherler');
+{
+  const g = generate(3, {}); const bands = [0, 0, 0, 0, 0]; let wrong = 0;
+  for (let r = GROUND_ROW; r < ROWS; r++) for (let c = 0; c < COLS; c++) { const d = TD[g.map[r * COLS + c]]; const i = DEEP_ORES.indexOf(d && d.ore); if (i >= 0) { bands[i]++; if (Math.min(4, Math.floor(Math.floor((r - GROUND_ROW) / STRATUM_ROWS) / 4)) !== i) wrong++; } }
+  ok('her bantta kendi derin cevheri var', bands.every(n => n >= 3) && wrong === 0, bands.join(',') + ' / ' + wrong);
+  fresh(900); const p = G.player;
+  ok('usta işi cevhersiz alınamaz', !buyUpgrade('akikKalkan', p));
+  G.store.akik = 3; G.store.gold = 10;
+  ok('usta işi alınır', buyUpgrade('akikKalkan', p) && G.lvl.akikKalkan === 1 && G.store.akik === 0 && !upgradeCost('akikKalkan'));
+  const hp0 = p.hp; damagePlayerX(p, 20); ok('Akik Kalkan darbeyi emer', p.hp === hp0 && p.shieldT > 0);
+  damagePlayerX(p, 20); ok('kalkan dolarken darbe işler', p.hp === hp0 - 20);
+  G.store.yesim = 3; G.store.iron = 8; const m0 = p.maxHp; buyUpgrade('muska', p); ok('Yeşim Muska can verir', p.maxHp === m0 + 30);
+  G.store.yildiz = 3; G.store.crystal = 10; const d0 = pickDmg(); buyUpgrade('yildizCekirdek', p); ok('Yıldız Çekirdeği kazmayı güçlendirir', Math.abs(pickDmg() - d0 * 1.4) < 1e-9);
+  p.bag.opal = 2; ok('çanta derin cevheri sayar', bagCount(p) >= 2);
+  ok('derin cevher Öz verir', ozForRun({ maxDepth: 0, nests: 0, beacons: 0, chests: 0, victory: false, collected: { yildiz: 2 } }) === 10);
 }
 
 console.log(`\n${checks - fails}/${checks} kontrol geçti${fails ? `, ${fails} HATA` : ''}`);

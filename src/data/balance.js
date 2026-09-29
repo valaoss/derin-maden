@@ -6,8 +6,16 @@ export const RES = {
   cobalt:  { label: 'Kobalt',  value: 0.9 },
   crystal: { label: 'Kristal', value: 2.0 },
   gold:    { label: 'Altın',   value: 1.4 },
+  // derin cevherler: her 4 biyomluk bantta bir tane; Atölye'de tek bir Usta İşi açar, artanı Öz'e döner
+  yesim: { label: 'Yeşim', value: 2.5, master: 'muska' },
+  opal:     { label: 'Ateş Opali', value: 3, master: 'opalNamlu' },
+  inci:     { label: 'Boşluk İncisi', value: 3.5, master: 'inciFener' },
+  akik:     { label: 'Saray Akiği', value: 4, master: 'akikKalkan' },
+  yildiz:   { label: 'Yıldız Taşı', value: 5, master: 'yildizCekirdek' },
 };
-export const RES_KEYS = ['iron', 'water', 'cobalt', 'crystal', 'gold'];
+export const BASE_RES = ['iron', 'water', 'cobalt', 'crystal', 'gold'];
+export const DEEP_ORES = ['yesim', 'opal', 'inci', 'akik', 'yildiz'];
+export const RES_KEYS = BASE_RES.concat(DEEP_ORES);
 
 export const PLAYER = {
   speed: 62, hp: 100, hitW: 9, hitH: 11, iframes: 0.55,
@@ -81,6 +89,15 @@ export const UPGRADES = {
     desc: l => `Görüş ${[7, 8.5, 10, 11.5, 13][l]} blok`,
   },
 };
+// Usta İşi: derin cevherle alınan tek seferlik yükseltmeler (cevher bulununca Atölye'de görünür)
+Object.assign(UPGRADES, {
+  muska:          { name: 'Yeşim Muska', icon: 'yesim', costs: [{ yesim: 3, iron: 8 }], desc: () => 'Azami can +30.' },
+  opalNamlu:      { name: 'Opal Namlu', icon: 'opal', costs: [{ opal: 3, cobalt: 6 }], desc: () => 'Mermilerin yakar; eklenti yuvası harcamaz.' },
+  inciFener:      { name: 'İnci Fener', icon: 'inci', costs: [{ inci: 3, crystal: 4 }], desc: () => 'Görüş +3 blok; karartma fenerini kısamaz.' },
+  akikKalkan:     { name: 'Akik Kalkan', icon: 'akik', costs: [{ akik: 3, gold: 10 }], desc: () => '15 sn’de bir gelen darbeyi tamamen emer.' },
+  yildizCekirdek: { name: 'Yıldız Çekirdeği', icon: 'yildiz', costs: [{ yildiz: 3, crystal: 10 }], desc: () => 'Kazma ve blaster hasarı ×1.4.' },
+});
+export const MASTER_KEYS = ['muska', 'opalNamlu', 'inciFener', 'akikKalkan', 'yildizCekirdek'];
 export const UPGRADE_KEYS = ['bag', 'blaster', 'armor', 'lamp'];
 export const PICK_KEYS = ['drill', 'sharp', 'swing'];
 
@@ -355,7 +372,6 @@ export const CONTRACTS = {
 export function ozForRun(s) {
   return Math.round(
     s.maxDepth * 0.5 + s.nests * 6 + s.beacons * 20 + s.chests * 6 + (s.victory ? 250 : 0) +
-    s.collected.iron * RES.iron.value + s.collected.water * RES.water.value +
-    s.collected.cobalt * RES.cobalt.value + s.collected.crystal * RES.crystal.value + (s.collected.gold || 0) * RES.gold.value
+    RES_KEYS.reduce((a, k) => a + (s.collected[k] || 0) * RES[k].value, 0)
   );
 }
