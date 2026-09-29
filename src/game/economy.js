@@ -1,10 +1,10 @@
-// Harcama: yükseltmeler, yapılar, barikatlar, onarım, perk'ler.
+// Harcama: yükseltmeler, kazma/silah türleri, aletler, üretim, perk'ler.
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_ROW } from '../config.js';
 import { T } from '../data/tiles.js';
-import { UPGRADES, BUILDS, BARRICADE, PERKS, ITEMS, MODS, DEPLOY_MAX } from '../data/balance.js';
+import { UPGRADES, BUILDS, PERKS, ITEMS, MODS, DEPLOY_MAX, WEAPONS, PICK_TYPES } from '../data/balance.js';
 import { G, App } from './state.js';
-import { tileAt, setTile, idx } from '../world/map.js';
+import { tileAt } from '../world/map.js';
 import { makeStructure, recompute, hasPerk, isUnlocked, isLocal, modSlots, teamHas } from './run.js';
 import { sparks, ring, dust } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
@@ -48,6 +48,21 @@ export function toggleMod(k, p = G.player) {
   return true;
 }
 
+// Kazma/silah türü: sahip değilse satın al (ekip), sonra komutu veren madenciye tak
+export function gearPick(kind, k, p = G.player) {
+  const w = kind === 'w', D = w ? WEAPONS : PICK_TYPES, own = w ? G.gear.wOwn : G.gear.pOwn, d = D[k];
+  if (!d) return false;
+  if (!own.includes(k)) {
+    if (!d.cost || !canAfford(d.cost)) { if (isLocal(p)) sfx.deny(); return false; }
+    pay(d.cost); own.push(k);
+    sfx.buy(); if (isLocal(p)) haptic(15);
+    ring(p.x, p.y, w ? '#9fe8ff' : '#f2c14e', 18); sparks(p.x, p.y, w ? '#bff4ff' : '#ffe79a', 10, 70);
+  } else sfx.click();
+  if (w) { p.wpn = k; p.fireCd = Math.max(p.fireCd, 0.2); } else { p.pk = k; p.dig = null; }
+  emit('gearChanged', { kind, k, pi: p.i });
+  return true;
+}
+
 export function deployLimit() { return DEPLOY_MAX + (hasPerk('ucuncuAlet') ? 1 : 0) + (teamHas('muhendis') ? 1 : 0); }
 // aleti durduğun hücreye kur; sınır doluysa en eski alet kemere geri döner
 export function placeBuild(type, p = G.player) {
@@ -83,7 +98,7 @@ export function pickupBuild(i, p = G.player) {
 // Üretim: kaynak -> kemerdeki eşya
 export function craftState(key) {
   const d = ITEMS[key];
-  if (!isUnlocked(key)) return 'locked';
+  if (!d || !isUnlocked(key)) return 'locked';
   if (G.items[key] >= d.max) return 'full';
   return canAfford(d.cost) ? 'ok' : 'poor';
 }
@@ -94,30 +109,6 @@ export function craftItem(key, p = G.player) {
   emit('crafted', key);
   return true;
 }
-// Barikatı oyuncunun baktığı boş hücreye, yoksa arkasına koy
-export function barricadeTarget(p = G.player) {
-  if (p.dead || G.items.barricade <= 0 || p.y < GROUND_ROW * TILE) return null;
-  const c = Math.floor(p.x / TILE), r = Math.floor(p.y / TILE);
-  const vert = Math.abs(p.dy) >= Math.abs(p.dx);
-  const fx = vert ? 0 : Math.sign(p.dx) || p.face, fy = vert ? Math.sign(p.dy) || 1 : 0;
-  for (const [dc, dr] of [[fx, fy], [-fx, -fy]]) {
-    const tc = c + dc, tr = r + dr;
-    if (tr < GROUND_ROW) continue;
-    if (tileAt(tc, tr) !== T.AIR) continue;
-    if (G.enemies.some(e => Math.floor(e.x / TILE) === tc && Math.floor(e.y / TILE) === tr)) continue;
-    return { c: tc, r: tr };
-  }
-  return null;
-}
-export function placeBarricade(p = G.player) {
-  const t = barricadeTarget(p);
-  if (!t) { if (isLocal(p)) sfx.deny(); return false; }
-  setTile(t.c, t.r, T.BARRICADE); G.bhp[idx(t.c, t.r)] = BARRICADE.hp;
-  G.items.barricade--;
-  sfx.build(); if (isLocal(p)) haptic(20); dust(t.c * TILE + 8, t.r * TILE + 8, 4);
-  return true;
-}
-
 export function perkChoices() {
   const n = (G.meta.lv.kalintiBil ? 4 : 3);
   const pool = Object.keys(PERKS).filter(k => !G.perks.includes(k));

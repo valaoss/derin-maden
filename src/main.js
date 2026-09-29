@@ -433,7 +433,8 @@ function tick(now, bg) {
   }
   if (App.scene === 'play' && !G.paused && !G.over) {
     if (keyPressed('escape') || keyPressed('p')) { hooks.pause(true); }
-    for (let i = 0; i < ITEM_KEYS.length; i++) if (keyPressed(String(i + 1))) { dispatch({ t: CMD.USE, k: ITEM_KEYS[i] }); UI.refreshHUD(true); }
+    const belt = ITEM_KEYS.filter(k => G.items[k] > 0);
+    for (let i = 0; i < Math.min(9, belt.length); i++) if (keyPressed(String(i + 1))) { dispatch({ t: CMD.USE, k: belt[i] }); UI.refreshHUD(true); }
     if (G.mp && keyPressed('x')) dispatch({ t: CMD.PING, x: G.player.x, y: G.player.y - 10 });
     if (keyPressed('q') || keyPressed('e')) { const act = G.gear.eq.filter(k => MODS[k].active); const k = act[keyPressed('e') ? 1 : 0] || act[0]; if (k) { dispatch({ t: CMD.MODUSE, k }); UI.refreshHUD(true); } }
     acc += dt; let n = 0;

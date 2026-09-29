@@ -200,12 +200,6 @@ export const sfx = {
     noise(t, 0.05, { type: 'bandpass', f: 2600, q: 4, gain: 0.14 });
     tone(t + 0.04, 0.08, { type: 'square', f: 784, gain: 0.05 }); tone(t + 0.1, 0.14, { type: 'square', f: 1175, gain: 0.05 });
   },
-  torch() {
-    if (!ok('torch', 0.1)) return;
-    const t = ctx.currentTime;
-    noise(t, 0.25, { type: 'bandpass', f: 900, q: 0.8, gain: 0.18, f2: 400, a: 0.02 });
-    tone(t, 0.06, { type: 'triangle', f: 330, gain: 0.08 });
-  },
   fuse() { if (!ok('fuse', 0.1)) return; noise(ctx.currentTime, 0.3, { type: 'highpass', f: 4000, gain: 0.08, a: 0.03 }); },
   fuseTick() { if (!ok('fuset', 0.08)) return; tone(ctx.currentTime, 0.03, { type: 'square', f: 1400, gain: 0.03 }); },
   heal() {

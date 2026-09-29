@@ -1224,6 +1224,18 @@ const ICONS = {
     'kkkWWkWWkWWk', 'kWWWWWWWWWWk', 'kWWWWWWWWWWk', '.kWWWWWWWWk.', '..kWWWWWWWk.',
     '...kWWWWWk..', '...kkkkkkk..'],
 };
+Object.assign(ICONS, {
+  bit: ['....kk....', '...kmmk...', '..kmMMmk..', '..kMmmMk..', '...kmMk...', '...kMmk...', '....kk....', '...kYYk...', '..kYYYYk..', '..kkkkkk..'],
+  hush: ['....kk....', '...kYYk...', '..kYYYYk..', '..kYYYYk.k', '.kYYYYYkR.', '.kYYYYkRk.', 'kkkkkkRkkk', '....kRk...', '...kRk....', '..........'],
+  sledge: ['.kkkkkkk..', 'kmmmmmmMk.', 'kMMMMMMMk.', '.kkkhkkk..', '....hk....', '....hk....', '....hk....', '....hk....', '....Hk....', '....kk....'],
+  auger: ['...kkkk...', '..kmmmmk..', '..kMMMMk..', '...kmmk...', '..kMmmMk..', '...kmMk...', '...kMmk...', '....kmk...', '....kk....', '.....k....'],
+  shotgun: ['..........', '..........', 'kkkkkkkkk.', 'mmmmmmmmMk', 'kkkkkkkkMk', 'mmmmmmmmMk', 'kkkkhhhhkk', '....khHhk.', '....khhk..', '.....kk...'],
+  rifle: ['..........', '......k...', 'kkkkkkkkkk', 'WmmmmmmmMk', 'kkkkMMMkkk', '...kMhhk..', '...khhk...', '..khhk....', '..kkk.....', '..........'],
+  rocket: ['......kk..', '.....kRRk.', '....kRWRk.', '...kmmRk..', '..kmmmk...', '.kmmmk....', 'kOkmk.....', 'kOFk......', '.kk.......', '..........'],
+  sonar: ['..kkkkkk..', '.kBk..kBk.', 'kBk.kk.kBk', 'kk.kBBk.kk', 'k.kBWWBk.k', 'k.kBWWBk.k', 'kk.kBBk.kk', 'kBk.kk.kBk', '.kBk..kBk.', '..kkkkkk..'],
+  shield: ['.kkkkkkkk.', 'kBBBBBBBBk', 'kBIIIIIIBk', 'kBIWWIIIBk', 'kBIWIIIIBk', '.kBIIIIBk.', '.kBIIIIBk.', '..kBIIBk..', '...kBBk...', '....kk....'],
+  adren: ['........kk', '.......kGk', '......kGk.', '.....kGGk.', '....kGGk..', '...kGGk...', '..kkGk....', '.kWkk.....', 'kWk.......', 'kk........'],
+});
 const ORE_ICON_SHAPES = {
   gold: ['..........', '..kkkkkk..', '.kddccbbk.', 'kdccccbbak', 'kcccbbbaak',
     'kccbbbaaak', '.kbbbaaak.', '..kkkkkk..', '..........', '..........'],

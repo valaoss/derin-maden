@@ -1,6 +1,6 @@
 // DOM arayüzü: HUD, atölye, perk seçimi, menüler, bildirimler, öğretici.
 import { TILE, GROUND_Y, stratumOfRow, STRATUM_ROWS } from '../config.js';
-import { UPGRADES, UPGRADE_KEYS, PICK_KEYS, MODS, MOD_KEYS, BUILDS, BUILD_KEYS, PERKS, META, META_KEYS, RES_KEYS, ENEMIES, ITEMS, ITEM_KEYS, CONTRACTS, RES, BASE_RES, MASTER_KEYS, KADEME, DEPLOY_MAX, ROLES, ROLE_KEYS, EVENTS, RELICS, RELIC_KEYS } from '../data/balance.js';
+import { UPGRADES, UPGRADE_KEYS, PICK_KEYS, MODS, MOD_KEYS, BUILDS, BUILD_KEYS, PERKS, META, META_KEYS, RES_KEYS, ENEMIES, ITEMS, ITEM_KEYS, CONTRACTS, RES, BASE_RES, MASTER_KEYS, KADEME, DEPLOY_MAX, ROLES, ROLE_KEYS, EVENTS, RELICS, RELIC_KEYS, WEAPONS, WEAPON_KEYS, PICK_TYPES, PICK_TYPE_KEYS } from '../data/balance.js';
 import { STRATA } from '../data/palette.js';
 import { G, App, biomeOf } from '../game/state.js';
 import { iconURL, HELMETS } from '../render/sprites.js';
@@ -60,7 +60,7 @@ export function initUI(root, h) {
   <div id="sheetBack"></div>
   <div class="plate rivets" id="sheet">
     <div class="head"><h2>ATÖLYE</h2><button class="close" id="sheetClose" aria-label="Kapat">✕</button></div>
-    <div class="tabs"><button class="tab on" data-tab="up">GELİŞTİR</button><button class="tab" data-tab="pick">KAZMA</button><button class="tab" data-tab="mods">BLASTER</button><button class="tab" data-tab="craft">ÜRET<span class="dot"></span></button></div>
+    <div class="tabs"><button class="tab on" data-tab="up">GELİŞTİR</button><button class="tab" data-tab="pick">KAZMA</button><button class="tab" data-tab="mods">SİLAH</button><button class="tab" data-tab="craft">ÜRET<span class="dot"></span></button></div>
     <div class="storebar" id="sheetStore"></div>
     <div class="body" id="sheetBody"></div>
   </div>
@@ -95,6 +95,7 @@ export function initUI(root, h) {
     if (b.desc && once('b' + biomeOf(s))) setTimeout(() => toast(b.desc, 'depth'), 2600);
   });
   on('modChanged', () => { if (sheetOpen()) refreshSheet(); refreshHUD(true); });
+  on('gearChanged', () => { if (sheetOpen()) refreshSheet(); refreshHUD(true); });
   on('modUsed', () => refreshHUD(true));
   on('chill', () => { const v = $('#vignette'); v.classList.add('cold'); setTimeout(() => v.classList.remove('cold'), 1800); });
   on('threat', d => {
@@ -273,6 +274,8 @@ function fmt(t) { t = Math.max(0, Math.ceil(t)); return Math.floor(t / 60) + ':'
 function anyAffordable() {
   for (const k of UPGRADE_KEYS.concat(PICK_KEYS, MASTER_KEYS)) { const c = upgradeCost(k); if (c && canAfford(c)) return true; }
   for (const k of MOD_KEYS) if (!G.gear.owned.includes(k) && canAfford(MODS[k].cost)) return true;
+  for (const k of WEAPON_KEYS) if (!G.gear.wOwn.includes(k) && canAfford(WEAPONS[k].cost)) return true;
+  for (const k of PICK_TYPE_KEYS) if (!G.gear.pOwn.includes(k) && canAfford(PICK_TYPES[k].cost)) return true;
   return false;
 }
 
@@ -382,10 +385,16 @@ function refreshSheet(justKey) {
       <div class="main"><div class="name">${u.name} ${pips(l, max)}</div><div class="eff">${eff}</div>${c ? costHTML(c) : ''}</div>
       <button class="btn buy" ${c && canAfford(c) ? '' : 'disabled'}>AL</button></div>`;
   };
+  // kazma/silah türü satırı: sahipsen TAK, değilsen fiyat + AL
+  const gearRow = (g, k) => {
+    const d = g === 'w' ? WEAPONS[k] : PICK_TYPES[k], own = (g === 'w' ? G.gear.wOwn : G.gear.pOwn).includes(k), on = (g === 'w' ? G.player.wpn : G.player.pk) === k;
+    if (own) return `<div class="plate row owned ${on ? 'eq' : ''}" data-gear="${g}:${k}">${ic(d.icon, 'l')}<div class="main"><div class="name">${d.name}${on ? ' <span class="have">ELİNDE</span>' : ''}</div><div class="eff">${d.desc}</div></div>${on ? '' : '<button class="btn buy">TAK</button>'}</div>`;
+    return `<div class="plate row ${justKey === k ? 'just' : ''}" data-gear="${g}:${k}">${ic(d.icon, 'l')}<div class="main"><div class="name">${d.name}</div><div class="eff">${d.desc}</div>${costHTML(d.cost)}</div><button class="btn buy" ${canAfford(d.cost) ? '' : 'disabled'}>AL</button></div>`;
+  };
   if (sheetTab === 'pick') {
     const t = PICK_TIERS[G.lvl.drill], next = PICK_TIERS[G.lvl.drill + 1], c = upgradeCost('drill');
     h += '<div class="sec">KAZMAN</div>';
-    h += `<div class="plate pickcard"><img class="sw" src="${pickIconURL(G.lvl.drill)}" alt=""><div class="main"><div class="name">${t.name}</div><div class="eff">Kazı gücü <b>${pickDmg().toFixed(1)}</b> · vuruş aralığı <b>${pickInterval().toFixed(2)} sn</b></div></div></div>`;
+    h += `<div class="plate pickcard"><img class="sw" src="${pickIconURL(G.lvl.drill)}" alt=""><div class="main"><div class="name">${t.name} · ${PICK_TYPES[G.player.pk].name}</div><div class="eff">Kazı gücü <b>${pickDmg().toFixed(1)}</b> · vuruş aralığı <b>${pickInterval().toFixed(2)} sn</b></div></div></div>`;
     h += '<div class="sec">SATIN AL</div>';
     if (next) h += `<div class="plate row ${justKey === 'drill' ? 'just' : ''}" data-up="drill"><img class="sw" style="width:28px;height:28px;image-rendering:pixelated" src="${pickIconURL(G.lvl.drill + 1)}" alt="">
       <div class="main"><div class="name">${next.name}</div><div class="eff">Güç ×${next.dmg} · aralık ${next.interval} sn${next.glow ? ' · parlar' : ''}</div>${costHTML(c)}</div>
@@ -393,9 +402,13 @@ function refreshSheet(justKey) {
     else h += '<div class="note">En güçlü kazma sende. Boşluk bile sana dayanamaz.</div>';
     h += '<div class="sec">GELİŞTİR</div>';
     h += upRow('sharp') + upRow('swing');
-    h += `<div class="note">Derin kayalar sert: Kor 18, Obsidyen 40, Boşluk 60 dayanıklılık. Kademe atla.</div>`;
+    h += '<div class="sec">KAZMA TÜRÜ · HER MADENCİ KENDİNİ SEÇER</div>';
+    for (const k of PICK_TYPE_KEYS) h += gearRow('p', k);
+    h += `<div class="note">Derin kayalar sert ve her biyomda kazı biraz daha ağırlaşır. Son kademeler ve türler derin cevher ister: yukarı dönüp al, daha derine in.</div>`;
   } else if (sheetTab === 'mods') {
-    h += '<div class="sec">BLASTER</div>' + upRow('blaster');
+    h += '<div class="sec">SİLAH GÜCÜ · TÜM SİLAHLAR</div>' + upRow('blaster');
+    h += '<div class="sec">SİLAHLAR · HER MADENCİ KENDİNİ SEÇER</div>';
+    for (const k of WEAPON_KEYS) h += gearRow('w', k);
     const slots = modSlots();
     h += `<div class="sec">EKLENTİLER · ${G.gear.eq.length}/${slots} YUVA</div>`;
     for (const k of MOD_KEYS) {
@@ -426,7 +439,7 @@ function refreshSheet(justKey) {
           ${c ? `<button class="btn buy" ${canAfford(c) ? '' : 'disabled'}>AL</button>` : ''}</div>`;
       }
     }
-    h += `<div class="note">Aletler (Nöbetçi, Fener Direği…) <b>ÜRET</b> sekmesinde. Kemerden durduğun yere kurulur; aynı anda ${DEPLOY_MAX + (hasPerk('ucuncuAlet') ? 1 : 0)} tane.</div>`;
+    h += `<div class="note">Aletler (Nöbetçi, Alev Kulesi, Havan) <b>ÜRET</b> sekmesinde. Kemerden durduğun yere kurulur; aynı anda ${DEPLOY_MAX + (hasPerk('ucuncuAlet') ? 1 : 0)} tane.</div>`;
     if (G.contracts.length) {
       h += '<div class="sec">KONTRATLAR</div>' + contractsHTML();
     }
@@ -457,6 +470,10 @@ function refreshSheet(justKey) {
   }));
   body.querySelectorAll('[data-modbuy] .buy').forEach(b => tap(b, () => { const k = b.closest('[data-modbuy]').dataset.modbuy; if (dispatch({ t: CMD.MODBUY, k })) { refreshSheet(k); refreshHUD(true); } }));
   body.querySelectorAll('[data-mod] .buy').forEach(b => tap(b, () => { const k = b.closest('[data-mod]').dataset.mod; if (dispatch({ t: CMD.MODEQ, k })) { refreshSheet(); refreshHUD(true); } }));
+  body.querySelectorAll('[data-gear] .buy').forEach(b => tap(b, () => {
+    const [g, k] = b.closest('[data-gear]').dataset.gear.split(':');
+    if (dispatch({ t: CMD.GEAR, g, k })) { refreshSheet(k); refreshHUD(true); }
+  }));
   body.querySelectorAll('[data-craft] .buy').forEach(b => tap(b, () => {
     const k = b.closest('[data-craft]').dataset.craft;
     if (dispatch({ t: CMD.CRAFT, k })) { refreshSheet(k); refreshHUD(true); }

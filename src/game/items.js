@@ -1,25 +1,24 @@
-// Kemer eşyaları: meşale, dinamit, tamir kiti, barikat, mayın, dönüş fişeği.
+// Kemer eşyaları: dinamit, tamir kiti, kalkan, sonar, sessizlik çanı, burgu şarjı, dönüş fişeği, adrenalin.
 import { rnd } from '../core/rng.js';
-import { TILE, GROUND_Y, GROUND_ROW, BASE_X } from '../config.js';
+import { TILE, GROUND_Y, GROUND_ROW, BASE_X, COLS } from '../config.js';
 import { T, TD, isMineable } from '../data/tiles.js';
-import { DYNAMITE, MINE, MEDKIT, RECALL, ITEMS, THREAT, ROLES } from '../data/balance.js';
+import { DYNAMITE, MEDKIT, RECALL, ITEMS, THREAT, ROLES, SONAR, HUSH, SHIELD, AUGER, ADREN } from '../data/balance.js';
 import { addNoise } from './threat.js';
 import { G } from './state.js';
 import { tileAt } from '../world/map.js';
-import { placeBarricade, barricadeTarget, placeBuild } from './economy.js';
-import { breakTile, damagePlayer } from './player.js';
+import { placeBuild } from './economy.js';
+import { breakTile, damagePlayer, unbury } from './player.js';
 import { damageEnemy, hurtBarricade } from './enemies.js';
 import { isLocal, hear } from './run.js';
 import { igniteGas } from './hazards.js';
-import { sparks, ring, shake, hitstop, flashLight, debris, dust, particle } from './fx.js';
+import { sparks, ring, shake, hitstop, flashLight, dust, particle } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
 import { emit } from '../core/events.js';
 
-function torchSpot(p) {
-  const c = Math.floor(p.x / TILE), r = Math.floor(p.y / TILE);
-  if (r < GROUND_ROW || tileAt(c, r) !== T.AIR) return null;
-  if (G.torches.some(t => t.c === c && t.r === r)) return null;
-  return { c, r };
+// burgu şarjı: ayağının altındaki blok delinebilir mi
+function augerOk(p) {
+  const c = Math.floor(p.x / TILE), r = Math.floor(p.y / TILE) + 1, t = tileAt(c, r), d = TD[t];
+  return r >= GROUND_ROW && isMineable(t) && !d.chest && !d.heart && !d.relic && !d.gate;
 }
 
 export function itemUsable(k, p = G.player) {
@@ -27,12 +26,14 @@ export function itemUsable(k, p = G.player) {
   const under = p.y >= GROUND_Y;
   if (ITEMS[k].build) { const c = Math.floor(p.x / TILE), r = Math.floor(p.y / TILE); return tileAt(c, r) === T.AIR && !G.structures.some(s => s.c === c && s.r === r); }
   switch (k) {
-    case 'torch': return !!torchSpot(p);
     case 'dynamite': return under && G.bombs.length < 3;
     case 'medkit': return p.hp < p.maxHp;
-    case 'barricade': return !!barricadeTarget(p);
-    case 'mine': return under && G.mines.length < 8;
     case 'recall': return under && !p.carrying && p.recallT <= 0;
+    case 'sonar': return under;
+    case 'can': return under;
+    case 'kalkan': return !(p.barrierT > 0);
+    case 'burgu': return augerOk(p);
+    case 'adren': return !(p.adrenT > 0);
   }
   return false;
 }
@@ -44,21 +45,49 @@ export function useItem(k, p = G.player) {
     return false;
   }
   const c = Math.floor(p.x / TILE), r = Math.floor(p.y / TILE);
-  if (k === 'barricade') { if (!placeBarricade(p)) return false; if (local) emit('itemUsed', k); return true; }
   if (ITEMS[k].build) { if (!placeBuild(k, p)) return false; if (local) emit('itemUsed', k); return true; }
   G.items[k]--;
-  if (k === 'torch') {
-    G.torches.push({ c, r }); G.stats.torches++;
-    if (hear(p)) sfx.torch(); sparks(c * TILE + 8, r * TILE + 5, '#ffb050', 6, 40); flashLight(c * TILE + 8, r * TILE + 6, 5, 0.25);
-  } else if (k === 'dynamite') {
+  if (k === 'dynamite') {
     G.bombs.push({ x: c * TILE + 8, y: r * TILE + 12, t: DYNAMITE.fuse, tick: 0, owner: p.i });
     if (hear(p)) sfx.fuse(); if (local) haptic(10);
   } else if (k === 'medkit') {
-    p.hp = Math.min(p.maxHp, p.hp + MEDKIT.heal);
+    p.hp = Math.min(p.maxHp, p.hp + Math.max(MEDKIT.heal, p.maxHp * MEDKIT.frac));
     if (hear(p)) sfx.heal(); ring(p.x, p.y, '#5fe0b8', 16); sparks(p.x, p.y, '#5fe0b8', 10, 50);
-  } else if (k === 'mine') {
-    G.mines.push({ x: p.x, y: r * TILE + 13, arm: MINE.arm });
-    if (hear(p)) sfx.build(); dust(p.x, r * TILE + 14, 2);
+  } else if (k === 'sonar') {
+    // çevredeki gömülü cevher/yuva belirir, sandıklar görünür olur
+    const R = SONAR.radius;
+    for (let dr = -R; dr <= R; dr++) for (let dc = -R; dc <= R; dc++) {
+      const cc = c + dc, rr = r + dr;
+      if (cc < 0 || cc >= COLS || rr < GROUND_ROW || dc * dc + dr * dr > R * R) continue;
+      const i = rr * COLS + cc, d = TD[G.map[i]];
+      if (!d) continue;
+      if (G.buried[i]) unbury(cc, rr, p);
+      if (d.chest || d.ore || d.nest) G.rev[i] = 1;
+    }
+    G.mapVersion++;
+    ring(p.x, p.y, '#9fe8ff', R * TILE); ring(p.x, p.y, '#ffffff', R * TILE * 0.5); flashLight(p.x, p.y, 5, 0.4);
+    if (hear(p)) sfx.recall();
+  } else if (k === 'can') {
+    G.threat.noise = Math.max(0, G.threat.noise - HUSH.drop); G.evt.hushT = Math.max(G.evt.hushT, HUSH.t);
+    ring(p.x, p.y, '#d8d8e8', 40); ring(p.x, p.y, '#ffffff', 24); dust(p.x, p.y, 3, 'rgba(220,220,235,0.5)');
+    if (hear(p)) sfx.chirp();
+  } else if (k === 'kalkan') {
+    p.barrier = SHIELD.hp; p.barrierT = SHIELD.t;
+    ring(p.x, p.y, '#6fd0ff', 18); sparks(p.x, p.y, '#bff4ff', 12, 70);
+    if (hear(p)) sfx.heal();
+  } else if (k === 'burgu') {
+    for (let rr = r + 1; rr <= r + AUGER.depth; rr++) {
+      const t = tileAt(c, rr), d = TD[t];
+      if (!isMineable(t) || d.chest || d.heart || d.relic || d.gate) break;
+      breakTile(c, rr, p); sparks(c * TILE + 8, rr * TILE + 8, '#ffd48a', 4, 70);
+    }
+    addNoise(THREAT.noise.boom * 0.5, p.x, p.y);
+    sfx.explode(); shake(0.3); hitstop(0.04); flashLight(p.x, p.y + 20, 5, 0.3);
+    if (local) haptic(40);
+  } else if (k === 'adren') {
+    p.adrenT = ADREN.t;
+    ring(p.x, p.y, '#ff5a6a', 20); sparks(p.x, p.y, '#ff9aa0', 14, 90); flashLight(p.x, p.y, 4, 0.3);
+    if (hear(p)) sfx.overdrive();
   } else if (k === 'recall') {
     p.recallT = RECALL.channel;
     if (hear(p)) sfx.recall(); if (local) haptic(20);
@@ -93,19 +122,6 @@ function detonate(b) {
   igniteGas(cx, cy, rad);
 }
 
-function mineBlast(m) {
-  for (const e of G.enemies) {
-    if (e.dead) continue;
-    const d = Math.hypot(e.x - m.x, e.y - m.y);
-    if (d < MINE.radius + e.r) damageEnemy(e, MINE.dmg, (e.x - m.x) / (d || 1), (e.y - m.y) / (d || 1), 2);
-  }
-  sfx.explode(); shake(0.25); haptic(25);
-  addNoise(THREAT.noise.mine, m.x, m.y);
-  ring(m.x, m.y, '#ff7a3a', MINE.radius); sparks(m.x, m.y, '#ffd48a', 14, 120); debris(m.x, m.y, 'dirt', 6);
-  flashLight(m.x, m.y, 5, 0.25);
-  igniteGas(m.x, m.y, MINE.radius);
-}
-
 export function updateItems(dt) {
   // dinamitler
   const bs = G.bombs; let j = 0;
@@ -117,16 +133,6 @@ export function updateItems(dt) {
     bs[j++] = b;
   }
   bs.length = j;
-  // mayınlar
-  const ms = G.mines; j = 0;
-  for (const m of ms) {
-    if (m.arm > 0) { m.arm -= dt; if (m.arm <= 0) sfx.arm(); ms[j++] = m; continue; }
-    let boom = false;
-    for (const e of G.enemies) if (!e.dead && e.emergeT <= 0 && !e.under && Math.hypot(e.x - m.x, e.y - m.y) < MINE.trigger + e.r) { boom = true; break; }
-    if (boom) { mineBlast(m); continue; }
-    ms[j++] = m;
-  }
-  ms.length = j;
   // dönüş fişeği
   for (const p of G.players) {
     if (p.recallT <= 0) continue;

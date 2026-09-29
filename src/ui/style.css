@@ -401,7 +401,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 @keyframes modReady { 50% { box-shadow: inset 0 0 0 2px var(--ink), 0 0 0 2px var(--text); } }
 .pickcard { display: flex; align-items: center; gap: 10px; padding: 8px 10px; }
 .pickcard .sw { width: 34px; height: 34px; image-rendering: pixelated; }
-.row.owned .buy { background: var(--uiL); }
+.row.owned .buy { background: var(--plateL); color: var(--text); }
 .row.eq { box-shadow: inset 0 0 0 2px var(--good); }
 .row.locked { opacity: .55; }
 .tabs .tab { font-size: 12px; }

@@ -6,7 +6,7 @@ const damagePlayerX = (p, d) => { p.iframes = 0; damagePlayer(p, d, p.x, p.y + 2
 import { updateEnemies, damageEnemy, spawnEnemy, killEnemy } from '../src/game/enemies.js';
 import { updatePlayerGun, updateBullets, updateStructures, updateShells, useMod } from '../src/game/combat.js';
 import { buyUpgrade, buyMod, toggleMod, upgradeCost, applyPerk } from '../src/game/economy.js';
-import { updateItems } from '../src/game/items.js';
+import { updateItems, useItem } from '../src/game/items.js';
 import { updateHazards } from '../src/game/hazards.js';
 import { updateThreat, addNoise, nestsInStratum } from '../src/game/threat.js';
 import { updateEvents } from '../src/game/events.js';
@@ -20,7 +20,9 @@ import { setTile, tileAt } from '../src/world/map.js';
 import { generate, biomeOrder } from '../src/world/gen.js';
 import { T, TD, HOST_TILE } from '../src/data/tiles.js';
 import { ENEMIES, MODS, MOD_KEYS, PICK_TIERS, UPGRADES, ELITE, RES_KEYS, THREAT, BUILDS, ITEMS, RELICS, RELIC_KEYS, PERKS, ROLES, EVENT_KEYS, DEEP_ORES, ozForRun } from '../src/data/balance.js';
-import { placeBuild, pickupBuild, craftItem } from '../src/game/economy.js';
+import { placeBuild, pickupBuild, craftItem, gearPick } from '../src/game/economy.js';
+import { WEAPON_KEYS, PICK_TYPE_KEYS, SHIELD, AUGER } from '../src/data/balance.js';
+import { playerSpeed } from '../src/game/player.js';
 import { STRATA } from '../src/data/palette.js';
 import { COLS, ROWS, GROUND_ROW, GROUND_Y, STRATUM_ROWS, STRATA_COUNT, TILE } from '../src/config.js';
 import { on } from '../src/core/events.js';
@@ -240,13 +242,13 @@ section('Düşme, kaldırma, aletler');
   ok('nöbetçi kurulur', placeBuild('turret', d) && G.structures.length === 1 && G.items.turret === 0);
   ok('aynı hücreye ikinci kurulmaz', craftItem('turret', d) && !placeBuild('turret', d));
   d.y += TILE; d.py = d.y; ok('ikinci alet kurulur', placeBuild('turret', d) && G.structures.length === 2);
-  d.y += TILE; d.py = d.y; craftItem('lamp', d); ok('sınırda en eski alet kemere döner', placeBuild('lamp', d) && G.structures.length === 2 && G.items.turret === 1, `${G.structures.length} ${G.items.turret}`);
-  ok('fener direği kurulu', G.structures.some(x => x.type === 'lamp'));
-  const i = G.structures.findIndex(x => x.type === 'lamp'); d.y -= TILE; d.py = d.y;
-  ok('alet geri alınır', pickupBuild(i, d) && G.items.lamp === 1 && G.structures.length === 1);
-  // fener direği gürültüyü yarıya indirir
-  const dl = G.player; dl.y -= TILE; dl.py = dl.y; G.items.lamp = 1; ok('fener direği yeniden kurulur', placeBuild('lamp', dl)); G.threat.noise = 0; addNoise(10, dl.x, dl.y);
-  ok('fener direği gürültüyü azaltır', G.threat.noise < 6, `${G.threat.noise}`);
+  G.meta.schem = ['mortar']; d.y += TILE; d.py = d.y; craftItem('mortar', d); ok('sınırda en eski alet kemere döner', placeBuild('mortar', d) && G.structures.length === 2 && G.items.turret === 1, `${G.structures.length} ${G.items.turret}`);
+  ok('havan kurulu', G.structures.some(x => x.type === 'mortar'));
+  const i = G.structures.findIndex(x => x.type === 'mortar'); d.y -= TILE; d.py = d.y;
+  ok('alet geri alınır', pickupBuild(i, d) && G.items.mortar === 1 && G.structures.length === 1);
+  // sessizlik çanı gürültüyü düşürür ve birikimi yavaşlatır
+  const dl = G.player; G.items.can = 1; G.threat.noise = 50; ok('sessizlik çanı çalar', useItem('can', dl));
+  ok('sessizlik çanı gürültüyü düşürür', G.threat.noise <= 15.01 && G.evt.hushT > 0, `${G.threat.noise}`);
   // düşman nöbetçiye saldırır ve nöbetçi ateş eder
   fresh(604); const t = G.player; shaft(8, GROUND_ROW + 14); t.x = 8 * TILE + 8; t.y = (GROUND_ROW + 4) * TILE + 8; t.px = t.x; t.py = t.y;
   G.items.turret = 1; placeBuild('turret', t); const tur = G.structures[0]; forceFlow();
@@ -627,6 +629,67 @@ section('Gömülü cevher');
   const k2 = g.buried.findIndex((b, j) => b && Math.floor(j / COLS) > GROUND_ROW + 4);
   const g2 = deserialize(JSON.parse(JSON.stringify(serialize())));
   ok('gömülü bilgisi kayıtla geri gelir', g2.buried[k2] === 1 && g2.buried[k] === 0);
+}
+
+// ---------- 19. silah ve kazma türleri, yeni eşyalar, büyük çanta ----------
+section('Silah ve kazma türleri');
+{
+  const g = fresh(970), p = G.player;
+  ok('çantanın son seviyesi 1000', UPGRADES.bag.cap[UPGRADES.bag.costs.length] === 1000);
+  G.lvl.bag = UPGRADES.bag.costs.length; recompute(); ok('çanta kapasitesi 1000', G.bagCap === 1000, `${G.bagCap}`);
+  // büyük çanta hızlı boşalır
+  p.bag.iron = 700; p.x = 8 * TILE + 8; p.y = (GROUND_ROW - 1) * TILE + 8; p.px = p.x; p.py = p.y; const iron0 = G.store.iron;
+  run(3); ok('700 cevher 3 sn içinde depoya iner', G.store.iron === iron0 + 700 && bagCount(p) === 0, `${G.store.iron - iron0}`);
+  // her silah türü alınır, takılır ve düşmana vurur
+  for (const k of WEAPON_KEYS) {
+    fresh(971); const q = G.player; for (const r of RES_KEYS) G.store[r] = 200;
+    shaft(8, GROUND_ROW + 14); q.x = 8 * TILE + 8; q.y = (GROUND_ROW + 4) * TILE + 8; q.px = q.x; q.py = q.y; forceFlow();
+    ok(`${k} takılır`, gearPick('w', k, q) && q.wpn === k && G.gear.wOwn.includes(k));
+    const e = spawnEnemy('bug', q.x, q.y + 40, 3); e.emergeT = 0;
+    run(2.5);
+    ok(`${k} düşmana vurur`, e.dead || e.hp < e.maxHp, `${e.hp}/${e.maxHp}`);
+  }
+  // kazma türleri
+  fresh(972); const d = G.player; for (const r of RES_KEYS) G.store[r] = 200;
+  ok('olmayan tür reddedilir', !gearPick('p', 'yok', d) && !gearPick('w', 'yok', d));
+  const b0 = pickDmg(d), i0 = pickInterval(d);
+  ok('balyoz ağır ve yavaş', gearPick('p', 'balyoz', d) && pickDmg(d) > b0 * 2 && pickInterval(d) > i0 * 1.5);
+  for (const r of RES_KEYS) G.store[r] = 0;
+  ok('parası yetmeyen tür alınmaz', !gearPick('p', 'matkap', d) && d.pk === 'balyoz');
+  ok('sahip olunan türe ücretsiz dönülür', gearPick('p', 'std', d) && d.pk === 'std');
+  for (const k of PICK_TYPE_KEYS) ok(`${k} kazma türü tanımlı`, pickDmg(d) > 0 && finite(pickInterval(d)));
+  // geniş kazma yandaki blokları da açar
+  fresh(973); const w = G.player; for (const r of RES_KEYS) G.store[r] = 200; gearPick('p', 'genis', w);
+  const R = GROUND_ROW + 5; shaft(8, R - 1); for (let c = 7; c <= 9; c++) setTile(c, R, T.DIRT);
+  w.x = 8 * TILE + 8; w.y = (R - 1) * TILE + 8; w.px = w.x; w.py = w.y; w.inp = { x: 0, y: 1, mag: 1 }; run(2.5); w.inp = { x: 0, y: 0, mag: 0 };
+  ok('geniş kazma üç blok açar', tileAt(7, R) === T.AIR && tileAt(8, R) === T.AIR && tileAt(9, R) === T.AIR);
+  // kayıt: tür ve sahiplik korunur
+  fresh(974); const s = G.player; for (const r of RES_KEYS) G.store[r] = 200; gearPick('w', 'sacma', s); gearPick('p', 'matkap', s);
+  const g2 = deserialize(JSON.parse(JSON.stringify(serialize())));
+  ok('silah ve kazma türü kayıtla gelir', g2.player.wpn === 'sacma' && g2.player.pk === 'matkap' && g2.gear.wOwn.includes('sacma'));
+}
+
+section('Yeni eşyalar ve köşe kayması');
+{
+  fresh(980); const u = G.player; shaft(8, GROUND_ROW + 6);
+  u.x = 8 * TILE + 8; u.y = (GROUND_ROW + 6) * TILE + 8; u.px = u.x; u.py = u.y;
+  G.items.kalkan = 1; ok('kalkan hücresi takılır', useItem('kalkan', u) && u.barrier === SHIELD.hp);
+  const hp0 = u.hp; damagePlayerX(u, 30); ok('kalkan darbeyi emer', u.hp === hp0 && u.barrier === SHIELD.hp - 30, `${u.hp} ${u.barrier}`);
+  for (let r = GROUND_ROW + 7; r <= GROUND_ROW + 6 + AUGER.depth; r++) setTile(8, r, T.DIRT);
+  G.items.burgu = 1; ok('burgu şarjı patlar', useItem('burgu', u));
+  let open = true; for (let r = GROUND_ROW + 7; r <= GROUND_ROW + 6 + AUGER.depth; r++) if (tileAt(8, r) !== T.AIR) open = false;
+  ok('burgu altındaki 8 bloğu deler', open);
+  const sp0 = playerSpeed(u); G.items.adren = 1; ok('adrenalin', useItem('adren', u) && lastStand(u) === 2 && playerSpeed(u) > sp0 * 1.3);
+  const bi = (GROUND_ROW + 9) * COLS + 11; G.map[bi] = T.COBALT; G.buried[bi] = 1;
+  G.items.sonar = 1; ok('sonar gömülü cevheri açar', useItem('sonar', u) && G.buried[bi] === 0);
+  u.hp = 10; G.items.medkit = 1; ok('tamir kiti en az 50 yeniler', useItem('medkit', u) && u.hp >= 60);
+  ok('eski eşyalar üretilemez', !craftItem('torch', u) && !craftItem('barricade', u) && !craftItem('lamp', u));
+  // şaft ağzında aşağı basınca kazmaz, şafta kayar
+  fresh(981); const m = G.player; const r0 = GROUND_ROW + 4;
+  for (let c = 5; c <= 10; c++) setTile(c, r0, T.AIR); for (let r = r0 + 1; r <= r0 + 5; r++) setTile(6, r, T.AIR);
+  for (let c = 5; c <= 10; c++) if (c !== 6) setTile(c, r0 + 1, T.DIRT);
+  m.x = 7 * TILE + 2; m.y = r0 * TILE + 8; m.px = m.x; m.py = m.y; m.inp = { x: 0, y: 1, mag: 1 }; run(0.8); m.inp = { x: 0, y: 0, mag: 0 };
+  ok('şaft ağzında takılmadan şafta kayar', m.y > (r0 + 2) * TILE && tileAt(7, r0 + 1) === T.DIRT, `${m.x} ${m.y}`);
 }
 
 console.log(`\n${checks - fails}/${checks} kontrol geçti${fails ? `, ${fails} HATA` : ''}`);

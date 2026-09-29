@@ -2,13 +2,13 @@
 // UI komutu dispatch() ile verir; tek oyunculuda hemen, çok oyunculuda lockstep karesinde çalışır.
 import { G } from './state.js';
 import { useItem } from './items.js';
-import { buyUpgrade, craftItem, pickupBuild, applyPerk, buyMod, toggleMod } from './economy.js';
+import { buyUpgrade, craftItem, pickupBuild, applyPerk, buyMod, toggleMod, gearPick } from './economy.js';
 import { useMod } from './combat.js';
 import { addPing } from './pings.js';
 import { callElevator } from './elevator.js';
 import { emit } from '../core/events.js';
 
-export const CMD = { USE: 'u', BUY: 'b', CRAFT: 'c', PICKUP: 'k', PERK: 'p', MODBUY: 'mb', MODEQ: 'me', MODUSE: 'mu', PING: 'g', ELEV: 'el' };
+export const CMD = { USE: 'u', BUY: 'b', CRAFT: 'c', PICKUP: 'k', PERK: 'p', MODBUY: 'mb', MODEQ: 'me', MODUSE: 'mu', PING: 'g', ELEV: 'el', GEAR: 'gr' };
 
 // Simülasyon içinde çalışır: pi = komutu veren oyuncu indeksi
 export function execCmd(pi, cmd) {
@@ -24,6 +24,7 @@ export function execCmd(pi, cmd) {
     case CMD.MODBUY: return buyMod(cmd.k, p);
     case CMD.MODEQ: return toggleMod(cmd.k, p);
     case CMD.MODUSE: return useMod(cmd.k, p);
+    case CMD.GEAR: return gearPick(cmd.g === 'w' ? 'w' : 'p', String(cmd.k), p);
     case CMD.PERK: {
       const off = G.perkOffer;
       if (!off || off.pi !== pi || !off.keys.includes(cmd.k)) return false;

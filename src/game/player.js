@@ -3,11 +3,11 @@
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y, GROUND_ROW, PLAYER_MIN_Y, WORLD_W, BASE_X, BASE_Y, stratumOfRow, depthOfY } from '../config.js';
 import { T, TD, isMineable, isPlain } from '../data/tiles.js';
-import { PLAYER, UPGRADES, PERKS, RES_KEYS, PICK_TIERS, RELIC_OF_BIOME, DEEP_ORES, DIG_DEPTH } from '../data/balance.js';
+import { PLAYER, UPGRADES, PERKS, RES_KEYS, PICK_TIERS, RELIC_OF_BIOME, DEEP_ORES, DIG_DEPTH, ADREN } from '../data/balance.js';
 import { RES_COL } from '../data/palette.js';
 import { G, App, biomeOf } from './state.js';
 import { tileAt, solidAt, setTile, damageTile, matOf } from '../world/map.js';
-import { hasPerk, hasRelic, bagCount, recompute, unlockSchematic, hear, isLocal, pickDmg, pickInterval, roleOf, lastStand } from './run.js';
+import { hasPerk, hasRelic, bagCount, recompute, unlockSchematic, hear, isLocal, pickDmg, pickInterval, roleOf, lastStand, pickType } from './run.js';
 import { HAZARD } from '../data/balance.js';
 import { perkChoices } from './economy.js';
 import { spawnGas } from './hazards.js';
@@ -33,38 +33,36 @@ function blockedAt(x, y) {
   return y - HH < PLAYER_MIN_Y - HH;
 }
 
-// eksen bazlı hareket + köşe kaydırma: bloke olunca en yakın açık şeride hızla kay, aynı karede ileri devam et
+// eksen bazlı hareket + köşe kaydırma: bloke olunca en yakın açık şeride (komşu şerit dahil) hızla kay, aynı karede ileri devam et
+const SLIDE_REACH = TILE / 2 + HW;
 export function moveAxis(p, mx, my) {
   if (!mx && !my) return true;
   const nx = p.x + mx, ny = p.y + my;
   if (!blockedAt(nx, ny)) { p.x = nx; p.y = ny; return true; }
-  const lim = Math.abs(mx || my) * 1.5;
-  if (mx) {
-    const rowC = Math.floor(p.y / TILE) * TILE + TILE / 2;
-    for (const cy of [rowC, rowC - TILE, rowC + TILE]) {
-      const off = cy - p.y;
-      if (Math.abs(off) <= TILE / 2 && !blockedAt(nx, cy)) {
-        p.y += clamp(off, -lim, lim);
-        if (!blockedAt(nx, p.y)) p.x = nx;
-        return false;
-      }
-    }
-  } else {
-    const colC = Math.floor(p.x / TILE) * TILE + TILE / 2;
-    for (const cx of [colC, colC - TILE, colC + TILE]) {
-      const off = cx - p.x;
-      if (Math.abs(off) <= TILE / 2 && !blockedAt(cx, ny)) {
-        p.x += clamp(off, -lim, lim);
-        if (!blockedAt(p.x, ny)) p.y = ny;
-        return false;
-      }
-    }
+  const lim = Math.max(0.5, Math.abs(mx || my) * 2.2);
+  const horiz = !!mx, cur = horiz ? p.y : p.x, mid = Math.floor(cur / TILE) * TILE + TILE / 2;
+  let best = null;
+  for (const cc of [mid, mid - TILE, mid + TILE]) {
+    const off = cc - cur;
+    if (Math.abs(off) > SLIDE_REACH || (best !== null && Math.abs(off) >= Math.abs(best))) continue;
+    if (!(horiz ? blockedAt(nx, cc) : blockedAt(cc, ny))) best = off;
   }
+  if (best === null) return false;
+  const d = clamp(best, -lim, lim);
+  if (horiz) { if (!blockedAt(p.x, p.y + d)) p.y += d; if (!blockedAt(nx, p.y)) p.x = nx; }
+  else { if (!blockedAt(p.x + d, p.y)) p.x += d; if (!blockedAt(p.x, ny)) p.y = ny; }
+  return false;
+}
+
+// gövde komşu açık şeride taşmışsa: kazma, oraya kay (şaft ağzında takılmasın)
+function laneOpen(p, dx, dy) {
+  const cur = dx ? p.y : p.x, mid = Math.floor(cur / TILE) * TILE + TILE / 2;
+  for (const cc of [mid - TILE, mid + TILE]) if (Math.abs(cc - cur) < SLIDE_REACH && !(dx ? blockedAt(p.x + dx * 2, cc) : blockedAt(cc, p.y + dy * 2))) return true;
   return false;
 }
 
 export function playerSpeed(p) {
-  return PLAYER.speed * (hasPerk('hafifBot') ? 1.2 : 1) * (p.carrying ? 0.85 : 1) * (p.fearT > 0 ? 0.6 : 1) * (p.slowT > 0 ? 0.55 : 1) * (p.webT > 0 ? 0.35 : 1) * (p.hasteT > 0 ? 1.45 : 1);
+  return PLAYER.speed * (hasPerk('hafifBot') ? 1.2 : 1) * (p.adrenT > 0 ? ADREN.speed : 1) * (p.carrying ? 0.85 : 1) * (p.fearT > 0 ? 0.6 : 1) * (p.slowT > 0 ? 0.55 : 1) * (p.webT > 0 ? 0.35 : 1) * (p.hasteT > 0 ? 1.45 : 1);
 }
 
 export function alivePlayers() { return G.players.filter(p => !p.dead); }
@@ -90,7 +88,7 @@ export function updatePlayer(dt) {
 
 function updateOne(p, dt) {
   p.px = p.x; p.py = p.y;
-  if (!p.dead && G.buried) { const pc = Math.floor(p.x / TILE), pr = Math.floor(p.y / TILE); for (let k = -2; k <= 2; k++) for (let j = -2; j <= 2; j++) if (k * k + j * j <= 4) unbury(pc + k, pr + j, p); }
+  if (!p.dead && G.buried) { const pc = Math.floor(p.x / TILE), pr = Math.floor(p.y / TILE), R = pickType(p).sense || 2; for (let k = -R; k <= R; k++) for (let j = -R; j <= R; j++) if (k * k + j * j <= R * R) unbury(pc + k, pr + j, p); }
   if (p.iframes > 0) p.iframes -= dt;
   if (p.hurtT > 0) p.hurtT -= dt;
   if (p.gasT > 0) p.gasT -= dt;
@@ -101,6 +99,8 @@ function updateOne(p, dt) {
   if (p.slowT > 0) p.slowT -= dt;
   if (p.hasteT > 0) p.hasteT -= dt;
   if (p.shieldT > 0) p.shieldT -= dt;
+  if (p.barrierT > 0 && (p.barrierT -= dt) <= 0) p.barrier = 0;
+  if (p.adrenT > 0) p.adrenT -= dt;
   if (p.webT > 0) p.webT -= dt;
   if (p.burnT > 0) { p.burnT -= dt; p.burnTick = (p.burnTick || 0) - dt; if (p.burnTick <= 0) { p.burnTick = 0.5; poisonPlayer(p, 2); } }
   // kanama (Kan Sülüğü ısırığı): yavaş can kaybı, kırmızı damlalar
@@ -148,7 +148,7 @@ function updateOne(p, dt) {
     const probeX = p.x + dx * (HW + 2), probeY = p.y + dy * (HH + 2);
     const c = Math.floor(probeX / TILE), r = Math.floor(probeY / TILE);
     const tt = tileAt(c, r);
-    if (isMineable(tt) && blockedAt(p.x + dx * 2, p.y + dy * 2)) {
+    if (isMineable(tt) && blockedAt(p.x + dx * 2, p.y + dy * 2) && !laneOpen(p, dx, dy)) {
       target = { c, r, dx, dy };
     } else if (TD[tt].unbreakable && blockedAt(p.x + dx * 2, p.y + dy * 2) && r >= GROUND_ROW) {
       // kırılmaz: kısa "tınn" + kıvılcım, kazmanın işlemediği hissedilsin
@@ -170,7 +170,7 @@ function updateOne(p, dt) {
     p.digDir = [target.dx, target.dy];
     if (target.dx) p.face = target.dx;
     p.digT -= dt;
-    p.digInt = pickInterval() * (roleOf(p).dig || 1);
+    p.digInt = pickInterval(p) * (roleOf(p).dig || 1);
     if (p.digT <= 0) { digHit(p, target); p.digT = p.digInt; }
   } else {
     p.dig = null;
@@ -214,15 +214,15 @@ function updateOne(p, dt) {
 }
 
 function digHit(p, t) {
-  const tile = tileAt(t.c, t.r), mat = matOf(t.c, t.r), d = TD[tile];
-  const dmg = pickDmg() * lastStand(p) * (d.nest && hasPerk('yuvaAvcisi') ? 3 : 1) / (1 + Math.max(0, stratumOfRow(t.r)) * DIG_DEPTH);
+  const tile = tileAt(t.c, t.r), mat = matOf(t.c, t.r), d = TD[tile], pt = pickType(p);
+  const dmg = pickDmg(p) * lastStand(p) * (d.nest && hasPerk('yuvaAvcisi') ? 3 : 1) / (1 + Math.max(0, stratumOfRow(t.r)) * DIG_DEPTH);
   p.digAnim = 1;
   p.swingN = (p.swingN | 0) + 1;
   p.squash = 0.6;
   p.hitTile = { c: t.c, r: t.r, t: 0.12 };
   const hx = t.c * TILE + 8 - t.dx * 7, hy = t.r * TILE + 8 - t.dy * 7;
   if (hear(p)) sfx.dig(mat, G.lvl.drill);
-  if (!(d.ore && hasPerk('sessizDamar'))) addNoise(THREAT.noise.dig * (d.hp >= 6 ? 1.4 : 1) * (roleOf(p).digNoise || 1), hx, hy);
+  if (!(d.ore && hasPerk('sessizDamar'))) addNoise(THREAT.noise.dig * (d.hp >= 6 ? 1.4 : 1) * (roleOf(p).digNoise || 1) * (pt.noise || 1), hx, hy);
   debris(hx, hy, mat, 3, 0.6);
   // kazma ucu kıvılcımı: kademe rengi
   const tier = PICK_TIERS[Math.min(PICK_TIERS.length - 1, G.lvl.drill)];
@@ -231,6 +231,8 @@ function digHit(p, t) {
   if (hasPerk('kazmaDarbesi')) {
     for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - (p.x + t.dx * 12), e.y - (p.y + t.dy * 12)) < 14 + e.r) damageEnemyExt(e, 18, t.dx, t.dy);
   }
+  // Balyoz: önündeki düşmanı savurur
+  if (pt.bash) for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - (p.x + t.dx * 12), e.y - (p.y + t.dy * 12)) < 16 + e.r) { damageEnemyExt(e, pt.bash * lastStand(p), t.dx, t.dy, 2.5); sparks(e.x, e.y, tier.spark, 5, 70); }
   if (damageTile(t.c, t.r, dmg)) {
     breakTile(t.c, t.r, p, t.dx, t.dy);
     if (hasPerk('zincir') && rnd() < 0.35) {
@@ -240,6 +242,15 @@ function digHit(p, t) {
   } else if (d.hp >= 6) {
     if (isLocal(p)) haptic(4);
   }
+  // Geniş Kazma: yandaki iki blok; Burgu: arkadaki blok
+  if (pt.wide) for (const s of [-1, 1]) digExtra(p, t.c + (t.dy ? s : 0), t.r + (t.dx ? s : 0), dmg, t);
+  if (pt.deep) digExtra(p, t.c + t.dx, t.r + t.dy, dmg * pt.deep, t);
+}
+function digExtra(p, c, r, dmg, t) {
+  const tt = tileAt(c, r), d = TD[tt];
+  if (r < GROUND_ROW || !isMineable(tt) || d.chest || d.heart || d.relic || d.gate) return;
+  if (damageTile(c, r, dmg)) breakTile(c, r, p, t.dx, t.dy);
+  else debris(c * TILE + 8, r * TILE + 8, matOf(c, r), 1, 0.5);
 }
 
 let damageEnemyExt = () => {};
@@ -266,6 +277,7 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
   if (!byPlayer) { debris(x, y, mat, 5, 0.7); return; }
   const p = byPlayer, near = hear(p, x, y), local = isLocal(p);
   G.stats.dug++;
+  if (pickType(p).leech && p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + pickType(p).leech);
   if (!(d.ore && hasPerk('sessizDamar'))) addNoise((THREAT.noise.brk + (d.ore ? THREAT.noise.ore : 0)) * (roleOf(p).digNoise || 1), x, y);
   if (d.nest) { nestDestroyed(c, r, p); if (hasPerk('yuvaAvcisi')) G.threat.noise = Math.max(0, G.threat.noise - 25); }
   if (hasPerk('depremVurus') && !p.quake && (p.quakeN = (p.quakeN | 0) + 1) >= 8) { p.quakeN = 0; quake(c, r, p); }
@@ -331,7 +343,7 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
     if (near) sfx.oreReveal();
     if (DEEP_ORES.includes(d.ore)) markJourney('gem', x, y, p.i, d.ore);
     const rare = d.ore === 'cobalt' || d.ore === 'crystal' || d.ore === 'gold';
-    const n = d.amt + (hasPerk('damar') && !d.iceDrop ? 1 : 0) + (rare && roleOf(p).rare ? 1 : 0);
+    const n = d.amt + (hasPerk('damar') && !d.iceDrop ? 1 : 0) + (rare && roleOf(p).rare ? 1 : 0) + (pickType(p).ore && !d.plain ? pickType(p).ore : 0);
     const res = !rare || d.ore === 'cobalt' ? (hasPerk('simya') && rnd() < 0.15 ? 'gold' : d.ore) : d.ore;
     for (let i = 0; i < n; i++) spawnOrb(x, y, res);
     if (d.ore === 'water' && hasPerk('sifaPinari')) { p.hp = Math.min(p.maxHp, p.hp + 6); sparks(p.x, p.y - 4, '#8ad0ff', 5, 50); }
@@ -443,10 +455,12 @@ export function updateOrbs(dt) {
 }
 
 // ---------- depolama ----------
+// büyük çanta: uçan küre sayısı ~48 ile sınırlı, her küre birden çok cevher taşır
 function startDeposit(p) {
-  let n = 0;
+  const per = Math.max(1, Math.ceil(bagCount(p) / 48));
+  let n = 0, q = 0;
   for (const k of RES_KEYS) {
-    for (let i = 0; i < p.bag[k]; i++) G.deposit.push({ x: p.x, y: p.y - 4, res: k, t: -i * 0.035 - n * 0.02, sx: p.x, sy: p.y - 4 });
+    for (let left = p.bag[k]; left > 0; left -= per) G.deposit.push({ x: p.x, y: p.y - 4, res: k, n: Math.min(per, left), t: -q++ * 0.035, sx: p.x, sy: p.y - 4 });
     n += p.bag[k]; p.bag[k] = 0;
   }
   if (n) { sfx.deposit(n); if (isLocal(p)) { emit('deposit', n); if (G.tutorial) emit('tut', 'deposit'); } }
@@ -461,7 +475,7 @@ export function updateDeposit(dt) {
     o.x = o.sx + (BASE_X - o.sx) * e;
     o.y = o.sy + (BASE_Y - 8 - o.sy) * e - Math.sin(k * Math.PI) * 18;
     if (k >= 1) {
-      G.store[o.res]++; G.collected[o.res]++;
+      G.store[o.res] += o.n || 1; G.collected[o.res] += o.n || 1;
       sfx.tick(); emit('storePop', o.res);
       continue;
     }
@@ -479,6 +493,13 @@ export function damagePlayer(p, amount, sx, sy) {
     ring(p.x, p.y, '#ff5ab0', 16); sparks(p.x, p.y, '#ffd0f0', 10, 80);
     if (hear(p)) sfx.chirp();
     return;
+  }
+  // Kalkan Hücresi: darbeyi önce kalkan emer
+  if (p.barrier > 0) {
+    const a = Math.min(p.barrier, amount); p.barrier -= a; amount -= a;
+    ring(p.x, p.y, '#6fd0ff', 14); sparks(p.x, p.y, '#bff4ff', 6, 60);
+    if (p.barrier <= 0) { p.barrierT = 0; if (isLocal(p)) emit('toast', { text: 'Kalkan kırıldı', icon: 'shield', bad: true }); }
+    if (amount <= 0) { p.iframes = 0.25; if (hear(p)) sfx.ping(); return; }
   }
   p.hp -= amount;
   p.iframes = PLAYER.iframes; p.hurtT = 0.2;

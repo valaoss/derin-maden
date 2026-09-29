@@ -1,6 +1,6 @@
 // Sefer oluşturma, türetilmiş değerler ve kayıt/yükleme.
 import { COLS, ROWS, TILE, GROUND_ROW, BASE_X, BASE_Y, CENTER_COL, STRATUM_ROWS, stratumOfRow, PLAY_MIN_COL, PLAY_MAX_COL } from '../config.js';
-import { UPGRADES, PLAYER, BUILDS, ITEMS, ITEM_KEYS, SCHEMATICS, CONTRACTS, kademeMods, MOD_SLOTS, PICK_TIERS, ROLES, RES_KEYS, MASTER_KEYS } from '../data/balance.js';
+import { UPGRADES, PLAYER, BUILDS, ITEMS, ITEM_KEYS, SCHEMATICS, CONTRACTS, kademeMods, MOD_SLOTS, PICK_TIERS, ROLES, RES_KEYS, MASTER_KEYS, PICK_TYPES, WEAPONS, ADREN } from '../data/balance.js';
 import { T, TD } from '../data/tiles.js';
 import { makeThreat, scanNests } from './threat.js';
 import { makeEvents } from './events.js';
@@ -56,6 +56,7 @@ export function makePlayer(i, helm = i, name = '', role = '') {
     i, helm, name, role: ROLES[role] ? role : '', x: (CENTER_COL + (i ? -3 : 3)) * TILE + 8, y: GROUND_ROW * TILE - 10, px: 0, py: 0,
     face: i ? -1 : 1, dx: 0, dy: 1, hp: 0, maxHp: 0, iframes: 0, dead: false,
     dig: null, digT: 0, digAnim: 0, digDir: [0, 1], walkT: 0, moving: false, up: false, upT: 0, downT: 0, reviveP: 0, gone: false, autoUp: false,
+    wpn: 'blaster', pk: 'std', barrier: 0, barrierT: 0, adrenT: 0,
     fireCd: 0, aim: 0, aimT: 0, carrying: false, ride: null, hurtT: 0, shockCd: 0, squash: 0, recallT: 0, gasT: 0,
     bag: emptyRes(), inp: { x: 0, y: 0, mag: 0 }, landT: 0, airT: 0, blindT: 0, fearT: 0, pullX: 0, pullY: 0, slowT: 0, webT: 0, burnT: 0,
   };
@@ -82,15 +83,15 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
     store: emptyRes(), collected: emptyRes(),
     lvl: { drill: Math.min(2, ml.keskinUc | 0), sharp: 0, swing: 0, bag: 0, armor: 0, blaster: Math.min(2, ml.ayarliBl | 0), lamp: 0, ...Object.fromEntries(MASTER_KEYS.map(k => [k, 0])) },
     perks: [], items: emptyItems(), perkOffer: null,
-    gear: { owned: [], eq: [], cd: {}, active: {} },
+    gear: { owned: [], eq: [], cd: {}, active: {}, wOwn: ['blaster'], pOwn: ['std'] },
     kademe, mods, daily, contracts: [],
-    torches: [], mines: [], bombs: [], rocks: [], falls: [], gas: [], shells: [], hazT: 0,
+    bombs: [], rocks: [], falls: [], gas: [], shells: [], hazT: 0,
     structures: [], enemies: [], bullets: [], ebullets: [], orbs: [], particles: [], pIdx: 0, flashes: [], lightSrc: [],
     satchels: [], zaps: [], pings: [], evt: makeEvents(), echo: null, stations: [], journey: makeJourney(mp ? 2 : 1),
     // uyanış: dalga yok; G.wave yalnızca gök rengi/ambiyans uyumu için türetilir
     wave: { num: 0, phase: 'calm', t: Infinity, nests: [], boss: false },
     threat: makeThreat(), nests: [], nestTotal: [], beacons: [], selfRevive: (ml.sigorta | 0) ? 1 : 0, allDownT: 0,
-    stats: { maxDepth: 0, nests: 0, beacons: 0, bosses: 0, chests: 0, kills: 0, dug: 0, victory: false, time: 0, blasted: 0, torches: 0, crafted: 0, elites: 0 },
+    stats: { maxDepth: 0, nests: 0, beacons: 0, bosses: 0, chests: 0, kills: 0, dug: 0, victory: false, time: 0, blasted: 0, crafted: 0, elites: 0 },
     maxStratum: 0, startStratum: 0,
     tutorial: tutorial ? { step: 0, t: 0, done: false } : null,
     cam: { x: 0, y: 0, px: 0, py: 0, trauma: 0, kx: 0, ky: 0 },
@@ -149,13 +150,15 @@ export function hasPerk(k) { return G.perks.includes(k); }
 export function hasRelic(k) { return !!(G.meta.relics && G.meta.relics.includes(k)); }
 export function roleOf(p) { return ROLES[p.role] || {}; }
 export function teamHas(role) { return G.players.some(p => p.role === role); }
-// Son Direniş: düşük canda iki kat vuruş
-export function lastStand(p) { return hasPerk('sonDirenis') && p.hp < p.maxHp * 0.35 ? 2 : 1; }
+// Son Direniş (düşük canda) ve Adrenalin: iki kat vuruş
+export function lastStand(p) { return (hasPerk('sonDirenis') && p.hp < p.maxHp * 0.35 ? 2 : 1) * (p.adrenT > 0 ? ADREN.dmg : 1); }
+export function pickType(p = G.player) { return PICK_TYPES[p && p.pk] || PICK_TYPES.std; }
+export function weaponOf(p = G.player) { return WEAPONS[p && p.wpn] || WEAPONS.blaster; }
 
 // Seviye/perk/meta'ya bağlı değerler
 export function recompute(fill = false) {
   const ml = G.meta.lv || {};
-  G.bagCap = UPGRADES.bag.cap[G.lvl.bag] + 4 * (ml.genisCanta | 0) + (hasPerk('derinCep') ? 12 : 0);
+  G.bagCap = Math.round((UPGRADES.bag.cap[G.lvl.bag] + 10 * (ml.genisCanta | 0)) * (hasPerk('derinCep') ? 1.25 : 1));
   const maxHp = UPGRADES.armor.hp[G.lvl.armor] + (hasRelic('kalp') ? 40 : 0) + (G.lvl.muska ? 30 : 0);
   for (const p of G.players) {
     const d = maxHp - p.maxHp;
@@ -165,9 +168,9 @@ export function recompute(fill = false) {
   G.base.maxHp = 1; G.base.hp = 1; // kamp: can yok, güvenli bölge
 }
 
-// kazma: kademe + keskinlik + hızlı sallama
-export function pickDmg() { return PICK_TIERS[G.lvl.drill].dmg * UPGRADES.sharp.mult[G.lvl.sharp] * (hasRelic('kivilcim') ? 2 : 1) * (G.lvl.yildizCekirdek ? 1.4 : 1); }
-export function pickInterval() { return PICK_TIERS[G.lvl.drill].interval * UPGRADES.swing.mult[G.lvl.swing]; }
+// kazma: kademe + tür + keskinlik + hızlı sallama
+export function pickDmg(p = G.player) { return PICK_TIERS[G.lvl.drill].dmg * pickType(p).dmg * UPGRADES.sharp.mult[G.lvl.sharp] * (hasRelic('kivilcim') ? 2 : 1) * (G.lvl.yildizCekirdek ? 1.4 : 1); }
+export function pickInterval(p = G.player) { return PICK_TIERS[G.lvl.drill].interval * pickType(p).int * UPGRADES.swing.mult[G.lvl.swing]; }
 export function modSlots() { return MOD_SLOTS + (hasPerk('dorduncuYuva') ? 1 : 0); }
 export function hasMod(k) { return G.gear.eq.includes(k); }
 
@@ -187,13 +190,13 @@ function unb64(s) { const b = atob(s), u = new Uint8Array(b.length); for (let i 
 export function serialize() {
   const g = G;
   return {
-    v: 8, seed: g.seed, rng: g.rng, heartRow: g.heartRow, order: g.order, map: b64(g.map), rev: b64(g.rev), buried: b64(g.buried), bhp: g.bhp, gear: { owned: g.gear.owned, eq: g.gear.eq },
+    v: 8, seed: g.seed, rng: g.rng, heartRow: g.heartRow, order: g.order, map: b64(g.map), rev: b64(g.rev), buried: b64(g.buried), bhp: g.bhp, gear: { owned: g.gear.owned, eq: g.gear.eq, wOwn: g.gear.wOwn, pOwn: g.gear.pOwn },
     base: { hp: g.base.hp }, bag: g.player.bag, store: g.store, collected: g.collected, lvl: g.lvl, perks: g.perks,
     items: g.items, structures: g.structures.map(s => ({ type: s.type, c: s.c, r: s.r, hp: s.hp })),
-    torches: g.torches, mines: g.mines.map(m => ({ x: m.x, y: m.y })), kademe: g.kademe, daily: g.daily, contracts: g.contracts,
+    kademe: g.kademe, daily: g.daily, contracts: g.contracts,
     threat: { noise: g.threat.noise }, evt: { t: g.evt.t }, beacons: g.beacons, stations: g.stations, selfRevive: g.selfRevive, startStratum: g.startStratum,
     stats: g.stats, maxStratum: g.maxStratum, tutorial: g.tutorial,
-    player: { x: g.player.x, y: g.player.y, hp: g.player.hp, carrying: g.player.carrying, role: g.player.role },
+    player: { x: g.player.x, y: g.player.y, hp: g.player.hp, carrying: g.player.carrying, role: g.player.role, wpn: g.player.wpn, pk: g.player.pk },
     satchels: g.satchels, journey: g.journey,
   };
 }
@@ -204,9 +207,8 @@ export function deserialize(d) {
   if (g.map.length !== COLS * ROWS) throw new Error('harita boyutu uyumsuz'); g.bhp = d.bhp || {}; g.heartRow = d.heartRow; if (d.order) g.order = d.order;
   Object.assign(g.player.bag, d.bag); Object.assign(g.store, d.store); Object.assign(g.collected, d.collected);
   Object.assign(g.lvl, d.lvl); g.perks = d.perks || [];
-  if (d.gear) { g.gear.owned = d.gear.owned || []; g.gear.eq = d.gear.eq || []; }
-  Object.assign(g.items, d.items || {}); if (d.barricades) g.items.barricade += d.barricades | 0;
-  g.torches = d.torches || []; g.mines = (d.mines || []).map(m => ({ x: m.x, y: m.y, arm: 0 }));
+  if (d.gear) { g.gear.owned = d.gear.owned || []; g.gear.eq = d.gear.eq || []; g.gear.wOwn = (d.gear.wOwn || ['blaster']).filter(k => WEAPONS[k]); g.gear.pOwn = (d.gear.pOwn || ['std']).filter(k => PICK_TYPES[k]); }
+  for (const k of ITEM_KEYS) if (d.items && d.items[k]) g.items[k] = d.items[k] | 0;
   if (d.contracts) g.contracts = d.contracts;
   g.structures = (d.structures || []).filter(s => BUILDS[s.type] && s.c !== undefined).map(s => Object.assign(makeStructure(s.type, s.c, s.r), { hp: s.hp, buildT: 0 }));
   g.threat = makeThreat(); if (d.threat) g.threat.noise = Math.min(60, d.threat.noise || 0);
@@ -218,6 +220,8 @@ export function deserialize(d) {
   for (const s of g.beacons) g.nestTotal[s] = Math.max(g.nestTotal[s] | 0, 1);
   recompute(true);
   Object.assign(g.player, d.player); g.player.px = g.player.x; g.player.py = g.player.y;
+  if (!g.gear.wOwn.includes(g.player.wpn)) g.player.wpn = 'blaster';
+  if (!g.gear.pOwn.includes(g.player.pk)) g.player.pk = 'std';
   g.player.hp = Math.max(1, Math.min(g.player.maxHp, d.player.hp));
   g.satchels = d.satchels || (d.satchel ? [d.satchel] : []);
   if (d.journey && d.journey.p) g.journey = d.journey;

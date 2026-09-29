@@ -16,7 +16,7 @@ npm run build      # dist/ — statik olarak herhangi bir yerde yayınlanabilir
 
 ## v5: Uyanış döngüsü (dalga yok)
 
-- **Gürültü ölçeri:** Kazma, blaster, dinamit ve mayın gürültü üretir; derinlik çarpanı vardır. Sessiz kalınca söner, kampta (yüzey) hızla sıfırlanır.
+- **Gürültü ölçeri:** Kazma, silah ve dinamit gürültü üretir; derinlik çarpanı vardır. Sessiz kalınca söner, kampta (yüzey) hızla sıfırlanır.
   Seviyeler: **Sessiz → Kıpırtı (25) → Uyanış (50) → Öfke (75, elitler) → Av (100 birkaç saniye sürerse derinliğine göre bir boss uyanır).**
 - **Bosslar (her 4 biyomda bir, %50 canda öfkelenir):** yerde yanıp sönen uyarılar, adı ve unvanıyla afiş, can çubuğunda adı.
   - **Karakök**, Toprağın Düğümü: kök mızrakları, toprağa dalıp altından çıkar (altındayken vurulmaz); öfkede kökçük çağırır.
@@ -33,8 +33,8 @@ npm run build      # dist/ — statik olarak herhangi bir yerde yayınlanabilir
 - **Düşme ve kaldırma:** Can bitince ölmezsin, bayılırsın. Partner 1.6 sn yanında durursa kaldırır (%50 can); 25 sn içinde kaldırılmazsan
   partner kampa dönene kadar beklersin. Herkes düşerse sefer biter. Tek oyunculuda düşmek seferi bitirir; **İkinci Nefes** perk'i ve
   kamptaki **Sağlık Sigortası** sefer başına bir kez kendin kalkmanı sağlar.
-- **Taşınabilir aletler:** Yüzey yuvaları kaldırıldı. Atölye > Üret'ten Nöbetçi, Fener Direği (ışık + çevresinde gürültü ×0.5), Onarım,
-  Alev/Buz Kulesi, Havan üretilir; kemerden durduğun yere (tünel içi dahil) kurulur, dokunup geri alınır. Aynı anda en fazla 2 (perk ile 3);
+- **Taşınabilir aletler:** Yüzey yuvaları kaldırıldı. Atölye > Üret'ten Nöbetçi, Alev Kulesi ve Havan
+  üretilir; kemerden durduğun yere (tünel içi dahil) kurulur, dokunup geri alınır. Aynı anda en fazla 2 (perk ile 3);
   sınırda en eski alet kemere döner.
 - **Öz:** yıkılan yuva ×6, fener ×20, derinlik, sandık, cevher. Kontratlar: `waves` yerine `nests` (yuva yık).
 - **Asansör (sefer içi):** Merkez şaft. Bir biyoma ilk ulaştığında istasyonu açılır ve şaft oraya kadar kazılır; şaftta durunca
@@ -105,10 +105,10 @@ npm run build      # dist/ — statik olarak herhangi bir yerde yayınlanabilir
 ## Önceki içerik (v2-v4)
 
 - **İlk 10 biyom:** Toprak, Taş, Kök Ormanı, Kobalt, Buz, Kemik Çukuru, Kor, Kristal, Obsidyen, Boşluk Çekirdeği; her birinin kayası, süsü ve atmosferi.
-- **Kazma dükkânı:** 8 kademe (Odun → Boşluk), Keskinlik ve Hızlı Sallama. **Blaster eklentileri:** 3 yuva, 7 pasif + Aşırı Yük ve Nova.
+- **Kazma dükkânı:** 10 kademe (Odun → Yaratılış), Keskinlik, Hızlı Sallama ve 8 kazma türü (Matkap, Geniş, Kadife Uç, Balyoz, Burgu, Hazine, Kan Akiği). **Silahlar:** Blaster, Saçmalı, Makineli, Alev Püskürtücü, Delici Tüfek, Şimşek Tabancası, Roketatar, Kırağı Topu; her madenci kendi silahını takar, güç ortak Silah Gücü seviyesinden gelir. Son kademeler ve derin türler bandın derin cevherini ister. **Eklentiler:** 3 yuva, 7 pasif + Aşırı Yük ve Nova.
 - **Yaratıklar:** Kemirgen, Kabukbiti, Tükürgen, Yarasa, Kristalböcek, Kaya Devi, Maden Solucanı, Parıldak, Çekici, Uluyan, Gölge,
   Örümcek/Örümcekçik/Örümcek Ana, Kırağı, Kemikçi, Kor Böceği, Boşluk Gözü, Obsidyen Devi ve beş boss. Elitler taçlı, altın düşürür.
-- **Üretim:** Meşale, Dinamit, Tamir Kiti, Barikat, Mayın, Dönüş Fişeği; şemalar Kalıntı sandıklarından kalıcı açılır.
+- **Üretim:** Dinamit, Tamir Kiti, Kalkan Hücresi, Sonar, Sessizlik Çanı, Burgu Şarjı, Dönüş Fişeği, Adrenalin; çanta en çok 1000; şemalar Kalıntı sandıklarından kalıcı açılır.
 - **Tehlikeler:** göçük, gaz cebi (patlamayla tutuşur), ana kaya cepleri (yalnız dinamit açar), kor taşı.
 - **Kademeler**, **Günün Madeni**, **Kontratlar**, **Kamp** (kalıcı Öz yükseltmeleri).
 
