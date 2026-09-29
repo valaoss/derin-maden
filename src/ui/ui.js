@@ -59,7 +59,7 @@ export function initUI(root, h) {
   <div class="plate" id="pop"></div>
   <div id="sheetBack"></div>
   <div class="plate rivets" id="sheet">
-    <div class="head"><h2>ATÖLYE</h2><button class="close" id="sheetClose" aria-label="Kapat">✕</button></div>
+    <div class="head"><h2>ATÖLYE</h2><button class="btn test ${TEST_MODE ? '' : 'hide'}" id="testBtn">TEST ∞</button><button class="close" id="sheetClose" aria-label="Kapat">✕</button></div>
     <div class="tabs"><button class="tab on" data-tab="up">GELİŞTİR</button><button class="tab" data-tab="pick">KAZMA</button><button class="tab" data-tab="mods">SİLAH</button><button class="tab" data-tab="craft">ÜRET<span class="dot"></span></button></div>
     <div class="storebar" id="sheetStore"></div>
     <div class="body" id="sheetBody"></div>
@@ -80,6 +80,7 @@ export function initUI(root, h) {
   on('station', s => toast('Asansör istasyonu açıldı: ' + STRATA[biomeOf(s)].name, 'base'));
   on('elevator', d => { if (d.pi === G.localIdx) hidePop(); else toast('Partner asansöre bindi', 'base'); });
   tap($('#sheetClose'), closeSheet);
+  tap($('#testBtn'), () => { if (dispatch({ t: CMD.TEST })) { refreshSheet(); refreshHUD(true); } });
   tap($('#sheetBack'), closeSheet);
   document.querySelectorAll('#sheet .tab').forEach(t => tap(t, () => { sheetTab = t.dataset.tab; if (sheetTab === 'craft' && !App.meta.seenCraft) { App.meta.seenCraft = true; saveMeta(App.meta); } refreshSheet(); $('#sheetBody').scrollTop = 0; }));
 
@@ -369,6 +370,8 @@ function costHTML(c) {
 }
 function pips(l, max) { let s = '<span class="pips">'; for (let i = 0; i < max; i++) s += `<i class="${i < l ? 'on' : ''}"></i>`; return s + '</span>'; }
 
+// test düğmesi: geliştirmede ya da adreste ?test varken görünür
+const TEST_MODE = import.meta.env.DEV || /[?&]test/.test(location.search);
 let sheetTab = 'up';
 function refreshSheet(justKey) {
   if (!G) return;

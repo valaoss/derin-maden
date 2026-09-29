@@ -20,7 +20,7 @@ import { setTile, tileAt } from '../src/world/map.js';
 import { generate, biomeOrder } from '../src/world/gen.js';
 import { T, TD, HOST_TILE } from '../src/data/tiles.js';
 import { ENEMIES, MODS, MOD_KEYS, PICK_TIERS, UPGRADES, ELITE, RES_KEYS, THREAT, BUILDS, ITEMS, RELICS, RELIC_KEYS, PERKS, ROLES, EVENT_KEYS, DEEP_ORES, ozForRun } from '../src/data/balance.js';
-import { placeBuild, pickupBuild, craftItem, gearPick } from '../src/game/economy.js';
+import { placeBuild, pickupBuild, craftItem, gearPick, testFunds, TEST_FUNDS } from '../src/game/economy.js';
 import { WEAPON_KEYS, PICK_TYPE_KEYS, SHIELD, AUGER } from '../src/data/balance.js';
 import { playerSpeed } from '../src/game/player.js';
 import { STRATA } from '../src/data/palette.js';
@@ -690,6 +690,13 @@ section('Yeni eşyalar ve köşe kayması');
   for (let c = 5; c <= 10; c++) if (c !== 6) setTile(c, r0 + 1, T.DIRT);
   m.x = 7 * TILE + 2; m.y = r0 * TILE + 8; m.px = m.x; m.py = m.y; m.inp = { x: 0, y: 1, mag: 1 }; run(0.8); m.inp = { x: 0, y: 0, mag: 0 };
   ok('şaft ağzında takılmadan şafta kayar', m.y > (r0 + 2) * TILE && tileAt(7, r0 + 1) === T.DIRT, `${m.x} ${m.y}`);
+}
+
+section('Test düğmesi');
+{
+  fresh(990); const t = G.player;
+  ok('test düğmesi cevheri doldurur', testFunds(t) && RES_KEYS.every(k => G.store[k] === TEST_FUNDS));
+  ok('test düğmesi şemaları açar', craftItem('adren', t) && G.items.adren === 1);
 }
 
 console.log(`\n${checks - fails}/${checks} kontrol geçti${fails ? `, ${fails} HATA` : ''}`);

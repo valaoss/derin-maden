@@ -2,7 +2,7 @@
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_ROW } from '../config.js';
 import { T } from '../data/tiles.js';
-import { UPGRADES, BUILDS, PERKS, ITEMS, MODS, DEPLOY_MAX, WEAPONS, PICK_TYPES } from '../data/balance.js';
+import { UPGRADES, BUILDS, PERKS, ITEMS, MODS, DEPLOY_MAX, WEAPONS, PICK_TYPES, RES_KEYS, SCHEMATICS } from '../data/balance.js';
 import { G, App } from './state.js';
 import { tileAt } from '../world/map.js';
 import { makeStructure, recompute, hasPerk, isUnlocked, isLocal, modSlots, teamHas } from './run.js';
@@ -60,6 +60,16 @@ export function gearPick(kind, k, p = G.player) {
   } else sfx.click();
   if (w) { p.wpn = k; p.fireCd = Math.max(p.fireCd, 0.2); } else { p.pk = k; p.dig = null; }
   emit('gearChanged', { kind, k, pi: p.i });
+  return true;
+}
+
+// test: sınırsız cevher + tüm şemalar (yalnız bu sefer)
+export const TEST_FUNDS = 99999;
+export function testFunds(p = G.player) {
+  for (const k of RES_KEYS) G.store[k] = TEST_FUNDS;
+  G.meta.schem = SCHEMATICS.map(s => s.key);
+  sfx.buy(); ring(p.x, p.y, '#f2c14e', 22);
+  emit('store'); emit('gearChanged', { kind: 'test', pi: p.i });
   return true;
 }
 
