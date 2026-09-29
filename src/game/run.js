@@ -4,6 +4,7 @@ import { UPGRADES, PLAYER, BUILDS, ITEMS, ITEM_KEYS, SCHEMATICS, CONTRACTS, kade
 import { T, TD } from '../data/tiles.js';
 import { makeThreat, scanNests } from './threat.js';
 import { makeEvents } from './events.js';
+import { makeJourney } from './journey.js';
 import { generate } from '../world/gen.js';
 import { createFields } from '../world/flow.js';
 import { G, setG, App } from './state.js';
@@ -83,7 +84,7 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
     kademe, mods, daily, contracts: [],
     torches: [], mines: [], bombs: [], rocks: [], falls: [], gas: [], shells: [], hazT: 0,
     structures: [], enemies: [], bullets: [], ebullets: [], orbs: [], particles: [], pIdx: 0, flashes: [], lightSrc: [],
-    satchels: [], zaps: [], pings: [], evt: makeEvents(), echo: null, stations: [],
+    satchels: [], zaps: [], pings: [], evt: makeEvents(), echo: null, stations: [], journey: makeJourney(mp ? 2 : 1),
     // uyanış: dalga yok; G.wave yalnızca gök rengi/ambiyans uyumu için türetilir
     wave: { num: 0, phase: 'calm', t: Infinity, nests: [], boss: false },
     threat: makeThreat(), nests: [], nestTotal: [], beacons: [], selfRevive: (ml.sigorta | 0) ? 1 : 0, allDownT: 0,
@@ -191,7 +192,7 @@ export function serialize() {
     threat: { noise: g.threat.noise }, evt: { t: g.evt.t }, beacons: g.beacons, stations: g.stations, selfRevive: g.selfRevive, startStratum: g.startStratum,
     stats: g.stats, maxStratum: g.maxStratum, tutorial: g.tutorial,
     player: { x: g.player.x, y: g.player.y, hp: g.player.hp, carrying: g.player.carrying, role: g.player.role },
-    satchels: g.satchels,
+    satchels: g.satchels, journey: g.journey,
   };
 }
 export function deserialize(d) {
@@ -216,6 +217,7 @@ export function deserialize(d) {
   Object.assign(g.player, d.player); g.player.px = g.player.x; g.player.py = g.player.y;
   g.player.hp = Math.max(1, Math.min(g.player.maxHp, d.player.hp));
   g.satchels = d.satchels || (d.satchel ? [d.satchel] : []);
+  if (d.journey && d.journey.p) g.journey = d.journey;
   if (d.rng) g.rng = d.rng;
   g.mapVersion++;
   return g;

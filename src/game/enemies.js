@@ -17,6 +17,7 @@ import { setTile } from '../world/map.js';
 import { igniteGas } from './hazards.js';
 import { addNoise } from './threat.js';
 import { updateBoss } from './bosses.js';
+import { markJourney } from './journey.js';
 
 const ENEMY_COL = { rodent: '#b07a4a', bug: '#5a9a5a', spitter: '#9a5ac0', flyer: '#7a64a0', boomer: '#e070ff', brute: '#8a7c78', worm: '#c07890',
   karakok: '#78b43c', kavurgan: '#ff6a1a', otegoz: '#b080ff', sultan: '#ffd870', ezeli: '#fff4c0',
@@ -108,6 +109,7 @@ export function killEnemy(e) {
   if (e.dead) return;
   if (e.illusion) { e.hp = 0; e.dead = true; e.dieT = 0.2; sparks(e.x, e.y, '#d8f8ff', 8, 80); return; } // cam kopya: ganimet yok, sayılmaz
   e.hp = 0; e.dead = true; e.dieT = e.d.boss ? 0.9 : 0.42;
+  if (e.d.boss) markJourney('boss', e.x, e.y);
   e.dieDx = e.hitDx || 0; e.dieDy = e.hitDy || 0;
   const col = ENEMY_COL[e.type];
   sparks(e.x, e.y, col, e.d.boss ? 30 : 8, e.d.boss ? 150 : 80);

@@ -598,5 +598,19 @@ section('Derin cevherler');
   ok('derin cevher Öz verir', ozForRun({ maxDepth: 0, nests: 0, beacons: 0, chests: 0, victory: false, collected: { yildiz: 2 } }) === 10);
 }
 
+// ---------- 17. sefer haritası ----------
+section('Sefer haritası');
+{
+  fresh(950); const p = G.player; shaft(8, GROUND_ROW + 30); p.x = 8 * TILE + 8; p.y = GROUND_ROW * TILE + 8; p.px = p.x; p.py = p.y;
+  for (let k = 0; k < 8; k++) { p.y += 2 * TILE; p.py = p.y; run(0.05); }
+  const a = G.journey.p[0];
+  ok('oyuncunun izi kaydedilir', a.length > 3 && a[a.length - 1][2] > a[0][2], `${a.length}`);
+  ok('iz zaman sıralı', a.every((q, i) => !i || q[0] >= a[i - 1][0]));
+  p.hp = 1; damagePlayerX(p, 999);
+  ok('bayılma haritaya işlenir', G.journey.m.some(m => m[0] === 'down' && m[4] === 0));
+  const g2 = deserialize(JSON.parse(JSON.stringify(serialize())));
+  ok('iz kayıtla geri gelir', g2.journey.p[0].length === a.length && g2.journey.m.length > 0);
+}
+
 console.log(`\n${checks - fails}/${checks} kontrol geçti${fails ? `, ${fails} HATA` : ''}`);
 process.exit(fails ? 1 : 0);

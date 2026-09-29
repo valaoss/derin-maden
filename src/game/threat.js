@@ -15,6 +15,7 @@ import { spawnOrb } from './player.js';
 import { debris, dust, ring, sparks, shake, flashLight } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
 import { emit } from '../core/events.js';
+import { markJourney } from './journey.js';
 
 export const LEVEL_NAMES = ['SESSİZ', 'KIPIRTI', 'UYANIŞ', 'ÖFKE', 'AV'];
 
@@ -207,7 +208,7 @@ export function nestDestroyed(c, r, byPlayer) {
   const i = G.nests.findIndex(n => n.c === c && n.r === r);
   if (i >= 0) G.nests.splice(i, 1);
   const x = c * TILE + 8, y = r * TILE + 8, st = Math.max(0, stratumOfRow(r));
-  G.stats.nests++;
+  G.stats.nests++; markJourney('nest', x, y, byPlayer ? byPlayer.i : -1);
   const th = G.threat; th.noise = Math.max(0, th.noise - THREAT.nestRelief);
   // ganimet: demir + biyom cevheri + altın şansı
   const ores = st >= 6 ? ['crystal', 'cobalt', 'gold'] : st >= 2 ? ['cobalt', 'gold', 'water'] : ['iron', 'water', 'iron'];
@@ -219,7 +220,7 @@ export function nestDestroyed(c, r, byPlayer) {
   const left = nestsInStratum(st);
   emit('nestDown', { c, r, st, left, pi: byPlayer ? byPlayer.i : -1 });
   if (left === 0 && !G.beacons.includes(st)) {
-    G.beacons.push(st); G.stats.beacons++;
+    G.beacons.push(st); G.stats.beacons++; markJourney('beacon', x, y, byPlayer ? byPlayer.i : -1);
     emit('beacon', st);
   }
 }

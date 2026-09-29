@@ -3,7 +3,7 @@
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y, GROUND_ROW, PLAYER_MIN_Y, WORLD_W, BASE_X, BASE_Y, stratumOfRow, depthOfY } from '../config.js';
 import { T, TD, isMineable, isPlain } from '../data/tiles.js';
-import { PLAYER, UPGRADES, PERKS, RES_KEYS, PICK_TIERS, RELIC_OF_BIOME } from '../data/balance.js';
+import { PLAYER, UPGRADES, PERKS, RES_KEYS, PICK_TIERS, RELIC_OF_BIOME, DEEP_ORES } from '../data/balance.js';
 import { RES_COL } from '../data/palette.js';
 import { G, App, biomeOf } from './state.js';
 import { tileAt, solidAt, setTile, damageTile, matOf } from '../world/map.js';
@@ -18,6 +18,7 @@ import { debris, dust, sparks, shake, kick, hitstop, flashLight, ring, particle 
 import { sfx, haptic } from '../audio/audio.js';
 import { emit } from '../core/events.js';
 import { clamp } from '../core/util.js';
+import { trackJourney, markJourney } from './journey.js';
 
 const HW = PLAYER.hitW / 2, HH = PLAYER.hitH / 2;
 
@@ -81,6 +82,7 @@ export function anyCarrying() { return G.players.some(p => p.carrying); }
 
 export function updatePlayer(dt) {
   for (const p of G.players) updateOne(p, dt);
+  trackJourney();
   // herkes baygın: sefer biter
   if (G.players.every(p => p.dead && !p.autoUp)) { G.allDownT = (G.allDownT || 0) + dt; if (G.allDownT > 1.4 && !G.over) { G.allDownT = -1e9; emit('allDown'); } }
   else G.allDownT = 0;
@@ -307,6 +309,7 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
     sparks(x, y, '#fff0a0', 24, 140); ring(x, y, '#ffd24a', 40); flashLight(x, y, 9, 0.8); hitstop(0.1); if (local) shake(0.3); sfx.chest();
   }
   if (d.gate && local) emit('toast', { text: 'Saray kapısı açıldı', icon: 'chest' });
+  if (d.relic) markJourney('relic', x, y, p.i);
   if (d.relic) takeRelic(p, x, y, typeof d.relic === 'string' ? d.relic : RELIC_OF_BIOME[biomeOf(stratumOfRow(r))]);
   // Altın Taç: sıradan kaya bazen altın verir
   if (d.plain && hasRelic('tac') && rnd() < 0.1) { spawnOrb(x, y, 'gold'); sparks(x, y, '#ffd870', 8, 80); flashLight(x, y, 3, 0.3); if (near) sfx.oreReveal(); }
@@ -314,6 +317,7 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
   if (hasRelic('kivilcim')) { sparks(x, y, '#fff0a0', 4, 70); for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - x, e.y - y) < 40) damageEnemyExt(e, 12, 0, 0, 0.2); }
   if (d.ore) {
     if (near) sfx.oreReveal();
+    if (DEEP_ORES.includes(d.ore)) markJourney('gem', x, y, p.i, d.ore);
     const rare = d.ore === 'cobalt' || d.ore === 'crystal' || d.ore === 'gold';
     const n = d.amt + (hasPerk('damar') && !d.iceDrop ? 1 : 0) + (rare && roleOf(p).rare ? 1 : 0);
     const res = !rare || d.ore === 'cobalt' ? (hasPerk('simya') && rnd() < 0.15 ? 'gold' : d.ore) : d.ore;
@@ -323,7 +327,7 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
     flashLight(x, y, 3, 0.25);
   }
   if (d.chest) {
-    G.stats.chests++;
+    G.stats.chests++; markJourney('chest', x, y, p.i);
     sfx.chest(); hitstop(0.08); if (local) shake(0.2);
     sparks(x, y, '#ffd24a', 14, 110); ring(x, y, '#ffd24a', 22); flashLight(x, y, 5, 0.5);
     const sc = unlockSchematic();
@@ -334,7 +338,7 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
     else if (local) emit('toast', { text: 'Sandık boş çıktı', icon: 'chest' });
   }
   if (d.heart) {
-    p.carrying = true;
+    p.carrying = true; markJourney('heart', x, y, p.i);
     hitstop(0.12); if (local) shake(0.45); sfx.chest();
     sparks(x, y, '#ff3a6a', 24, 140); ring(x, y, '#ff8aa8', 30); flashLight(x, y, 8, 0.8);
     emit('heart');
@@ -512,6 +516,7 @@ function die(p) {
     return;
   }
   p.hp = 0; p.dead = true; p.gone = false; p.reviveP = 0; p.autoUp = false; p.ride = null;
+  markJourney('down', p.x, p.y, p.i);
   p.downT = PLAYER.downTime;
   // kendi kendine kalkma hakkı: İkinci Nefes perk'i ya da Sağlık Sigortası (sefer başına bir kez)
   if (G.selfRevive > 0) { G.selfRevive--; p.autoUp = true; p.downT = 2.6; }

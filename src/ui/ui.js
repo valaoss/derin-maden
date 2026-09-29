@@ -18,6 +18,7 @@ import { STRATA_COUNT } from '../config.js';
 import { worldToView, viewToWorld } from '../render/renderer.js';
 import { sfx, initAudio, applyAudioSettings } from '../audio/audio.js';
 import { saveMeta, saveSettings } from '../core/save.js';
+import { mountJourney, glyphURL, MARK_NAMES } from './journey.js';
 import { cancelStick, setStickMode } from '../input/input.js';
 import { isNative, WEB_URL } from '../core/native.js';
 
@@ -757,7 +758,25 @@ export function showCamp(back) {
   hideScreens(); render(); s.classList.add('on');
 }
 
+// PEAK usulü sefer haritası: sonuçlardan önce gösterilir, sonra HARİTA düğmesiyle yeniden açılır
+function showJourney(r) {
+  const s = $('#results'), J = r.journey;
+  const keys = Object.keys(MARK_NAMES).filter(k => J.marks.some(m => m[0] === k));
+  s.innerHTML = `<div class="plate rivets panel jpanel">
+    <h2>SEFER HARİTASI</h2>
+    <canvas class="jmap"></canvas>
+    <div class="jleg">${J.players.map(q => `<div class="jp"><i style="background:${q.col}"></i><b style="color:${q.col}">${esc(q.name)}</b><span>${q.depth}m derin · ${q.dist}m yol${q.downs ? ' · ' + q.downs + ' bayılma' : ''}</span></div>`).join('')}</div>
+    ${keys.length ? `<div class="jkeys">${keys.map(k => `<span><img src="${glyphURL(k)}" alt="">${MARK_NAMES[k]}</span>`).join('')}</div>` : ''}
+    <div style="display:flex;gap:10px"><button class="btn dark" id="jRe" style="flex:1">BAŞTAN</button><button class="btn" id="jGo" style="flex:1.4">DEVAM</button></div>
+    </div>`;
+  s.classList.add('on');
+  const v = mountJourney(s.querySelector('.jmap'), J);
+  tap($('#jRe'), () => v.replay());
+  tap($('#jGo'), () => { r.mapSeen = true; showResults(r); });
+}
+
 export function showResults(r) {
+  if (r.journey && !r.mapSeen) return showJourney(r);
   const s = $('#results');
   const win = r.victory;
   const title = win ? 'ZAFER' : r.reason === 'abandon' ? 'SEFER BİTTİ' : r.mp ? 'EKİP DÜŞTÜ' : 'BAYILDIN';
@@ -780,7 +799,7 @@ export function showResults(r) {
     ${r.daily ? `<div class="goal">${ic('daily', 's')} Günün Madeni · ${r.dailyBest ? 'yeni günlük rekor!' : 'günün rekoru ' + (App.meta.daily ? App.meta.daily.depth : 0) + 'm'}</div>` : ''}
     <div class="goal">${r.goal}</div>
     <div style="display:flex;gap:10px"><button class="btn dark" id="rCamp" style="flex:1">${ic('oz')} KAMP</button><button class="btn" id="rAgain" style="flex:1.4">TEKRAR KAZ</button></div>
-    <button class="btn dark" id="rMenu" style="width:100%;margin-top:8px">ANA MENÜ</button>
+    <div style="display:flex;gap:10px;margin-top:8px">${r.journey ? '<button class="btn dark" id="rMap" style="flex:1">HARİTA</button>' : ''}<button class="btn dark" id="rMenu" style="flex:1.4">ANA MENÜ</button></div>
     </div>`;
   s.classList.add('on');
   // sayılar sayarak gelsin
@@ -796,6 +815,7 @@ export function showResults(r) {
   setTimeout(() => requestAnimationFrame(step), 250);
   tap($('#rAgain'), () => { if (r.mp) { hideScreens(); showCoop(() => showMenu(false)); } else hooks.newRun({ kademe: r.kademe, daily: !!r.daily }); });
   tap($('#rCamp'), () => showCamp(() => showResults(r)));
+  if (r.journey) tap($('#rMap'), () => { r.mapSeen = false; showResults(r); });
   tap($('#rMenu'), () => { s.classList.remove('on'); hooks.menu(); });
 }
 

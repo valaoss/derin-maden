@@ -16,6 +16,7 @@ import { updateThreat, LEVEL_NAMES } from './game/threat.js';
 import { updatePings } from './game/pings.js';
 import { updateEvents } from './game/events.js';
 import { updateCanary } from './game/canary.js';
+import { snapshotJourney } from './ui/journey.js';
 import { updatePrediction, pred } from './net/predict.js';
 import { updateParticles, updateFlashes, particle } from './game/fx.js';
 import { updateFlow, forceFlow } from './world/flow.js';
@@ -294,12 +295,13 @@ function endRun(reason) {
   if (!victory && m.oz >= 20) goal += '<br><span style="color:var(--good)">Kampta harcayacak Öz\'ün var.</span>';
   if (victory) sfx.victory(); else sfx.defeat();
   stopAmbience(); lastAmb = '';
+  const journey = G.tutorial ? null : snapshotJourney();
   App.scene = 'results';
   const mp = G.mp;
   setTimeout(() => {
     UI.showHUD(false); UI.closeSheet(); UI.coach('');
     UI.showResults({ victory, reason, maxDepth: s.maxDepth, newDepth, nests: s.nests, beacons: s.beacons, chests: s.chests, kills: s.kills, ores, oz, goal, names: G.players.map(p => p.name),
-      contracts: G.contracts, kademe: G.kademe, daily: G.daily, dailyBest, mp,
+      contracts: G.contracts, kademe: G.kademe, daily: G.daily, dailyBest, mp, journey,
       unlockedKademe: victory && !mp && G.kademe + 1 <= 5 && m.maxKademe === G.kademe + 1 ? G.kademe + 1 : 0 });
     if (mp) closeLink();
   }, victory ? 400 : 900);
