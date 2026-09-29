@@ -54,7 +54,7 @@ function tremor(p) {
     const c = pc + Math.round((rnd() - 0.5) * 10), r = pr - 1 - Math.floor(rnd() * 5);
     if (c < PLAY_MIN_COL || c > PLAY_MAX_COL || r <= GROUND_ROW || r >= ROWS - 2) continue;
     const d = TD[tileAt(c, r)];
-    if (!d.solid || d.unbreakable || d.chest || d.heart || d.nest || tileAt(c, r + 1) !== T.AIR) continue;
+    if (!d.solid || d.unbreakable || d.chest || d.heart || d.relic || d.nest || tileAt(c, r + 1) !== T.AIR) continue;
     if (G.falls.some(f => f.c === c && f.r === r)) continue;
     setTile(c, r, T.LOOSE); G.falls.push({ c, r, t: 0.4 + rnd() * 0.8 }); n++;
   }

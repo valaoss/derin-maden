@@ -166,14 +166,23 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .cline b { color: var(--good); }
 .ozgain small { font-size: 16px; color: var(--dim); }
 
-/* menü: kademe seçici */
-.kstep { display: flex; align-items: stretch; min-height: 52px; }
-.kstep .kb { width: 52px; font-size: 18px; color: var(--helm); }
-.kstep .kv { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font-size: 16px; font-weight: 700; padding: 4px 0 6px; }
-.kstep .kv .icon { display: none; }
-.kstep .kv small { font-size: 11px; color: var(--dim); font-weight: 400; }
-#mDaily { position: relative; }
-#mDaily .dline { position: absolute; right: 12px; font-size: 12px; color: var(--good); }
+/* menü: sade düzen */
+.mrow { display: flex; gap: 8px; width: 100%; }
+.mchip { flex: 1; display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 12px 8px; font-size: 15px; font-weight: 700; text-align: left; }
+.mchip .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mchip .chev, .mline .chev { font-size: 22px; color: var(--mute); }
+.mchip.sq { flex: none; width: 48px; justify-content: center; padding: 0; }
+.mline { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 6px 12px 8px; font-size: 14px; text-align: left; }
+.mline > span { display: flex; align-items: center; gap: 6px; }
+.mline small { font-size: 11px; color: var(--dim); font-weight: 400; }
+.mrow.three .mtile { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-height: 72px; padding: 10px 4px 10px;
+  font-size: 12px; font-weight: 700; letter-spacing: 1px; position: relative; text-align: center; line-height: 1.1; }
+.mtile .dline { position: absolute; top: 5px; right: 6px; font-size: 10px; color: var(--good); letter-spacing: 0; }
+.relics { display: flex; justify-content: center; gap: 6px; margin-bottom: 8px; }
+.relic { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; background: var(--plateD); box-shadow: inset 0 0 0 2px var(--ink); opacity: .4; }
+.relic.on { opacity: 1; background: #3a2c14; box-shadow: inset 0 0 0 2px var(--ink), 0 0 0 2px #ffd870, 0 0 12px rgba(255, 216, 112, .5); }
+.row.relicrow { box-shadow: inset 0 0 0 2px var(--ink), inset 0 4px 0 0 var(--plateL), inset 0 -3px 0 0 var(--plateD), 0 0 0 2px #ffd870; }
+.row.relicrow .name { color: #ffd870; }
 
 /* ---------- toast / coach / banner ---------- */
 #toasts { position: absolute; left: 0; right: 0; top: calc(var(--sat) + 178px); display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }

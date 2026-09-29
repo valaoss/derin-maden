@@ -18,7 +18,9 @@ export const net = {
   hashes: new Map(), desync: false, stallT: 0, stalls: 0,
   remoteFrame: 0, remoteAt: 0, lead: 0, rtt: 0, pingT: 0, resendT: 0,
   slackMin: 99, adaptT: 0, calmT: 0, stallCd: 0, quality: 'iyi',
+  log: [], lost: false, bye: false,
 };
+const LOG = 600;           // yeniden bağlanmada karşıya verilen yerel girdi geçmişi (kare)
 
 export function startLockstep(localIdx) {
   net.on = true; net.idx = localIdx; net.frame = 0; net.delay = 5;
@@ -26,6 +28,7 @@ export function startLockstep(localIdx) {
   net.cmds = []; net.hist = []; net.lastSched = -1; net.desync = false; net.stallT = 0; net.stalls = 0;
   net.remoteFrame = 0; net.remoteAt = performance.now(); net.lead = 0; net.rtt = 0; net.pingT = 0; net.resendT = 0;
   net.slackMin = 99; net.adaptT = 0; net.calmT = 0; net.stallCd = 0; net.quality = 'iyi';
+  net.log = []; net.lost = false; net.bye = false;
   setCommandQueue(cmd => net.cmds.push(cmd));
   // ilk DELAY kare boş girdi: iki taraf da hemen başlayabilsin
   for (let f = 0; f < net.delay; f++) { net.local.set(f, { x: 0, y: 0, m: 0, c: [] }); net.remote.set(f, { x: 0, y: 0, m: 0, c: [] }); }
@@ -49,8 +52,10 @@ export function sampleLocal() {
   for (let f = net.lastSched + 1; f <= target; f++) {
     const inp = { x: quant(mv.x), y: quant(mv.y), m: quant(mv.mag), c: f === net.lastSched + 1 ? cmds : [] };
     net.local.set(f, inp);
-    net.hist.push([f, inp.x, inp.y, inp.m, inp.c.length ? inp.c : 0]);
+    const row = [f, inp.x, inp.y, inp.m, inp.c.length ? inp.c : 0];
+    net.hist.push(row); net.log.push(row);
   }
+  while (net.log.length > LOG) net.log.shift();
   net.lastSched = target;
   while (net.hist.length > HIST) net.hist.shift();
   sendInputs();
@@ -92,6 +97,7 @@ function check(f, mine, theirs) {
 // Her çizim karesinde (adım atılmasa da) çağrılır: ping, yeniden gönderim, gecikme uyarlaması, hız eşitleme.
 // Dönüş: bu kare için zaman düzeltmesi (saniye); öndeysek negatif, gerideysek pozitif.
 export function netTick(dt, stalled) {
+  if (net.lost) return 0; // bağlantı kopuk: uyarlama ve hız eşitleme durur
   net.pingT += dt; net.resendT += dt; net.adaptT += dt;
   if (net.pingT >= 1) { net.pingT = 0; send(['p', performance.now(), net.slackMin]); }
   if (net.resendT >= 0.05 && net.hist.length) sendInputs(); // sessizken bile yedekli tekrar
@@ -144,9 +150,21 @@ function onMessage(d) {
     const f = d[1], h = d[2];
     const mine = net.hashes.get(f);
     if (mine !== undefined) { check(f, mine, h); net.hashes.delete(f); } else net.hashes.set(f, h);
+  } else if (k === 'rs') {
+    // yeniden bağlanma: karşı tarafın son girdileri; eksik karelerimizi doldurur
+    net.remoteFrame = d[1]; net.remoteAt = performance.now();
+    for (const e of d[2] || []) { const f = e[0]; if (f >= net.frame && !net.remote.has(f)) net.remote.set(f, { x: e[1], y: e[2], m: e[3], c: e[4] || [] }); }
   } else if (k === 'bye') {
+    net.bye = true;
     emit('peerLeft');
   }
+}
+
+// bağlantı koptu / geri geldi
+export function markLost() { net.lost = true; }
+export function resync() {
+  net.lost = false; net.stallT = 0; net.remoteFrame = net.frame; net.remoteAt = performance.now();
+  send(['rs', net.frame, net.log]);
 }
 
 // Kaba durum özeti (FNV-1a): konumlar, canlar, sayaçlar, RNG

@@ -158,6 +158,7 @@ export function generate(seed, opts = {}) {
       for (let r = h0 + 2; r <= h1 - 2; r++) { set(6, r, T.GILT); set(10, r, T.GILT); }
       for (let c = c0 + 1; c < c1; c++) { set(c, h1 - 1, c % 2 ? T.GOLD : T.GILT); if (c % 3 === 0) set(c, h0 + 1, T.GOLD); }
       set(8, h1 - 1, T.CHEST); set(8, h0 + 1, T.CHEST); chests.push([8, h1 - 1], [8, h0 + 1]);
+      set(8, r0 + 19, T.GILT); set(8, r0 + 18, T.RELIC);                       // taht: Altın Taç
     } else if (feat === 'spore') scatter(r0, T.SPORE, 10, nearAir);        // spor keseleri: mağara kenarlarında
     else if (feat === 'cathedral') {
       // Cam Katedrali: uzun dikey nefler
@@ -172,11 +173,17 @@ export function generate(seed, opts = {}) {
         const dx = (c - CENTER_COL) / 5.6, dy = (r - hr) / 4.4;
         if (dx * dx + dy * dy < 1) set(c, r, T.AIR);
       }
-      set(CENTER_COL, hr, T.PULSE);
+      set(CENTER_COL, hr, T.RELIC); set(CENTER_COL - 2, hr, T.PULSE); set(CENTER_COL + 2, hr, T.PULSE); // kalp: Devin Kalbi
       scatter(r0, T.PULSE, 4);
     } else if (feat === 'hourglass') scatter(r0, T.HOURGLASS, 7);
     else if (feat === 'bloodvein') walk(r0, T.BLOODVEIN, 8, 3, false);
-    else if (feat === 'hush') { scatter(r0, T.HUSH, 5, (c, r) => r < r0 + STRATUM_ROWS / 2); scatter(r0, T.HUSH, 4); }
+    else if (feat === 'hush') {
+      scatter(r0, T.HUSH, 5, (c, r) => r < r0 + STRATUM_ROWS / 2); scatter(r0, T.HUSH, 4);
+      // Arkentaş: biyomun dibinde, küçük bir oyuğun ortasında kayaya gömülü
+      const ac = 4 + Math.floor(rnd() * 9), ar = r0 + 25 + Math.floor(rnd() * 5);
+      for (let r = ar - 1; r <= ar + 1; r++) for (let c = ac - 2; c <= ac + 2; c++) if (inPlay(c, r) && plain(get(c, r))) set(c, r, T.AIR);
+      set(ac, ar + 1, T.ECHO); set(ac, ar, T.ARKEN);
+    }
     else if (feat === 'seed') scatter(r0, T.SEED, 6);
   }
 
@@ -258,6 +265,7 @@ export function generate(seed, opts = {}) {
     if (dx * dx + dy * dy < 1) set(c, r, T.AIR);
   }
   set(CENTER_COL, hr, T.HEART);
+  set(CENTER_COL + 2, hr, T.RELIC); // Yaratılış Kıvılcımı
 
   // öğretici: ilk seferde merkezin hemen altında garanti cevher
   if (opts.tutorial) {

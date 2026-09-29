@@ -61,7 +61,7 @@ export function makePlayer(i, helm = i, name = '', role = '') {
 
 // meta: sefer boyunca sabit meta anlık görüntüsü (çok oyunculuda ev sahibininki)
 export function metaSnapshot(m = App.meta) {
-  return { lv: Object.assign({}, m.lv || {}), schem: (m.schem || []).slice(), maxStratum: m.maxStratum | 0, beacons: (m.beacons || []).slice(), echo: m.echo ? Object.assign({}, m.echo) : null };
+  return { lv: Object.assign({}, m.lv || {}), schem: (m.schem || []).slice(), relics: (m.relics || []).slice(), maxStratum: m.maxStratum | 0, beacons: (m.beacons || []).slice(), echo: m.echo ? Object.assign({}, m.echo) : null };
 }
 
 export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kademe = 0, daily = null, mp = false, meta = null, localIdx = 0, helms = null, names = null, roles = null, startStratum = 0 } = {}) {
@@ -96,7 +96,7 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
     paused: false, over: false,
   };
   g.store.iron = 8 * (ml.erzak | 0);
-  g.store.gold = 4 * (ml.altinKese | 0);
+  g.store.gold = 4 * (ml.altinKese | 0) + ((gm.relics || []).includes('tac') ? 12 : 0);
   const hv = helms || [App.settings && App.settings.helm | 0, 1];
   const nv = names || ['', ''];
   const rv = roles || [App.settings && App.settings.role || '', ''];
@@ -142,6 +142,7 @@ export function makeStructure(type, c, r) {
 }
 
 export function hasPerk(k) { return G.perks.includes(k); }
+export function hasRelic(k) { return !!(G.meta.relics && G.meta.relics.includes(k)); }
 export function roleOf(p) { return ROLES[p.role] || {}; }
 export function teamHas(role) { return G.players.some(p => p.role === role); }
 
@@ -149,7 +150,7 @@ export function teamHas(role) { return G.players.some(p => p.role === role); }
 export function recompute(fill = false) {
   const ml = G.meta.lv || {};
   G.bagCap = UPGRADES.bag.cap[G.lvl.bag] + 4 * (ml.genisCanta | 0) + (hasPerk('derinCep') ? 12 : 0);
-  const maxHp = UPGRADES.armor.hp[G.lvl.armor];
+  const maxHp = UPGRADES.armor.hp[G.lvl.armor] + (hasRelic('kalp') ? 40 : 0);
   for (const p of G.players) {
     const d = maxHp - p.maxHp;
     p.maxHp = maxHp;
@@ -159,13 +160,13 @@ export function recompute(fill = false) {
 }
 
 // kazma: kademe + keskinlik + hızlı sallama
-export function pickDmg() { return PICK_TIERS[G.lvl.drill].dmg * UPGRADES.sharp.mult[G.lvl.sharp]; }
+export function pickDmg() { return PICK_TIERS[G.lvl.drill].dmg * UPGRADES.sharp.mult[G.lvl.sharp] * (hasRelic('kivilcim') ? 2 : 1); }
 export function pickInterval() { return PICK_TIERS[G.lvl.drill].interval * UPGRADES.swing.mult[G.lvl.swing]; }
 export function modSlots() { return MOD_SLOTS + (hasPerk('dorduncuYuva') ? 1 : 0); }
 export function hasMod(k) { return G.gear.eq.includes(k); }
 
 export function lampTiles() {
-  const r = UPGRADES.lamp.radius[G.lvl.lamp] + (hasPerk('parlakFener') ? 2 : 0);
+  const r = UPGRADES.lamp.radius[G.lvl.lamp] + (hasPerk('parlakFener') ? 2 : 0) + (hasRelic('kivilcim') ? 1 : 0) + (hasRelic('arken') ? 3 : 0);
   return G.evt && G.evt.darkT > 0 ? Math.max(2, Math.ceil(r / 2)) : r;
 }
 export function bagCount(p = G.player) { const b = p.bag; return b.iron + b.water + b.cobalt + b.crystal + (b.gold || 0); }

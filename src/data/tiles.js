@@ -7,7 +7,7 @@ export const T = {
   NEST: 25,
   // v5 derin biyomlar (10-19): ana kaya + biyoma özgü taş
   QUICK: 26, MERCURY: 27, STORM: 28, BOLT: 29, GILT: 30, GATE: 31, FUNGUS: 32, SPORE: 33, GLASS: 34,
-  TITAN: 35, PULSE: 36, CHRONO: 37, HOURGLASS: 38, BLOOD: 39, BLOODVEIN: 40, ECHO: 41, HUSH: 42, GENESIS: 43, SEED: 44,
+  TITAN: 35, PULSE: 36, CHRONO: 37, HOURGLASS: 38, BLOOD: 39, BLOODVEIN: 40, ECHO: 41, HUSH: 42, GENESIS: 43, SEED: 44, RELIC: 45, ARKEN: 46,
 };
 
 // mat: doku/ses/parçacık malzemesi ('host' => katmanın ana kayası); plain: sıradan kaya (damar/tehlike/dönüşüm yerleşebilir)
@@ -61,6 +61,8 @@ TD[T.BLOODVEIN] = { solid: true, hp: 16, mat: 'host', ore: 'iron', amt: 3, vamp:
 TD[T.ECHO]     = { solid: true, hp: 300, mat: 'echo', plain: true };                                  // Yankı Boşluğu
 TD[T.HUSH]     = { solid: true, hp: 12, mat: 'host', hush: true, glow: 1.2, gem: ['#3a3a44', '#8a8aa0', '#d8d8e8', '#ffffff'] }; // sessiz taş: ölçeri düşürür
 TD[T.GENESIS]  = { solid: true, hp: 350, mat: 'genesis', plain: true };                               // Yaratılış Çekirdeği
+TD[T.RELIC]    = { solid: true, hp: 30, mat: 'host', relic: true, glow: 4.5 };                          // efsanevi eser taşı: biyomun kalbinde tek
+TD[T.ARKEN]    = { solid: true, hp: 40, mat: 'host', relic: 'arken', glow: 9 };                       // Arkentaş: dağın kalbi, kendi ışığıyla yanar
 TD[T.SEED]     = { solid: true, hp: 24, mat: 'host', seed: true, glow: 3, gem: ['#6a4a10', '#e0b040', '#fff0a0', '#ffffff'] }; // yaratılış tohumu: çevre kayayı cevhere çevirir
 
 export const isSolid = t => TD[t].solid;

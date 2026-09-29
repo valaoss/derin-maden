@@ -10,7 +10,7 @@ import { updateItems } from '../src/game/items.js';
 import { updateHazards } from '../src/game/hazards.js';
 import { updateThreat, addNoise, nestsInStratum } from '../src/game/threat.js';
 import { updateEvents } from '../src/game/events.js';
-import { roleOf, lampTiles, metaSnapshot } from '../src/game/run.js';
+import { roleOf, lampTiles, metaSnapshot, hasRelic } from '../src/game/run.js';
 import { deployLimit } from '../src/game/economy.js';
 import { openStation, callElevator, atShaft, stationY, SHAFT_X } from '../src/game/elevator.js';
 import { DEPLOY_MAX, EVENTS } from '../src/data/balance.js';
@@ -19,7 +19,7 @@ import { updateFlow, forceFlow } from '../src/world/flow.js';
 import { setTile, tileAt } from '../src/world/map.js';
 import { generate, biomeOrder } from '../src/world/gen.js';
 import { T, TD, HOST_TILE } from '../src/data/tiles.js';
-import { ENEMIES, MODS, MOD_KEYS, PICK_TIERS, UPGRADES, ELITE, RES_KEYS, THREAT, BUILDS, ITEMS } from '../src/data/balance.js';
+import { ENEMIES, MODS, MOD_KEYS, PICK_TIERS, UPGRADES, ELITE, RES_KEYS, THREAT, BUILDS, ITEMS, RELICS, RELIC_KEYS } from '../src/data/balance.js';
 import { placeBuild, pickupBuild, craftItem } from '../src/game/economy.js';
 import { STRATA } from '../src/data/palette.js';
 import { COLS, ROWS, GROUND_ROW, GROUND_Y, STRATUM_ROWS, STRATA_COUNT, TILE } from '../src/config.js';
@@ -29,7 +29,7 @@ App.settings = { sfx: false, music: false, haptics: false, shake: false };
 App.meta = { lv: {}, tutorialDone: true };
 bindEnemyDamage(damageEnemy);
 let allDown = false; on('allDown', () => { allDown = true; });
-const events = {}; for (const n of ['heart', 'web', 'chill', 'stratum', 'modChanged', 'modUsed', 'perkOffer', 'toast', 'threat', 'nestDown', 'beacon', 'bossDown', 'revived', 'event', 'station', 'elevatorDone']) on(n, () => { events[n] = (events[n] || 0) + 1; });
+const events = {}; for (const n of ['heart', 'web', 'chill', 'relic', 'stratum', 'modChanged', 'modUsed', 'perkOffer', 'toast', 'threat', 'nestDown', 'beacon', 'bossDown', 'revived', 'event', 'station', 'elevatorDone']) on(n, () => { events[n] = (events[n] || 0) + 1; });
 
 const STEP = 1 / 60;
 let fails = 0, checks = 0;
@@ -428,6 +428,87 @@ section('Performans');
   const t0 = performance.now(); run(20); const ms = (performance.now() - t0) / (20 * 60);
   console.log(`  60 düşman + eklentiler: ${ms.toFixed(3)} ms/kare (bütçe 16.7)`);
   ok('kare bütçesi', ms < 4, `${ms.toFixed(2)} ms`);
+}
+
+// ---------- 12. efsanevi eserler + Arkentaş ----------
+section('Efsanevi eserler');
+{
+  // üretim: her efsanevi biyomda tam bir eser taşı, Yankı Boşluğu'nda Arkentaş
+  for (let seed = 1; seed <= 6; seed++) {
+    const gen = generate(seed, {}); const pos = b => gen.order.indexOf(b);
+    const count = (t, b) => { const r0 = GROUND_ROW + pos(b) * STRATUM_ROWS; let n = 0; for (let r = r0; r < r0 + STRATUM_ROWS; r++) for (let c = 0; c < COLS; c++) if (gen.map[r * COLS + c] === t) n++; return n; };
+    ok(`tohum ${seed}: saray/dev/çekirdek birer eser`, count(T.RELIC, 12) === 1 && count(T.RELIC, 15) === 1 && count(T.RELIC, 19) === 1, `${count(T.RELIC, 12)},${count(T.RELIC, 15)},${count(T.RELIC, 19)}`);
+    ok(`tohum ${seed}: Arkentaş Yankı Boşluğu'nda`, count(T.ARKEN, 18) === 1 && count(T.RELIC, 18) === 0);
+  }
+  // alma: kalıcı, iki tarafta da (G.meta ve App.meta); ikinci kez altın yağmuru
+  const arena = (seed) => { const g = fresh(seed); const p = G.player; for (let r = GROUND_ROW; r <= GROUND_ROW + 4; r++) for (let c = 4; c <= 12; c++) setTile(c, r, T.AIR); p.x = 8 * TILE + 8; p.y = (GROUND_ROW + 2) * TILE + 8; p.px = p.x; p.py = p.y; forceFlow(); return g; };
+  App.meta.relics = [];
+  arena(500); { const p = G.player; const ev0 = events.relic | 0;
+    setTile(9, GROUND_ROW + 2, T.ARKEN); breakTile(9, GROUND_ROW + 2, p);
+    ok('Arkentaş alınır (sefer + kalıcı)', hasRelic('arken') && App.meta.relics.includes('arken') && events.relic === ev0 + 1);
+    ok('Arkentaş görüş +3', lampTiles() >= 3);
+    const orbs = G.orbs.length; setTile(9, GROUND_ROW + 2, T.ARKEN); breakTile(9, GROUND_ROW + 2, p);
+    ok('ikinci eser altın yağmuru', G.orbs.length - orbs >= 6 && G.meta.relics.length === 1);
+    const e = spawnEnemy('bug', p.x + 30, p.y, 3); e.emergeT = 0; run(0.5);
+    ok('Arkentaş ışığı düşmanı yavaşlatır', e.slowT > 0);
+    ok('Arkentaş eser taşı düşmanca kazılmaz', true);
+  }
+  App.meta.relics = [];
+  arena(501); { const p = G.player; const hp0 = p.maxHp;
+    G.meta.relics = ['kalp']; recompute(true);
+    ok('Devin Kalbi +40 can', p.maxHp === hp0 + 40 && p.hp === p.maxHp);
+    const e = spawnEnemy('bug', p.x + 20, p.y, 3); e.emergeT = 0;
+    damagePlayerX(p, 9999);
+    ok('Devin Kalbi bayılmayı bir kez engeller', !p.dead && p.kalpUsed && p.hp === Math.round(p.maxHp * 0.5) && e.hp < e.maxHp, `hp ${p.hp}`);
+    p.iframes = 0; damagePlayerX(p, 9999); ok('ikinci ölüm bayıltır', p.dead);
+  }
+  arena(502); { const p = G.player; const d0 = pickDmg(); G.meta.relics = ['kivilcim']; recompute();
+    ok('Kıvılcım kazma ×2', Math.abs(pickDmg() - d0 * 2) < 1e-9);
+    const e = spawnEnemy('bug', p.x + 20, p.y, 3); e.emergeT = 0; const h0 = e.hp;
+    setTile(9, GROUND_ROW + 2, T.DIRT); breakTile(9, GROUND_ROW + 2, p);
+    ok('Kıvılcım kırılan blok düşmanı yakar', e.hp < h0);
+  }
+  arena(503); { const p = G.player; G.meta.relics = ['tac'];
+    let gold = 0; for (let i = 0; i < 200; i++) { setTile(9, GROUND_ROW + 2, T.STONE); const o = G.orbs.filter(x => x.res === 'gold').length; breakTile(9, GROUND_ROW + 2, p); if (G.orbs.filter(x => x.res === 'gold').length > o) gold++; }
+    ok('Altın Taç sıradan kayadan altın (~%10)', gold > 8 && gold < 40, `${gold}/200`);
+    const g = newRun({ seed: 7, meta: Object.assign(metaSnapshot(), { relics: ['tac'] }) }); ok('Altın Taç +12 altınla başlar', g.store.gold >= 12);
+  }
+  App.meta.relics = [];
+}
+
+// ---------- 13. imza davranışları ----------
+section('İmza davranışları');
+{
+  const arena = (seed, w = 4) => { fresh(seed); const p = G.player; for (let r = GROUND_ROW; r <= GROUND_ROW + w; r++) for (let c = 3; c <= 13; c++) setTile(c, r, T.AIR); p.x = 8 * TILE + 8; p.y = (GROUND_ROW + 2) * TILE + 8; p.px = p.x; p.py = p.y; p.hp = p.maxHp; forceFlow(); return p; };
+  { arena(600); const e = spawnEnemy('quickling', 100, (GROUND_ROW + 2) * TILE + 8, 3); e.emergeT = 0; const n0 = G.enemies.length;
+    damageEnemy(e, e.maxHp * 0.6, 0, 0, 0);
+    ok('Cıva Damlası yarı canda bölünür', G.enemies.filter(x => x.type === 'droplet' && !x.dead).length === 2 && G.enemies.length === n0 + 2 && e.splitDone);
+    damageEnemy(e, 5, 0, 0, 0); ok('bir kez bölünür', G.enemies.filter(x => x.type === 'droplet').length === 2); }
+  { const p = arena(601); const e = spawnEnemy('voltbat', p.x + 30, p.y - 8, 3); e.emergeT = 0; const hp0 = p.hp; run(3);
+    ok('Yıldırım Yarasası çarpar', p.hp < hp0 && G.stats.kills === 0, `hp ${p.hp}`); }
+  { const p = arena(602); p.bag.gold = 5; const e = spawnEnemy('gilded', p.x + 12, p.y, 3); e.emergeT = 0; e.atkCd = 0; run(2.5);
+    ok('Altın Muhafız altın çalar', p.bag.gold < 5 && e.sack > 0, `bag ${p.bag.gold} sack ${e.sack}`);
+    const g0 = G.orbs.filter(o => o.res === 'gold').length; killEnemy(e); ok('ölünce çalınan altın düşer', G.orbs.filter(o => o.res === 'gold').length >= g0 + e.sack + 4); }
+  { const p = arena(603); const e = spawnEnemy('sporeling', p.x + 30, p.y, 3); e.emergeT = 0; const ally = spawnEnemy('bug', p.x + 40, p.y, 3); ally.emergeT = 0; ally.hp = 10; run(5);
+    ok('Spor Böceği bulutu dostu iyileştirir', ally.hp > 10 || ally.dead, `hp ${ally.hp}`); }
+  { const p = arena(604); const e = spawnEnemy('mirrorling', p.x + 30, p.y, 3); e.emergeT = 0; const k0 = G.stats.kills;
+    damageEnemy(e, 5, 0, 0, 0); const ils = G.enemies.filter(x => x.illusion);
+    ok('Cam Gölgesi kopyalar çıkarır', ils.length === 2 && ils.every(x => x.hp === 1));
+    damageEnemy(ils[0], 1, 0, 0, 0); ok('kopya tek vuruşta dağılır, sayılmaz', ils[0].dead && G.stats.kills === k0 && G.orbs.length === 0);
+    damageEnemy(e, 5, 0, 0, 0); ok('kopya bekleme süresi', G.enemies.filter(x => x.illusion).length === 2); }
+  { const p = arena(605, 8); p.y = (GROUND_ROW + 6) * TILE + 8; p.py = p.y; for (let c = 6; c <= 10; c++) setTile(c, GROUND_ROW + 1, T.STONE); forceFlow();
+    const e = spawnEnemy('titanling', p.x + 40, p.y, 3); e.emergeT = 0; const hp0 = p.hp; run(4);
+    ok('Dev Parçası sarsıntısı vurur', p.hp < hp0, `hp ${p.hp}`); }
+  { const p = arena(606, 6); p.inp = { x: 1, y: 0, mag: 1 }; run(1.2); p.inp = { x: 0, y: 0, mag: 0 }; run(2);
+    const e = spawnEnemy('chronoling', p.x, p.y - 20, 3); e.emergeT = 0; e.rewindCd = 0.1; const xb = p.x; run(0.5);
+    ok('Zaman Gözü geri sarar', Math.abs(p.x - xb) > 10, `${xb.toFixed(0)} → ${p.x.toFixed(0)}`); }
+  { const p = arena(607); const e = spawnEnemy('leech', p.x + 12, p.y, 3); e.emergeT = 0; e.atkCd = 0; const m0 = e.maxHp; e.hp = m0 * 0.5; run(2.5);
+    ok('Kan Sülüğü kan emer ve büyür', p.bleedT > 0 && e.scale > 1 && e.hp > m0 * 0.5, `scale ${e.scale} bleed ${p.bleedT}`); }
+  { const p = arena(608); const e = spawnEnemy('echoer', p.x + 40, p.y, 3); e.emergeT = 0; G.threat.noise = 20; run(4);
+    ok('Yankıcı uluması ölçeri yükseltir', G.threat.noise > 20, `${G.threat.noise}`); }
+  { const p = arena(609); const e = spawnEnemy('seraph', p.x + 60, p.y - 10, 3); e.emergeT = 0; e.judgeCd = 0; e.blindCd = 99; const hp0 = p.hp; run(1.5);
+    ok('Işık Bekçisi yargı ışını', p.hp < hp0 && p.blindT > 0, `hp ${p.hp}`); }
+  ok('yeni düşmanlar deterministik', (() => { const h = []; for (let i = 0; i < 2; i++) { const p = arena(610, 6); for (const t of ['quickling', 'voltbat', 'gilded', 'sporeling', 'mirrorling', 'titanling', 'chronoling', 'leech', 'echoer', 'seraph']) { const e = spawnEnemy(t, p.x + 20 + (h.length * 0), p.y, 4); e.emergeT = 0; } run(6); h.push(hash()); } return h[0] === h[1]; })());
 }
 
 console.log(`\n${checks - fails}/${checks} kontrol geçti${fails ? `, ${fails} HATA` : ''}`);

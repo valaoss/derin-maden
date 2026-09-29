@@ -754,6 +754,49 @@ const HEART = [
   '....kxzk....',
   '.....kk.....',
 ];
+// efsanevi eser taşı: altın çerçeveli, içi ışık
+const RELIC = [
+  '....kkkk....',
+  '..kkGGGGkk..',
+  '.kGGWWWWGGk.',
+  '.kGWWZZWWGk.',
+  'kGGWZZZZWGGk',
+  'kGGWZZZZWGGk',
+  'kGGWWZZWWGGk',
+  '.kGGWWWWGGk.',
+  '.kGGgGGgGGk.',
+  '..kkGGGGkk..',
+  '...kkggkk...',
+  '....kkkk....',
+];
+// Arkentaş: oval, içi ışık ve buz mavisi damarlar; iki karede parıltı yer değiştirir
+const ARKEN_A = [
+  '....kkkkkk....',
+  '..kkBBWWBBkk..',
+  '.kBWWZWWWWBk..',
+  'kBWZZWWBWWWBk.',
+  'kBWZWWWWBWWBk.',
+  'kBWWWBWWWZWBk.',
+  'kBWWWWBWZZWBk.',
+  '.kBWWWWWWZWBk.',
+  '..kBBWWWWBBk..',
+  '...kkkBBkkk...',
+  '.....kkkk.....',
+];
+const ARKEN_B = [
+  '....kkkkkk....',
+  '..kkBBWWBBkk..',
+  '.kBWWWWWZWBk..',
+  'kBWWWBWWZZWBk.',
+  'kBWWBWWWWZWBk.',
+  'kBWZWWWBWWWBk.',
+  'kBWZZWBWWWWBk.',
+  '.kBWZWWWWWWBk.',
+  '..kBBWWWWBBk..',
+  '...kkkBBkkk...',
+  '.....kkkk.....',
+];
+const ARKEN_PAL = { B: '#8ab4d8', W: '#e8f4ff', Z: '#ffffff' };
 const SATCHEL = [
   '..kkkk..',
   '.kk..kk.',
@@ -846,6 +889,18 @@ const ICONS = {
   shock: [
     '....kkkk..', '...kYYYk..', '..kYYYk...', '.kYYYkkk..', 'kYYYYYYk..',
     'kkkYYYk...', '..kYYk....', '.kYYk.....', '.kYk......', '.kk.......'],
+  crown: [
+    '..........', '.k..kk..k.', 'kGkkGGkkGk', 'kGGkGGkGGk', 'kGGGGGGGGk',
+    'kGRGGGGRGk', 'kGGGGGGGGk', 'kGGGGGGGGk', 'kkkkkkkkkk', '..........'],
+  spark: [
+    '....k.....', '...kYk....', '.k.kYk.k..', '..kkYkk...', 'kYYYWYYYk.',
+    '..kkYkk...', '.k.kYk.k..', '...kYk....', '....k.....', '..........'],
+  arken: [
+    '..........', '...kkkk...', '..kBWWBk..', '.kBWZWWBk.', '.kWWWZWWk.',
+    '.kWZWWWWk.', '.kBWWWZBk.', '..kBWWBk..', '...kkkk...', '..........'],
+  gear: [
+    '...k..k...', '..kmkkmk..', '.kmmmmmmk.', 'kkmmkkmmkk', '.kmk..kmk.',
+    '.kmk..kmk.', 'kkmmkkmmkk', '.kmmmmmmk.', '..kmkkmk..', '...k..k...'],
   chest: [
     '..........', '.kkkkkkkk.', 'kHHHHHHHHk', 'kmmmmmmmmk', 'khhhGGhhhk',
     'khhhGkhhhk', 'kmmmmmmmmk', 'kHhhhhhhHk', '.kkkkkkkk.', '..........'],
@@ -956,7 +1011,7 @@ export function iconURL(name, scale = 1) {
   if (ORE_ICON_SHAPES[name]) {
     const r = ORE_RAMP[name];
     s = makeSprite(ORE_ICON_SHAPES[name], { a: r[0], b: r[1], c: r[2], d: r[3] });
-  } else s = makeSprite(ICONS[name] || ICONS.gem, { C: '#e070ff', V: '#9030c8', Y: P.helm, O: '#ff9a4a', F: '#e0502a', I: '#bff4ff', D: '#3a7ac8' });
+  } else s = makeSprite(ICONS[name] || ICONS.gem, { C: '#e070ff', V: '#9030c8', Y: P.helm, O: '#ff9a4a', F: '#e0502a', I: '#bff4ff', D: '#3a7ac8', B: '#8ab4d8', Z: '#ffffff' });
   let cv = s.cv;
   if (scale > 1) {
     cv = document.createElement('canvas'); cv.width = s.w * scale; cv.height = s.h * scale;
@@ -1024,6 +1079,9 @@ export function buildSprites() {
   SPR.echoer = [makeSprite(ECHOER_A, ECHOER_PAL, 'rW'), makeSprite(ECHOER_B, ECHOER_PAL, 'rW')];
   SPR.seraph = [makeSprite(SERAPH_A, SERAPH_PAL, 'eEH'), makeSprite(SERAPH_B, SERAPH_PAL, 'eEH')];
   SPR.chest = makeSprite(CHEST, { G: '#ffd24a' }, 'G');
+  SPR.relic = makeSprite(RELIC, { G: '#ffd24a', g: '#a8701e', W: '#fff4c0', Z: '#ffffff' }, 'WZ');
+  SPR.droplet = SPR.quickling;
+  SPR.arken = [makeSprite(ARKEN_A, ARKEN_PAL, 'BWZ'), makeSprite(ARKEN_B, ARKEN_PAL, 'BWZ')];
   SPR.heart = makeSprite(HEART, { x: '#ff3a6a', X: '#ff8aa8', Z: '#ffffff', z: '#a01a40' }, 'xXZz');
   SPR.satchel = makeSprite(SATCHEL, { G: '#ffd24a' }, 'G');
   SPR.worm = [makeSprite(WORM_HEAD_A, WORM_PAL, 'r'), makeSprite(WORM_HEAD_B, WORM_PAL, 'r')];

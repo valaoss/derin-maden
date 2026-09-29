@@ -177,16 +177,18 @@ export const ENEMIES = {
   voidling:    { name: 'Boşluk Gözü', hp: 52, speed: 30, dmg: 15, r: 5, fly: true, blink: true, blinkCd: 3.6, cost: 3.5 },
   ogolem:      { name: 'Obsidyen Devi', hp: 280, speed: 18, dmg: 30, r: 9, armor: 0.55, dig: 99, digRate: 6, knockResist: 0.9, cost: 8 },
   // v5 derin biyom imza düşmanları (yalnız kendi biyomunun yuvalarından çıkar; loot: ölünce düşen cevher)
-  quickling:  { name: 'Cıva Damlası', hp: 70, speed: 50, dmg: 22, r: 5, boom: 24, cost: 3 },
-  voltbat:    { name: 'Yıldırım Yarasası', hp: 60, speed: 70, dmg: 12, r: 4, fly: true, blind: true, blindRange: 40, blindCd: 5, cost: 3 },
-  gilded:     { name: 'Altın Muhafız', hp: 340, speed: 20, dmg: 32, r: 9, armor: 0.6, dig: 99, digRate: 5, knockResist: 0.9, stomp: true, loot: [['gold', 4]], cost: 9 },
-  sporeling:  { name: 'Spor Böceği', hp: 95, speed: 30, dmg: 14, r: 6, armor: 0.3, ranged: true, web: true, range: 70, fireCd: 2.2, cost: 4 },
-  mirrorling: { name: 'Cam Gölgesi', hp: 70, speed: 50, dmg: 18, r: 4, phase: true, cost: 3.5 },
-  titanling:  { name: 'Dev Parçası', hp: 280, speed: 19, dmg: 34, r: 9, armor: 0.5, dig: 99, digRate: 5, knockResist: 0.9, stomp: true, loot: [['crystal', 2], ['iron', 2]], cost: 9 },
-  chronoling: { name: 'Zaman Gözü', hp: 85, speed: 32, dmg: 20, r: 5, fly: true, blink: true, blinkCd: 2.6, cost: 4.5 },
-  leech:      { name: 'Kan Sülüğü', hp: 140, speed: 26, dmg: 16, r: 6, armor: 0.25, burrow: true, dig: 99, digRate: 7, knockResist: 0.75, loot: [['iron', 3]], cost: 5 },
-  echoer:     { name: 'Yankıcı', hp: 95, speed: 32, dmg: 14, r: 6, howl: true, howlRange: 110, howlCd: 5.5, cost: 4 },
-  seraph:     { name: 'Işık Bekçisi', hp: 120, speed: 42, dmg: 16, r: 5, fly: true, blind: true, blindRange: 52, blindCd: 4, loot: [['crystal', 1]], cost: 5 },
+  // derin biyom imzaları: her birinin kendine özgü davranışı var (enemies.js)
+  quickling:  { name: 'Cıva Damlası', hp: 70, speed: 50, dmg: 22, r: 5, boom: 24, split: 'droplet', cost: 3 },                       // yarı canda ikiye bölünür
+  droplet:    { name: 'Cıva Damlacığı', hp: 16, speed: 64, dmg: 9, r: 3, boom: 12, small: true, cost: 0.6 },
+  voltbat:    { name: 'Yıldırım Yarasası', hp: 60, speed: 70, dmg: 12, r: 4, fly: true, zap: true, zapRange: 64, zapCd: 2.8, cost: 3 }, // yıldırım çarpar, kazmanı kilitler
+  gilded:     { name: 'Altın Muhafız', hp: 340, speed: 20, dmg: 32, r: 9, armor: 0.6, dig: 99, digRate: 5, knockResist: 0.9, stomp: true, thief: 3, loot: [['gold', 4]], cost: 9 }, // vurduğunda altın çalar
+  sporeling:  { name: 'Spor Böceği', hp: 95, speed: 30, dmg: 14, r: 6, armor: 0.3, ranged: true, web: true, range: 70, fireCd: 2.2, puff: 4.5, cost: 4 }, // spor bulutu: dostları iyileştirir, seni yavaşlatır
+  mirrorling: { name: 'Cam Gölgesi', hp: 70, speed: 50, dmg: 18, r: 4, phase: true, mirror: 6, cost: 3.5 },                          // vurulunca cam kopyalar çıkarır
+  titanling:  { name: 'Dev Parçası', hp: 280, speed: 19, dmg: 34, r: 9, armor: 0.5, dig: 99, digRate: 5, knockResist: 0.9, stomp: true, quake: 5, quakeRange: 80, loot: [['crystal', 2], ['iron', 2]], cost: 9 }, // yere vurur: sarsıntı + tavan çöker
+  chronoling: { name: 'Zaman Gözü', hp: 85, speed: 32, dmg: 20, r: 5, fly: true, blink: true, blinkCd: 2.6, rewind: 6, rewindRange: 110, cost: 4.5 }, // seni 3 sn önceki yerine geri sarar
+  leech:      { name: 'Kan Sülüğü', hp: 140, speed: 26, dmg: 16, r: 6, armor: 0.25, burrow: true, dig: 99, digRate: 7, knockResist: 0.75, drain: true, loot: [['iron', 3]], cost: 5 }, // ısırınca kan emer: iyileşir ve büyür, sen kanarsın
+  echoer:     { name: 'Yankıcı', hp: 95, speed: 32, dmg: 14, r: 6, howl: true, howlRange: 110, howlCd: 5.5, echoNoise: 10, cost: 4 }, // ulumasi ölçeri yükseltir, sürüyü hızlandırır
+  seraph:     { name: 'Işık Bekçisi', hp: 120, speed: 42, dmg: 16, r: 5, fly: true, blind: true, blindRange: 52, blindCd: 4, judge: 5, judgeRange: 120, loot: [['crystal', 1]], cost: 5 }, // yargı ışını: nişan alır, kaçmazsan çarpar
 };
 
 // Elit: Öfke seviyesinde yuvalardan şansla çıkar (can ×2.2, boyut ×1.25, altın düşürür)
@@ -242,6 +244,16 @@ export const PERKS = {
   altinDamar:   { name: 'Altın Damarı', icon: 'gold', desc: 'Elit düşmanlar iki kat altın düşürür.' },
   dorduncuYuva: { name: 'Dördüncü Yuva', icon: 'nova', desc: 'Blaster eklenti yuvası +1.' },
 };
+
+// Efsanevi eserler: efsanevi biyomların kalbinde tek bir eser taşı; kırınca kalıcı olarak senindir (kamp rafında durur, her seferde çalışır)
+export const RELICS = {
+  tac:      { name: 'Altın Taç', icon: 'crown', biome: 12, desc: 'Kazdığın sıradan kaya %10 ihtimalle altın düşürür; sefere +12 altınla başlarsın. Başında taç parlar.', lore: 'Altın Saray’ın tahtında.' },
+  kalp:     { name: 'Devin Kalbi', icon: 'heart', biome: 15, desc: 'Azami can +40. Bayılacağın an nabız dalgası yayılır: düşmanlar savrulur, yarı canla ayakta kalırsın (her seferde bir kez).', lore: 'Uyuyan Dev’in göğsünde.' },
+  arken:    { name: 'Arkentaş', icon: 'arken', biome: 18, desc: 'Dağın kalbi. Görüşün +3 blok, cevherler karanlıkta parıldar; ışığına giren düşman yarı hıza düşer. Göğsünde yanar.', lore: 'Yankı Boşluğu’nun karanlığında, kayaya gömülü; ışığı uzaktan sızar.' },
+  kivilcim: { name: 'Yaratılış Kıvılcımı', icon: 'spark', biome: 19, desc: 'Kazman iki kat vurur ve ışık saçar; kırdığın her blok yakındaki düşmanı 12 yakar.', lore: 'Yaratılış Çekirdeği’nde, Kalp’in yanında.' },
+};
+export const RELIC_KEYS = Object.keys(RELICS);
+export const RELIC_OF_BIOME = Object.fromEntries(RELIC_KEYS.map(k => [RELICS[k].biome, k]));
 
 // Sefer içi asansör: merkez şaft, ulaşılan her biyomda istasyon
 export const ELEVATOR = { speed: 230, snap: 7, noise: 3 };

@@ -3,11 +3,11 @@
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y, GROUND_ROW, PLAYER_MIN_Y, WORLD_W, BASE_X, BASE_Y, stratumOfRow, depthOfY } from '../config.js';
 import { T, TD, isMineable, isPlain } from '../data/tiles.js';
-import { PLAYER, UPGRADES, PERKS, RES_KEYS, PICK_TIERS } from '../data/balance.js';
+import { PLAYER, UPGRADES, PERKS, RES_KEYS, PICK_TIERS, RELIC_OF_BIOME } from '../data/balance.js';
 import { RES_COL } from '../data/palette.js';
-import { G, App } from './state.js';
+import { G, App, biomeOf } from './state.js';
 import { tileAt, solidAt, setTile, damageTile, matOf } from '../world/map.js';
-import { hasPerk, bagCount, recompute, unlockSchematic, hear, isLocal, pickDmg, pickInterval, roleOf } from './run.js';
+import { hasPerk, hasRelic, bagCount, recompute, unlockSchematic, hear, isLocal, pickDmg, pickInterval, roleOf } from './run.js';
 import { HAZARD } from '../data/balance.js';
 import { perkChoices } from './economy.js';
 import { spawnGas } from './hazards.js';
@@ -99,6 +99,8 @@ function updateOne(p, dt) {
   if (p.hasteT > 0) p.hasteT -= dt;
   if (p.webT > 0) p.webT -= dt;
   if (p.burnT > 0) { p.burnT -= dt; p.burnTick = (p.burnTick || 0) - dt; if (p.burnTick <= 0) { p.burnTick = 0.5; poisonPlayer(p, 2); } }
+  // kanama (Kan Sülüğü ısırığı): yavaş can kaybı, kırmızı damlalar
+  if (p.bleedT > 0) { p.bleedT -= dt; p.bleedTick = (p.bleedTick || 0) - dt; if (p.bleedTick <= 0) { p.bleedTick = 0.5; poisonPlayer(p, 1.5); particle(p.x + (rnd() - 0.5) * 6, p.y + 2, 0, 20, 0.5, '#e02a3a', 1, 0, 200); } }
   if (p.hitTile && (p.hitTile.t -= dt) <= 0) p.hitTile = null;
   if (p.digAnim > 0) p.digAnim = Math.max(0, p.digAnim - dt * 6);
   if (p.squash > 0) p.squash = Math.max(0, p.squash - dt * 5);
@@ -115,6 +117,8 @@ function updateOne(p, dt) {
     return;
   }
   if (p.ride) { updateRide(p, dt); return; }
+  // son 3 sn'lik konum izi (Zaman Gözü seni buraya geri sarar)
+  if (G.frame % 6 === 0) { const h = p.hist || (p.hist = []); h.push(p.x, p.y); if (h.length > 60) h.splice(0, 2); }
   const mv = p.inp;
   const sp = playerSpeed(p);
   p.moving = mv.mag > 0.05;
@@ -226,7 +230,7 @@ function digHit(p, t) {
     breakTile(t.c, t.r, p, t.dx, t.dy);
     if (hasPerk('zincir') && rnd() < 0.35) {
       const nc = t.c + t.dx, nr = t.r + t.dy, nt = tileAt(nc, nr);
-      if (isMineable(nt) && !TD[nt].chest && !TD[nt].heart) breakTile(nc, nr, p, t.dx, t.dy);
+      if (isMineable(nt) && !TD[nt].chest && !TD[nt].heart && !TD[nt].relic) breakTile(nc, nr, p, t.dx, t.dy);
     }
   } else if (d.hp >= 6) {
     if (isLocal(p)) haptic(4);
@@ -300,6 +304,11 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
     sparks(x, y, '#fff0a0', 24, 140); ring(x, y, '#ffd24a', 40); flashLight(x, y, 9, 0.8); hitstop(0.1); if (local) shake(0.3); sfx.chest();
   }
   if (d.gate && local) emit('toast', { text: 'Saray kapısı açıldı', icon: 'chest' });
+  if (d.relic) takeRelic(p, x, y, typeof d.relic === 'string' ? d.relic : RELIC_OF_BIOME[biomeOf(stratumOfRow(r))]);
+  // Altın Taç: sıradan kaya bazen altın verir
+  if (d.plain && hasRelic('tac') && rnd() < 0.1) { spawnOrb(x, y, 'gold'); sparks(x, y, '#ffd870', 8, 80); flashLight(x, y, 3, 0.3); if (near) sfx.oreReveal(); }
+  // Yaratılış Kıvılcımı: her kırılan blok yakındaki düşmanı yakar
+  if (hasRelic('kivilcim')) { sparks(x, y, '#fff0a0', 4, 70); for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - x, e.y - y) < 40) damageEnemyExt(e, 12, 0, 0, 0.2); }
   if (d.ore) {
     if (near) sfx.oreReveal();
     const n = d.amt + (hasPerk('damar') && !d.iceDrop ? 1 : 0);
@@ -323,6 +332,24 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
     hitstop(0.12); if (local) shake(0.45); sfx.chest();
     sparks(x, y, '#ff3a6a', 24, 140); ring(x, y, '#ff8aa8', 30); flashLight(x, y, 8, 0.8);
     emit('heart');
+  }
+}
+
+// efsanevi eser: kalıcı (App.meta), sefer içinde hemen etkin; ikinci kez bulunursa altın yağmuru
+function takeRelic(p, x, y, k) {
+  hitstop(0.25); if (isLocal(p)) { shake(0.6); haptic([40, 60, 120]); }
+  G.flashWhite = Math.max(G.flashWhite, 0.45);
+  ring(x, y, '#ffd870', 64); ring(x, y, '#ffffff', 40); sparks(x, y, '#ffd870', 40, 190); sparks(x, y, '#ffffff', 16, 130); flashLight(x, y, 12, 1.4);
+  if (k && !hasRelic(k)) {
+    G.meta.relics = (G.meta.relics || []).concat(k);
+    const lm = App.meta; lm.relics = lm.relics || []; if (!lm.relics.includes(k)) lm.relics.push(k);
+    recompute();
+    if (k === 'tac') G.store.gold += 12;
+    sfx.victory();
+    emit('relic', { k, pi: p.i });
+  } else {
+    for (let i = 0; i < 6; i++) spawnOrb(x, y, 'gold'); for (let i = 0; i < 3; i++) spawnOrb(x, y, 'crystal');
+    sfx.chest(); emit('relic', { k, pi: p.i, again: true });
   }
 }
 
@@ -447,6 +474,15 @@ export function webPlayer(p, t) { if (!p.dead) { p.webT = Math.max(p.webT, t); i
 export function chillPlayer(p, t) { if (!p.dead) { p.slowT = Math.max(p.slowT, t); if (isLocal(p)) emit('chill'); } }
 
 function die(p) {
+  // Devin Kalbi: sefer başına bir kez, bayılmak yerine nabız dalgası
+  if (hasRelic('kalp') && !p.kalpUsed) {
+    p.kalpUsed = true; p.hp = Math.round(p.maxHp * 0.5); p.iframes = 2;
+    ring(p.x, p.y, '#ff5a6a', 72); ring(p.x, p.y, '#ffd0d0', 44); sparks(p.x, p.y, '#ff5a6a', 30, 170); flashLight(p.x, p.y, 10, 0.8); hitstop(0.15);
+    for (const e of G.enemies) { if (e.dead) continue; const ed = Math.hypot(e.x - p.x, e.y - p.y); if (ed < 90) damageEnemyExt(e, 30, (e.x - p.x) / (ed || 1), (e.y - p.y) / (ed || 1), 4); }
+    sfx.rumble(); if (isLocal(p)) { shake(0.6); haptic(60); }
+    emit('toast', { text: (isLocal(p) ? 'Devin Kalbi attı — ayaktasın' : 'Partnerinde Devin Kalbi attı'), icon: 'heart' });
+    return;
+  }
   p.hp = 0; p.dead = true; p.gone = false; p.reviveP = 0; p.autoUp = false; p.ride = null;
   p.downT = PLAYER.downTime;
   // kendi kendine kalkma hakkı: İkinci Nefes perk'i ya da Sağlık Sigortası (sefer başına bir kez)

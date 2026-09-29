@@ -152,6 +152,36 @@ export async function shareInvite(code) {
   try { await navigator.clipboard.writeText(url); return 'copied'; } catch (e) { return 'fail'; }
 }
 
+// Sefer içi yeniden bağlanma: iki taraf da tohumdan aynı kimliği türetir; ev sahibi bu kimlikle yeniden kayıt olur, misafir ona bağlanır.
+export function reconnectId(seed) { return PREFIX + 'rc-' + (seed >>> 0).toString(36); }
+function dropPeer() {
+  link.open = false;
+  try { link.conn && link.conn.close(); } catch (e) { /* yok */ }
+  try { link.peer && link.peer.destroy(); } catch (e) { /* yok */ }
+  link.conn = null; link.peer = null;
+}
+export function reconnectHost(id) {
+  return new Promise((resolve, reject) => {
+    dropPeer();
+    const peer = makePeer(id, () => resolve(), reject, () => reject(new Error('id')));
+    acceptIncoming(peer);
+  });
+}
+export function reconnectJoin(id, timeout = 6000) {
+  return new Promise((resolve, reject) => {
+    dropPeer();
+    let done = false;
+    const fail = e => { if (!done) { done = true; clearTimeout(to); reject(e); } };
+    const to = setTimeout(() => fail(new Error('timeout')), timeout);
+    const peer = makePeer(null, () => {
+      const c = peer.connect(id, CHAN);
+      bindConn(c);
+      c.on('open', () => { if (!done) { done = true; clearTimeout(to); resolve(); } });
+      peer.on('error', e => { if (e && e.type === 'peer-unavailable') fail(e); });
+    }, fail);
+  });
+}
+
 export function send(msg) { if (link.conn && link.open) { try { link.conn.send(msg); } catch (e) { /* kapandı */ } } }
 
 export function closeLink() {

@@ -28,8 +28,8 @@ import { ozForRun, CONTRACTS, ITEM_KEYS, MODS, PERKS, ROLES } from './data/balan
 import { STRATA } from './data/palette.js';
 import { todayKey } from './core/util.js';
 import { dispatch, CMD } from './game/commands.js';
-import { net, startLockstep, stopLockstep, sampleLocal, canStep, applyInputs, afterStep, netTick } from './net/lockstep.js';
-import { link, hostRoom, joinRoom, quickMatch, send, closeLink, codeFromURL, shareInvite } from './net/peer.js';
+import { net, startLockstep, stopLockstep, sampleLocal, canStep, applyInputs, afterStep, netTick, markLost, resync } from './net/lockstep.js';
+import { link, hostRoom, joinRoom, quickMatch, send, closeLink, codeFromURL, shareInvite, reconnectId, reconnectHost, reconnectJoin } from './net/peer.js';
 import * as UI from './ui/ui.js';
 
 App.meta = loadMeta();
@@ -147,13 +147,51 @@ on('netMsg', d => {
   }
 });
 function onPeerGone() {
-  if (App.scene === 'play' && G && G.mp && !G.over) { UI.toast('Partner ayrıldı', 'skull', true); endRun('abandon'); }
+  if (App.scene === 'play' && G && G.mp && !G.over) { if (net.bye) endRun('abandon'); else startReconnect(); }
   else if (App.scene === 'room') {
     if (lobby.host && !lobby.starting) { lobby.mate = null; lobby.me.ready = false; lobby.status = 'waiting'; UI.toast('Partner ayrıldı', 'skull', true); UI.showRoom(lobby); }
     else { UI.toast('Bağlantı koptu', 'skull', true); toMenu(); }
   }
 }
 on('desync', () => UI.toast('Senkron kaydı — sonuçlar farklı olabilir', 'skull', true));
+on('peerLeft', () => { if (App.scene === 'play' && G && G.mp && !G.over) { UI.toast('Partner ayrıldı', 'skull', true); endRun('abandon'); } });
+
+// ---------- sefer içi yeniden bağlanma ----------
+// Bağlantı kopunca sefer bitmez: 45 sn boyunca aynı tohumdan türeyen kimlikle yeniden buluşulur,
+// iki taraf son girdilerini değiş tokuş eder ve deterministik simülasyon kaldığı kareden sürer.
+const RECONNECT_T = 45;
+let recon = null;
+function startReconnect() {
+  if (recon) return;
+  recon = { t: RECONNECT_T };
+  markLost();
+  UI.toast('Bağlantı koptu — yeniden bağlanılıyor', 'skull', true);
+  link.onOpen = onReconnected;
+  link.onClose = onPeerGone;
+  reconnectLoop();
+}
+async function reconnectLoop() {
+  const id = reconnectId(G.seed), host = link.host;
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  while (recon && !link.open && App.scene === 'play' && G && G.mp && !G.over) {
+    try { if (host) { await reconnectHost(id); return; } await reconnectJoin(id); return; }
+    catch (e) { await wait(2500); }
+  }
+}
+function onReconnected() {
+  if (!recon) return;
+  recon = null;
+  UI.setNetStall('');
+  resync();
+  sfx.connect(); UI.toast('Bağlantı yeniden kuruldu', 'check');
+  if (!document.hidden) send({ t: 'away', v: false });
+}
+function reconnectTick(dt) {
+  if (!recon) return;
+  recon.t -= dt;
+  UI.setNetStall('BAĞLANTI KOPTU · ' + Math.ceil(Math.max(0, recon.t)) + ' SN');
+  if (recon.t <= 0) { recon = null; UI.toast('Partner geri dönmedi', 'skull', true); endRun('abandon'); }
+}
 
 function transition(fn) {
   UI.fade(true);
@@ -208,6 +246,7 @@ function startRun(cont, opts = {}) {
 function endRun(reason) {
   if (App.scene !== 'play' || G.over) return;
   G.over = true;
+  recon = null; UI.setNetStall('');
   if (G.mp) { send(['bye']); stopLockstep(); }
   const m = App.meta, s = G.stats;
   const victory = reason === 'victory';
@@ -406,7 +445,8 @@ function tick(now, bg) {
       }
       acc += netTick(dt, blocked);
       if (acc > STEP * 2) acc = STEP * 2;   // beklemeden çıkınca sıçrama yok: en fazla iki adım birikir
-      UI.setNetStall(net.stallT > 0.4 ? (mateAway ? 'PARTNER UZAKLAŞTI' : 'PARTNER BEKLENİYOR · ' + Math.round(net.rtt) + 'ms') : '');
+      if (recon) reconnectTick(dt);
+      else UI.setNetStall(net.stallT > 0.4 ? (mateAway ? 'PARTNER UZAKLAŞTI' : 'PARTNER BEKLENİYOR · ' + Math.round(net.rtt) + 'ms') : '');
     } else {
       while (acc >= STEP && n++ < 6) { feedLocalInput(); step(STEP); acc -= STEP; }
       if (n >= 6) acc = 0;
@@ -496,6 +536,8 @@ if (import.meta.env.DEV) window.__dm = {
   get G() { return G; }, App, UI, hooks, step, render, view, input, net, link, pred,
   spawn(type, c, r) { const e = spawnEnemy(type, c * TILE + 8, r * TILE + 8, 1 + G.maxStratum); e.emergeT = 0; return e; },
   noise(v) { G.threat.noise = v; },
+  dropLink() { try { link.conn && link.conn.close(); } catch (e) { /* yok */ } },
+  get recon() { return recon; },
   put(c, r, t) { const i = r * 17 + c; G.map[i] = t; G.dmg[i] = 0; G.dirty.push(c, r); G.mapVersion++; },
   tick(sec) {
     const n = Math.round(sec / STEP);

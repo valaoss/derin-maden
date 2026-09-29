@@ -8,7 +8,7 @@ import { G, biomeOf } from '../game/state.js';
 import { SPR, sprCanvas, sprEm, glowSprite, playerSprites, HELMETS } from './sprites.js';
 import { drawTiles, flushDirty } from './tiles.js';
 import { computeLight, lightWin, lightSourcesFor, glowTileSources } from '../world/light.js';
-import { lampTiles, hasPerk, hasMod } from '../game/run.js';
+import { lampTiles, hasPerk, hasMod, hasRelic } from '../game/run.js';
 import { bubbleFor } from '../ui/ui.js';
 import { canary } from '../game/canary.js';
 import { pred } from '../net/predict.js';
@@ -539,6 +539,8 @@ function drawTileOverlays(r0, r1) {
     else if (t === T.CHEST) spr(SPR.chest, x + 8, y + 9);
     else if (t === T.NEST) { const n = G.nests.find(q => q.c === c && q.r === r); const aw = n && n.awake; const fr = aw ? Math.floor(G.time * 6) % 2 : Math.floor(G.time * 1.5) % 2; const j = n && n.burst > 0 ? ((Math.floor(G.time * 30) % 2) ? 1 : -1) : 0; ctx.drawImage(SPR.nest[fr].cv, x + j, y); }
     else if (t === T.HEART) spr(SPR.heart, x + 8, y + 8 + Math.round(Math.sin(G.time * 2) * 1));
+    else if (t === T.RELIC) spr(SPR.relic, x + 8, y + 8 + Math.round(Math.sin(G.time * 1.6) * 1));
+    else if (t === T.ARKEN) spr(SPR.arken[Math.floor(G.time * 3) % 2], x + 8, y + 8);
     if (TD[t].solid && G.dmg[r * COLS + c] > 0) {
       const f = tileDamage01(c, r);
       const j = (c === hc && r === hr) ? hj : 0;
@@ -758,8 +760,20 @@ function drawEnemy(e, alpha, camY, vh) {
     const L = lightAtTile(Math.floor(x / TILE), Math.floor(y / TILE));
     ctx.globalAlpha = clamp((L - 0.12) * 2.2, 0, 1);
   }
+  // cam kopya: yarı saydam, ara sıra titrer
+  if (e.illusion) ctx.globalAlpha = 0.62 + (Math.floor(G.time * 9 + e.wob) % 3 === 0 ? 0.2 : 0);
   sprScaled(f, ox, feet, sx, sy, flip, e.hitT > 0);
   ctx.globalAlpha = 1;
+  // Işık Bekçisi nişanı: oyuncuya kesik çizgi, süre dolarken sıklaşır
+  if (e.beamT > 0) {
+    const q = G.players[e.beamP];
+    if (q) {
+      const k = 1 - e.beamT / 0.9, n = 6 + Math.floor(k * 10);
+      ctx.fillStyle = Math.floor(G.time * (8 + k * 30)) % 2 ? '#fff4c0' : '#ffd870';
+      for (let i = 1; i < n; i++) { const t2 = i / n; ctx.fillRect(Math.round(x + (q.x - x) * t2), Math.round(y - 2 + (q.y - 4 - y + 2) * t2), 1, 1); }
+      ctx.fillStyle = '#fff4c0'; ctx.fillRect(Math.round(q.x) - 3, Math.round(q.y) - 4, 7, 1); ctx.fillRect(Math.round(q.x), Math.round(q.y) - 7, 1, 7);
+    }
+  }
   if (e.slowT > 0) {
     ctx.fillStyle = '#bff4ff';
     for (let i = 0; i < 3; i++) ctx.fillRect(Math.round(ox - f.w / 2 + hash2(i, Math.floor(G.time * 5), 3) * f.w), Math.round(oy - f.h / 2 + hash2(i, Math.floor(G.time * 5), 7) * f.h), 1, 1);
@@ -821,6 +835,15 @@ function drawPlayer(p, alpha) {
   if (p.slowT > 0) { ctx.fillStyle = '#bff4ff'; for (let i = 0; i < 3; i++) ctx.fillRect(x - 5 + Math.floor(hash2(i, Math.floor(G.time * 6), 5) * 11), top + Math.floor(hash2(i, Math.floor(G.time * 6), 9) * 13), 1, 1); }
   if (p.burnT > 0) { const fl = Math.floor(G.time * 12) % 2; ctx.fillStyle = '#ff9a4a'; ctx.fillRect(x - 2, top - 3 - fl, 2, 3); ctx.fillRect(x + 2, top - 2 + fl, 2, 3); ctx.fillStyle = '#ffe79a'; ctx.fillRect(x - 2, top - 1 - fl, 1, 1); ctx.fillRect(x + 2, top + fl, 1, 1); }
   if (p.carrying) spr(SPR.heart, x, top - 11 + Math.round(Math.sin(G.time * 4)));
+  // Arkentaş: göğüste beyaz-mavi taş
+  if (hasRelic('arken')) { ctx.fillStyle = P.ink; ctx.fillRect(x - 2 + (flip ? -1 : 0), top + 8, 4, 4); ctx.fillStyle = '#8ab4d8'; ctx.fillRect(x - 1 + (flip ? -1 : 0), top + 9, 2, 2); ctx.fillStyle = Math.floor(G.time * 5) % 2 ? '#ffffff' : '#e8f4ff'; ctx.fillRect(x - 1 + (flip ? -1 : 0), top + 9, 1, 1); }
+  // Altın Taç: kaskın üstünde üç dişli taç, kırmızı taş
+  if (hasRelic('tac')) {
+    const cy = top - 2 + (p.up ? 1 : 0);
+    ctx.fillStyle = P.ink; ctx.fillRect(x - 4, cy - 3, 9, 5);
+    ctx.fillStyle = '#ffd24a'; ctx.fillRect(x - 3, cy, 7, 1); ctx.fillRect(x - 3, cy - 2, 1, 2); ctx.fillRect(x, cy - 2, 1, 2); ctx.fillRect(x + 3, cy - 2, 1, 2);
+    ctx.fillStyle = Math.floor(G.time * 4) % 2 ? '#ff5a6a' : '#fff4c0'; ctx.fillRect(x, cy - 1, 1, 1);
+  }
   // korku: baş üstünde titrek ünlem
   if (p.fearT > 0 && Math.floor(G.time * 8) % 2 === 0) { ctx.fillStyle = '#c08ab0'; ctx.fillRect(x - 1, top - 9, 2, 5); ctx.fillRect(x - 1, top - 3, 2, 2); }
 }
@@ -968,6 +991,11 @@ function drawEmissive(r0, r1, alpha, opts) {
       if (((t * 2 + p.i) % 1.7) < 0.1) { ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(ph.x) - 1, Math.round(ph.y), 3, 1); ctx.fillRect(Math.round(ph.x), Math.round(ph.y) - 1, 1, 3); }
     }
     if (p.recallT > 0) glow(x, y, 'rgba(159,232,255,0.4)', 18, 0.6 + Math.sin(t * 12) * 0.3);
+    // eserler: taç parıltısı, Devin Kalbi nabzı, Yaratılış Kıvılcımı kazma ışığı
+    if (hasRelic('tac')) glow(x, y - 12, 'rgba(255,210,74,0.35)', 8, 0.6 + Math.sin(t * 3 + p.i) * 0.3);
+    if (hasRelic('arken')) { glow(x, y, 'rgba(210,235,255,0.35)', 22, 0.7 + Math.sin(t * 2.2 + p.i) * 0.3); glow(x, y - 1, 'rgba(255,255,255,0.6)', 5, 1); if (((t * 1.5 + p.i) % 1.1) < 0.12) { ctx.fillStyle = '#ffffff'; const ax = Math.round(x + (hash2(p.i, Math.floor(t * 1.5), 2) - 0.5) * 18), ay = Math.round(y - 2 + (hash2(p.i, Math.floor(t * 1.5), 4) - 0.5) * 18); ctx.fillRect(ax - 1, ay, 3, 1); ctx.fillRect(ax, ay - 1, 1, 3); } }
+    if (hasRelic('kalp') && !p.kalpUsed) { const hb = (t * 1.3 + p.i) % 1; glow(x, y, 'rgba(255,60,90,0.28)', Math.round(12 + (hb < 0.15 ? 8 : hb < 0.3 ? 4 : 0)), hb < 0.3 ? 1 : 0.5); }
+    if (hasRelic('kivilcim') && p.pickHead) { const ph = p.pickHead; glow(ph.x, ph.y, 'rgba(255,240,160,0.6)', 10, 0.7 + Math.sin(t * 9 + p.i) * 0.3); if (Math.floor(t * 10 + p.i) % 3 === 0) { ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(ph.tx) - 1, Math.round(ph.ty), 3, 1); ctx.fillRect(Math.round(ph.tx), Math.round(ph.ty) - 1, 1, 3); } }
     if ((G.gear.active.overdrive || 0) > 0) { const sp2 = shoulderPos(p); glow(sp2.x, sp2.y, 'rgba(255,231,154,0.5)', 10, 0.6 + Math.sin(t * 25) * 0.4); }
   }
   // yıldırım sıçramaları (zincir eklentisi)
@@ -975,13 +1003,14 @@ function drawEmissive(r0, r1, alpha, opts) {
     const k = z.t / 0.12;
     ctx.globalAlpha = k;
     const mx = (z.x0 + z.x1) / 2 + Math.round((hash2(Math.floor(t * 40), 1, 3) - 0.5) * 6), my = (z.y0 + z.y1) / 2 + Math.round((hash2(Math.floor(t * 40), 2, 3) - 0.5) * 6);
-    pline(z.x0, z.y0, mx, my, '#bff4ff'); pline(mx, my, z.x1, z.y1, '#bff4ff');
-    pline(z.x0, z.y0 + 1, mx, my + 1, 'rgba(120,200,255,0.5)'); pline(mx, my + 1, z.x1, z.y1 + 1, 'rgba(120,200,255,0.5)');
+    const zc = z.col || '#bff4ff';
+    pline(z.x0, z.y0, mx, my, zc); pline(mx, my, z.x1, z.y1, zc);
+    pline(z.x0, z.y0 + 1, mx, my + 1, z.col ? 'rgba(255,230,160,0.5)' : 'rgba(120,200,255,0.5)'); pline(mx, my + 1, z.x1, z.y1 + 1, z.col ? 'rgba(255,230,160,0.5)' : 'rgba(120,200,255,0.5)');
     ctx.globalAlpha = 1;
-    glow(z.x1, z.y1, 'rgba(150,220,255,0.5)', 6, k);
+    glow(z.x1, z.y1, z.col ? 'rgba(255,240,180,0.6)' : 'rgba(150,220,255,0.5)', z.col ? 10 : 6, k);
   }
   // cevher parıltıları ve sandık/kalp
-  const sparkle = hasPerk('parlakFener');
+  const sparkle = hasPerk('parlakFener') || hasRelic('arken');
   for (let r = r0; r <= r1; r++) for (let c = 0; c < COLS; c++) {
     const tt = G.map[r * COLS + c], d = TD[tt];
     if (d.gem) { const f = 0.55 + Math.sin(t * 3 + c * 2 + r) * 0.3; glow(c * TILE + 8, r * TILE + 8, gemGlow(d.gem), 12, f); }
@@ -1010,6 +1039,21 @@ function drawEmissive(r0, r1, alpha, opts) {
     } else if (tt === T.HEART) {
       sprE(SPR.heart, c * TILE + 8, r * TILE + 8 + Math.round(Math.sin(t * 2)));
       glow(c * TILE + 8, r * TILE + 8, 'rgba(255,58,106,0.5)', 26, 0.7 + Math.sin(t * 2) * 0.2);
+    } else if (tt === T.ARKEN) {
+      // Arkentaş: dağın kalbi; beyaz-mavi nabız, dönen ışınlar ve etrafında süzülen kıvılcımlar
+      const rx = c * TILE + 8, ry = r * TILE + 8, pu = 0.75 + Math.sin(t * 2.2) * 0.25;
+      sprE(SPR.arken[Math.floor(t * 3) % 2], rx, ry);
+      glow(rx, ry, 'rgba(210,235,255,0.55)', 46, pu); glow(rx, ry, 'rgba(255,255,255,0.7)', 16, 0.8 + Math.sin(t * 7) * 0.2);
+      ctx.globalAlpha = 0.35 + Math.sin(t * 2.2) * 0.2;
+      for (let i = 0; i < 6; i++) { const a = t * 0.6 + i * Math.PI / 3, L = 18 + Math.sin(t * 3 + i) * 6; pline(rx + Math.cos(a) * 8, ry + Math.sin(a) * 6, rx + Math.cos(a) * L, ry + Math.sin(a) * L * 0.8, '#e8f4ff'); }
+      ctx.globalAlpha = 1;
+      for (let i = 0; i < 5; i++) { const a = t * 1.1 + i * 1.26, rr = 13 + Math.sin(t * 1.7 + i * 2) * 4; ctx.fillStyle = i % 2 ? '#ffffff' : '#bfe0ff'; ctx.fillRect(Math.round(rx + Math.cos(a) * rr), Math.round(ry + Math.sin(a) * rr * 0.7), 1, 1); }
+    } else if (tt === T.RELIC) {
+      const rx = c * TILE + 8, ry = r * TILE + 8 + Math.round(Math.sin(t * 1.6));
+      sprE(SPR.relic, rx, ry);
+      glow(rx, ry, 'rgba(255,220,120,0.5)', 30, 0.7 + Math.sin(t * 1.6) * 0.25);
+      // dönen ışık zerreleri
+      for (let i = 0; i < 4; i++) { const a = t * 1.5 + i * Math.PI / 2; ctx.fillStyle = i % 2 ? '#ffffff' : '#ffd870'; ctx.fillRect(Math.round(rx + Math.cos(a) * 11), Math.round(ry + Math.sin(a) * 6), 1, 1); }
     } else if (tt === T.VAULT) {
       // kilitli kaya rozeti nabız gibi parlar: "burada bir şey var"
       const L = lightAtTile(c, r); if (L < 0.06) continue;
@@ -1093,6 +1137,10 @@ function drawEmissive(r0, r1, alpha, opts) {
     if (e.type === 'magmite') glow(x, y, 'rgba(255,120,40,0.35)', 9, 0.6 + Math.sin(t * 8 + e.wob) * 0.3);
     if (e.type === 'voidling') { glow(x, y, 'rgba(120,100,255,0.35)', 12, 0.6 + Math.sin(t * 3 + e.wob) * 0.3); if (e.blinkT > 0) glow(x, y, 'rgba(200,190,255,0.8)', Math.round(26 * (1 - e.blinkT / 0.3) + 6), e.blinkT / 0.3); }
     if (e.type === 'frostbat') glow(x, y, 'rgba(160,220,255,0.2)', 8, 0.7);
+    if (e.type === 'voltbat') glow(x, y, 'rgba(90,160,255,0.35)', e.flashT > 0 ? 16 : 8, e.flashT > 0 ? 1 : 0.6 + Math.sin(t * 9 + e.wob) * 0.3);
+    if (e.type === 'seraph' && e.beamT > 0) glow(x, y, 'rgba(255,244,192,0.7)', Math.round(10 + (1 - e.beamT / 0.9) * 14), 1);
+    if (e.type === 'chronoling' && e.rewindCd < 0.8) glow(x, y, 'rgba(255,216,144,0.6)', 14, 1 - e.rewindCd / 0.8);
+    if (e.type === 'leech' && e.scale > 1.05) glow(x, y, 'rgba(220,40,60,0.3)', Math.round(8 * e.scale), 0.6);
     if (e.elite) { glow(x, y, 'rgba(255,210,74,0.35)', Math.round(14 * (e.scale || 1)), 0.6 + Math.sin(t * 5 + e.wob) * 0.3); if (((t * 3 + e.wob) % 1) < 0.15) { ctx.fillStyle = '#fff4c0'; ctx.fillRect(Math.round(x + (hash2(e.wob, Math.floor(t * 3), 2) - 0.5) * 16), Math.round(y - 4 + (hash2(e.wob, Math.floor(t * 3), 4) - 0.5) * 16), 1, 1); } }
   }
   // mermiler

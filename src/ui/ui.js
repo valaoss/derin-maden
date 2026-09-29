@@ -1,6 +1,6 @@
 // DOM arayüzü: HUD, atölye, perk seçimi, menüler, bildirimler, öğretici.
 import { TILE, GROUND_Y, stratumOfRow, STRATUM_ROWS } from '../config.js';
-import { UPGRADES, UPGRADE_KEYS, PICK_KEYS, MODS, MOD_KEYS, BUILDS, BUILD_KEYS, PERKS, META, META_KEYS, RES_KEYS, ENEMIES, ITEMS, ITEM_KEYS, CONTRACTS, KADEME, DEPLOY_MAX, ROLES, ROLE_KEYS, EVENTS } from '../data/balance.js';
+import { UPGRADES, UPGRADE_KEYS, PICK_KEYS, MODS, MOD_KEYS, BUILDS, BUILD_KEYS, PERKS, META, META_KEYS, RES_KEYS, ENEMIES, ITEMS, ITEM_KEYS, CONTRACTS, KADEME, DEPLOY_MAX, ROLES, ROLE_KEYS, EVENTS, RELICS, RELIC_KEYS } from '../data/balance.js';
 import { STRATA } from '../data/palette.js';
 import { G, App, biomeOf } from '../game/state.js';
 import { iconURL, HELMETS } from '../render/sprites.js';
@@ -115,6 +115,16 @@ export function initUI(root, h) {
   on('revived', () => toast('Ayaktasın', 'heart'));
   on('ping', d => { if (!G.mp) return; const p = G.players[d.pi]; if (d.pi !== G.localIdx) { toast((p && p.name || 'Partner') + ' işaret bıraktı', 'hand'); sfx.ping(); } else sfx.click(); });
   on('deployed', () => refreshHUD(true));
+  on('relic', d => {
+    const R = RELICS[d.k];
+    if (!R) return;
+    if (d.again) { toast('Eser zaten sende: altın yağmuru', 'gold'); return; }
+    saveMeta(App.meta);
+    banner('EFSANEVİ ESER', R.name.toUpperCase(), 'gold');
+    const who = d.pi === G.localIdx ? '' : (G.players[d.pi] && G.players[d.pi].name || 'Partner') + ' buldu · ';
+    setTimeout(() => toast(who + R.desc, R.icon), 2600);
+    refreshHUD(true);
+  });
   on('perkOffer', pi => { if (pi === G.localIdx) showPerks(); else toast('Partnerin bir kalıntı buldu', 'chest'); });
   on('perkTaken', d => { if (d.pi !== G.localIdx) toast('Partner seçti: ' + PERKS[d.k].name, PERKS[d.k].icon); });
   on('blind', () => { const f = $('#flash'); f.classList.remove('on'); void f.offsetWidth; f.classList.add('on'); });
@@ -280,7 +290,7 @@ let bannerTO = 0;
 export function banner(k, n, red) {
   const b = $('#banner');
   b.querySelector('.k').textContent = k; b.querySelector('.n').textContent = n;
-  b.className = red ? 'red' : '';
+  b.className = red === 'gold' ? 'gold' : red ? 'red' : '';
   void b.offsetWidth; b.classList.add('on');
   clearTimeout(bannerTO); bannerTO = setTimeout(() => b.classList.remove('on'), 2700);
 }
@@ -605,34 +615,40 @@ export function showRoom(L) {
 
 // ---------------- menü ----------------
 export function showMenu(hasSave) {
-  const m = App.meta;
+  const m = App.meta, S = App.settings;
   const s = $('#menu');
+  let k = Math.min(m.maxKademe | 0, m.lastKademe | 0);
+  const role = ROLES[S.role];
   s.innerHTML = `<div class="top"><div class="title">DERİN<small>MADEN</small></div><div class="subtitle">KAZ · SESSİZ KAL · DERİNE İN</div></div>
     <div class="stack">
+      <div class="mrow">
+        <button class="plate mchip" id="mMe">${helmDot(S.helm)}<span class="nm">${esc(S.name)}</span>${role ? ic(role.icon, 's') : ''}<span class="chev">›</span></button>
+        <button class="plate mchip sq" id="mSet" aria-label="Ayarlar">${ic('gear')}</button>
+      </div>
       ${hasSave ? `<button class="btn big" id="mCont">DEVAM ET</button><button class="btn dark" id="mNew">YENİ SEFER</button>` : `<button class="btn big" id="mNew">KAZMAYA BAŞLA</button>`}
-      ${m.maxKademe ? `<div class="plate kstep"><button class="kb" id="kDn" aria-label="Kademe azalt">◀</button><div class="kv">${ic('kademe', 's')}<span id="kName"></span><small id="kDesc"></small></div><button class="kb" id="kUp" aria-label="Kademe artır">▶</button></div>` : ''}
-      ${m.tutorialDone ? `<button class="btn dark" id="mDaily">${ic('daily')} GÜNÜN MADENİ${dailyLine()}</button>` : ''}
-      ${m.tutorialDone ? `<button class="btn dark" id="mCoop">${ic('hand')} BİRLİKTE KAZ${m.coopWins ? `<small class="dline">${m.coopWins} ZAFER</small>` : ''}</button>` : ''}
-      <div style="display:flex;gap:10px"><button class="btn dark" id="mCamp" style="flex:1">${ic('oz')} KAMP</button><button class="btn dark" id="mSet" style="flex:1">AYARLAR</button></div>
-      ${m.tutorialDone ? `<button class="plate toggle" id="mRole"><span>${ic(ROLES[App.settings.role] ? ROLES[App.settings.role].icon : 'drill', 's')} Rol · ${ROLES[App.settings.role] ? ROLES[App.settings.role].name : 'Seç'}</span><span class="chev">›</span></button>` : ''}
-      ${matchMedia('(pointer: fine)').matches ? '<div class="foot">WASD / Oklar: hareket ve kazı · P: duraklat</div>' : ''}
-      <div class="foot">${m.runs ? `Rekor <b>${m.bestDepth}m</b> · ${m.runs} sefer${m.wins ? ' · ' + m.wins + ' zafer' : ''} · <span class="ozline">${ic('oz', 's')}${m.oz}</span>` : 'Yuvaları yık, fenerleri dik, çekirdeğe in.'}</div>
+      ${m.maxKademe ? `<button class="plate mline" id="mK"><span>${ic('kademe', 's')}<b id="kName"></b><small id="kDesc"></small></span><span class="chev">›</span></button>` : ''}
+      ${m.tutorialDone ? `<div class="mrow three">
+        <button class="plate mtile" id="mCoop">${ic('hand', 'l')}<span>BİRLİKTE</span>${m.coopWins ? `<small class="dline">${m.coopWins} ZAFER</small>` : ''}</button>
+        <button class="plate mtile" id="mDaily">${ic('daily', 'l')}<span>GÜNÜN MADENİ</span>${dailyLine()}</button>
+        <button class="plate mtile" id="mCamp">${ic('oz', 'l')}<span>KAMP</span></button>
+      </div>` : ''}
+      <div class="foot">${m.tutorialDone ? relicShelf() : ''}${m.runs ? `Rekor <b>${m.bestDepth}m</b> · ${m.runs} sefer${m.wins ? ' · ' + m.wins + ' zafer' : ''} · <span class="ozline">${ic('oz', 's')}${m.oz}</span>` : 'Yuvaları yık, fenerleri dik, çekirdeğe in.'}</div>
     </div>`;
   s.classList.add('on');
-  let k = Math.min(m.maxKademe | 0, m.lastKademe | 0);
   const showK = () => { if (!$('#kName')) return; $('#kName').textContent = KADEME[k].name.toUpperCase(); $('#kDesc').textContent = k ? KADEME[k].desc.replace(/^\+ /, '') : 'Standart sefer'; };
-  if (m.maxKademe) {
-    showK();
-    tap($('#kDn'), () => { k = Math.max(0, k - 1); showK(); });
-    tap($('#kUp'), () => { k = Math.min(m.maxKademe, k + 1); showK(); });
-  }
-  if ($('#mRole')) tap($('#mRole'), () => { s.classList.remove('on'); showProfile(() => showMenu(hasSave)); });
+  if (m.maxKademe) { showK(); tap($('#mK'), () => { k = (k + 1) % (m.maxKademe + 1); showK(); }); }
+  tap($('#mMe'), () => { s.classList.remove('on'); showProfile(() => showMenu(hasSave)); });
   if (hasSave) tap($('#mCont'), () => hooks.continueRun());
   tap($('#mNew'), () => { m.lastKademe = k; saveMeta(m); hooks.newRun({ kademe: k }); });
   if ($('#mDaily')) tap($('#mDaily'), () => hooks.newRun({ daily: true }));
   if ($('#mCoop')) tap($('#mCoop'), () => showCoop(() => showMenu(hasSave)));
-  tap($('#mCamp'), () => showCamp(() => showMenu(hasSave)));
+  if ($('#mCamp')) tap($('#mCamp'), () => showCamp(() => showMenu(hasSave)));
   tap($('#mSet'), () => showSettings(() => showMenu(hasSave)));
+}
+// efsanevi eser rafı: sahip olunanlar parlar, diğerleri gölge
+function relicShelf() {
+  const own = App.meta.relics || [];
+  return `<div class="relics">${RELIC_KEYS.map(k => `<span class="relic ${own.includes(k) ? 'on' : ''}" title="${own.includes(k) ? RELICS[k].name : '???'}">${ic(own.includes(k) ? RELICS[k].icon : 'schematic', 's')}</span>`).join('')}</div>`;
 }
 function dailyLine() {
   const d = App.meta.daily;
@@ -701,6 +717,9 @@ export function showCamp(back) {
       ${META_KEYS.map(k => { const d = META[k], l = m.lv[k] | 0, max = l >= d.max, c = d.costs[l];
         return `<div class="plate row ${max ? 'max' : ''}" data-k="${k}">${ic(d.icon, 'l')}<div class="main"><div class="name">${d.name} ${pips(l, d.max)}</div><div class="eff">${d.desc}</div></div>
           <button class="btn buy" ${!max && m.oz >= c ? '' : 'disabled'}>${ic('oz', 's')}${max ? '' : c}</button></div>`; }).join('')}
+      <div class="sec">EFSANEVİ ESERLER · ${(m.relics || []).length}/${RELIC_KEYS.length}</div>
+      ${RELIC_KEYS.map(k => { const d = RELICS[k], own = (m.relics || []).includes(k);
+        return `<div class="plate row ${own ? 'relicrow' : 'locked'}">${ic(own ? d.icon : 'schematic', 'l')}<div class="main"><div class="name">${own ? d.name : '???'}</div><div class="eff">${own ? d.desc : d.lore}</div></div></div>`; }).join('')}
       </div>
       <button class="btn dark" id="cBack">GERİ</button></div>`;
     s.querySelectorAll('[data-k] .buy').forEach(b => tap(b, () => {
