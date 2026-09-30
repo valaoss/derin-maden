@@ -36,10 +36,10 @@ export function critterURL(k, dark = false) {
 
 // ---------- canlı çizim ----------
 // Dünyada 1/1.15 ölçekte çizilir. Yürürken ön ve arka ayak çifti sırayla kalkar, gövde adımla hafifçe zıplar;
-// dönüş anında değil: gövde yatay ölçekte daralıp öbür yana açılır. Yarasa kanat çırpar, balık süzülür, salyangoz uzayıp kısalır.
+// dönüş anında olur, kısa bir zıplama ve ezilmeyle. Yarasa kanat çırpar, balık süzülür, salyangoz uzayıp kısalır.
 export const CSC = 1 / 1.15;
 const MODE = { gozYarasa: 'fly', boslukBalik: 'swim', yildizSalyangoz: 'slide' };
-// o: { turn: -1..1 (yön ve dönüş), ph: adım fazı, walk: 0..1, t, closed, seed }
+// o: { turn: ±1 yön, ph: adım fazı, walk: 0..1, t, closed, seed, squash: dönüş ezilmesi }
 export function drawCritter(ctx, k, x, feet, o = {}) {
   const t = o.t || 0, seed = o.seed || 0, mode = MODE[k] || 'walk', walk = o.walk || 0, ph = o.ph || 0;
   const blink = !o.closed && ((t + seed * 1.7) % 3.6) < 0.13;
@@ -51,7 +51,9 @@ export function drawCritter(ctx, k, x, feet, o = {}) {
   else if (mode === 'swim') { bob = 3 + Math.sin(t * 2.2 + seed) * 1.2; tilt = Math.sin(t * 3 + seed) * 0.1 + walk * 0.08; sx += Math.sin(t * 6) * 0.03 * (1 + walk); }
   else if (mode === 'slide') { sx += Math.sin(ph * 2) * 0.1 * walk; sy -= Math.sin(ph * 2) * 0.07 * walk; }
   else { lift = Math.sin(ph) * walk; bob = Math.abs(Math.sin(ph)) * walk * 1.2; tilt = Math.sin(ph) * walk * 0.05 + walk * 0.04; sy -= Math.cos(ph * 2) * 0.04 * walk; }
-  const turn = Math.abs(o.turn ?? 1) < 0.25 ? Math.sign(o.turn || 1) * 0.25 : (o.turn ?? 1);
+  // dönüş anında olur (yatay daralma yok); çağıran dönüşte kısa bir zıplama ve ezilme verir
+  const turn = (o.turn ?? 1) < 0 ? -1 : 1;
+  if (o.squash) { sx += o.squash; sy -= o.squash; }
   ctx.save();
   ctx.translate(Math.round(x), Math.round(feet - bob));
   if (tilt) ctx.rotate(-tilt * Math.sign(turn));

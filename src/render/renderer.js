@@ -14,6 +14,7 @@ import { drawLiquids, drawLiquidGlow, liquidLights } from './liquids.js';
 import { drawAmbient } from './ambient.js';
 import { drawBalrog, drawBalrogGlow, drawBalrogDark, drawBalrogOmen, balrogLights } from './balrog.js';
 import { drawSerpent, drawSerpentGlow, drawSerpentOmen, drawSerpentOmenGlow, drawSerpentDark } from './serpent.js';
+import { hasBossArt, drawBossArt, drawBossArtGlow } from './bossart.js';
 import { drawDragon, drawDragonGlow, drawHoardDragon, drawHoardGlow, dragonLights } from './dragon.js';
 import { drawHall, drawHallGlow, hallLights, hallCenter } from './hoard.js';
 import { inHall } from '../game/dragon.js';
@@ -741,14 +742,14 @@ function drawCritters(r0, r1) {
   }
 }
 // yoldaş: sahibinin arkasından yaylı bir takiple yürür (adımlar gidilen yola bağlı), durunca oturup nefes alır,
-// arada zıplar; yön değişimi ani değil: kısa bir kararlılıktan sonra gövde daralıp öbür yana açılır
+// arada zıplar; yön değişimi kısa bir kararlılıktan sonra olur: küçük bir zıplamayla öbür yana döner
 const petPos = new Map();
 function drawPet(p, alpha) {
   if (!p.pet || !CRITTERS[p.pet]) return;
   const px = lerp(p.px, p.x, alpha), py = lerp(p.py, p.y, alpha);
   let q = petPos.get(p.i);
   const tx = p.ride ? px + 5 : px - p.face * 12, ty = py + 1;
-  if (!q || q.k !== p.pet || Math.hypot(q.x - tx, q.y - ty) > 90) { q = { k: p.pet, x: tx, y: ty, vx: 0, vy: 0, face: p.face, turn: p.face, ph: 0, t: G.time, hold: 0 }; petPos.set(p.i, q); }
+  if (!q || q.k !== p.pet || Math.hypot(q.x - tx, q.y - ty) > 90) { q = { k: p.pet, x: tx, y: ty, vx: 0, vy: 0, face: p.face, ph: 0, t: G.time, hold: 0 }; petPos.set(p.i, q); }
   const dt = clamp(G.time - q.t, 0, 0.05); q.t = G.time;
   // yay: hedefe hızlanır, yaklaşınca yavaşlar
   q.vx += ((tx - q.x) * 24 - q.vx * 8.5) * dt; q.vy += ((ty - q.y) * 40 - q.vy * 12) * dt;
@@ -757,14 +758,13 @@ function drawPet(p, alpha) {
   const sp = Math.abs(q.vx) + Math.abs(q.vy) * 0.4;
   // yön: yürürken gittiği yana, dururken sahibinin baktığı yana; kısa bir bekleme sonra döner
   const want = Math.abs(q.vx) > 14 ? Math.sign(q.vx) : Math.abs(q.vx) < 4 ? p.face : q.face;
-  if (want !== q.face) { q.hold += dt; if (q.hold > (sp > 14 ? 0.1 : 0.35)) { q.face = want; q.hold = 0; } } else q.hold = 0;
-  q.turn += (q.face - q.turn) * Math.min(1, dt * 8);
+  if (want !== q.face) { q.hold += dt; if (q.hold > (sp > 14 ? 0.1 : 0.35)) { q.face = want; q.hold = 0; q.flipT = G.time; } } else q.hold = 0;
   q.ph += Math.min(sp, 120) * dt * 0.32;
   const walk = clamp(sp / 26, 0, 1);
   // dururken ara sıra küçük bir zıplama
-  const it = (G.time + p.i * 1.3) % 5, hop = (walk < 0.2 && it < 0.32 ? Math.sin(it / 0.32 * Math.PI) * 3 : 0) + (1 - Math.abs(q.turn)) * 3;
+  const it = (G.time + p.i * 1.3) % 5, fk = clamp((G.time - (q.flipT ?? -9)) / 0.26, 0, 1), hop = (walk < 0.2 && it < 0.32 ? Math.sin(it / 0.32 * Math.PI) * 3 : 0) + Math.sin(fk * Math.PI) * 4;
   shadow(q.x, q.y + 6, Math.round(9 - hop), 0.28);
-  drawCritter(ctx, p.pet, q.x, q.y + 7 - hop, { turn: q.turn, ph: q.ph, walk, t: G.time, seed: p.i * 3.1 });
+  drawCritter(ctx, p.pet, q.x, q.y + 7 - hop, { turn: q.face, ph: q.ph, walk, t: G.time, seed: p.i * 3.1, squash: fk < 1 ? Math.cos(fk * Math.PI) * 0.12 : 0 });
 }
 
 // şans kuyusu: taş bilezik, kiremit çatı, sallanan kova, kenarda kurbağa.
@@ -1022,6 +1022,7 @@ function drawEnemy(e, alpha, camY, vh) {
   if (y < camY - 30 || y > camY + vh + 90) return;
   if (e.type === 'balrog') { drawBalrog(ctx, e, alpha); return; }
   if (e.type === 'ejder') { drawDragon(ctx, e, alpha); return; }
+  if (hasBossArt(e)) { if (e.under) { drawMound(x, y); return; } if (drawBossArt(ctx, e, alpha)) return; }
   const frames = SPR[e.type];
   if (e.dead) {
     // ölüm: beyaz flaş, sonra yana yatıp yere yayılır ve solar
@@ -1595,6 +1596,7 @@ function drawEmissive(r0, r1, alpha, opts) {
     if (e.type === 'balrog') { drawBalrogGlow(ctx, e, alpha, glow); continue; }
     if (e.type === 'dunyaYilani') { drawSerpentGlow(ctx, e, alpha, glow); continue; }
     if (e.type === 'ejder') { drawDragonGlow(ctx, e, alpha, glow); continue; }
+    if (hasBossArt(e) && !e.under && drawBossArtGlow(ctx, e, alpha, glow)) continue;
     if (e.emergeT > 0 || e.dead || e.under || e.sink > 0) continue;
     const x = lerp(e.px, e.x, alpha), y = lerp(e.py, e.y, alpha);
     if (e.d.boss) {
