@@ -1,8 +1,10 @@
 // Atölye (market): üstte güç göstergeleri; her sekmede ana yükseltmeler büyük kart, türler/eklentiler/eşyalar ızgara + seçili detay.
-import { UPGRADES, BAG_CAPS, PICK_TIERS, PICK_TYPES, PICK_TYPE_KEYS, WEAPONS, WEAPON_KEYS, MODS, MOD_KEYS, ITEMS, ITEM_KEYS, BUILD_KEYS, MASTER_KEYS, RES, RES_KEYS, PERKS, PERK_TIER, WEAPON_UP, TOOL_UP, beaconReq } from '../data/balance.js';
+import { UPGRADES, BAG_CAPS, PICK_TIERS, PICK_TYPES, PICK_TYPE_KEYS, WEAPONS, WEAPON_KEYS, MODS, MOD_KEYS, ITEMS, ITEM_KEYS, BUILD_KEYS, MASTER_KEYS, RES, RES_KEYS, WEAPON_UP, TOOL_UP, beaconReq } from '../data/balance.js';
 import { G } from '../game/state.js';
 import { canAfford, upgradeCost, beaconLack, weaponUpCost, toolUpCost, itemCost, craftState, deployLimit } from '../game/economy.js';
-import { pickDmg, modSlots, weaponLvl, toolLvl } from '../game/run.js';
+import { pickDmg, modSlots, weaponLvl, toolLvl, perkLv, soyCount } from '../game/run.js';
+import { PERKS, SOY, SOY_KEYS, RESONANCE, perkDesc, maxLv } from '../data/relics.js';
+import { offerInfo, ROMAN } from '../game/chests.js';
 import { gunDps } from '../game/power.js';
 import { dispatch, CMD } from '../game/commands.js';
 
@@ -63,11 +65,11 @@ export function renderShop(body, tab, justKey, x) {
       ${c ? cost(c) : ''}${lack ? `<div class="eff lockn">${lack} Fener daha yak: biyomun tüm yuvalarını yık</div>` : ''}</div>${btn}</div>`;
   };
   // ızgara karosu; seçilince altında detay açılır
-  const tile = (sec, id, iconHTML, name, cls, corner = '') =>
-    `<button class="tile ${cls} ${sel[sec] === id ? 'sel' : ''} ${justKey === id ? 'just' : ''}" data-sel="${sec}:${id}">${iconHTML}<span class="tn">${name}</span>${corner ? `<span class="tc">${corner}</span>` : ''}</button>`;
+  const tile = (sec, id, iconHTML, name, cls, corner = '', col = '') =>
+    `<button class="tile ${cls} ${sel[sec] === id ? 'sel' : ''} ${justKey === id ? 'just' : ''}" data-sel="${sec}:${id}"${col ? ` style="--c:${col}"` : ''}>${iconHTML}<span class="tn">${name}</span>${corner ? `<span class="tc">${corner}</span>` : ''}</button>`;
   const grid = (sec, tiles, detail) => {
     if (!tiles.some(t => t.id === sel[sec])) sel[sec] = tiles[0] && tiles[0].id;
-    return `<div class="grid">${tiles.map(t => tile(sec, t.id, t.icon, t.name, t.cls, t.corner)).join('')}</div>` + (sel[sec] ? `<div class="det">${detail(sel[sec])}</div>` : '');
+    return `<div class="grid">${tiles.map(t => tile(sec, t.id, t.icon, t.name, t.cls + (t.col ? ' soyt' : ''), t.corner, t.col)).join('')}</div>` + (sel[sec] ? `<div class="det">${detail(sel[sec])}</div>` : '');
   };
   const detRow = (attr, iconHTML, name, desc, c, btn, tag = '') =>
     `<div class="plate row" ${attr}>${iconHTML}<div class="main"><div class="name">${name}${tag}</div><div class="eff">${desc}</div>${c ? cost(c) : ''}</div>${btn}</div>`;
@@ -121,9 +123,12 @@ export function renderShop(body, tab, justKey, x) {
       return detRow(`data-up="${k}"`, ic(u.icon, 'l'), u.name, u.desc(), c, c ? `<button class="btn buy" ${canAfford(c) ? '' : 'disabled'}>AL</button>` : '', c ? '' : ' <span class="have">SENDE</span>');
     });
     if (G.perks.length) {
+      h += '<div class="sec">SOYLAR · AYNI SOYDAN 3 KALINTI = REZONANS</div>';
+      h += grid('sy', SOY_KEYS.map(s => { const n = soyCount(s); return { id: s, icon: ic(SOY[s].icon, 'xl'), name: `${SOY[s].name} ${Math.min(n, RESONANCE)}/${RESONANCE}`, cls: n >= RESONANCE ? 'eq' : n ? 'own' : 'lock', corner: n >= RESONANCE ? 'AKTİF' : '' }; }),
+        s => detRow('', ic(SOY[s].icon, 'l'), `${SOY[s].name} REZONANSI`, SOY[s].res, null, '', ` <span class="have">${soyCount(s) >= RESONANCE ? 'AKTİF' : soyCount(s) + '/' + RESONANCE}</span>`));
       h += '<div class="sec">KALINTILAR · BU SEFER</div>';
-      h += grid('pk', G.perks.map(k => ({ id: k, icon: ic(PERKS[k].icon, 'xl'), name: PERKS[k].name, cls: 'own t' + PERKS[k].t })),
-        k => detRow('', ic(PERKS[k].icon, 'l'), PERKS[k].name, PERKS[k].desc, null, '', ` <span class="have">${PERK_TIER[PERKS[k].t]}</span>`));
+      h += grid('pk', G.perks.map(k => { const o = offerInfo(k), l = perkLv(k); return { id: k, icon: ic(PERKS[k].icon, 'xl'), name: PERKS[k].name, cls: 'own', corner: maxLv(k) > 1 ? ROMAN[l] : '', col: o.col }; }),
+        k => { const o = offerInfo(k), l = perkLv(k); return detRow('', ic(PERKS[k].icon, 'l'), PERKS[k].name + (maxLv(k) > 1 ? ' ' + ROMAN[l] : ''), perkDesc(k, l), null, '', ` <span class="have" style="color:${o.col}">${o.up ? o.tag.replace(/^YÜKSELT.*/, PERKS[k].soy ? SOY[PERKS[k].soy].name : '') : o.tag}</span>`); });
     }
     if (G.contracts.length) h += '<div class="sec">KONTRATLAR</div>' + x.contractsHTML();
   } else {

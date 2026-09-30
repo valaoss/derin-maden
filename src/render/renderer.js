@@ -9,7 +9,7 @@ import { G, biomeOf } from '../game/state.js';
 import { SPR, sprCanvas, sprEm, glowSprite, playerSprites, HELMETS } from './sprites.js';
 import { drawTiles, flushDirty } from './tiles.js';
 import { computeLight, lightWin, lightSourcesFor, glowTileSources } from '../world/light.js';
-import { lampTiles, hasPerk, hasMod, hasRelic } from '../game/run.js';
+import { lampTiles, hasMod, hasRelic, resonance } from '../game/run.js';
 import { bubbleFor } from '../ui/ui.js';
 import { canary } from '../game/canary.js';
 import { pred } from '../net/predict.js';
@@ -550,8 +550,8 @@ function decorLights(r0, r1, out) {
 }
 
 function drawTileOverlays(r0, r1) {
-  // Hazine Kokusu: gömülü cevher ara ara pırıldar
-  if (hasPerk('hazineKokusu') && G.buried) for (let r = r0; r <= r1; r++) for (let c = 0; c < COLS; c++) {
+  // Toprak rezonansı: gömülü cevher ara ara pırıldar
+  if (resonance('toprak') && G.buried) for (let r = r0; r <= r1; r++) for (let c = 0; c < COLS; c++) {
     const i = r * COLS + c;
     if (!G.buried[i] || !TD[G.map[i]].ore || Math.floor(G.time * 2 + hash2(c, r, 5) * 9) % 5) continue;
     ctx.fillStyle = RES_COL[TD[G.map[i]].ore] || '#fff0a0';
@@ -1125,7 +1125,7 @@ function drawEmissive(r0, r1, alpha, opts) {
     glow(z.x1, z.y1, z.col ? 'rgba(255,240,180,0.6)' : 'rgba(150,220,255,0.5)', z.col ? 10 : 6, k);
   }
   // cevher parıltıları ve sandık/kalp
-  const sparkle = hasPerk('parlakFener') || hasRelic('arken');
+  const sparkle = hasRelic('arken');
   for (let r = r0; r <= r1; r++) for (let c = 0; c < COLS; c++) {
     const tt = G.map[r * COLS + c], d = TD[tt];
     if (d.gem) { const f = 0.55 + Math.sin(t * 3 + c * 2 + r) * 0.3; glow(c * TILE + 8, r * TILE + 8, gemGlow(d.gem), 12, f); }

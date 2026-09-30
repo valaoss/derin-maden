@@ -8,7 +8,7 @@ import { tileAt, damageTile } from '../world/map.js';
 import { damageEnemy, losClear, damageStructure, burnEnemy } from './enemies.js';
 import { damagePlayer, webPlayer, chillPlayer, breakTile, nearestPlayer } from './player.js';
 import { addNoise } from './threat.js';
-import { hasPerk, hear, hasMod, isLocal, roleOf, lastStand, weaponOf, toolDmgMul } from './run.js';
+import { hasPerk, hear, hasMod, isLocal, roleOf, lastStand, weaponOf, toolDmgMul, pv, resonance } from './run.js';
 import { gunDmg, gunCd } from './power.js';
 import { inWater } from './biomes.js';
 import { sparks, flashLight, particle, ring, shake, debris, hitstop } from './fx.js';
@@ -35,6 +35,16 @@ export function updatePlayerGun(dt) {
   for (const k in g.active) if (g.active[k] > 0) g.active[k] -= dt;
   if (G.rageT > 0) G.rageT -= dt;
   for (const p of G.players) updateGun(p, dt);
+  // Şimşek rezonansı: 12 sn'de bir yakındaki 5 düşmana yıldırım
+  if (resonance('simsek') && (G.boltT = (G.boltT || 12) - dt) <= 0) {
+    G.boltT = 12;
+    for (const p of G.players) {
+      if (p.dead) continue;
+      const near = G.enemies.filter(e => !e.dead && e.emergeT <= 0.2 && !e.under && Math.hypot(e.x - p.x, e.y - p.y) < 130).sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y)).slice(0, 5);
+      for (const e of near) { damageEnemy(e, gunDmg(p) * 3, 0, 0, 0.5, true); G.zaps.push({ x0: e.x, y0: e.y - 60, x1: e.x, y1: e.y, t: 0.2 }); sparks(e.x, e.y, '#bff4ff', 8, 90); flashLight(e.x, e.y, 4, 0.2); }
+      if (near.length && hear(p)) sfx.zap();
+    }
+  }
   // yıldırım çizgileri (kozmetik)
   let j = 0; for (const z of G.zaps) { z.t -= dt; if (z.t > 0) G.zaps[j++] = z; } G.zaps.length = j;
 }
@@ -59,8 +69,18 @@ export function useMod(k, p = G.player) {
   emit('modUsed', k);
   return true;
 }
+// Termal Şok: yanan ve yavaşlamış düşman patlar
+function thermal(e, dmg) {
+  ring(e.x, e.y, '#ffd0a0', 26); sparks(e.x, e.y, '#bff4ff', 8, 100); sparks(e.x, e.y, '#ff9a4a', 8, 100); flashLight(e.x, e.y, 4, 0.2);
+  e.slowT = 0;
+  for (const o of G.enemies) { if (o.dead || o.emergeT > 0.3 || o.under) continue; const d = Math.hypot(o.x - e.x, o.y - e.y); if (d < 28 + o.r) damageEnemy(o, dmg, (o.x - e.x) / (d || 1), (o.y - e.y) / (d || 1), 1.2, true); }
+  if (hear(G.player, e.x, e.y)) sfx.explode();
+}
 function tagBullet(b) {
   if (hasMod('ricochet')) b.bounce = 1;
+  if (hasPerk('kor')) b.kor = pv('kor');
+  if (hasPerk('buzMermi')) b.frostT = pv('buzMermi');
+  if (hasPerk('zincirSimsek') && rnd() < pv('zincirSimsek')) b.chain = true;
   if (hasMod('frost')) b.frost = true;
   if (hasMod('fire') || G.lvl.opalNamlu) b.fire = true;
   if (hasMod('chain')) b.chain = true;
@@ -72,10 +92,10 @@ function updateGun(p, dt) {
   p.fireCd -= dt;
   if (p.aimT > 0) p.aimT -= dt;
   if (p.flameT > 0) p.flameT -= dt;
-  const W = weaponOf(p), lv = G.lvl.blaster, range = (UPGRADES.blaster.range[lv] + (roleOf(p).range || 0)) * W.range * (hasPerk('tetikci') ? 1.3 : 1);
+  const W = weaponOf(p), lv = G.lvl.blaster, range = (UPGRADES.blaster.range[lv] + (roleOf(p).range || 0)) * W.range * (hasPerk('deliciIsin') ? 1.3 : 1);
   // Nova Kalbi: düşman yakındayken 8 sn'de bir otomatik halka
-  if (hasPerk('novaKalbi') && (p.novaT = (p.novaT || 0) - dt) <= 0 && nearestTarget(p.x, p.y - 4, 70)) {
-    p.novaT = 8; const nd = UPGRADES.blaster.dmg[lv] * 0.8;
+  if (hasPerk('statik') && (p.novaT = (p.novaT || 0) - dt) <= 0 && nearestTarget(p.x, p.y - 4, 70)) {
+    p.novaT = pv('statik'); const nd = UPGRADES.blaster.dmg[lv] * 0.8;
     for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; tagBullet(fire(p.x + Math.cos(a) * 6, p.y - 4 + Math.sin(a) * 6, a, 230, nd, 'p', 0, p.i)); }
     ring(p.x, p.y - 4, '#bff4ff', 26); flashLight(p.x, p.y, 5, 0.25); if (hear(p)) sfx.nova();
   }
@@ -88,7 +108,8 @@ function updateGun(p, dt) {
   // su altında silah ateş etmez
   if (inWater(sp.x, sp.y)) { if (rnd() < 0.2) particle(sp.x, sp.y, (rnd() - 0.5) * 10, -20, 0.5, '#bff4ff', 1, 1, 0); return; }
   let cd = gunCd(p);
-  if (G.rageT > 0) cd /= 1 + 0.08 * (G.rage | 0);
+  if (hasPerk('adrenPompa') && p.hp < p.maxHp * 0.5) cd /= 1.5;
+  if (G.rageT > 0) cd /= 1 + pv('ofke') * (G.rage | 0);
   if ((G.gear.active.overdrive || 0) > 0) cd /= 3;
   p.fireCd = cd;
   const dmg = gunDmg(p) * lastStand(p);
@@ -96,15 +117,13 @@ function updateGun(p, dt) {
   if (W.flame) { flameCone(p, sp, ang, range, dmg); return; }
   if (W.zap) { zapChain(p, sp, tgt, dmg, W.zap); return; }
   const shots = hasPerk('ciftNamlu') ? [-0.09, 0.09] : [0];
-  const pierce = (hasPerk('delici') ? 2 : 0) + (W.pierce || 0), n = W.pellets || 1;
+  const pierce = (hasPerk('deliciIsin') ? 3 : 0) + (W.pierce || 0), n = W.pellets || 1;
   const mx = sp.x + Math.cos(ang) * 6, my = sp.y + Math.sin(ang) * 6;
   for (const o of shots) for (let i = 0; i < n; i++) {
     const a = ang + o + (n > 1 ? (i / (n - 1) - 0.5) * W.spread : 0) + (W.jitter ? (rnd() - 0.5) * W.jitter : 0);
     const b = tagBullet(fire(mx, my, a, W.speed * (n > 1 ? 0.9 + rnd() * 0.2 : 1), dmg, 'p', pierce, p.i));
     if (W.life) b.life = W.life;
     if (W.knock) b.knock = W.knock;
-    if (hasPerk('sarsici')) { b.knock = (b.knock || 1) * 2; b.stun = 0.4; }
-    if (hasPerk('tetikci')) { b.ox = mx; b.oy = my; b.far = range * 0.5; }
     if (W.blast) { b.blast = W.blast; b.freeze = W.freeze || 0; b.rocket = !W.freeze; }
   }
   if (hasMod('split') && n === 1) for (const o of [-0.3, 0.3]) tagBullet(fire(mx, my, ang + o, W.speed * 0.92, dmg * 0.5, 'p', pierce, p.i));
@@ -169,8 +188,8 @@ function blastAt(b, x, y, skip) {
   else if (hear(G.player, x, y)) sfx.frost();
 }
 
-// Vampir Mermi: verilen hasarın %4'ü can olarak döner
-function vamp(p, real) { if (p && !p.dead && real > 0 && hasPerk('vampir')) p.hp = Math.min(p.maxHp, p.hp + real * 0.04); }
+// Vampir Mermi: verilen hasarın bir kısmı can olarak döner
+function vamp(p, real) { if (p && !p.dead && real > 0 && hasPerk('vampir')) p.hp = Math.min(p.maxHp, p.hp + real * pv('vampir')); }
 function fire(x, y, ang, speed, dmg, from, pierce, pi = -1) {
   G.bullets.push({ x, y, px: x, py: y, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, life: 0.7, dmg, from, pierce, hit: null, pi });
   return G.bullets[G.bullets.length - 1];
@@ -221,8 +240,10 @@ export function updateBullets(dt) {
         if (b.from === 'p' && b.pi >= 0) vamp(G.players[b.pi], hp0 - Math.max(0, e.hp));
         if (b.blast) { if (b.freeze) e.slowT = Math.max(e.slowT, b.freeze); blastAt(b, b.x, b.y, e); }
         sparks(b.x, b.y, '#fff4c2', 3, 60);
-        if (b.frost) { e.slowT = Math.max(e.slowT, 1.2); sparks(b.x, b.y, '#bff4ff', 3, 40); }
+        if (b.frost || b.frostT) { e.slowT = Math.max(e.slowT, b.frostT || 1.2); sparks(b.x, b.y, '#bff4ff', 3, 40); }
         if (b.fire) { burnEnemy(e, BURN.t); sparks(b.x, b.y, '#ff9a4a', 3, 40); }
+        if (b.kor) { burnEnemy(e, BURN.t, b.dmg * b.kor); sparks(b.x, b.y, '#ff9a4a', 3, 40); }
+        if (hasPerk('termalSok') && e.burnT > 0 && e.slowT > 0 && rnd() < 0.2) thermal(e, b.dmg * 4);
         if (b.chain) {
           let best = null, bd = 44 * 44;
           for (const o of G.enemies) { if (o === e || o.dead || o.emergeT > 0.3 || o.under) continue; const d2 = (o.x - e.x) ** 2 + (o.y - e.y) ** 2; if (d2 < bd) { bd = d2; best = o; } }
@@ -297,7 +318,7 @@ export function updateStructures(dt) {
     if (s.hurtT > 0) s.hurtT -= dt;
     if (s.recoil > 0) s.recoil -= dt * 6;
     const b = BUILDS[s.type];
-    const rate = hasPerk('taretAsiri') ? 1.5 : 1;
+    const rate = hasPerk('aletUstasi') ? 1.5 : 1;
     s.cd -= dt;
     if (s.type === 'turret') {
       const tgt = nearestTarget(s.x, s.y - 4, b.range);

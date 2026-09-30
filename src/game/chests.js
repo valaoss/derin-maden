@@ -2,9 +2,11 @@
 // Teklif anahtarları: kalıntı adı ya da 'w:<silah>' (silah türü), 'wl:<silah>' (+2 ustalık), 'm:<eklenti>', 'tl:<alet>' (+2 seviye)
 import { rnd } from '../core/rng.js';
 import { TILE, stratumOfRow } from '../config.js';
-import { PERKS, CHESTS, WEAPONS, WEAPON_KEYS, WEAPON_UP, MODS, MOD_KEYS, TOOL_UP, BUILD_KEYS, BUILDS, ITEMS, DEEP_ORES, PERK_TIER } from '../data/balance.js';
+import { CHESTS, WEAPONS, WEAPON_KEYS, WEAPON_UP, MODS, MOD_KEYS, TOOL_UP, BUILD_KEYS, BUILDS, ITEMS, DEEP_ORES } from '../data/balance.js';
+import { PERKS, PERK_KEYS, SOY, RESONANCE, OFFER_W, REROLL, maxLv, perkDesc, perkKind } from '../data/relics.js';
 import { G } from './state.js';
-import { hasPerk, isUnlocked, modSlots, isLocal } from './run.js';
+import { hasPerk, isUnlocked, modSlots, isLocal, perkLv } from './run.js';
+export const ROMAN = ['', 'I', 'II', 'III'];
 import { spawnOrb } from './player.js';
 import { spawnEnemy, makeElite } from './enemies.js';
 import { addNoise } from './threat.js';
@@ -14,23 +16,46 @@ import { emit } from '../core/events.js';
 
 export function itemMax(k) { return ITEMS[k].max + (hasPerk('bolKemer') ? 2 : 0); }
 
-// kalıntı seçenekleri: sandığın kademe ağırlıklarıyla, alınmamışlardan
+// kalıntı seçenekleri: yeni soy kalıntıları (sahip olduğun soylara çekilir), sahip olduklarının bir üst seviyesi,
+// iki soyun varsa İKİLİ, iyi sandıkta EFSANEVİ; Lanetli Sandık bir LANETLİ kalıntı ekler. Kartlar mümkünse farklı soylardan gelir.
 export function perkChoices(type = 'wood') {
-  const C = CHESTS[type] || CHESTS.wood;
-  const kis = hasPerk('kismet');
-  let n = (C.n || 3) + (G.meta.lv.kalintiBil ? 1 : 0) + (kis ? 1 : 0);
-  const w = C.tiers.slice(); if (kis) { w[0] *= 0.5; w[2] += 0.15; }
-  const pool = Object.keys(PERKS).filter(k => !G.perks.includes(k) && (!PERKS[k].mp || G.mp));
-  const out = [];
-  while (out.length < n && pool.length) {
-    // önce kademe, o kademede kalıntı yoksa bir alttaki/üstteki
-    let r = rnd() * (w[0] + w[1] + w[2]), t = r < w[0] ? 1 : r < w[0] + w[1] ? 2 : 3;
-    let cand = pool.filter(k => PERKS[k].t === t);
-    for (let d = 1; !cand.length && d < 3; d++) cand = pool.filter(k => Math.abs(PERKS[k].t - t) === d);
-    const k = cand[Math.floor(rnd() * cand.length)];
-    out.push(k); pool.splice(pool.indexOf(k), 1);
+  const C = CHESTS[type] || CHESTS.wood, q = C.q | 0;
+  const n = (C.n || 3) + (G.meta.lv.kalintiBil ? 1 : 0) + (hasPerk('kumar') ? 2 : 0);
+  const has = k => G.perks.includes(k), soyN = s => G.perks.filter(k => PERKS[k].soy === s).length;
+  const cand = [], out = [];
+  for (const k of PERK_KEYS) {
+    const d = PERKS[k];
+    if (d.mp && !G.mp) continue;
+    let w = 0;
+    if (d.curse) w = 0;
+    else if (has(k)) w = perkLv(k) < maxLv(k) ? OFFER_W.up : 0;
+    else if (d.duo) w = d.duo.every(s => soyN(s) > 0) ? OFFER_W.duo[q] : 0;
+    else if (d.leg) w = OFFER_W.leg[q];
+    else w = 1 + (soyN(d.soy) > 0 && soyN(d.soy) < RESONANCE ? OFFER_W.pull : 0);
+    if (w > 0) cand.push({ k, w, soys: d.duo || (d.soy ? [d.soy] : []) });
+  }
+  // Lanetli Sandık: ilk kart her zaman lanetli
+  if (C.curse) { const cs = PERK_KEYS.filter(k => PERKS[k].curse && !has(k)); if (cs.length) out.push(cs[Math.floor(rnd() * cs.length)]); }
+  const used = new Set();
+  while (out.length < n && cand.length) {
+    let tot = 0; for (const c of cand) tot += c.w * (c.soys.some(x => used.has(x)) ? 0.12 : 1);
+    let r = rnd() * tot, i = 0;
+    for (; i < cand.length - 1; i++) { r -= cand[i].w * (cand[i].soys.some(x => used.has(x)) ? 0.12 : 1); if (r <= 0) break; }
+    const c = cand.splice(i, 1)[0];
+    out.push(c.k); for (const x of c.soys) used.add(x);
   }
   return out;
+}
+// yeniden çek: altınla (Kumarbaz'da bedava) aynı sandığın teklifini yeniler
+export function rerollCost() { return hasPerk('kumar') ? 0 : REROLL.base + REROLL.step * (G.rerolls | 0); }
+export function rerollOffer(p) {
+  const off = G.perkOffer, c = rerollCost();
+  if (!off || off.pi !== p.i || (G.store.gold | 0) < c) return false;
+  G.store.gold -= c; G.rerolls = (G.rerolls | 0) + 1;
+  const C = CHESTS[off.chest] || CHESTS.wood;
+  off.keys = C.arms ? armsChoices(C.n) : perkChoices(off.chest);
+  emit('store'); emit('perkOffer', p.i);
+  return true;
 }
 
 // Silah Sandığı: sahip olmadığın silah, sahip olduğun silaha ustalık, eklenti ya da alet seviyesi
@@ -47,12 +72,17 @@ function armsChoices(n) {
 
 // teklifin görünümü (UI)
 export function offerInfo(k) {
-  if (PERKS[k]) return { name: PERKS[k].name, desc: PERKS[k].desc, icon: PERKS[k].icon, t: PERKS[k].t, tag: PERK_TIER[PERKS[k].t] };
+  if (PERKS[k]) {
+    const d = PERKS[k], kind = perkKind(k), l = perkLv(k), up = l > 0;
+    const soy = d.soy ? SOY[d.soy] : null, col = d.curse ? '#c040ff' : d.leg ? '#ffb050' : d.duo ? '#ffd24a' : soy.col;
+    const tag = up ? `YÜKSELT · ${ROMAN[l]} → ${ROMAN[l + 1]}` : kind === 'duo' ? 'İKİLİ · ' + d.duo.map(x => SOY[x].name).join(' + ') : kind === 'leg' ? 'EFSANEVİ' : kind === 'curse' ? 'LANETLİ' : soy.name;
+    return { name: d.name, desc: up ? perkDesc(k, l, l + 1) : perkDesc(k, 1), icon: d.icon, kind, col, tag, soy: d.soy, up, lv: up ? l + 1 : 1, max: maxLv(k), t: kind === 'soy' ? 1 : 3 };
+  }
   const [a, b] = k.split(':');
-  if (a === 'w') return { name: WEAPONS[b].name, desc: 'Bedava silah: ' + WEAPONS[b].desc, icon: WEAPONS[b].icon, t: 2, tag: 'SİLAH' };
-  if (a === 'wl') return { name: WEAPONS[b].name + ' +2', desc: `Ustalık iki seviye artar (hasar +%${WEAPON_UP.dmg * 200}, atış hızı +%${WEAPON_UP.cd * 200}).`, icon: WEAPONS[b].icon, t: 2, tag: 'USTALIK' };
-  if (a === 'm') return { name: MODS[b].name, desc: 'Bedava eklenti: ' + MODS[b].desc, icon: MODS[b].icon, t: 1, tag: 'EKLENTİ' };
-  if (a === 'tl') return { name: BUILDS[b].name + ' +2', desc: `Alet iki seviye artar (hasar +%${TOOL_UP.dmg * 200}, dayanıklılık +%${TOOL_UP.hp * 200}).`, icon: BUILDS[b].icon, t: 2, tag: 'ALET' };
+  if (a === 'w') return { name: WEAPONS[b].name, desc: 'Bedava silah: ' + WEAPONS[b].desc, icon: WEAPONS[b].icon, t: 2, tag: 'SİLAH', col: '#9fe8ff' };
+  if (a === 'wl') return { name: WEAPONS[b].name + ' +2', desc: `Ustalık iki seviye artar (hasar +%${WEAPON_UP.dmg * 200}, atış hızı +%${WEAPON_UP.cd * 200}).`, icon: WEAPONS[b].icon, t: 2, tag: 'USTALIK', col: '#9fe8ff' };
+  if (a === 'm') return { name: MODS[b].name, desc: 'Bedava eklenti: ' + MODS[b].desc, icon: MODS[b].icon, t: 1, tag: 'EKLENTİ', col: '#9fe8ff' };
+  if (a === 'tl') return { name: BUILDS[b].name + ' +2', desc: `Alet iki seviye artar (hasar +%${TOOL_UP.dmg * 200}, dayanıklılık +%${TOOL_UP.hp * 200}).`, icon: BUILDS[b].icon, t: 2, tag: 'ALET', col: '#9fe8ff' };
   return { name: k, desc: '', icon: 'chest', t: 1, tag: '' };
 }
 
@@ -110,7 +140,7 @@ export function openChest(p, type, x, y, c, r) {
     if (local) emit('toast', { text: 'Lanet: bekçiler uyandı', icon: 'skull', bad: true });
   }
   if (C.arms) { offer(p, type, armsChoices(C.n)); return; }
-  if (C.tiers) offer(p, type, perkChoices(type));
+  if (C.q !== undefined) offer(p, type, perkChoices(type));
   else if (local) emit('toast', { text: CHESTS[type].name + ' açıldı', icon: 'chest' });
 }
 

@@ -10,7 +10,7 @@ import { G } from './state.js';
 import { tileAt, solidAt, damageTile, idx, matOf } from '../world/map.js';
 import { FIELD, flowAt, nextStep, FLOW_INF } from '../world/flow.js';
 import { breakTile, damagePlayer, spawnOrb, nearestPlayer, blindPlayer, scarePlayer, pullPlayer, chillPlayer, webPlayer } from './player.js';
-import { hasPerk, hasRelic, hear } from './run.js';
+import { hasPerk, hasRelic, hear, pv, resonance } from './run.js';
 import { sparks, debris, shake, ring, flashLight, dust, hitstop, particle } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
 import { emit } from '../core/events.js';
@@ -52,7 +52,7 @@ export function spawnEnemy(type, x, y, lv = 0) {
 }
 // Elit: daha dayanıklı, daha büyük, altın düşürür; çizimde altın aura
 export function makeElite(e) {
-  e.elite = true; e.hp = Math.max(e.hp * ELITE.hp, ttkFloor(false)); e.maxHp = e.hp; e.scale = ELITE.scale; e.r = e.r * 1.2; e.dmgMul *= ELITE.dmg;
+  e.elite = true; e.hp = Math.max(e.hp * ELITE.hp, ttkFloor(false)) * (hasPerk('kumar') ? 2 : 1); e.maxHp = e.hp; e.scale = ELITE.scale; e.r = e.r * 1.2; e.dmgMul *= ELITE.dmg;
   // derin elitler özellik kazanır (biyom 6+: 1, 14+: 2, 22+: 3)
   const st = Math.max(0, stratumOfRow(Math.floor(e.y / TILE))), n = ELITE.affixAt.filter(s => st >= s).length;
   if (n) {
@@ -90,7 +90,12 @@ export function losClear(x0, y0, x1, y1, ignoreBarricade = false) {
 
 export function damageEnemy(e, dmg, dx = 0, dy = 0, knock = 1, silent = false) {
   if (e.hp <= 0 || e.dead || e.emergeT > 0.3 || e.under) return;
-  let real = dmg * (1 - (e.d.armor || 0)) * ((e.elite || e.d.boss) && hasPerk('elitAvcisi') ? 1.4 : 1);
+  const full = e.hp >= e.maxHp;
+  let real = dmg * (1 - (e.d.armor || 0)) * (e.elite || e.d.boss ? 1 + pv('devAvcisi') : 1);
+  // kalıntılar: yavaşlamışa Kırılgan, yanana Ateş rezonansı, tam canlıya Suikastçi
+  if (e.slowT > 0) real *= 1 + pv('kirilgan');
+  if (e.burnT > 0 && resonance('ates')) real *= 1.3;
+  if (full && hasPerk('suikast') && !silent) real *= pv('suikast');
   e.sinceHit = 0;
   // Kalkanlı Muhafız: önünden gelen doğrudan vuruşu keser (patlama, sekme, yanma geçer)
   if (e.d.front && !silent && dx * e.face < -0.3) { real *= 1 - e.d.front; if (rnd() < 0.6) sparks(e.x + e.face * 6, e.y - 2, '#e0e8ff', 3, 70); if (nearLocal(e) && rnd() < 0.3) sfx.ping(); }
@@ -99,9 +104,14 @@ export function damageEnemy(e, dmg, dx = 0, dy = 0, knock = 1, silent = false) {
   const kr = 1 - (e.d.knockResist || 0);
   e.kx += dx * 55 * knock * kr; e.ky += dy * 55 * knock * kr;
   if (!silent && nearLocal(e)) sfx.hit();
-  // Cellat: canı %20 altına düşen (boss olmayan) düşman ölür
-  if (e.hp > 0 && !e.d.boss && !e.illusion && hasPerk('cellat') && e.hp < e.maxHp * 0.2) { e.hp = 0; sparks(e.x, e.y, '#ec4a4a', 8, 90); }
-  if (e.hp <= 0) { killEnemy(e); return; }
+  // Cellat: eşiğin altına düşen düşman ölür; Buz rezonansı: yavaşlamış düşman %25 altında parçalanır (boss hariç)
+  if (e.hp > 0 && !e.d.boss && !e.illusion && hasPerk('cellat') && e.hp < e.maxHp * pv('cellat')) { e.hp = 0; sparks(e.x, e.y, '#ec4a4a', 8, 90); }
+  if (e.hp > 0 && !e.d.boss && !e.illusion && e.slowT > 0 && resonance('buz') && e.hp < e.maxHp * 0.25) { e.hp = 0; sparks(e.x, e.y, '#dff6ff', 12, 110); ring(e.x, e.y, '#bff4ff', 14); }
+  if (e.hp <= 0) {
+    // Kan Avcısı: tek vuruşta ölen düşman can verir
+    if (full && hasPerk('kanAvcisi')) for (const p of G.players) if (!p.dead && Math.hypot(p.x - e.x, p.y - e.y) < 200) p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.04);
+    killEnemy(e); return;
+  }
   // Cıva Damlası: yarı canda ikiye bölünür
   if (e.d.split && !e.splitDone && e.hp < e.maxHp * 0.5) {
     e.splitDone = true;
@@ -126,7 +136,8 @@ export function damageEnemy(e, dmg, dx = 0, dy = 0, knock = 1, silent = false) {
     if (nearLocal(e)) sfx.shade();
   }
 }
-export function burnEnemy(e, t) { if (!e.dead) e.burnT = Math.max(e.burnT, t); }
+// dps: ek yanma hasarı/sn (Kor Mermi, Magma Kazma); yanma sürerken en güçlüsü kalır
+export function burnEnemy(e, t, dps = 0) { if (e.dead) return; if (e.burnT <= 0) e.burnDps = 0; e.burnT = Math.max(e.burnT, t); e.burnDps = Math.max(e.burnDps || 0, dps); }
 function nearLocal(e) { const l = G.player; return Math.hypot(l.x - e.x, l.y - e.y) < 200; }
 
 export function killEnemy(e) {
@@ -143,7 +154,7 @@ export function killEnemy(e) {
   G.stats.kills++;
   if (e.elite) {
     G.stats.elites++;
-    const n = ELITE.gold * (hasPerk('altinDamar') ? 3 : 1) + (hasPerk('altinDokunus') ? 5 : 0);
+    const n = ELITE.gold + (hasPerk('altinDokunus') ? 5 : 0);
     for (let i = 0; i < n; i++) spawnOrb(e.x, e.y, 'gold', true);
     ring(e.x, e.y, '#ffd24a', 30); sparks(e.x, e.y, '#ffd24a', 14, 120); flashLight(e.x, e.y, 5, 0.4); shake(0.2);
     emit('toast', { text: 'Elit ' + eliteName(e) + ' düştü', icon: 'elite' });
@@ -163,7 +174,8 @@ export function killEnemy(e) {
   else if (e.type === 'brute' || e.type === 'worm' || e.type === 'lurker') { spawnOrb(e.x, e.y, 'iron', true); spawnOrb(e.x, e.y, 'iron', true); spawnOrb(e.x, e.y, 'cobalt', true); shake(0.25); }
   else if (e.type === 'glarer' && rnd() < 0.6) spawnOrb(e.x, e.y, 'crystal', true);
   else if (rnd() < 0.35) spawnOrb(e.x, e.y, rnd() < 0.75 ? 'iron' : 'water', true);
-  if (hasPerk('yasamOzu')) for (const p of G.players) if (!p.dead) p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.02);
+  const heal = pv('yasamOzu') + (hasPerk('kanPakti') ? 0.04 : 0);
+  if (heal) for (const p of G.players) if (!p.dead) p.hp = Math.min(p.maxHp, p.hp + p.maxHp * heal);
   if (hasPerk('altinDokunus')) spawnOrb(e.x, e.y, 'gold', true);
   if (hasPerk('ofke')) { G.rage = Math.min(6, (G.rageT > 0 ? G.rage | 0 : 0) + 1); G.rageT = 4; }
   if (e.type === 'mimic') mimicDown(e);
@@ -171,12 +183,16 @@ export function killEnemy(e) {
   if (e.loot2) { for (const k in e.loot2) for (let i = 0; i < e.loot2[k] * 2; i++) spawnOrb(e.x, e.y, k, true); ring(e.x, e.y, '#ffd870', 20); emit('toast', { text: 'Fare yakalandı: çalınan iki katı geri döndü', icon: 'bag' }); }
   // Diriltici için: yakın zamanda ölenlerin listesi
   if (!e.d.boss && !e.d.small && e.type !== 'mimic' && e.type !== 'diriltici') { G.corpses.push({ type: e.type, x: e.x, y: e.y, t: G.time }); if (G.corpses.length > 24) G.corpses.shift(); }
-  // Leş Bombası: çevresine azami canının yarısı kadar hasar (zincirleme)
+  // Leş Bombası: çevresine azami canının bir kısmı kadar hasar (zincirleme)
   if (hasPerk('lesBombasi') && !e.d.boss) {
     ring(e.x, e.y, '#ffb050', 22); sparks(e.x, e.y, '#ffd48a', 8, 90);
-    for (const o of G.enemies) if (!o.dead && o !== e && Math.hypot(o.x - e.x, o.y - e.y) < 26 + o.r) damageEnemy(o, e.maxHp * 0.5, (o.x - e.x) / 26, (o.y - e.y) / 26, 1, true);
+    for (const o of G.enemies) if (!o.dead && o !== e && Math.hypot(o.x - e.x, o.y - e.y) < 26 + o.r) damageEnemy(o, e.maxHp * pv('lesBombasi'), (o.x - e.x) / 26, (o.y - e.y) / 26, 1, true);
   }
-  if (hasPerk('lesKazisi') && rnd() < 0.4) { const st = stratumOfRow(Math.floor(e.y / TILE)); spawnOrb(e.x, e.y, st >= 8 ? 'crystal' : st >= 4 ? 'gold' : st >= 2 ? 'cobalt' : 'iron', true); }
+  // Orman Yangını: yanarken ölen düşman ateşini sıçratır
+  if (hasPerk('yangin') && e.burnT > 0) {
+    const R = pv('yangin'); ring(e.x, e.y, '#ff7a3a', R * 0.6);
+    for (const o of G.enemies) if (!o.dead && o !== e && Math.hypot(o.x - e.x, o.y - e.y) < R + o.r) { burnEnemy(o, BURN.t, e.burnDps || 0); sparks(o.x, o.y, '#ff9a4a', 3, 40); }
+  }
 }
 
 export function explode(x, y, rad, dmg) {
@@ -231,7 +247,7 @@ export function updateEnemies(dt) {
     if (e.burnT > 0) {
       e.burnT -= dt; e.burnTick -= dt;
       if (rnd() < dt * 14) particle(e.x + (rnd() - 0.5) * e.r * 2, e.y - rnd() * e.r, (rnd() - 0.5) * 10, -25 - rnd() * 20, 0.25, rnd() < 0.5 ? '#ffe79a' : '#ff9a4a', 1, 1, 0);
-      if (e.burnTick <= 0) { e.burnTick = 0.25; damageEnemy(e, BURN.dps * 0.25, 0, 0, 0, true); if (e.dead) continue; }
+      if (e.burnTick <= 0) { e.burnTick = 0.25; damageEnemy(e, (BURN.dps + (e.burnDps || 0)) * 0.25 * (resonance('ates') ? 2 : 1), 0, 0, 0, true); if (e.dead) continue; }
     }
     // Kor Böceği arkasında kor izi bırakır (kozmetik)
     if (e.d.burnTrail && rnd() < dt * 8) particle(e.x + (rnd() - 0.5) * 6, e.y + e.r - 1, (rnd() - 0.5) * 6, -6 - rnd() * 8, 0.6, '#ff7a3a', 1, 1, -10);

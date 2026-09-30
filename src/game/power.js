@@ -1,31 +1,33 @@
 // Güç ölçümü: yönetmen ekibin silahına, ustalığına, kalıntılarına ve aletlerine bakıp düşman canını ayarlar.
 import { UPGRADES, BUILDS, WEAPON_UP, POWER } from '../data/balance.js';
 import { G } from './state.js';
-import { hasPerk, hasRelic, hasMod, roleOf, weaponOf, weaponLvl, toolDmgMul } from './run.js';
+import { hasPerk, hasRelic, hasMod, roleOf, weaponOf, weaponLvl, toolDmgMul, pv } from './run.js';
 
 // mermi başına hasar (anlık etkiler hariç: son direniş, adrenalin)
 export function gunDmg(p) {
   const W = weaponOf(p), wl = weaponLvl(p.wpn || 'blaster');
-  return UPGRADES.blaster.dmg[G.lvl.blaster] * W.dmg * (1 + WEAPON_UP.dmg * wl) * (hasPerk('kalibre') ? 1.25 : 1) * (hasRelic('aynaTac') ? 1.15 : 1) * (hasRelic('sifirTasi') ? 1.4 : 1) * (roleOf(p).dmg || 1) * (G.lvl.yildizCekirdek ? 1.4 : 1);
+  return UPGRADES.blaster.dmg[G.lvl.blaster] * W.dmg * (1 + WEAPON_UP.dmg * wl) * (1 + pv('kalibre')) * (hasPerk('camTop') ? 1.8 : 1) * (hasPerk('gurultuTanrisi') ? 1.7 : 1) * (hasRelic('aynaTac') ? 1.15 : 1) * (hasRelic('sifirTasi') ? 1.4 : 1) * (roleOf(p).dmg || 1) * (G.lvl.yildizCekirdek ? 1.4 : 1);
 }
 // atış aralığı (anlık etkiler hariç: öfke, aşırı yük)
 export function gunCd(p) {
   const W = weaponOf(p), wl = weaponLvl(p.wpn || 'blaster');
   let cd = (W.flame ? W.cd : UPGRADES.blaster.cd[G.lvl.blaster] * W.cd) * (1 - WEAPON_UP.cd * wl);
   if (hasMod('rapid')) cd *= 0.7;
-  if (hasPerk('hizliTetik')) cd /= 1.25;
+  cd /= 1 + pv('hizliTetik');
   return cd;
 }
 // sürekli hasar/sn tahmini: çoklu mermi, delme, alan ve eklentiler kabaca sayılır
 export function gunDps(p) {
   const W = weaponOf(p);
   let k = W.pellets ? W.pellets * 0.6 : W.zap ? 1 + W.zap * 0.6 : W.flame ? 1.5 : W.blast ? 1.8 : 1;
-  if (W.pierce || hasPerk('delici')) k *= 1 + Math.min(4, (W.pierce || 0) + (hasPerk('delici') ? 2 : 0)) * 0.2;
+  if (W.pierce || hasPerk('deliciIsin')) k *= 1 + Math.min(4, (W.pierce || 0) + (hasPerk('deliciIsin') ? 3 : 0)) * 0.2;
   if (hasPerk('ciftNamlu') && !W.flame && !W.zap) k *= 2;
   if (hasMod('split') && !W.pellets && !W.flame && !W.zap) k *= 1.5;
   if (hasMod('boom')) k *= 1.25;
   if (hasMod('chain')) k *= 1.3;
-  if (hasPerk('ofke')) k *= 1.2;
+  if (hasPerk('ofke')) k *= 1 + pv('ofke') * 3;
+  if (hasPerk('kor')) k *= 1 + pv('kor') * 2;
+  if (hasPerk('zincirSimsek')) k *= 1 + pv('zincirSimsek') * 0.5;
   return gunDmg(p) * k / gunCd(p);
 }
 function toolDps(s) {
@@ -52,5 +54,5 @@ export function directorHp(st) {
 }
 // elit/boss can tabanı: ekibin tam isabetle en az bu kadar saniye ateş etmesi gerekir
 export function ttkFloor(boss) {
-  return teamDps() * (hasPerk('elitAvcisi') ? 1.4 : 1) * (boss ? POWER.bossTtk : POWER.eliteTtk);
+  return teamDps() * (1 + pv('devAvcisi')) * (boss ? POWER.bossTtk : POWER.eliteTtk);
 }

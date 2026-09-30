@@ -1,5 +1,6 @@
 // Sefer oluşturma, türetilmiş değerler ve kayıt/yükleme.
 import { COLS, ROWS, TILE, GROUND_ROW, BASE_X, BASE_Y, CENTER_COL, STRATUM_ROWS, stratumOfRow, PLAY_MIN_COL, PLAY_MAX_COL } from '../config.js';
+import { PERKS, RESONANCE } from '../data/relics.js';
 import { UPGRADES, PLAYER, BUILDS, ITEMS, ITEM_KEYS, SCHEMATICS, CONTRACTS, kademeMods, MOD_SLOTS, PICK_TIERS, ROLES, RES_KEYS, MASTER_KEYS, PICK_TYPES, WEAPONS, ADREN, TOOL_UP, WEAPON_UP, BUILD_KEYS } from '../data/balance.js';
 import { T, TD } from '../data/tiles.js';
 import { makeThreat, scanNests } from './threat.js';
@@ -82,7 +83,7 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
     base: { x: BASE_X, y: BASE_Y, hp: 0, maxHp: 0, hurtT: 0 },
     store: emptyRes(), collected: emptyRes(),
     lvl: { drill: Math.min(2, ml.keskinUc | 0), sharp: 0, swing: 0, bag: 0, armor: 0, blaster: Math.min(2, ml.ayarliBl | 0), lamp: 0, ...Object.fromEntries(MASTER_KEYS.map(k => [k, 0])) },
-    perks: [], items: emptyItems(), perkOffer: null,
+    perks: [], perkLv: {}, rerolls: 0, items: emptyItems(), perkOffer: null,
     gear: { owned: [], eq: [], cd: {}, active: {}, wOwn: ['blaster'], pOwn: ['std'], wLvl: {}, tLvl: {} },
     kademe, mods, daily, contracts: [],
     bombs: [], rocks: [], falls: [], gas: [], shells: [], hazT: 0,
@@ -147,26 +148,32 @@ export function makeStructure(type, c, r) {
 }
 
 export function hasPerk(k) { return G.perks.includes(k); }
+// kalıntı seviyesi (0: yok) ve o seviyedeki değer; soy sayısı ve rezonans (aynı soydan 3 kalıntı)
+export function perkLv(k) { return G.perks.includes(k) ? (G.perkLv && G.perkLv[k]) || 1 : 0; }
+export function pv(k) { const l = perkLv(k), d = PERKS[k]; return !l ? 0 : d.v ? d.v[Math.min(d.v.length, l) - 1] : 1; }
+export function soyCount(s) { let n = 0; for (const k of G.perks) if (PERKS[k] && PERKS[k].soy === s) n++; return n; }
+export function resonance(s) { return soyCount(s) >= RESONANCE; }
 export function hasRelic(k) { return !!(G.meta.relics && G.meta.relics.includes(k)); }
 export function roleOf(p) { return ROLES[p.role] || {}; }
 export function teamHas(role) { return G.players.some(p => p.role === role); }
 // Son Direniş (düşük canda) ve Adrenalin: iki kat vuruş
 export function lastStand(p) {
   const bond = hasPerk('kanBagi') && G.players.some(q => q !== p && !q.dead && Math.hypot(q.x - p.x, q.y - p.y) < 96);
-  return (hasPerk('sonDirenis') && p.hp < p.maxHp * 0.35 ? 2 : 1) * (p.adrenT > 0 ? ADREN.dmg : 1) * (bond ? 1.25 : 1);
+  const quiet = resonance('golge') && G.threat.level <= 1;
+  return (p.hp < p.maxHp * 0.35 ? pv('sonDirenis') || 1 : 1) * (p.adrenT > 0 ? ADREN.dmg : 1) * (bond ? 1 + pv('kanBagi') : 1) * (quiet ? 1.4 : 1);
 }
 export function pickType(p = G.player) { return PICK_TYPES[p && p.pk] || PICK_TYPES.std; }
 export function weaponOf(p = G.player) { return WEAPONS[p && p.wpn] || WEAPONS.blaster; }
 export function weaponLvl(k) { return Math.min(WEAPON_UP.max, (G.gear.wLvl && G.gear.wLvl[k]) | 0); }
 export function toolLvl(k) { return Math.min(TOOL_UP.max, (G.gear.tLvl && G.gear.tLvl[k]) | 0); }
 // alet hasarı: kendi seviyesi + Silah Gücü (aletler derinde de işe yarasın)
-export function toolDmgMul(k) { return (1 + TOOL_UP.dmg * toolLvl(k)) * (1 + 0.15 * G.lvl.blaster) * (hasPerk('taretAsiri') ? 1.5 : 1); }
+export function toolDmgMul(k) { return (1 + TOOL_UP.dmg * toolLvl(k)) * (1 + 0.15 * G.lvl.blaster) * (hasPerk('aletUstasi') ? 1.5 : 1); }
 
 // Seviye/perk/meta'ya bağlı değerler
 export function recompute(fill = false) {
   const ml = G.meta.lv || {};
-  G.bagCap = Math.round((UPGRADES.bag.cap[G.lvl.bag] + 10 * (ml.genisCanta | 0)) * (hasPerk('derinCep') ? 1.5 : 1));
-  const maxHp = Math.round((UPGRADES.armor.hp[G.lvl.armor] + (hasRelic('kalp') ? 40 : 0) + (G.lvl.muska ? 30 : 0)) * (hasPerk('kristalDeri') ? 1.35 : 1));
+  G.bagCap = Math.round((UPGRADES.bag.cap[G.lvl.bag] + 10 * (ml.genisCanta | 0)) * (1 + pv('derinCep')) * (hasPerk('acKazma') ? 0.65 : 1));
+  const maxHp = Math.round((UPGRADES.armor.hp[G.lvl.armor] + (hasRelic('kalp') ? 40 : 0) + (G.lvl.muska ? 30 : 0)) * (1 + pv('kalinKan')) * (hasPerk('camTop') ? 0.6 : 1));
   for (const p of G.players) {
     const d = maxHp - p.maxHp;
     p.maxHp = maxHp;
@@ -176,13 +183,15 @@ export function recompute(fill = false) {
 }
 
 // kazma: kademe + tür + keskinlik + hızlı sallama
-export function pickDmg(p = G.player) { return PICK_TIERS[G.lvl.drill].dmg * pickType(p).dmg * UPGRADES.sharp.mult[G.lvl.sharp] * (hasRelic('kivilcim') ? 2 : 1) * (G.lvl.yildizCekirdek ? 1.4 : 1) * (hasRelic('sifirTasi') ? 1.4 : 1); }
+export function pickDmg(p = G.player) { return PICK_TIERS[G.lvl.drill].dmg * pickType(p).dmg * UPGRADES.sharp.mult[G.lvl.sharp] * (hasRelic('kivilcim') ? 2 : 1) * (G.lvl.yildizCekirdek ? 1.4 : 1) * (hasRelic('sifirTasi') ? 1.4 : 1) * (resonance('toprak') ? 1.5 : 1) * (hasPerk('camTop') ? 1.8 : 1) * (hasPerk('acKazma') ? 2.2 : 1); }
 export function pickInterval(p = G.player) { return PICK_TIERS[G.lvl.drill].interval * pickType(p).int * UPGRADES.swing.mult[G.lvl.swing]; }
+// kazı/kırma gürültü çarpanı: Sessiz Adım, Gölge rezonansı, Gürültü Tanrısı
+export function perkNoise() { return (1 - pv('sessizAdim')) * (resonance('golge') ? 0.65 : 1) * (hasPerk('gurultuTanrisi') ? 1.6 : 1); }
 export function modSlots() { return MOD_SLOTS + (hasPerk('dorduncuYuva') ? 1 : 0); }
 export function hasMod(k) { return G.gear.eq.includes(k); }
 
 export function lampTiles() {
-  const r = UPGRADES.lamp.radius[G.lvl.lamp] + (hasPerk('parlakFener') ? 2 : 0) + (hasRelic('kivilcim') ? 1 : 0) + (hasRelic('arken') ? 3 : 0) + (G.lvl.inciFener ? 3 : 0);
+  const r = UPGRADES.lamp.radius[G.lvl.lamp] + (hasRelic('kivilcim') ? 1 : 0) + (hasRelic('arken') ? 3 : 0) + (G.lvl.inciFener ? 3 : 0);
   // Işık Yiyen yakındayken fener söner
   const lp = G.player, eaten = lp && G.enemies.some(e => !e.dead && e.d.eatLight && Math.hypot(e.x - lp.x, e.y - lp.y) < e.d.eatLight);
   if (eaten) return 2;
@@ -201,7 +210,7 @@ export function serialize() {
   const g = G;
   return {
     v: 8, seed: g.seed, rng: g.rng, heartRow: g.heartRow, order: g.order, map: b64(g.map), rev: b64(g.rev), buried: b64(g.buried), bhp: g.bhp, gear: { owned: g.gear.owned, eq: g.gear.eq, wOwn: g.gear.wOwn, pOwn: g.gear.pOwn, wLvl: g.gear.wLvl, tLvl: g.gear.tLvl },
-    base: { hp: g.base.hp }, bag: g.player.bag, store: g.store, collected: g.collected, lvl: g.lvl, perks: g.perks,
+    base: { hp: g.base.hp }, bag: g.player.bag, store: g.store, collected: g.collected, lvl: g.lvl, perks: g.perks, perkLv: g.perkLv, rerolls: g.rerolls,
     items: g.items, structures: g.structures.map(s => ({ type: s.type, c: s.c, r: s.r, hp: s.hp })),
     kademe: g.kademe, daily: g.daily, contracts: g.contracts,
     threat: { noise: g.threat.noise }, evt: { t: g.evt.t }, beacons: g.beacons, stations: g.stations, selfRevive: g.selfRevive, startStratum: g.startStratum,
@@ -216,7 +225,7 @@ export function deserialize(d) {
   g.buried = d.buried ? unb64(d.buried) : new Uint8Array(COLS * ROWS);
   if (g.map.length !== COLS * ROWS) throw new Error('harita boyutu uyumsuz'); g.bhp = d.bhp || {}; g.heartRow = d.heartRow; if (d.order) g.order = d.order;
   Object.assign(g.player.bag, d.bag); Object.assign(g.store, d.store); Object.assign(g.collected, d.collected);
-  for (const k in d.lvl || {}) if (k in g.lvl) g.lvl[k] = Math.max(0, Math.min(UPGRADES[k].costs.length, d.lvl[k] | 0)); g.perks = d.perks || [];
+  for (const k in d.lvl || {}) if (k in g.lvl) g.lvl[k] = Math.max(0, Math.min(UPGRADES[k].costs.length, d.lvl[k] | 0)); g.perks = (d.perks || []).filter(k => PERKS[k]); g.perkLv = d.perkLv || {}; g.rerolls = d.rerolls | 0;
   if (d.gear) { g.gear.owned = d.gear.owned || []; g.gear.eq = d.gear.eq || []; g.gear.wOwn = (d.gear.wOwn || ['blaster']).filter(k => WEAPONS[k]); g.gear.pOwn = (d.gear.pOwn || ['std']).filter(k => PICK_TYPES[k]);
     for (const k in d.gear.wLvl || {}) if (WEAPONS[k]) g.gear.wLvl[k] = Math.min(WEAPON_UP.max, d.gear.wLvl[k] | 0);
     for (const k in d.gear.tLvl || {}) if (BUILD_KEYS.includes(k)) g.gear.tLvl[k] = Math.min(TOOL_UP.max, d.gear.tLvl[k] | 0); }

@@ -6,9 +6,10 @@ import { buyUpgrade, craftItem, pickupBuild, applyPerk, buyMod, toggleMod, gearP
 import { useMod } from './combat.js';
 import { addPing } from './pings.js';
 import { callElevator } from './elevator.js';
+import { rerollOffer } from './chests.js';
 import { emit } from '../core/events.js';
 
-export const CMD = { USE: 'u', BUY: 'b', CRAFT: 'c', PICKUP: 'k', PERK: 'p', MODBUY: 'mb', MODEQ: 'me', MODUSE: 'mu', PING: 'g', ELEV: 'el', GEAR: 'gr', TEST: 'tx', LVUP: 'lu' };
+export const CMD = { USE: 'u', BUY: 'b', CRAFT: 'c', PICKUP: 'k', PERK: 'p', MODBUY: 'mb', MODEQ: 'me', MODUSE: 'mu', PING: 'g', ELEV: 'el', GEAR: 'gr', TEST: 'tx', LVUP: 'lu', REROLL: 'rr' };
 
 // Simülasyon içinde çalışır: pi = komutu veren oyuncu indeksi
 export function execCmd(pi, cmd) {
@@ -27,6 +28,7 @@ export function execCmd(pi, cmd) {
     case CMD.GEAR: return gearPick(cmd.g === 'w' ? 'w' : 'p', String(cmd.k), p);
     case CMD.TEST: return testFunds(p);
     case CMD.LVUP: return levelUp(cmd.g === 'w' ? 'w' : 't', String(cmd.k), p);
+    case CMD.REROLL: return rerollOffer(p);
     case CMD.PERK: {
       const off = G.perkOffer;
       if (!off || off.pi !== pi || !off.keys.includes(cmd.k)) return false;

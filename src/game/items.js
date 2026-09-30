@@ -72,7 +72,7 @@ export function useItem(k, p = G.player) {
     ring(p.x, p.y, '#d8d8e8', 40); ring(p.x, p.y, '#ffffff', 24); dust(p.x, p.y, 3, 'rgba(220,220,235,0.5)');
     if (hear(p)) sfx.chirp();
   } else if (k === 'kalkan') {
-    p.barrier = SHIELD.hp * (hasPerk('kalkanUstasi') ? 2 : 1); p.barrierT = SHIELD.t;
+    p.barrier = SHIELD.hp; p.barrierT = SHIELD.t;
     ring(p.x, p.y, '#6fd0ff', 18); sparks(p.x, p.y, '#bff4ff', 12, 70);
     if (hear(p)) sfx.heal();
   } else if (k === 'burgu') {
@@ -112,7 +112,7 @@ function detonate(b) {
   for (const e of G.enemies) {
     if (e.dead) continue;
     const d = Math.hypot(e.x - cx, e.y - cy);
-    if (d < rad + e.r) damageEnemy(e, DYNAMITE.dmg, (e.x - cx) / (d || 1), (e.y - cy) / (d || 1), 2.5);
+    if (d < rad + e.r) damageEnemy(e, DYNAMITE.dmg * (hasPerk('barut') ? 2 : 1), (e.x - cx) / (d || 1), (e.y - cy) / (d || 1), 2.5);
   }
   for (const p of G.players) if (!p.dead && p.role !== 'yikici' && Math.hypot(p.x - cx, p.y - cy) < 26 * blast) damagePlayer(p, DYNAMITE.selfDmg, cx, cy);
   sfx.explode(); shake(0.5); hitstop(0.06); haptic(50);

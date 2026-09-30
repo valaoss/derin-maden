@@ -10,7 +10,7 @@ import { updateItems, useItem } from '../src/game/items.js';
 import { updateHazards } from '../src/game/hazards.js';
 import { updateThreat, addNoise, nestsInStratum } from '../src/game/threat.js';
 import { updateEvents } from '../src/game/events.js';
-import { roleOf, lampTiles, metaSnapshot, hasRelic, lastStand } from '../src/game/run.js';
+import { roleOf, lampTiles, metaSnapshot, hasRelic, lastStand, resonance } from '../src/game/run.js';
 import { deployLimit } from '../src/game/economy.js';
 import { openStation, callElevator, atShaft, stationY, SHAFT_X } from '../src/game/elevator.js';
 import { DEPLOY_MAX, EVENTS } from '../src/data/balance.js';
@@ -568,21 +568,19 @@ section('Kalıntılar');
   ok('her kalıntının adı ve açıklaması var', Object.values(PERKS).every(k => k.name && k.desc) && Object.keys(PERKS).length >= 29);
   const setup = seed => { fresh(seed); const p = G.player; shaft(8, GROUND_ROW + 14); p.x = 8 * TILE + 8; p.y = (GROUND_ROW + 12) * TILE + 8; p.px = p.x; p.py = p.y; forceFlow(); return p; };
   { const p = setup(800); applyPerk('sonDirenis'); const full = lastStand(p); p.hp = p.maxHp * 0.2;
-    ok('Son Direniş düşük canda iki kat vurur', full === 1 && lastStand(p) === 2); }
-  { const p = setup(801); applyPerk('kacis'); damagePlayerX(p, 5); ok('Kaçış Refleksi hızlandırır', p.hasteT > 1.5); }
-  { const p = setup(802); applyPerk('sogukkanli'); blindPlayer(p, 2); ok('Soğukkanlı körlüğü engeller', !(p.blindT > 0)); }
+    ok('Son Direniş düşük canda vurur', full === 1 && lastStand(p) === 1.5); applyPerk('sonDirenis'); ok('Son Direniş II güçlenir', lastStand(p) === 1.9 && G.perkLv.sonDirenis === 2); }
+  { const p = setup(801); applyPerk('simsekAdim'); damagePlayerX(p, 5); ok('Şimşek Adım hasar alınca hızlandırır', p.hasteT > 1.5); }
   { const p = setup(803); applyPerk('dikenZirh'); const e = spawnEnemy('rodent', p.x + 6, p.y, 1); e.emergeT = 0; const h0 = e.hp; damagePlayerX(p, 5);
     ok('Diken Zırh vurana hasar verir', e.hp < h0 || e.dead); }
-  { const p = setup(804); applyPerk('sessizDamar'); setTile(9, GROUND_ROW + 12, T.GOLD); G.threat.noise = 0; breakTile(9, GROUND_ROW + 12, p);
-    ok('Sessiz Damar cevherde gürültü yapmaz', G.threat.noise === 0, `${G.threat.noise}`); }
-  { const p = setup(805); applyPerk('sifaPinari'); p.hp = 50; setTile(9, GROUND_ROW + 12, T.WATER); breakTile(9, GROUND_ROW + 12, p);
-    ok('Şifa Pınarı su kırınca iyileştirir', Math.abs(p.hp - (50 + p.maxHp * 0.08)) < 1e-6, `${p.hp}`); }
-  { const p = setup(806); applyPerk('depremVurus'); for (let c = 3; c <= 13; c++) for (let r = GROUND_ROW + 13; r <= GROUND_ROW + 16; r++) setTile(c, r, T.DIRT || HOST_TILE[0]);
+  { const p = setup(804); applyPerk('sessizAdim'); setTile(9, GROUND_ROW + 12, T.GOLD); G.threat.noise = 0; breakTile(9, GROUND_ROW + 12, p); const a1 = G.threat.noise;
+    fresh(804); const q = G.player; shaft(8, GROUND_ROW + 14); q.x = 8 * TILE + 8; q.y = (GROUND_ROW + 12) * TILE + 8; setTile(9, GROUND_ROW + 12, T.GOLD); G.threat.noise = 0; breakTile(9, GROUND_ROW + 12, q);
+    ok('Sessiz Adım gürültüyü azaltır', a1 < G.threat.noise * 0.8, `${a1} ${G.threat.noise}`); }
+  { const p = setup(806); applyPerk('deprem'); for (let c = 3; c <= 13; c++) for (let r = GROUND_ROW + 13; r <= GROUND_ROW + 16; r++) setTile(c, r, T.DIRT || HOST_TILE[0]);
     const before = G.stats.dug; for (let i = 0; i < 8; i++) breakTile(4 + i, GROUND_ROW + 14, p);
-    ok('Deprem Vuruşu 5. blokta çevreyi yıkar', G.stats.dug - before > 8, `${G.stats.dug - before}`); }
-  { const p = setup(807); applyPerk('hazineKokusu'); const i = G.map.findIndex(t => TD[t] && TD[t].chest); ok('Hazine Kokusu sandıkları gösterir', i < 0 || G.rev[i] === 1); }
-  { const p = setup(808); applyPerk('lesKazisi'); let n = 0; for (let i = 0; i < 40; i++) { const e = spawnEnemy('rodent', p.x, p.y - 30, 1); const o0 = G.orbs.length; killEnemy(e); n += G.orbs.length - o0; }
-    ok('Leş Kazısı ganimeti artırır', n > 40 * 0.35 * 1.1, `${n}`); }
+    ok('Deprem Vuruşu çevreyi yıkar', G.stats.dug - before > 8, `${G.stats.dug - before}`); }
+  { const p = setup(807); for (const k of ['kor', 'lesBombasi', 'yangin']) applyPerk(k); ok('3 Ateş kalıntısı rezonans açar', resonance('ates') && !resonance('buz'));
+    const e = spawnEnemy('bug', p.x + 30, p.y, 0); e.emergeT = 0; const h = e.hp; e.burnT = 3; damageEnemy(e, 10); ok('Ateş rezonansı yanana fazla vurur', h - e.hp > 10 * 0.65 * 1.25, `${h - e.hp}`); }
+  { const p = setup(808); applyPerk('kor'); G.lvl.blaster = 5; const e = spawnEnemy('brute', p.x, p.y + 40, 0); e.emergeT = 0; run(1.5); ok('Kor Mermi tutuşturur', e.burnT > 0 && e.burnDps > 0, `${e.burnDps}`); }
 }
 
 // ---------- 16. derin cevherler ----------
@@ -766,35 +764,38 @@ section('Sandık türleri ve kalıntılar');
   const { CHESTS, chestWeights, PERKS: PK } = await import('../src/data/balance.js');
   const { CHEST_TILE } = await import('../src/data/tiles.js');
   const { perkChoices, offerInfo } = await import('../src/game/chests.js');
-  ok('50+ kalıntı, üç kademe', Object.keys(PK).length >= 50 && [1, 2, 3].every(k => Object.values(PK).some(q => q.t === k)));
+  ok('45+ kalıntı, altı soy, ikili, efsanevi ve lanetli', Object.keys(PK).length >= 45 && ['ates', 'buz', 'simsek', 'kan', 'toprak', 'golge'].every(s => Object.values(PK).filter(q => q.soy === s).length >= 5) && Object.values(PK).some(q => q.duo) && Object.values(PK).some(q => q.leg) && Object.values(PK).some(q => q.curse));
   ok('9 sandık türü', Object.keys(CHESTS).length === 9 && Object.keys(CHESTS).every(k => TD[CHEST_TILE[k]].chest === k));
   // haritada sandık türleri çeşitli
   const kinds = new Set(); for (let seed = 1; seed <= 6; seed++) { const g = generate(seed, {}); for (const tt of g.map) if (TD[tt] && TD[tt].chest) kinds.add(TD[tt].chest); }
   ok('haritada en az 6 sandık türü', kinds.size >= 6, [...kinds].join(','));
-  // kademe: altın sandık sıradan kalıntı vermez, ahşap efsanevi vermez
-  fresh(1300); let bad = 0; for (let i = 0; i < 30; i++) { if (perkChoices('gold').some(k => PK[k].t === 1)) bad++; if (perkChoices('wood').some(k => PK[k].t === 3)) bad++; }
-  ok('sandık kademesi tutarlı', bad === 0, `${bad}`);
+  // ahşap efsanevi vermez; ikili yalnız iki soyun varken; kartlar farklı soylardan; sahip olunan kalıntı yükseltme olarak gelir
+  fresh(1300); let bad = 0; for (let i = 0; i < 30; i++) { if (perkChoices('wood').some(k => PK[k].leg || PK[k].duo || PK[k].curse)) bad++; }
+  ok('ahşap sandık sade kalıntı verir', bad === 0, `${bad}`);
+  { let dup = 0; for (let i = 0; i < 40; i++) { const c = perkChoices('iron').map(k => PK[k].soy).filter(Boolean); if (new Set(c).size < c.length) dup++; } ok('kartlar farklı soylardan', dup <= 4, `${dup}`); }
+  { applyPerk('kor'); applyPerk('buzMermi'); let duo = 0, up = 0; for (let i = 0; i < 40; i++) { const c = perkChoices('gold'); if (c.includes('termalSok')) duo++; if (c.includes('kor')) up++; }
+    ok('iki soy ikiliyi açar', duo > 0, `${duo}`); ok('sahip olunan kalıntı yükselir', up > 0, `${up}`); applyPerk('kor'); ok('yükseltme seviyeyi artırır', G.perkLv.kor === 2 && offerInfo('kor').up); }
   ok('altın sandık 4 seçenek', perkChoices('gold').length === 4);
   const open = (type, seed) => { fresh(seed); const p = G.player; shaft(8, GROUND_ROW + 12); p.x = 8 * TILE + 8; p.y = (GROUND_ROW + 10) * TILE + 8; p.px = p.x; p.py = p.y; forceFlow();
     const c = 9, r = GROUND_ROW + 10; setTile(c, r, CHEST_TILE[type]); G.perkOffer = null; const o0 = G.orbs.length, e0 = G.enemies.length; breakTile(c, r, p); return { p, orbs: G.orbs.length - o0, en: G.enemies.length - e0 }; };
   { const o = open('wood', 1301); ok('ahşap sandık kalıntı sunar', G.perkOffer && G.perkOffer.chest === 'wood' && G.perkOffer.keys.length === 3); }
   { const o = open('ore', 1302); ok('cevher sandığı cevher yağdırır', o.orbs >= 30 && !G.perkOffer, `${o.orbs}`); }
   { const o = open('supply', 1303); ok('erzak sandığı kemeri doldurur', G.items.medkit >= 2 && G.items.dynamite >= 2); }
-  { const o = open('cursed', 1304); ok('lanetli sandık bekçi uyandırır', o.en === 3 && G.enemies.every(e => e.elite)); ok('lanetli sandık güçlü kalıntı', G.perkOffer.keys.every(k => PK[k].t >= 2)); }
+  { const o = open('cursed', 1304); ok('lanetli sandık bekçi uyandırır', o.en === 3 && G.enemies.every(e => e.elite)); ok('lanetli sandık lanetli kalıntı sunar', PK[G.perkOffer.keys[0]].curse); }
   { const o = open('arms', 1305); ok('silah sandığı silah sunar', G.perkOffer && G.perkOffer.keys.every(k => k.includes(':')), G.perkOffer && G.perkOffer.keys.join(','));
     const k = G.perkOffer.keys.find(q => q.startsWith('w:')) || G.perkOffer.keys[0]; ok('silah teklifi alınır', applyPerk(k, o.p) && !G.perkOffer); ok('teklif bilgisi', !!offerInfo(k).name); }
   { const o = open('mimic', 1306); const m = G.enemies.find(e => e.type === 'mimic'); ok('taklitçi uyanır', !!m && !G.perkOffer);
     killEnemy(m); ok('taklitçi ölünce sandık teklifi', G.perkOffer && G.perkOffer.keys.length >= 3); }
   // yeni kalıntılar
   const setup = seed => { fresh(seed); const p = G.player; shaft(8, GROUND_ROW + 14); p.x = 8 * TILE + 8; p.y = (GROUND_ROW + 12) * TILE + 8; p.px = p.x; p.py = p.y; forceFlow(); return p; };
-  { const p = setup(1310); applyPerk('cellat'); const e = spawnEnemy('bug', p.x + 30, p.y, 0); e.emergeT = 0; damageEnemy(e, e.maxHp * 0.85 / 0.65); ok('Cellat bitirir', e.dead); }
-  { const p = setup(1311); applyPerk('kristalDeri'); ok('Kristal Deri can verir', p.maxHp === Math.round(100 * 1.35), `${p.maxHp}`); }
-  { const p = setup(1312); applyPerk('kalinDeri'); const h = p.hp; damagePlayerX(p, 20); ok('Kalın Deri hasarı azaltır', Math.abs(h - p.hp - 16) < 1e-6, `${h - p.hp}`); }
+  { const p = setup(1310); applyPerk('cellat'); const e = spawnEnemy('bug', p.x + 30, p.y, 0); e.emergeT = 0; damageEnemy(e, e.maxHp * 0.9 / 0.65); ok('Cellat bitirir', e.dead); }
+  { const p = setup(1311); applyPerk('kalinKan'); ok('Kalın Kan can verir', p.maxHp === Math.round(100 * 1.2), `${p.maxHp}`); }
+  { const p = setup(1312); applyPerk('buzZirh'); const h = p.hp; damagePlayerX(p, 20); ok('Buz Zırhı hasarı azaltır', Math.abs(h - p.hp - 17) < 1e-6, `${h - p.hp}`); }
   { const p = setup(1313); applyPerk('lesBombasi'); const a = spawnEnemy('rodent', p.x + 30, p.y, 0), b = spawnEnemy('rodent', p.x + 36, p.y, 0); a.emergeT = b.emergeT = 0; b.hp = b.maxHp = 5; killEnemy(a); ok('Leş Bombası çevreyi vurur', b.dead); }
   { const p = setup(1314); G.meta.schem = []; applyPerk('bolKemer'); ok('Bol Kemer eşya verir', G.items.medkit === 1 && G.items.dynamite === 1); }
   { const p = setup(1315); applyPerk('vampir'); G.lvl.blaster = 6; p.hp = 20; const e = spawnEnemy('brute', p.x, p.y + 40, 0); e.emergeT = 0; run(2); ok('Vampir Mermi can emer', p.hp > 20, `${p.hp}`); }
-  { const p = setup(1316); applyPerk('zamanKalkani'); const e = spawnEnemy('bug', p.x + 20, p.y, 0); e.emergeT = 0; p.hp = 25; damagePlayerX(p, 1); ok('Zaman Kalkanı düşmanı yavaşlatır', e.slowT > 4); }
-  { const p = setup(1317); applyPerk('novaKalbi'); const e = spawnEnemy('bug', p.x, p.y + 30, 0); e.emergeT = 0; step(); ok('Nova Kalbi halka atar', p.novaT > 7, `${p.novaT}`); }
+  { const p = setup(1316); applyPerk('donmusKalp'); const e = spawnEnemy('bug', p.x + 20, p.y, 0); e.emergeT = 0; p.hp = 25; damagePlayerX(p, 1); ok('Donmuş Kalp düşmanı dondurur', e.slowT > 4); }
+  { const p = setup(1317); applyPerk('statik'); const e = spawnEnemy('bug', p.x, p.y + 30, 0); e.emergeT = 0; step(); ok('Statik Yük halka atar', p.novaT > 7, `${p.novaT}`); }
   ok('Kan Bağı tek başına çıkmaz', (() => { fresh(1318); for (let i = 0; i < 40; i++) if (perkChoices('gold').includes('kanBagi')) return false; return true; })());
 }
 

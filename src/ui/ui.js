@@ -5,11 +5,12 @@ import { STRATA } from '../data/palette.js';
 import { G, App, biomeOf } from '../game/state.js';
 import { iconURL, HELMETS } from '../render/sprites.js';
 import { on, emit } from '../core/events.js';
-import { bagCount, hasPerk, isUnlocked, contractProgress, pickDmg, pickInterval, modSlots } from '../game/run.js';
+import { bagCount, hasPerk, isUnlocked, contractProgress, pickDmg, pickInterval, modSlots, soyCount } from '../game/run.js';
 import { canAfford, upgradeCost, craftState, beaconLack, weaponUpCost, toolUpCost, itemCost } from '../game/economy.js';
 import { WEAPON_UP, TOOL_UP, beaconReq } from '../data/balance.js';
 import { weaponLvl, toolLvl } from '../game/run.js';
-import { offerInfo } from '../game/chests.js';
+import { offerInfo, rerollCost, ROMAN } from '../game/chests.js';
+import { SOY, SOY_KEYS, RESONANCE } from '../data/relics.js';
 import { CHESTS } from '../data/balance.js';
 import { itemUsable } from '../game/items.js';
 import { dispatch, CMD } from '../game/commands.js';
@@ -138,6 +139,7 @@ export function initUI(root, h) {
     refreshHUD(true);
   });
   on('perkOffer', pi => { if (pi === G.localIdx) showPerks(); else toast('Partnerin bir kalıntı buldu', 'chest'); });
+  on('resonance', d => { const S = SOY[d.soy]; banner('REZONANS', S.name, 'gold'); setTimeout(() => toast(S.res, S.icon), 2400); });
   on('perkTaken', d => { if (d.pi !== G.localIdx) { const o = offerInfo(d.k); toast('Partner seçti: ' + o.name, o.icon); } });
   on('blind', () => { const f = $('#flash'); f.classList.remove('on'); void f.offsetWidth; f.classList.add('on'); });
   on('fear', () => { const v = $('#vignette'); v.classList.add('fear'); setTimeout(() => v.classList.remove('fear'), 2400); });
@@ -465,21 +467,31 @@ function showElevPop() {
 }
 
 // ---------------- perk seçimi ----------------
+// soy şeridi: her soyun kalıntı sayısı (3'te rezonans)
+function soyBar() {
+  return `<div class="soybar">${SOY_KEYS.map(s => { const n = soyCount(s), S = SOY[s]; return `<span class="soyc ${n ? 'on' : ''} ${n >= RESONANCE ? 'res' : ''}" style="--c:${S.col}">${ic(S.icon, 's')}<i>${Array.from({ length: RESONANCE }, (_, k) => `<b class="${k < n ? 'f' : ''}"></b>`).join('')}</i></span>`; }).join('')}</div>`;
+}
 function showPerks() {
   const off = G.perkOffer;
   if (!off || !off.keys.length) return;
-  const ch = off.keys;
+  const ch = off.keys, arms = (CHESTS[off.chest] || {}).arms, cost = rerollCost();
   hooks.pause(false, true); cancelStick();
   const s = $('#perk');
   const cn = ((CHESTS[off.chest] || CHESTS.wood).name).toLocaleUpperCase('tr');
   s.innerHTML = `<div class="perkhead"><div class="k">${cn}</div><div class="n">Birini seç</div>${G.mp ? '<div class="k" style="margin-top:6px">OYUN DEVAM EDİYOR</div>' : ''}</div>
-    <div class="cards">${ch.map((k, i) => { const o = offerInfo(k); return `<button class="plate card t${o.t}" data-k="${k}" style="animation-delay:${0.08 + i * 0.07}s">${ic(o.icon, 'xl')}
-      <div><div class="tag">${o.tag}</div><div class="name">${o.name}</div><div class="desc">${o.desc}</div></div></button>`; }).join('')}</div>`;
+    ${arms ? '' : soyBar()}
+    <div class="cards">${ch.map((k, i) => { const o = offerInfo(k);
+      const lv = o.max > 1 ? `<span class="lvp">${Array.from({ length: o.max }, (_, q) => `<b class="${q < o.lv ? 'f' : ''}"></b>`).join('')}</span>` : '';
+      const res = o.kind === 'soy' && !o.up ? (() => { const n = soyCount(o.soy) + 1; return n >= RESONANCE ? `<div class="resl">${n === RESONANCE ? 'REZONANS AÇILIR: ' : 'Rezonans: '}${SOY[o.soy].res}</div>` : `<div class="resl dim">${SOY[o.soy].name} ${n}/${RESONANCE} · rezonansa ${RESONANCE - n}</div>`; })() : '';
+      return `<button class="plate card k-${o.kind || 'arm'} ${o.up ? 'up' : ''}" data-k="${k}" style="--c:${o.col || '#9fe8ff'};animation-delay:${0.08 + i * 0.07}s"><span class="ci">${ic(o.icon, 'xl')}</span>
+      <div class="cm"><div class="tag">${o.tag}</div><div class="name">${o.name}${lv}</div><div class="desc">${o.desc}</div>${res}</div></button>`; }).join('')}</div>
+    <button class="btn dark reroll" id="reroll" ${(G.store.gold | 0) >= cost ? '' : 'disabled'}>YENİDEN ÇEK ${cost ? `· ${ic('gold', 's')}${cost}` : '· BEDAVA'}</button>`;
   s.classList.add('on');
   s.querySelectorAll('.card').forEach(c => tap(c, () => {
     dispatch({ t: CMD.PERK, k: c.dataset.k }); s.classList.remove('on'); hooks.resume(); refreshHUD(true);
-    const o = offerInfo(c.dataset.k); toast(o.name, o.icon);
+    const o = offerInfo(c.dataset.k); toast(o.up ? `${o.name} ${ROMAN[o.lv]}` : o.name, o.icon);
   }));
+  tap($('#reroll'), () => { if (dispatch({ t: CMD.REROLL })) sfx.click(); else sfx.deny(); });
 }
 export function setNetStall(v) { const el = $('#netstall'); el.classList.toggle('on', !!v); if (v && el.textContent !== v) el.textContent = v; }
 

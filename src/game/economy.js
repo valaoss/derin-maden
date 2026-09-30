@@ -6,7 +6,8 @@ import { applyOffer, itemMax } from './chests.js';
 import { UPGRADES, BUILDS, PERKS, ITEMS, MODS, DEPLOY_MAX, WEAPONS, PICK_TYPES, RES_KEYS, SCHEMATICS, WEAPON_UP, TOOL_UP, ITEM_SCALE, beaconReq, ITEM_KEYS } from '../data/balance.js';
 import { G, App } from './state.js';
 import { tileAt } from '../world/map.js';
-import { makeStructure, recompute, hasPerk, isUnlocked, isLocal, modSlots, teamHas, weaponLvl, toolLvl } from './run.js';
+import { makeStructure, recompute, hasPerk, isUnlocked, isLocal, modSlots, teamHas, weaponLvl, toolLvl, perkLv, resonance } from './run.js';
+import { maxLv } from '../data/relics.js';
 import { sparks, ring, dust } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
 import { emit } from '../core/events.js';
@@ -91,7 +92,7 @@ export function testFunds(p = G.player) {
   return true;
 }
 
-export function deployLimit() { return DEPLOY_MAX + (hasPerk('ucuncuAlet') ? 1 : 0) + (teamHas('muhendis') ? 1 : 0); }
+export function deployLimit() { return DEPLOY_MAX + (hasPerk('aletUstasi') ? 1 : 0) + (teamHas('muhendis') ? 1 : 0); }
 // aleti durduğun hücreye kur; sınır doluysa en eski alet kemere geri döner
 export function placeBuild(type, p = G.player) {
   if (!BUILDS[type] || p.dead || (G.items[type] | 0) <= 0) return false;
@@ -145,11 +146,17 @@ export function craftItem(key, p = G.player) {
 }
 export function applyPerk(k, p = G.player) {
   if (k.includes(':')) { if (!applyOffer(k, p)) return false; G.perkOffer = null; sfx.buy(); ring(p.x, p.y, '#ffd24a', 24); sparks(p.x, p.y, '#ffd24a', 14, 90); emit('perkTaken', { k, pi: p.i }); return true; }
-  if (G.perks.includes(k) || !PERKS[k]) return false;
-  G.perks.push(k);
+  if (!PERKS[k]) return false;
+  // sahip olduğun kalıntı yeniden seçilirse seviyesi artar
+  if (G.perks.includes(k)) {
+    const l = perkLv(k); if (l >= maxLv(k)) return false;
+    G.perkLv[k] = l + 1;
+  } else {
+    const soy = PERKS[k].soy, had = soy ? resonance(soy) : true;
+    G.perks.push(k); G.perkLv[k] = 1;
+    if (!had && resonance(soy)) emit('resonance', { soy, pi: p.i });
+  }
   if (k === 'ikinciNefes') G.selfRevive++;
-  if (k === 'hazineKokusu') for (let i = 0; i < G.map.length; i++) if (TD[G.map[i]] && TD[G.map[i]].chest) G.rev[i] = 1;
-  if (k === 'kalkanUstasi') G.items.kalkan = itemMax('kalkan');
   if (k === 'bolKemer') for (const q of ITEM_KEYS) if (isUnlocked(q)) G.items[q] = Math.min(itemMax(q), (G.items[q] | 0) + 1);
   recompute();
   ring(p.x, p.y, '#ffd24a', 24); sparks(p.x, p.y, '#ffd24a', 14, 90);

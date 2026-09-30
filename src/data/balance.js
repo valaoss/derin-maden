@@ -350,77 +350,19 @@ export const WAVES = {
   },
 };
 
-// Kalıntılar (sandıktan seçilir). t: kademe 1 sıradan · 2 nadir · 3 efsanevi. mp: yalnız ortak seferde çıkar
-export const PERKS = {
-  // sıradan
-  kalibre:      { t: 1, name: 'Ağır Kalibre', icon: 'blaster', desc: 'Silah hasarın +%25.' },
-  hizliTetik:   { t: 1, name: 'Hızlı Tetik', icon: 'rapid', desc: 'Atış hızın +%25.' },
-  kalinDeri:    { t: 1, name: 'Kalın Deri', icon: 'armor', desc: 'Aldığın tüm hasar %20 azalır.' },
-  hafifBot:     { t: 1, name: 'Hafif Botlar', icon: 'boot', desc: 'Hareket hızın %30 artar.' },
-  derinCep:     { t: 1, name: 'Derin Cepler', icon: 'bag', desc: 'Çanta kapasitesi +%50.' },
-  kazmaDarbesi: { t: 1, name: 'Kazma Darbesi', icon: 'drill', desc: 'Kazı vuruşların önündeki düşmana silah hasarının 2 katını vurur.' },
-  miknatis:     { t: 1, name: 'Mıknatıs', icon: 'magnet', desc: 'Cevherleri 3 kat uzaktan çekersin.' },
-  parlakFener:  { t: 1, name: 'Parlak Fener', icon: 'lamp', desc: 'Görüş +2 blok. Karanlıktaki cevherler parıldar.' },
-  sessizDamar:  { t: 1, name: 'Sessiz Damar', icon: 'wave', desc: 'Cevher kazmak hiç gürültü yapmaz.' },
-  sessizAdim:   { t: 1, name: 'Sessiz Adım', icon: 'hush', desc: 'Tüm kazı gürültün %40 azalır.' },
-  kacis:        { t: 1, name: 'Kaçış Refleksi', icon: 'boot', desc: 'Hasar aldığında 2 sn boyunca çok hızlı koşarsın.' },
-  hazineKokusu: { t: 1, name: 'Hazine Kokusu', icon: 'chest', desc: 'Kalıntı sandıkları karanlıkta görünür; gömülü cevherler pırıldar.' },
-  kesifGozu:    { t: 1, name: 'Keşif Gözü', icon: 'sonar', desc: 'Gömülü cevher ve yuvaları 5 blok öteden sezersin.' },
-  simya:        { t: 1, name: 'Simya', icon: 'gold', desc: 'Demir, su ve kobalt damarları %25 ihtimalle altın verir.' },
-  sifaPinari:   { t: 1, name: 'Şifa Pınarı', icon: 'water', desc: 'Su damarı kırmak azami canının %8’ini yeniler.' },
-  gazMaskesi:   { t: 1, name: 'Gaz Maskesi', icon: 'heal', desc: 'Gaz bulutları ve zehirli taş sana işlemez.' },
-  sogukkanli:   { t: 1, name: 'Soğukkanlı', icon: 'frost', desc: 'Korku, körlük ve ağ seni etkilemez.' },
-  lesKazisi:    { t: 1, name: 'Leş Kazısı', icon: 'skull', desc: 'Öldürdüğün düşman %40 ihtimalle derinliğine göre cevher düşürür.' },
-  altinDamar:   { t: 1, name: 'Altın Damarı', icon: 'gold', desc: 'Elit düşmanlar üç kat altın düşürür.' },
-  ozHasadi:     { t: 1, name: 'Öz Hasadı', icon: 'oz', desc: 'Sefer sonunda %40 fazla Öz kazanırsın.' },
-  madenUstasi:  { t: 1, name: 'Maden Ustası', icon: 'dynamite', desc: 'Kırdığın her 30 blok kemerine bir dinamit koyar.' },
-  kalkanUstasi: { t: 1, name: 'Kalkan Ustası', icon: 'shield', desc: 'Kalkan Hücresi iki kat emer; hemen kemerin kalkanla dolar.' },
-  bolKemer:     { t: 1, name: 'Bol Kemer', icon: 'gear', desc: 'Her eşyadan 2 fazla taşırsın ve açık her eşyadan birer tane kazanırsın.' },
-  sarsici:      { t: 1, name: 'Sarsıcı Mermi', icon: 'shock', desc: 'Mermilerin düşmanı iki kat savurur ve saldırısını 0.4 sn geciktirir.' },
-  derinNefes:   { t: 1, name: 'Derin Nefes', icon: 'heart', desc: 'Yeraltında saniyede azami canının %1’ini yenilersin.' },
-  // nadir
-  zincir:       { t: 2, name: 'Zincirleme Kırılım', icon: 'chain', desc: 'Kırdığın blok %50 ihtimalle arkasındakini de kırar.' },
-  damar:        { t: 2, name: 'Damar Avcısı', icon: 'gem', desc: 'Her cevher +1 fazla düşürür.' },
-  delici:       { t: 2, name: 'Delici Mermi', icon: 'pierce', desc: 'Mermilerin iki düşmanı delip geçer.' },
-  taretAsiri:   { t: 2, name: 'Aşırı Yükleme', icon: 'turret', desc: 'Aletler %50 daha hızlı ve %50 daha güçlü çalışır.' },
-  ucuncuAlet:   { t: 2, name: 'Üçüncü Alet', icon: 'base', desc: 'Aynı anda kurulu alet sınırı +1.' },
-  ikinciNefes:  { t: 2, name: 'İkinci Nefes', icon: 'heart', desc: 'Bayıldığında bir kez kendin kalkarsın (sefer başına).' },
-  yasamOzu:     { t: 2, name: 'Yaşam Özü', icon: 'heart', desc: 'Her öldürme azami canının %2’sini yeniler.' },
-  sokDalgasi:   { t: 2, name: 'Şok Dalgası', icon: 'shock', desc: 'Hasar aldığında çevrendeki düşmanlar savrulur ve silah hasarının 3 katını alır.' },
-  dorduncuYuva: { t: 2, name: 'Dördüncü Yuva', icon: 'nova', desc: 'Eklenti yuvası +1.' },
-  depremVurus:  { t: 2, name: 'Deprem Vuruşu', icon: 'dynamite', desc: 'Kırdığın her 5. blok çevresindeki kayaları da yıkar.' },
-  sonDirenis:   { t: 2, name: 'Son Direniş', icon: 'elite', desc: 'Canın %35’in altındayken kazman ve silahın iki kat vurur.' },
-  yuvaAvcisi:   { t: 2, name: 'Yuva Avcısı', icon: 'sharp', desc: 'Yuvaları üç kat hızlı kazarsın; yıktığında gürültü 25 düşer.' },
-  yuvaYagmaci:  { t: 2, name: 'Yuva Yağmacısı', icon: 'wave', desc: 'Yıktığın yuva iki kat ganimet ve bandın derin cevherinden 2 tane düşürür.' },
-  dikenZirh:    { t: 2, name: 'Diken Zırh', icon: 'armor', desc: 'Sana vuran yakındaki düşman azami canının %15’i kadar hasar alır.' },
-  cellat:       { t: 2, name: 'Cellat', icon: 'skull', desc: 'Canı %20’nin altına düşen düşman anında ölür (boss hariç).' },
-  lesBombasi:   { t: 2, name: 'Leş Bombası', icon: 'boom', desc: 'Öldürdüğün her düşman patlar: çevresine azami canının yarısı kadar hasar.' },
-  hayaletDeri:  { t: 2, name: 'Hayalet Deri', icon: 'shield', desc: 'Hasar aldıktan sonra 1.5 sn dokunulmaz olursun.' },
-  ofke:         { t: 2, name: 'Öfke', icon: 'overdrive', desc: 'Her öldürme 4 sn boyunca atış hızını %8 artırır (6 kez birikir).' },
-  tetikci:      { t: 2, name: 'Tetikçi', icon: 'rifle', desc: 'Silah menzili +%30; menzilin yarısından uzaktaki düşmana %50 fazla hasar.' },
-  kristalDeri:  { t: 2, name: 'Kristal Deri', icon: 'crystal', desc: 'Azami can +%35.' },
-  elitAvcisi:   { t: 2, name: 'Elit Avcısı', icon: 'elite', desc: 'Elitlere ve bosslara %40 fazla hasar verirsin.' },
-  kismet:       { t: 2, name: 'Kısmet', icon: 'chest', desc: 'Sandıklar bir seçenek fazla sunar ve daha nadir kalıntı çıkar.' },
-  // efsanevi
-  ciftNamlu:    { t: 3, name: 'Çift Namlu', icon: 'split', desc: 'Silahın aynı anda iki mermi atar.' },
-  vampir:       { t: 3, name: 'Vampir Mermi', icon: 'heart', desc: 'Silahla verdiğin hasarın %4’ü kadar can emersin.' },
-  altinDokunus: { t: 3, name: 'Altın Dokunuş', icon: 'crown', desc: 'Her öldürme 1 altın düşürür; elitler 6.' },
-  zamanKalkani: { t: 3, name: 'Zaman Kalkanı', icon: 'gear', desc: 'Canın %30’un altına düşünce 5 sn boyunca düşmanlar yavaşlar ve sana vuramaz (60 sn’de bir).' },
-  novaKalbi:    { t: 3, name: 'Nova Kalbi', icon: 'nova', desc: 'Düşman yakındayken 8 sn’de bir çevrene 12 mermilik halka atarsın.' },
-  kanBagi:      { t: 3, mp: true, name: 'Kan Bağı', icon: 'hand', desc: 'Partnerine 6 blok yakınken ikiniz de %25 fazla vurur ve saniyede azami canın %2’sini yenilersiniz.' },
-};
-export const PERK_TIER = ['', 'SIRADAN', 'NADİR', 'EFSANEVİ'];
+// Kalıntılar: relics.js (soylar, seviyeler, ikili ve lanetli kalıntılar)
+export { PERKS, SOY, SOY_KEYS, RESONANCE } from './relics.js';
 
-// Sandık türleri: gen derinliğe göre seçer. tiers: kalıntı kademesi ağırlıkları (sıradan, nadir, efsanevi)
+// Sandık türleri: gen derinliğe göre seçer. q: kalite (0 ahşap · 1 demir · 2 altın) — ikili/efsanevi kalıntı şansı
 export const CHESTS = {
-  wood:    { name: 'Ahşap Sandık', n: 3, tiers: [0.8, 0.2, 0] },
-  iron:    { name: 'Demir Sandık', n: 3, tiers: [0.35, 0.55, 0.1], ore: 8 },
-  gold:    { name: 'Altın Sandık', n: 4, tiers: [0, 0.6, 0.4], gold: 12 },
+  wood:    { name: 'Ahşap Sandık', n: 3, q: 0 },
+  iron:    { name: 'Demir Sandık', n: 3, q: 1, ore: 8 },
+  gold:    { name: 'Altın Sandık', n: 4, q: 2, gold: 12 },
   arms:    { name: 'Silah Sandığı', n: 3, arms: true },
   ore:     { name: 'Cevher Sandığı', ore: 30 },
   supply:  { name: 'Erzak Sandığı', supply: true },
-  cursed:  { name: 'Lanetli Sandık', n: 3, tiers: [0, 0.15, 0.85], curse: 3 },
-  ancient: { name: 'Kadim Sandık', n: 3, tiers: [0, 0.3, 0.7], ore: 16, gold: 10 },
+  cursed:  { name: 'Lanetli Sandık', n: 3, q: 2, curse: 3 },
+  ancient: { name: 'Kadim Sandık', n: 3, q: 2, ore: 16, gold: 10 },
   mimic:   { name: 'Taklitçi', mimic: 'iron' },
 };
 // biyom konumuna göre sandık türü ağırlıkları
