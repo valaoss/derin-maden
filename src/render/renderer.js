@@ -15,6 +15,8 @@ import { drawAmbient } from './ambient.js';
 import { drawBalrog, drawBalrogGlow, drawBalrogDark, drawBalrogOmen, balrogLights } from './balrog.js';
 import { drawSerpent, drawSerpentGlow, drawSerpentOmen, drawSerpentOmenGlow, drawSerpentDark } from './serpent.js';
 import { drawDragon, drawDragonGlow, drawHoardDragon, drawHoardGlow, dragonLights } from './dragon.js';
+import { drawHall, drawHallGlow, hallLights, hallCenter } from './hoard.js';
+import { inHall } from '../game/dragon.js';
 import { SHROOM } from '../data/balance.js';
 import { CRITTERS } from '../data/critters.js';
 import { on as onEvt } from '../core/events.js';
@@ -58,6 +60,9 @@ export function updateCamera(dt, instant = false) {
   // Balrog yakınsa kadraj yukarı kayar: boyu ve boynuzları görünsün
   const bal = G.enemies.find(e => (e.type === 'balrog' || e.type === 'ejder') && (!e.dead || e.dieT > 0));
   if (bal && Math.abs(bal.y - py) < 100) ty = Math.min(ty, Math.min(py, bal.y) - view.vh * 0.62);
+  // hazine salonu: içerideyken salon kadraja oturur
+  const HH = G.hoard;
+  if (HH && (HH.st === 'sleep' || HH.st === 'wake') && inHall(HH, px, py)) ty = hallCenter(HH) - view.vh * 0.5;
   ty = clamp(ty, minY, maxY);
   const tx = clamp(px - view.vw / 2, 0, Math.max(0, WORLD_W - view.vw));
   const cx = WORLD_W <= view.vw ? (WORLD_W - view.vw) / 2 : tx;
@@ -201,6 +206,7 @@ export function render(alpha, opts = {}) {
   drawDecor(r0, r1);
   drawAmbient(ctx, r0, r1);
   drawSerpentOmen(ctx, r0, r1);
+  drawHall(ctx);
   drawTileOverlays(r0, r1);
   drawTide(camY, vh);
   drawBeacons(r0, r1);
@@ -253,6 +259,7 @@ export function render(alpha, opts = {}) {
   liquidLights(lr0, lr1, src);
   balrogLights(src);
   dragonLights(src);
+  hallLights(src);
   computeLight(lr0, lr1, src, opts.hidePlayer ? 0.42 : 0.26);
   drawLight(camX, camY, dk);
   // biyom renk tonu (hafif)
@@ -1377,6 +1384,7 @@ function drawEmissive(r0, r1, alpha, opts) {
   drawLiquidGlow(ctx, r0, r1, glow);
   drawBalrogOmen(ctx, glow);
   drawSerpentOmenGlow(ctx, glow);
+  drawHallGlow(ctx, glow);
   drawHoardGlow(ctx, glow);
   // üs pencereleri ve anten ışığı
   const b = G.base, s = SPR.base;

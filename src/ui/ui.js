@@ -167,9 +167,9 @@ export function initUI(root, h) {
   on('balrog', k => { if (k === 'dark') toast('Derinden davul sesleri geliyor… ışık sönüyor', 'skull', true); else if (k === 'eyes') toast('Gölgede bir şey sana bakıyor', 'skull', true); });
   on('serpent', k => { if (k === 'omen') toast('Deniz sustu… duvarların ardında dev bir şey kıpırdıyor', 'skull', true); else if (k === 'crack') toast('Duvar çatlıyor!', 'skull', true); });
   on('hoard', k => {
-    if (k === 'seen') toast('Hazine ejderi uyuyor. Altına dokunur ya da gürültü yaparsan uyanır', 'skull', true);
+    if (k === 'seen') toast('Altın yığınının altında bir şey nefes alıyor… Ona saldırırsan uyanır', 'skull', true);
     else if (k === 'stir') toast('Ejder uykusunda kıpırdandı…', 'skull', true);
-    else if (k === 'eye') toast('Bir gözü aralandı! Sessiz ol', 'skull', true);
+    else if (k === 'eye') toast('Bir gözü aralandı… ama hâlâ uyuyor', 'skull', true);
     else if (k === 'wake') banner('EJDER UYANDI', 'HAZİNESİNİ KORUYOR', true);
   });
   on('bossPhase', k => { const B = ENEMIES[k]; if (B) banner(up(B.name), 'ÖFKELENDİ', true); });

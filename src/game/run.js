@@ -220,7 +220,7 @@ export function serialize() {
   const g = G;
   return {
     v: 8, seed: g.seed, rng: g.rng, heartRow: g.heartRow, order: g.order, map: b64(g.map), rev: b64(g.rev), buried: b64(g.buried), bhp: g.bhp, gear: { owned: g.gear.owned, eq: g.gear.eq, wOwn: g.gear.wOwn, pOwn: g.gear.pOwn, wLvl: g.gear.wLvl, tLvl: g.gear.tLvl },
-    base: { hp: g.base.hp }, bag: g.player.bag, store: g.store, collected: g.collected, lvl: g.lvl, perks: g.perks, perkLv: g.perkLv, rerolls: g.rerolls, merchant: g.merchant, merchT: g.merchT, wishes: g.wishes, critters: g.critters, lakes: g.lakes, portals: g.portals, shrooms: g.shrooms, lq: g.lq ? b64(g.lq) : null, lk: g.lk ? b64(g.lk) : null, lqT: g.lqT, balrogDone: !!(g.balrog && g.balrog.st === 'done'), serpentDone: !!(g.serpent && g.serpent.st === 'done'), hoard: g.hoard ? { st: g.hoard.st === 'done' ? 'done' : 'sleep', wake: g.hoard.st === 'sleep' ? g.hoard.wake : 0 } : null,
+    base: { hp: g.base.hp }, bag: g.player.bag, store: g.store, collected: g.collected, lvl: g.lvl, perks: g.perks, perkLv: g.perkLv, rerolls: g.rerolls, merchant: g.merchant, merchT: g.merchT, wishes: g.wishes, critters: g.critters, lakes: g.lakes, portals: g.portals, shrooms: g.shrooms, lq: g.lq ? b64(g.lq) : null, lk: g.lk ? b64(g.lk) : null, lqT: g.lqT, balrogDone: !!(g.balrog && g.balrog.st === 'done'), serpentDone: !!(g.serpent && g.serpent.st === 'done'), hoard: g.hoard ? { v: 2, st: g.hoard.st === 'done' ? 'done' : 'sleep', wake: g.hoard.st === 'sleep' ? g.hoard.wake : 0 } : null,
     items: g.items, structures: g.structures.map(s => ({ type: s.type, c: s.c, r: s.r, hp: s.hp })),
     kademe: g.kademe, daily: g.daily, contracts: g.contracts,
     threat: { noise: g.threat.noise }, evt: { t: g.evt.t }, beacons: g.beacons, stations: g.stations, selfRevive: g.selfRevive, startStratum: g.startStratum,
@@ -240,7 +240,7 @@ export function deserialize(d) {
   for (const k of ['lakes', 'portals', 'shrooms']) if (Array.isArray(d[k])) g[k] = d[k];
   if (d.balrogDone) g.balrog = { st: 'done', t: 99 };
   if (d.serpentDone) g.serpent = { st: 'done', t: 99 };
-  if (!d.hoard) g.hoard = null; // eski kayıt: haritada hazine odası yok
+  if (!d.hoard || d.hoard.v !== 2) g.hoard = null; // eski kayıt: haritada bu hazine salonu yok
   if (d.hoard && g.hoard) { g.hoard.st = d.hoard.st === 'done' ? 'done' : 'sleep'; g.hoard.wake = Math.max(0, Math.min(90, +d.hoard.wake || 0)); }
   if (d.lq && d.lk && g.lq) { const a = unb64(d.lq), b = unb64(d.lk); if (a.length === g.lq.length && b.length === g.lk.length) { g.lq = a; g.lk = b; g.lqT = d.lqT | 0; } }
   if (d.gear) { g.gear.owned = d.gear.owned || []; g.gear.eq = d.gear.eq || []; g.gear.wOwn = (d.gear.wOwn || ['blaster']).filter(k => WEAPONS[k]); g.gear.pOwn = (d.gear.pOwn || ['std']).filter(k => PICK_TYPES[k]);

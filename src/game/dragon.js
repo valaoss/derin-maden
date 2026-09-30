@@ -1,8 +1,8 @@
 // Hazine Ejderi: Altın Saray'ın altındaki hazine odasında altın yığınının üstünde uyur.
-// Odadaki altına dokunmak ve gürültü onu uyandırır (uyku ölçeri); sessizce biraz altın alıp kaçmak mümkündür.
+// Altın ve gürültü yalnız kıpırdatır; ona saldırana (mermi, kazma, dinamit) kadar uyur. Hazine sessizce alınabilir.
 // Uyanınca: altın üstünden kayar, başını kaldırır, kanatlarını açıp kükrer. Nefesinden önce göğsü içeriden parlar (zayıf nokta).
 import { rnd } from '../core/rng.js';
-import { TILE, COLS, GROUND_ROW, STRATUM_ROWS, PLAY_MIN_COL, PLAY_MAX_COL } from '../config.js';
+import { TILE, COLS, GROUND_ROW, STRATUM_ROWS, PLAY_MIN_COL, PLAY_MAX_COL, CENTER_COL } from '../config.js';
 import { T, TD } from '../data/tiles.js';
 import { HOARD } from '../data/balance.js';
 import { G } from './state.js';
@@ -18,54 +18,83 @@ import { isLocal } from './run.js';
 
 export const PALACE_BIOME = 12;
 
-// hazine odası: sarayın altında, altın döşeli geniş salon; ejder yığının ortasında
+// hazine salonu: sarayın altında kemerli, altın yığınlı büyük oda. Ejder yığının içine gömülü uyur
 export function placeHoard(g) {
   const s = g.order.indexOf(PALACE_BIOME); if (s < 0) return null;
-  const r1 = GROUND_ROW + s * STRATUM_ROWS + 38, r0 = r1 - 8, c0 = PLAY_MIN_COL + 1, c1 = PLAY_MAX_COL - 1;
+  const base = GROUND_ROW + s * STRATUM_ROWS, r0 = base + 27, r1 = base + 40, c0 = PLAY_MIN_COL + 1, c1 = PLAY_MAX_COL - 1, mid = (c0 + c1) / 2;
   const set = (c, r, t) => { if (!TD[g.map[r * COLS + c]].nest) g.map[r * COLS + c] = t; };
-  for (let r = r0 - 1; r <= r1 + 1; r++) for (let c = c0 - 1; c <= c1 + 1; c++) set(c, r, r === r0 - 1 || r === r1 + 1 || c === c0 - 1 || c === c1 + 1 ? T.GILT : T.AIR);
-  // yığın: ortada kabarık altın tepesi
-  for (let c = c0; c <= c1; c++) {
-    const h = Math.max(1, 3 - Math.floor(Math.abs(c - (c0 + c1) / 2) / 2.2));
-    for (let k = 0; k < h; k++) set(c, r1 - k, T.GOLD);
+  // içerisi boşaltılır; salona düşen yuva biyomun yukarısındaki düz bir kayaya taşınır
+  let moved = 0;
+  for (let r = r0 - 1; r <= r1 + 1; r++) for (let c = c0 - 1; c <= c1 + 1; c++) {
+    const wall = r === r0 - 1 || r === r1 + 1 || c === c0 - 1 || c === c1 + 1;
+    if (wall) { set(c, r, T.GILT); continue; }
+    if (TD[g.map[r * COLS + c]].nest) moved++;
+    g.map[r * COLS + c] = T.AIR; if (g.buried) g.buried[r * COLS + c] = 0;
   }
+  for (let k = 0; k < 400 && moved > 0; k++) {
+    const c = c0 + 1 + (k * 7) % (c1 - c0 - 1), r = base + 3 + (k * 5) % 20, i = r * COLS + c;
+    if (Math.abs(c - CENTER_COL) > 1 && TD[g.map[i]].plain) { g.map[i] = T.NEST; if (g.buried) g.buried[i] = 1; moved--; }
+  }
+  // kemerli tavan
+  for (let c = c0; c <= c1; c++) { const d = Math.abs(c - mid); if (d >= 3) set(c, r0, T.GILT); if (d >= 4) set(c, r0 + 1, T.GILT); if (d >= 5) set(c, r0 + 2, T.GILT); }
+  // yığın: ortada üç kat altın tepesi, kenarlara iner; ejder tepenin üstünde yarı gömülü yatar
+  for (let c = c0; c <= c1; c++) { const h = Math.max(1, Math.round(3.4 - Math.abs(c - (mid + 0.5)) * 0.5)); for (let k = 0; k < h; k++) set(c, r1 - k, T.GOLD); }
   set(c0, r1 - 1, T.CHEST_GOLD); set(c1, r1 - 1, T.CHEST_GOLD);
-  const dc = Math.floor((c0 + c1) / 2) + 1;
-  return { st: 'sleep', wake: 0, c: dc, r: r1 - 3, c0, c1, r0, r1, gold: -1, t: 0, lv: 0, seen: false };
+  return { v: 2, st: 'sleep', wake: 0, c: Math.round(mid) + 1, r: r1 - 2, c0, c1, r0, r1, gold: -1, t: 0, lv: 0, seen: false };
 }
-const inRoom = (H, q) => { const c = q.x / TILE, r = q.y / TILE; return c >= H.c0 - 1 && c <= H.c1 + 2 && r >= H.r0 - 2 && r <= H.r1 + 1; };
+export const inHall = (H, x, y) => { const c = x / TILE, r = y / TILE; return c >= H.c0 - 1 && c <= H.c1 + 2 && r >= H.r0 - 2 && r <= H.r1 + 1; };
 function goldLeft(H) { let n = 0; for (let r = H.r0; r <= H.r1; r++) for (let c = H.c0; c <= H.c1; c++) if (TD[tileAt(c, r)].ore === 'gold' || TD[tileAt(c, r)].chest) n++; return n; }
+// uyuyan ejderin gövdesi (dünya): saldırı bu kutuya değerse uyanır
+export const hoardBox = H => ({ x: H.c * TILE + 8, y: H.r * TILE - 6, w: 44, h: 22 });
+const inBox = (B, x, y, m = 0) => Math.abs(x - B.x) < B.w + m && Math.abs(y - B.y) < B.h + m;
+
+function attacked(H, dt) {
+  const B = hoardBox(H);
+  for (const b of G.bullets) if (b.from === 'p' && inBox(B, b.x, b.y)) return 'shot';
+  for (const b of G.bombs) if (b.t <= dt * 2 && inBox(B, b.x, b.y, 30)) return 'boom';
+  for (const p of G.players) if (!p.dead && p.dig && p.digDir && inBox(B, p.x + p.digDir[0] * 14, p.y + p.digDir[1] * 14)) return 'pick';
+  for (const e of G.enemies) if (!e.dead && e.type !== 'ejder' && inBox(B, e.x, e.y)) return 'bump';
+  return null;
+}
 
 export function updateHoard(dt) {
   const H = G.hoard; if (!H || G.tutorial) return;
   if (H.st === 'done') return;
   H.t += dt;
   if (H.st === 'sleep') {
-    const near = G.players.filter(q => !q.dead && inRoom(H, q));
+    const near = G.players.filter(q => !q.dead && inHall(H, q.x, q.y));
     if (near.length && !H.seen) { H.seen = true; emit('hoard', 'seen'); }
-    // horlama: odadaysan duyulur
+    // horlama: salondaysan duyulur
     if (near.length && (H.snore = (H.snore || 0) - dt) <= 0) { H.snore = 3.2; if (near.some(isLocal)) sfx.snore(); }
+    // altın ve gürültü yalnız kıpırdatır (kuyruk seğirir, göz aralanır); uyandıran saldırıdır
     if ((H.cnt = (H.cnt || 0) - dt) <= 0) {
       H.cnt = 0.25; const n = goldLeft(H);
-      if (H.gold >= 0 && n < H.gold) { H.wake += (H.gold - n) * HOARD.gold; sfx.coins(); }
+      if (H.gold >= 0 && n < H.gold) { H.wake = Math.min(HOARD.stirMax, H.wake + (H.gold - n) * HOARD.gold); sfx.coins(); }
       H.gold = n;
     }
-    if (near.length) H.wake += dt * HOARD.noise * (G.threat.noise / 100);
+    if (near.length) H.wake = Math.min(HOARD.stirMax, H.wake + dt * HOARD.noise * (G.threat.noise / 100));
     else H.wake = Math.max(0, H.wake - dt * HOARD.decay);
     const lv = H.wake >= 70 ? 2 : H.wake >= 40 ? 1 : 0;
     if (lv > H.lv) { emit('hoard', lv === 2 ? 'eye' : 'stir'); if (lv === 2) sfx.growl(); shake(0.15); }
     H.lv = lv;
-    if (H.wake >= HOARD.wake || G.enemies.some(e => e.d.boss && !e.dead && e.type !== 'ejder' && near.length && Math.hypot(e.x - H.c * TILE, e.y - H.r * TILE) < 60)) {
-      H.st = 'wake'; H.t = 0; H.wake = HOARD.wake; G.threat.bossCd = Math.max(G.threat.bossCd || 0, HOARD.intro + 5);
-      emit('hoard', 'wake'); sfx.growl(); shake(0.4);
+    const why = attacked(H, dt);
+    if (why) {
+      H.st = 'wake'; H.t = 0; H.why = why; G.threat.bossCd = Math.max(G.threat.bossCd || 0, HOARD.intro + 5);
+      emit('hoard', 'wake'); sfx.growl(); shake(0.5); haptic([40, 30, 80]);
     }
     return;
   }
   if (H.st === 'wake') {
     const x = H.c * TILE + 8, y = H.r * TILE + 8;
-    // altın üstünden kayar
-    if (rnd() < dt * 40) particle(x + (rnd() - 0.5) * 60, y - 10 - rnd() * 20, (rnd() - 0.5) * 60, -20, 0.8, rnd() < 0.5 ? '#ffd24a' : '#ffe79a', 1, 0, 300);
-    if (H.t > 1.4 && !H.roar) { H.roar = true; sfx.roar(); shake(0.9); flashLight(x, y - 20, 8, 0.6); haptic([80, 40, 160]); for (let i = 0; i < 20; i++) particle(x + (rnd() - 0.5) * 50, y - 20, (rnd() - 0.5) * 140, -60 - rnd() * 80, 1.2, '#ffd24a', 1, 0, 300); sfx.coins(); }
+    // altın patlar: ejder yığının içinden kalkar, üstündeki altın saçılır
+    if (H.t > 0.3 && !H.burst) {
+      H.burst = true;
+      for (let r = H.r - 2; r <= H.r + 1; r++) for (let c = H.c - 3; c <= H.c + 3; c++) if (TD[tileAt(c, r)].ore === 'gold') breakTile(c, r, null);
+      for (let i = 0; i < 70; i++) { const a = -Math.PI / 2 + (rnd() - 0.5) * 2.6, s = 60 + rnd() * 160; particle(x + (rnd() - 0.5) * 60, y - 6, Math.cos(a) * s, Math.sin(a) * s, 1 + rnd() * 0.8, rnd() < 0.5 ? '#ffd24a' : rnd() < 0.5 ? '#ffe79a' : '#c8901a', rnd() < 0.3 ? 2 : 1, 0, 320); }
+      dust(x, y, 14, 'rgba(255,220,140,0.45)'); shake(1); hitstop(0.1); flashLight(x, y - 10, 6, 0.4); sfx.coins(); sfx.explode(); haptic([60, 40, 120]);
+    }
+    if (H.t > 0.3 && rnd() < dt * 40) particle(x + (rnd() - 0.5) * 60, y - 10 - rnd() * 24, (rnd() - 0.5) * 60, -10, 0.9, rnd() < 0.5 ? '#ffd24a' : '#ffe79a', 1, 0, 300);
+    if (H.t > 1.45 && !H.roar) { H.roar = true; sfx.roar(); shake(0.9); flashLight(x, y - 20, 8, 0.6); haptic([80, 40, 160]); }
     if (H.t >= HOARD.intro) {
       const e = spawnEnemy('ejder', x, y, 4);
       e.emergeT = 0; e.face = -1;
@@ -82,7 +111,7 @@ export function updateHoard(dt) {
     if (!e || e.dead) {
       // öldü: hazine senin. İzini kaybettiyse yığına döner ve uyur
       if (H.end === 'slain') { H.st = 'done'; H.t = 0; }
-      else Object.assign(H, { st: 'sleep', wake: 30, t: 0, end: null, roar: false, lv: 0 });
+      else Object.assign(H, { st: 'sleep', wake: 30, t: 0, end: null, roar: false, burst: false, lv: 0 });
     }
   }
 }

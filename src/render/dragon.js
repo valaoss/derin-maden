@@ -6,7 +6,8 @@ import { HOARD } from '../data/balance.js';
 import { T, TD } from '../data/tiles.js';
 import { G } from '../game/state.js';
 import { clamp, lerp, hash2 } from '../core/util.js';
-import { V, origin, wx, wy, poly, limb, circ, chain, bez } from './beast.js';
+import { V, origin, wx, wy, poly, limb, circ, chain, bez, path, dot } from './beast.js';
+import { coinPattern } from './hoard.js';
 
 const SC = 1.45;
 const C = { scale: '#6a1a12', dark: '#3a0a08', back: '#2a0806', hi: '#a8442a', belly: '#c8902a', bellyD: '#8a5a18', wing: 'rgba(74,16,10,0.95)', wingFar: 'rgba(44,8,6,0.95)', bone: '#2a0806', horn: '#e0d0a8', hornD: '#8a7a60', claw: '#e8dcc0', eye: '#ffe060' };
@@ -20,11 +21,11 @@ function pose(src, alpha) {
     P.x = H.c * TILE + 8; P.y = H.r * TILE + 8; P.F = src.F || -1;
     P.breath = Math.sin(t * Math.PI * 2 / 3.2);
     if (H.st === 'sleep') {
-      P.stir = H.lv; P.eye = H.lv >= 2 && ((t % 4) < 1.4) ? 0.35 : 0;
+      P.stir = H.lv; P.buried = 1; P.eye = H.lv >= 2 && ((t % 4) < 1.4) ? 0.35 : 0;
       if (H.lv >= 1) P.twitch = Math.sin(t * 9) * (H.lv >= 2 ? 3 : 1.5);
     } else {
       const k = clamp(H.t / HOARD.intro, 0, 1), ease = s => s * s * (3 - 2 * s);
-      P.eye = clamp(k / 0.2, 0, 1);
+      P.eye = clamp(k / 0.06, 0, 1); P.buried = clamp(1 - (k - 0.08) / 0.1, 0, 1);
       const lift = ease(clamp((k - 0.18) / 0.35, 0, 1));
       P.crouch = 1 - lift; P.head = [lerp(27, 24, lift), lerp(-7, -40, lift)]; P.hang = lerp(0.25, -0.35, lift);
       P.tail = lift > 0.5 ? 'rest' : 'curl';
@@ -83,7 +84,7 @@ function legs(P) {
 }
 function tailPts(P) {
   const b = up(P, [-19, -11]);
-  if (P.tail === 'curl') return [b, [-36, 3], [-4 + (P.twitch || 0), 0]];
+  if (P.tail === 'curl') return [b, [-38, -1], [-47, -9 + (P.twitch || 0)]];
   if (P.tail === 'sweep') { const k = P.sweep; return [b, [lerp(-34, -26, k), lerp(-4, -34, k)], [lerp(-50, -20, k), lerp(-3, -44, k)]]; }
   const sw = Math.sin(P.t * 1.6) * 4;
   return [b, [-34, -3 + sw * 0.5], [-50, -6 + sw]];
@@ -154,10 +155,26 @@ export function drawDragon(ctx, e, alpha) {
   const P = pose({ e }, alpha), a0 = P.dying > 0.8 ? 1 - (P.dying - 0.8) / 0.2 : 1;
   const hx = drawBody(ctx, P, a0); smoke(ctx, P, hx);
 }
+// ejderin üstüne yığılmış paralar: sırt dikenleri, kanat ucu, baş ve kuyruk ucu dışarıda kalır; nefesle kabarır
+function dune(ctx, P) {
+  const b = P.buried, br = P.breath * 0.7;
+  const top = x => {
+    let y = x < -24 ? lerp(0, -8, (x + 31) / 7) : x < 12 ? -12 + Math.sin(x * 0.45) * 1.2 + br : x < 21 ? lerp(-12 + br, -6, (x - 12) / 9) : lerp(-6, 1, (x - 21) / 4);
+    return Math.min(1, y) * b;
+  };
+  const pts = [[-31, 2]]; for (let x = -31; x <= 25; x += 2) pts.push([x, top(x)]); pts.push([25, 2]);
+  ctx.save(); ctx.fillStyle = coinPattern(ctx); path(pts, true); ctx.fill(); ctx.restore();
+  // üst kenar: ışığı yakalayan paralar, nefeste kayan birkaç para
+  for (let x = -29; x <= 23; x += 2) { const y = top(x); dot(hash2(x, 3, 1) < 0.5 ? '#ffd24a' : '#fff0a0', x, y - 0.4, 1.4, 0.7); if (hash2(x, 7, 2) < 0.3) dot('#8a5a10', x + 0.6, y + 0.4, 1.4, 0.6); }
+  if (b > 0.5) for (let i = 0; i < 9; i++) { const x = -15 + i * 3.2, y = cy(P, -18 - Math.sin((i + 1) / 10 * Math.PI) * 3) + 1 + hash2(i, 4, 2) * 2; dot(i % 3 ? '#ffd24a' : '#fff0a0', x, y, 1.4, 0.8); }
+  if (P.breath > 0.6) for (let i = 0; i < 3; i++) { const x = -18 + i * 13 + Math.sin(P.t * 3 + i) * 2, k = (P.breath - 0.6) / 0.4; dot('#ffe79a', x + k * 3 * (i % 2 ? 1 : -1), top(x) - 1 + k * 3, 1, 1); }
+}
 export function drawHoardDragon(ctx) {
   const H = G.hoard; if (!H || (H.st !== 'sleep' && H.st !== 'wake')) return;
   const P = pose({ hoard: H, F: -1 }, 1);
-  const hx = drawBody(ctx, P, 1); smoke(ctx, P, hx);
+  const hx = drawBody(ctx, P, 1);
+  if (P.buried > 0) dune(ctx, P);
+  smoke(ctx, P, hx);
 }
 
 // ---------- ışık katmanı ----------
