@@ -2,6 +2,7 @@
 import { placeCritters } from './critters.js';
 import { placeWonders } from './wonders.js';
 import { placeLiquids } from './liquids.js';
+import { placeHoard } from './dragon.js';
 import { CRITTERS } from '../data/critters.js';
 import { COLS, ROWS, TILE, GROUND_ROW, BASE_X, BASE_Y, CENTER_COL, STRATUM_ROWS, stratumOfRow, PLAY_MIN_COL, PLAY_MAX_COL } from '../config.js';
 import { PERKS, RESONANCE } from '../data/relics.js';
@@ -87,7 +88,7 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
     base: { x: BASE_X, y: BASE_Y, hp: 0, maxHp: 0, hurtT: 0 },
     store: emptyRes(), collected: emptyRes(),
     lvl: { drill: Math.min(2, ml.keskinUc | 0), sharp: 0, swing: 0, bag: 0, armor: 0, blaster: Math.min(2, ml.ayarliBl | 0), lamp: 0, ...Object.fromEntries(MASTER_KEYS.map(k => [k, 0])) },
-    perks: [], perkLv: {}, rerolls: 0, items: emptyItems(), perkOffer: null, merchant: null, merchT: MERCHANT.first, wish: null, wishes: 0, balrog: null,
+    perks: [], perkLv: {}, rerolls: 0, items: emptyItems(), perkOffer: null, merchant: null, merchT: MERCHANT.first, wish: null, wishes: 0, balrog: null, serpent: null, hoard: null,
     gear: { owned: [], eq: [], cd: {}, active: {}, wOwn: ['blaster'], pOwn: ['std'], wLvl: {}, tLvl: {} },
     kademe, mods, daily, contracts: [],
     bombs: [], rocks: [], falls: [], gas: [], shells: [], hazT: 0,
@@ -119,6 +120,7 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
   if (ml.hazirTaret) g.items.turret = 1;
   if (g.players.some(p => p.role === 'yikici')) g.items.dynamite = Math.max(g.items.dynamite | 0, 3);
   Object.assign(g, tutorial ? { lq: null, lk: null, springs: [], lqT: 0 } : placeLiquids(g, seed));
+  g.hoard = tutorial ? null : placeHoard(g);
   g.critters = tutorial ? [] : placeCritters(g, seed);
   Object.assign(g, tutorial ? { lakes: [], portals: [], shrooms: [] } : placeWonders(g, seed));
   if (!tutorial && App.meta && CRITTERS[App.meta.pet]) g.player.pet = App.meta.pet;
@@ -218,7 +220,7 @@ export function serialize() {
   const g = G;
   return {
     v: 8, seed: g.seed, rng: g.rng, heartRow: g.heartRow, order: g.order, map: b64(g.map), rev: b64(g.rev), buried: b64(g.buried), bhp: g.bhp, gear: { owned: g.gear.owned, eq: g.gear.eq, wOwn: g.gear.wOwn, pOwn: g.gear.pOwn, wLvl: g.gear.wLvl, tLvl: g.gear.tLvl },
-    base: { hp: g.base.hp }, bag: g.player.bag, store: g.store, collected: g.collected, lvl: g.lvl, perks: g.perks, perkLv: g.perkLv, rerolls: g.rerolls, merchant: g.merchant, merchT: g.merchT, wishes: g.wishes, critters: g.critters, lakes: g.lakes, portals: g.portals, shrooms: g.shrooms, lq: g.lq ? b64(g.lq) : null, lk: g.lk ? b64(g.lk) : null, lqT: g.lqT, balrogDone: !!(g.balrog && g.balrog.st === 'done'),
+    base: { hp: g.base.hp }, bag: g.player.bag, store: g.store, collected: g.collected, lvl: g.lvl, perks: g.perks, perkLv: g.perkLv, rerolls: g.rerolls, merchant: g.merchant, merchT: g.merchT, wishes: g.wishes, critters: g.critters, lakes: g.lakes, portals: g.portals, shrooms: g.shrooms, lq: g.lq ? b64(g.lq) : null, lk: g.lk ? b64(g.lk) : null, lqT: g.lqT, balrogDone: !!(g.balrog && g.balrog.st === 'done'), serpentDone: !!(g.serpent && g.serpent.st === 'done'), hoard: g.hoard ? { st: g.hoard.st === 'done' ? 'done' : 'sleep', wake: g.hoard.st === 'sleep' ? g.hoard.wake : 0 } : null,
     items: g.items, structures: g.structures.map(s => ({ type: s.type, c: s.c, r: s.r, hp: s.hp })),
     kademe: g.kademe, daily: g.daily, contracts: g.contracts,
     threat: { noise: g.threat.noise }, evt: { t: g.evt.t }, beacons: g.beacons, stations: g.stations, selfRevive: g.selfRevive, startStratum: g.startStratum,
@@ -237,6 +239,9 @@ export function deserialize(d) {
   if (d.merchant && Array.isArray(d.merchant.goods)) g.merchant = d.merchant; if (d.merchT !== undefined) g.merchT = +d.merchT || 0; g.wishes = d.wishes | 0; if (Array.isArray(d.critters)) g.critters = d.critters.filter(c => CRITTERS[c.k]);
   for (const k of ['lakes', 'portals', 'shrooms']) if (Array.isArray(d[k])) g[k] = d[k];
   if (d.balrogDone) g.balrog = { st: 'done', t: 99 };
+  if (d.serpentDone) g.serpent = { st: 'done', t: 99 };
+  if (!d.hoard) g.hoard = null; // eski kayıt: haritada hazine odası yok
+  if (d.hoard && g.hoard) { g.hoard.st = d.hoard.st === 'done' ? 'done' : 'sleep'; g.hoard.wake = Math.max(0, Math.min(90, +d.hoard.wake || 0)); }
   if (d.lq && d.lk && g.lq) { const a = unb64(d.lq), b = unb64(d.lk); if (a.length === g.lq.length && b.length === g.lk.length) { g.lq = a; g.lk = b; g.lqT = d.lqT | 0; } }
   if (d.gear) { g.gear.owned = d.gear.owned || []; g.gear.eq = d.gear.eq || []; g.gear.wOwn = (d.gear.wOwn || ['blaster']).filter(k => WEAPONS[k]); g.gear.pOwn = (d.gear.pOwn || ['std']).filter(k => PICK_TYPES[k]);
     for (const k in d.gear.wLvl || {}) if (WEAPONS[k]) g.gear.wLvl[k] = Math.min(WEAPON_UP.max, d.gear.wLvl[k] | 0);

@@ -20,6 +20,8 @@ import { updateCritters } from '../src/game/critters.js';
 import { updateWonders, castLine, lakeAt } from '../src/game/wonders.js';
 import { updateLiquids, FALLS_BIOME, LAVA_BIOME } from '../src/game/liquids.js';
 import { updateBalrog } from '../src/game/balrog.js';
+import { updateSerpent, SEA_BIOME } from '../src/game/serpent.js';
+import { updateHoard, PALACE_BIOME } from '../src/game/dragon.js';
 import { CRITTERS } from '../src/data/critters.js';
 import { updateParticles, updateFlashes } from '../src/game/fx.js';
 import { updateFlow, forceFlow } from '../src/world/flow.js';
@@ -50,7 +52,7 @@ function step(dt = STEP) {
   G.time += dt; G.stats.time += dt; G.frame++;
   if (G.hitstop > 0) { G.hitstop -= dt; return; }
   updateFlow(dt); updatePlayer(dt); updatePlayerGun(dt); updateEnemies(dt); updateBullets(dt); updateStructures(dt); updateShells(dt);
-  updateItems(dt); updateHazards(dt); updateThreat(dt); updateEvents(dt); updateMerchant(dt); updateWell(dt); updateCritters(); updateWonders(dt); updateLiquids(dt); updateBalrog(dt); updateOrbs(dt); updateDeposit(dt); updateParticles(dt); updateFlashes(dt);
+  updateItems(dt); updateHazards(dt); updateThreat(dt); updateEvents(dt); updateMerchant(dt); updateWell(dt); updateCritters(); updateWonders(dt); updateLiquids(dt); updateBalrog(dt); updateSerpent(dt); updateHoard(dt); updateOrbs(dt); updateDeposit(dt); updateParticles(dt); updateFlashes(dt);
 }
 const run = sec => { for (let i = 0, n = Math.round(sec / STEP); i < n; i++) step(); };
 const fresh = (seed = 1) => { const g = newRun({ seed }); allDown = false; g.player.inp = { x: 0, y: 0, mag: 0 }; return g; };
@@ -960,6 +962,44 @@ section('Yeni biyomlar (20-29)');
     ok(`${ENEMIES[k].name}: öfkede yardım çağırır`, e.bs.phase === 2 && G.enemies.length > n0);
   }
   ok('boss bantları tam', BB.length === 8);
+}
+
+section('Dünya Yılanı ve Hazine Ejderi');
+{
+  const room = (seed, bio, dr) => {
+    fresh(seed); const s = G.order.indexOf(bio), r = GROUND_ROW + s * STRATUM_ROWS + dr, p = G.player;
+    for (let rr = r - 6; rr <= r; rr++) for (let c = 2; c <= 14; c++) setTile(c, rr, T.AIR);
+    if (G.lq) G.lq.fill(0); G.springs = [];
+    p.x = p.px = 8 * TILE + 8; p.y = p.py = r * TILE + 8; p.iframes = 999; return p;
+  };
+  room(1701, SEA_BIOME, 30); run(0.1);
+  ok('Sessiz Deniz: deniz susar', G.serpent && G.serpent.st === 'omen');
+  run(9);
+  const e = G.enemies.find(o => o.type === 'dunyaYilani');
+  ok('Dünya Yılanı duvardan çıkar', !!e && G.serpent.st === 'fight');
+  let threw = null, exposed = 0, len = 0;
+  try { for (let i = 0; i < 900; i++) { step(); if (!e.under) exposed++; len = Math.max(len, (e.bs.body || []).length); } } catch (err) { threw = err; }
+  ok('Dünya Yılanı 15 sn hatasız yüzer', !threw, threw && threw.stack.split('\n').slice(0, 2).join(' '));
+  ok('başı zaman zaman görünür, gövdesi uzar', exposed > 60 && len > 30, `${exposed}/${len}`);
+  e.under = true; const hp0 = e.hp; damageEnemy(e, 50); ok('duvardayken vurulmaz', e.hp === hp0);
+  killEnemy(e); run(3); ok('Dünya Yılanı bir daha gelmez', G.serpent.st === 'done');
+
+  fresh(1702);
+  const H = G.hoard;
+  ok('sarayın altında hazine odası ve uyuyan ejder', H && H.st === 'sleep' && tileAt(H.c, H.r + 3) === T.GOLD);
+  const p = G.player; p.x = p.px = (H.c0 + 1) * TILE + 8; p.y = p.py = (H.r1 - 3) * TILE + 8; p.iframes = 999;
+  run(1); ok('odaya girince uyku ölçeri düşük', H.wake < 20, H.wake.toFixed(1));
+  for (let c = H.c0 + 1; c <= H.c0 + 5; c++) setTile(c, H.r1, T.AIR);
+  run(0.6); ok('altına dokununca kıpırdanır', H.wake >= 40, H.wake.toFixed(1));
+  for (let c = H.c0 + 6; c <= H.c1; c++) setTile(c, H.r1, T.AIR);
+  run(0.6); ok('çok altın alınca uyanır', H.st === 'wake');
+  run(5); const d = G.enemies.find(o => o.type === 'ejder');
+  ok('Hazine Ejderi kalkar', !!d && H.st === 'fight');
+  threw = null; try { run(15); } catch (err) { threw = err; } ok('Hazine Ejderi 15 sn hatasız savaşır', !threw, threw && threw.stack.split('\n').slice(0, 2).join(' '));
+  d.weakT = 1; d.face = 1; const h1 = d.hp; damageEnemy(d, 20, -1, 0); const w = h1 - d.hp; d.weakT = 0; const h2 = d.hp; damageEnemy(d, 20, -1, 0);
+  ok('nefes hazırlarken göğsü zayıf', w > (h2 - d.hp) * 1.5, `${w.toFixed(1)} / ${(h2 - d.hp).toFixed(1)}`);
+  killEnemy(d); run(3); ok('ejder ölünce hazine senin', H.st === 'done');
+  const sv = JSON.parse(JSON.stringify(serialize())); deserialize(sv); ok('ejder ve yılan kaydedilir', G.hoard.st === 'done');
 }
 
 section('Balrog');

@@ -165,6 +165,13 @@ export function initUI(root, h) {
   on('bossWarn', k => banner((ENEMIES[k] ? up(ENEMIES[k].name) : 'BİR ŞEY') + ' UYANIYOR', 'HEMEN SUS YA DA KAÇ', true));
   on('bossSpawn', k => { const B = ENEMIES[k]; if (B && once(k)) setTimeout(() => toast(B.lore, 'skull', true), 2600); });
   on('balrog', k => { if (k === 'dark') toast('Derinden davul sesleri geliyor… ışık sönüyor', 'skull', true); else if (k === 'eyes') toast('Gölgede bir şey sana bakıyor', 'skull', true); });
+  on('serpent', k => { if (k === 'omen') toast('Deniz sustu… duvarların ardında dev bir şey kıpırdıyor', 'skull', true); else if (k === 'crack') toast('Duvar çatlıyor!', 'skull', true); });
+  on('hoard', k => {
+    if (k === 'seen') toast('Hazine ejderi uyuyor. Altına dokunur ya da gürültü yaparsan uyanır', 'skull', true);
+    else if (k === 'stir') toast('Ejder uykusunda kıpırdandı…', 'skull', true);
+    else if (k === 'eye') toast('Bir gözü aralandı! Sessiz ol', 'skull', true);
+    else if (k === 'wake') banner('EJDER UYANDI', 'HAZİNESİNİ KORUYOR', true);
+  });
   on('bossPhase', k => { const B = ENEMIES[k]; if (B) banner(up(B.name), 'ÖFKELENDİ', true); });
   on('event', d => { const e = EVENTS[d.k]; if (!e) return; if (d.phase === 'warn') banner(e.name, e.sub, e.good ? 'gold' : true); else if (d.k === 'karanlik') toast('Fenerin kısıldı · ' + e.t + ' sn', 'lamp', true); });
   on('ping', d => { if (!G.mp) return; const p = G.players[d.pi]; if (d.pi !== G.localIdx) { toast((p && p.name || 'Partner') + ' işaret bıraktı', 'hand'); sfx.ping(); } else sfx.click(); });

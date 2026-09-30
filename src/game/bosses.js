@@ -18,41 +18,41 @@ export function bossForY(y) {
   return BOSS_BANDS[Math.min(BOSS_BANDS.length - 1, Math.floor(st / 4))];
 }
 
-const live = () => G.players.filter(q => !q.dead);
-const TAU = Math.PI * 2;
+export const live = () => G.players.filter(q => !q.dead);
+export const TAU = Math.PI * 2;
 // kazılabilir mi (boss dalışı / hücumu için): özel taşlar kırılmaz
-function breakable(c, r) {
+export function breakable(c, r) {
   if (c < PLAY_MIN_COL || c > PLAY_MAX_COL) return false;
   const d = TD[tileAt(c, r)];
   return !(d.unbreakable || d.heart || d.chest || d.nest || d.relic);
 }
-function hitPlayers(x, y, R, dmg, fn) {
+export function hitPlayers(x, y, R, dmg, fn) {
   for (const q of live()) if (Math.hypot(q.x - x, q.y - y) < R) { damagePlayer(q, dmg, x, y); if (fn) fn(q); }
 }
 // yerde gecikmeli vuruş: önce yanıp söner, sonra patlar
-function mark(e, x, y, R, T, dmg, kind) { e.bs.marks.push({ x, y, r: R, t: T, T, dmg, kind, post: 0 }); }
-function openSpot(x, y) { return !solidAt(Math.floor(x / TILE), Math.floor(y / TILE)) && y > GROUND_Y + 6; }
-function spotNear(x, y, R) {
+export function mark(e, x, y, R, T, dmg, kind) { e.bs.marks.push({ x, y, r: R, t: T, T, dmg, kind, post: 0 }); }
+export function openSpot(x, y) { return !solidAt(Math.floor(x / TILE), Math.floor(y / TILE)) && y > GROUND_Y + 6; }
+export function spotNear(x, y, R) {
   for (let i = 0; i < 8; i++) { const a = rnd() * TAU, d = rnd() * R, nx = x + Math.cos(a) * d, ny = y + Math.sin(a) * d; if (openSpot(nx, ny)) return [nx, ny]; }
   return [x, y];
 }
-function bullet(e, a, sp, dmg, col, extra) {
+export function bullet(e, a, sp, dmg, col, extra) {
   G.ebullets.push(Object.assign({ x: e.x + Math.cos(a) * 8, y: e.y - 2 + Math.sin(a) * 8, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 2, dmg: dmg * e.dmgMul, col }, extra));
 }
 // ışın: kayaya çarpınca durur
-function beamLen(x, y, a, max) {
+export function beamLen(x, y, a, max) {
   for (let d = 4; d < max; d += 3) if (solidAt(Math.floor((x + Math.cos(a) * d) / TILE), Math.floor((y + Math.sin(a) * d) / TILE))) return d;
   return max;
 }
-function onBeam(q, x, y, a, len, w) {
+export function onBeam(q, x, y, a, len, w) {
   const dx = q.x - x, dy = q.y - 3 - y, t = dx * Math.cos(a) + dy * Math.sin(a);
   if (t < 0 || t > len) return false;
   return Math.abs(-dx * Math.sin(a) + dy * Math.cos(a)) < w;
 }
-function angDiff(a, b) { let d = (a - b) % TAU; if (d > Math.PI) d -= TAU; if (d < -Math.PI) d += TAU; return d; }
+export function angDiff(a, b) { let d = (a - b) % TAU; if (d > Math.PI) d -= TAU; if (d < -Math.PI) d += TAU; return d; }
 
 // ---------- saldırı kitleri ----------
-const KITS = {
+export const KITS = {
   // KARAKÖK: kök mızrakları, toprağa dalıp altından çıkma; öfkede kökçük çağırır
   karakok: {
     cd: { spikes: 2, burrow: 7, summon: 4 },
@@ -560,7 +560,7 @@ function enrage(e) {
   e.flashT = 0.6; ring(e.x, e.y, e.d.col, 44); ring(e.x, e.y, '#ffffff', 26); sparks(e.x, e.y, e.d.col, 24, 140);
   shake(0.6); hitstop(0.12); flashLight(e.x, e.y, 8, 0.5); sfx.howl(); haptic([40, 60, 120]);
   if (e.type === 'ezeli') for (let k = 0; k < 2; k++) { const s = spawnEnemy('seraph', e.x + (k ? 18 : -18), e.y - 6, G.wave.num); s.emergeT = 0.3; }
-  const call = { balrog: ['magmite', 'magmite', 'magmite'], aynasiz: ['kalkanli', 'kalkanli'], kehribarAna: ['yumurtaci', 'diriltici'], madenKalbi: ['korAvci', 'kalkanli', 'isikYiyen'] }[e.type];
+  const call = { balrog: ['magmite', 'magmite', 'magmite'], dunyaYilani: ['isikYiyen', 'isikYiyen'], ejder: ['gilded'], aynasiz: ['kalkanli', 'kalkanli'], kehribarAna: ['yumurtaci', 'diriltici'], madenKalbi: ['korAvci', 'kalkanli', 'isikYiyen'] }[e.type];
   if (call) call.forEach((t, k) => { const s = spawnEnemy(t, e.x + (k - (call.length - 1) / 2) * 20, e.y - 4, G.wave.num); s.emergeT = 0.4; });
   emit('bossPhase', e.type);
 }
@@ -576,6 +576,7 @@ function tickMarks(e, dt) {
         if (m.dmg) hitPlayers(m.x, m.y, m.r + 3, m.dmg * e.dmgMul, m.kind === 'light' ? q => blindPlayer(q, 0.6) : m.kind === 'root' ? q => { q.slowT = Math.max(q.slowT, 0.7); } : null);
         if (m.kind === 'root') { debris(m.x, m.y, 'dirt', 6); sparks(m.x, m.y, '#78b43c', 6, 70); sfx.creak(); }
         else if (m.kind === 'ember') { sparks(m.x, m.y, '#ff6a1a', 12, 100); sparks(m.x, m.y, '#ffd060', 6, 60); flashLight(m.x, m.y, 3, 0.2); igniteGas(m.x, m.y, 16); sfx.mortarHit(); }
+        else if (m.kind === 'venom') { for (const q of live()) if (Math.hypot(q.x - m.x, q.y - m.y) < m.r + 3) { q.slowT = Math.max(q.slowT, 1.2); q.burnT = 0; } sparks(m.x, m.y, '#5ae0c8', 12, 90); dust(m.x, m.y, 4, 'rgba(60,200,170,0.5)'); sfx.spit(); }
         else if (m.kind === 'light') { sparks(m.x, m.y, '#fff4c0', 12, 110); flashLight(m.x, m.y, 5, 0.25); sfx.zap(); }
         else if (m.kind === 'egg') { for (let k = 0; k < 2; k++) spawnEnemy('tozbocek', m.x + (k ? 3 : -3), m.y, G.wave.num).emergeT = 0.15; sparks(m.x, m.y, '#ffd890', 10, 80); sfx.brood(); }
         else if (m.kind === 'amber') { for (const q of live()) if (Math.hypot(q.x - m.x, q.y - m.y) < m.r + 3) webPlayer(q, 2.2); sparks(m.x, m.y, '#ffb040', 14, 90); ring(m.x, m.y, '#ffb040', 18); sfx.web(); }

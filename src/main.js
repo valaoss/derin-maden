@@ -21,6 +21,8 @@ import { updateCritters } from './game/critters.js';
 import { updateWonders } from './game/wonders.js';
 import { updateLiquids } from './game/liquids.js';
 import { updateBalrog } from './game/balrog.js';
+import { updateSerpent } from './game/serpent.js';
+import { updateHoard } from './game/dragon.js';
 import { updateCanary } from './game/canary.js';
 import { snapshotJourney } from './ui/journey.js';
 import { updatePrediction, pred } from './net/predict.js';
@@ -345,7 +347,7 @@ function step(dt) {
   updateEvents(dt);
   updateMerchant(dt);
   updateWell(dt);
-  updateCritters(); updateWonders(dt); updateLiquids(dt); updateBalrog(dt);
+  updateCritters(); updateWonders(dt); updateLiquids(dt); updateBalrog(dt); updateSerpent(dt); updateHoard(dt);
   updatePings(dt);
   updateOrbs(dt);
   updateDeposit(dt);

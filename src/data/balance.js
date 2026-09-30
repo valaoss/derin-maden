@@ -286,6 +286,10 @@ export const ENEMIES = {
     loot: [['crystal', 14], ['gold', 12], ['kehribar', 3]], lore: 'Maden yaşıyor. Duvarlar ona ait: duvara yaslanma, yerinde durma.' },
   balrog: { name: 'Balrog', title: 'Kadim Gölge ve Alev', col: '#ff5a1a', hp: 900, speed: 19, dmg: 32, r: 12, armor: 0.35, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 2.6, hpMul: 1.4,
     loot: [['crystal', 10], ['gold', 10], ['cobalt', 6]], lore: 'Kor Katmanının dibinde uyuyan kadim gölge. Kamçısı uzağa uzanır, kılıcı yeri yarar; gölgeye karışıp arkanda belirir.' },
+  dunyaYilani: { name: 'Dünya Yılanı', title: 'Denizin Kuşağı', col: '#5ae0ff', hp: 950, speed: 0, dmg: 28, r: 12, armor: 0.3, fly: true, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 2.5, hpMul: 1.5,
+    loot: [['crystal', 14], ['gold', 10], ['cobalt', 6]], lore: 'Denizin altında uyuyan kuşak. Duvardan duvara geçer, gövdesi kayayı yarar; yalnız başı vurulur. Geçeceği yol duvarda parlar.' },
+  ejder: { name: 'Hazine Ejderi', title: 'Altın Yığınının Uykusu', col: '#ff8a2a', hp: 950, speed: 21, dmg: 30, r: 12, armor: 0.45, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 2.5, hpMul: 1.5,
+    loot: [['gold', 30], ['crystal', 8], ['cobalt', 4]], lore: 'Altın yığınının üstünde uyur. Nefesinden önce göğsü içeriden parlar: o an göğsüne vur, zırhı orada incedir.' },
   mimic:      { name: 'Taklitçi', hp: 110, speed: 50, dmg: 22, r: 6, armor: 0.2, knockResist: 0.5, cost: 4 },                         // sandık kılığında; ölünce gerçek sandık teklifi
   seraph:     { name: 'Işık Bekçisi', hp: 120, speed: 42, dmg: 16, r: 5, fly: true, blind: true, blindRange: 52, blindCd: 4, judge: 5, judgeRange: 120, loot: [['crystal', 1]], cost: 5 }, // yargı ışını: nişan alır, kaçmazsan çarpar
 };
@@ -477,3 +481,7 @@ export const LIQUID = { every: 3, lavaSlow: 2, dry: 40, cap: [170, 120], emit: [
 
 // Balrog: Kor Katmanı'nın ortasına inen madenciyi bir kez karşılar. dark: sisin toplanma süresi (sn), intro: alevlenme
 export const BALROG = { depth: 16, dark: 7.5, intro: 2.6, drum: 1.15, aura: 28, auraDmg: 4, carve: 0.3 };
+// Dünya Yılanı: Sessiz Deniz'in ortasında bir kez; duvardan duvara geçer, yalnız başı vurulur
+export const SERPENT = { depth: 16, omen: 8.5, seg: 5, n: 48, speed: 150, under: 1.4, tell: 1.1, rear: 2.3, headDmg: 26, bodyDmg: 12 };
+// Hazine Ejderi: Altın Saray'ın altındaki hazine odasında uyur; altına dokunmak ve gürültü onu uyandırır
+export const HOARD = { noise: 6, gold: 14, decay: 1.2, wake: 100, intro: 4.2, weak: 2 };

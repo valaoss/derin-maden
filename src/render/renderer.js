@@ -13,6 +13,8 @@ import { drawWonders, drawWondersGlow, drawWondersFx } from './wonders.js';
 import { drawLiquids, drawLiquidGlow, liquidLights } from './liquids.js';
 import { drawAmbient } from './ambient.js';
 import { drawBalrog, drawBalrogGlow, drawBalrogDark, drawBalrogOmen, balrogLights } from './balrog.js';
+import { drawSerpent, drawSerpentGlow, drawSerpentOmen, drawSerpentOmenGlow, drawSerpentDark } from './serpent.js';
+import { drawDragon, drawDragonGlow, drawHoardDragon, drawHoardGlow, dragonLights } from './dragon.js';
 import { SHROOM } from '../data/balance.js';
 import { CRITTERS } from '../data/critters.js';
 import { on as onEvt } from '../core/events.js';
@@ -54,7 +56,7 @@ export function updateCamera(dt, instant = false) {
   if (p.dig && p.digDir[1] > 0) ty += 18;
   else if (p.moving && p.dy > 0.5) ty += 10;
   // Balrog yakınsa kadraj yukarı kayar: boyu ve boynuzları görünsün
-  const bal = G.enemies.find(e => e.type === 'balrog' && (!e.dead || e.dieT > 0));
+  const bal = G.enemies.find(e => (e.type === 'balrog' || e.type === 'ejder') && (!e.dead || e.dieT > 0));
   if (bal && Math.abs(bal.y - py) < 100) ty = Math.min(ty, Math.min(py, bal.y) - view.vh * 0.62);
   ty = clamp(ty, minY, maxY);
   const tx = clamp(px - view.vw / 2, 0, Math.max(0, WORLD_W - view.vw));
@@ -198,6 +200,7 @@ export function render(alpha, opts = {}) {
   const r0 = Math.max(0, Math.floor(camY / TILE) - 1), r1 = Math.min(ROWS - 1, Math.floor((camY + vh) / TILE) + 1);
   drawDecor(r0, r1);
   drawAmbient(ctx, r0, r1);
+  drawSerpentOmen(ctx, r0, r1);
   drawTileOverlays(r0, r1);
   drawTide(camY, vh);
   drawBeacons(r0, r1);
@@ -226,6 +229,7 @@ export function render(alpha, opts = {}) {
   drawLiquids(ctx, r0, r1);
   drawWonders(ctx, r0, r1);
   drawCritters(r0, r1);
+  drawHoardDragon(ctx);
   for (const e of G.enemies) drawEnemy(e, alpha, camY, vh);
   if (!opts.hidePlayer) for (const p of G.players) drawPet(p, alpha);
   if (!opts.hidePlayer) for (const p of G.players) {
@@ -248,6 +252,7 @@ export function render(alpha, opts = {}) {
   decorLights(lr0, lr1, src);
   liquidLights(lr0, lr1, src);
   balrogLights(src);
+  dragonLights(src);
   computeLight(lr0, lr1, src, opts.hidePlayer ? 0.42 : 0.26);
   drawLight(camX, camY, dk);
   // biyom renk tonu (hafif)
@@ -258,6 +263,7 @@ export function render(alpha, opts = {}) {
     ctx.fillStyle = tint; ctx.fillRect(0, 0, vw, vh); ctx.globalAlpha = 1;
   }
   drawBalrogDark(ctx, camX, camY, vw, vh, alpha);
+  drawSerpentDark(ctx, camX, camY, vw, vh, alpha);
 
   // ---- ışık yayanlar ----
   ctx.save();
@@ -995,8 +1001,10 @@ function enemyPose(e, alpha) {
 }
 function drawEnemy(e, alpha, camY, vh) {
   const x = lerp(e.px, e.x, alpha), y = lerp(e.py, e.y, alpha);
+  if (e.type === 'dunyaYilani') { drawSerpent(ctx, e, alpha); return; }
   if (y < camY - 30 || y > camY + vh + 90) return;
   if (e.type === 'balrog') { drawBalrog(ctx, e, alpha); return; }
+  if (e.type === 'ejder') { drawDragon(ctx, e, alpha); return; }
   const frames = SPR[e.type];
   if (e.dead) {
     // ölüm: beyaz flaş, sonra yana yatıp yere yayılır ve solar
@@ -1092,7 +1100,7 @@ function drawMound(x, y) {
   ctx.fillStyle = '#78b43c'; ctx.fillRect(cx + 2, fy - 6 - w, 1, 2); ctx.fillRect(cx - 4, fy - 6 + w, 1, 2);
 }
 // boss uyarıları ve saldırı görselleri: ışık katmanında çizilir, karanlıkta da okunur
-const FX_COL = { root: '#b8f060', ember: '#ff7a2a', light: '#fff4c0', rise: '#b8f060', egg: '#d8f0a0', amber: '#ffb040', spike: '#ff3a6a', rock: '#c8b8a0' };
+const FX_COL = { root: '#b8f060', ember: '#ff7a2a', light: '#fff4c0', rise: '#b8f060', egg: '#d8f0a0', amber: '#ffb040', spike: '#ff3a6a', rock: '#c8b8a0', venom: '#5ae0c8' };
 const rgbaCache = new Map();
 function rgba(hex, a) { const k = hex + a; let s = rgbaCache.get(k); if (!s) { s = 'rgba(' + hexToRgb(hex).join(',') + ',' + a + ')'; rgbaCache.set(k, s); } return s; }
 function ringPx(x, y, r, col, dash = 0) {
@@ -1127,6 +1135,7 @@ function drawBossFx(e, alpha) {
       glow(m.x, m.y, 'rgba(184,240,96,0.35)', 12, k);
     } else if (m.kind === 'ember') glow(m.x, m.y, 'rgba(255,120,40,0.6)', Math.round(m.r * 1.6), k);
     else if (m.kind === 'spike') { for (let i = -1; i <= 1; i++) { const h = Math.round((i ? 7 : 11) * k + 2); ctx.fillStyle = '#ff3a6a'; ctx.fillRect(mx + i * 3, my - h, 1, h); ctx.fillStyle = '#ffd0d8'; ctx.fillRect(mx + i * 3, my - h, 1, 1); } glow(m.x, m.y, 'rgba(255,58,106,0.4)', 12, k); }
+    else if (m.kind === 'venom') { glow(m.x, m.y, 'rgba(90,224,200,0.55)', Math.round(m.r * 1.6), k); ctx.globalAlpha = k * 0.6; ctx.fillStyle = '#2a8a78'; ctx.beginPath(); ctx.ellipse(mx, my - 2, m.r, m.r * 0.35, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
     else if (m.kind === 'amber') glow(m.x, m.y, 'rgba(255,176,64,0.6)', Math.round(m.r * 1.6), k);
     else if (m.kind === 'egg') glow(m.x, m.y, 'rgba(216,240,160,0.5)', 10, k);
     else if (m.kind === 'light') { ctx.globalAlpha = k; ctx.fillStyle = '#fff4c0'; ctx.fillRect(mx - 3, my - 90, 7, 90); ctx.fillStyle = '#ffffff'; ctx.fillRect(mx - 1, my - 90, 3, 90); ctx.globalAlpha = 1; glow(m.x, m.y, 'rgba(255,244,192,0.6)', 18, k); }
@@ -1367,6 +1376,8 @@ function drawEmissive(r0, r1, alpha, opts) {
   drawWondersGlow(ctx, r0, r1, glow);
   drawLiquidGlow(ctx, r0, r1, glow);
   drawBalrogOmen(ctx, glow);
+  drawSerpentOmenGlow(ctx, glow);
+  drawHoardGlow(ctx, glow);
   // üs pencereleri ve anten ışığı
   const b = G.base, s = SPR.base;
   ctx.drawImage(s.em, Math.round(b.x - s.w / 2), GROUND_Y - s.h);
@@ -1514,6 +1525,8 @@ function drawEmissive(r0, r1, alpha, opts) {
   for (const e of G.enemies) {
     if (e.bs && !e.dead) drawBossFx(e, alpha);
     if (e.type === 'balrog') { drawBalrogGlow(ctx, e, alpha, glow); continue; }
+    if (e.type === 'dunyaYilani') { drawSerpentGlow(ctx, e, alpha, glow); continue; }
+    if (e.type === 'ejder') { drawDragonGlow(ctx, e, alpha, glow); continue; }
     if (e.emergeT > 0 || e.dead || e.under || e.sink > 0) continue;
     const x = lerp(e.px, e.x, alpha), y = lerp(e.py, e.y, alpha);
     if (e.d.boss) {

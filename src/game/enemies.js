@@ -30,7 +30,7 @@ const ENEMY_COL = { rodent: '#b07a4a', bug: '#5a9a5a', spitter: '#9a5ac0', flyer
   spider: '#6a4a8a', spiderling: '#8a6aaa', broodmother: '#5a2a6a', frostbat: '#9ad8ff', skitter: '#d0c0a0', magmite: '#ff7a3a', voidling: '#7a6aff', ogolem: '#4a3e68',
   quickling: '#c8d8e4', droplet: '#c8d8e4', voltbat: '#3a8aff', gilded: '#ffd870', sporeling: '#a8f070', mirrorling: '#d8f8ff', titanling: '#7a9a78', chronoling: '#ffd890', leech: '#c02a30', echoer: '#8a86b0', seraph: '#fff4e8', mimic: '#b07a42',
   korAvci: '#8a90a0', yilan: '#2a8ab0', orucu: '#d06070', kalkanli: '#c8d0ff', diriltici: '#ffb040', kene: '#a8604e', fare: '#9a9a50', tozbocek: '#c8c080', yumurtaci: '#7e9a50', isikYiyen: '#3a6aa8',
-  aynasiz: '#c8d0ff', kehribarAna: '#ffb040', madenKalbi: '#ff3a6a', balrog: '#ff5a1a' };
+  aynasiz: '#c8d0ff', kehribarAna: '#ffb040', madenKalbi: '#ff3a6a', balrog: '#ff5a1a', dunyaYilani: '#5ae0ff', ejder: '#ff8a2a' };
 export { ENEMY_COL };
 
 // lv: uyanış seviyesi (0..4); can ve hasar doğduğu biyomun derinliğiyle ölçeklenir
@@ -93,6 +93,8 @@ export function damageEnemy(e, dmg, dx = 0, dy = 0, knock = 1, silent = false) {
   const full = e.hp >= e.maxHp;
   let real = dmg * (1 - (e.d.armor || 0)) * (e.elite || e.d.boss ? 1 + pv('devAvcisi') : 1);
   // kalıntılar: yavaşlamışa Kırılgan, yanana Ateş rezonansı, tam canlıya Suikastçi
+  // Hazine Ejderi: nefes hazırlarken göğsü açıktır, önden gelen vuruş iki kat
+  if (e.weakT > 0 && dx * e.face < 0) { real *= 2; if (rnd() < 0.5) sparks(e.x + e.face * 10, e.y - 14, '#ffd060', 4, 80); }
   if (e.slowT > 0) real *= 1 + pv('kirilgan');
   if (e.burnT > 0 && resonance('ates')) real *= 1.3;
   if (full && hasPerk('suikast') && !silent) real *= pv('suikast');
