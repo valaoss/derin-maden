@@ -292,7 +292,7 @@ export const ENEMIES = {
 export const BOSS_BANDS = ['karakok', 'kavurgan', 'otegoz', 'sultan', 'ezeli', 'aynasiz', 'kehribarAna', 'madenKalbi'];
 
 // Elit: Öfke seviyesinde yuvalardan şansla çıkar (can ×2.2, boyut ×1.25, altın düşürür); derinde özellik kazanır
-export const ELITE = { hp: 2.2, dmg: 1.4, scale: 1.25, gold: 3, fromWave: 3, affixAt: [6, 14, 22] };
+export const ELITE = { hp: 2.2, dmg: 1.6, scale: 1.25, gold: 3, fromWave: 3, affixAt: [6, 14, 22] };
 export const AFFIX = {
   kalkan: { name: 'Kalkanlı', col: '#8ab4ff', shield: 0.45, refill: 3 },
   hizli:  { name: 'Hızlı', col: '#5fe0b8', speed: 1.45 },
@@ -306,6 +306,9 @@ export const AFFIX_KEYS = Object.keys(AFFIX);
 export const SCALE = { hp: 1.13, bossHp: 1.1, dmg: 0.08, lv: 0.1 };
 export function enemyHpMul(st, lv, boss) { return Math.pow(boss ? SCALE.bossHp : SCALE.hp, Math.max(0, st)) * (1 + SCALE.lv * Math.max(0, lv)); }
 export function enemyDmgMul(st) { return 1 + SCALE.dmg * Math.max(0, st); }
+// Güç yönetmeni (power.js): ekibin hasar/sn'si bu derinlikte beklenenin üstündeyse düşman canı (oran^exp) katına çıkar, en çok max;
+// elit ve boss canı en az 'ekip hasar/sn × ttk' olur. lvPerBiome/wlPerBiome: beklenen Silah Gücü ve ustalık ilerleyişi
+export const POWER = { exp: 0.85, max: 5, eliteTtk: 3.5, bossTtk: 20, tool: 0.5, lvPerBiome: 0.5, wlPerBiome: 0.2 };
 
 // Yönetmen: tek ortak bütçe, karışık gruplar, duyurulan dalgalar ve sonrasında nefes arası
 export const DIRECTOR = {
@@ -441,7 +444,7 @@ export const RELIC_KEYS = Object.keys(RELICS);
 export const RELIC_OF_BIOME = Object.fromEntries(RELIC_KEYS.map(k => [RELICS[k].biome, k]));
 
 // Sefer içi asansör: merkez şaft, ulaşılan her biyomda istasyon
-export const ELEVATOR = { speed: 230, snap: 7, noise: 3, far: 2, farRows: 2 };
+export const ELEVATOR = { speed: 230, snap: 7, noise: 3, far: 3, farRows: 4 / 3 };
 
 // Roller: madenci kartında seçilir, ekipte birbirini tamamlar
 export const ROLES = {

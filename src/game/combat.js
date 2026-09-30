@@ -8,10 +8,9 @@ import { tileAt, damageTile } from '../world/map.js';
 import { damageEnemy, losClear, damageStructure, burnEnemy } from './enemies.js';
 import { damagePlayer, webPlayer, chillPlayer, breakTile, nearestPlayer } from './player.js';
 import { addNoise } from './threat.js';
-import { hasPerk, hear, hasMod, isLocal, roleOf, lastStand, weaponOf, weaponLvl, toolDmgMul } from './run.js';
-import { WEAPON_UP } from '../data/balance.js';
+import { hasPerk, hear, hasMod, isLocal, roleOf, lastStand, weaponOf, toolDmgMul } from './run.js';
+import { gunDmg, gunCd } from './power.js';
 import { inWater } from './biomes.js';
-import { hasRelic } from './run.js';
 import { sparks, flashLight, particle, ring, shake, debris, hitstop } from './fx.js';
 import { igniteGas } from './hazards.js';
 import { sfx } from '../audio/audio.js';
@@ -88,14 +87,11 @@ function updateGun(p, dt) {
   if (p.fireCd > 0) return;
   // su altında silah ateş etmez
   if (inWater(sp.x, sp.y)) { if (rnd() < 0.2) particle(sp.x, sp.y, (rnd() - 0.5) * 10, -20, 0.5, '#bff4ff', 1, 1, 0); return; }
-  const wl = weaponLvl(p.wpn || 'blaster');
-  let cd = (W.flame ? W.cd : UPGRADES.blaster.cd[lv] * W.cd) * (1 - WEAPON_UP.cd * wl);
-  if (hasMod('rapid')) cd *= 0.7;
-  if (hasPerk('hizliTetik')) cd /= 1.25;
+  let cd = gunCd(p);
   if (G.rageT > 0) cd /= 1 + 0.08 * (G.rage | 0);
   if ((G.gear.active.overdrive || 0) > 0) cd /= 3;
   p.fireCd = cd;
-  const dmg = UPGRADES.blaster.dmg[lv] * W.dmg * (1 + WEAPON_UP.dmg * wl) * (hasPerk('kalibre') ? 1.25 : 1) * (hasRelic('aynaTac') ? 1.15 : 1) * (hasRelic('sifirTasi') ? 1.4 : 1) * (roleOf(p).dmg || 1) * lastStand(p) * (G.lvl.yildizCekirdek ? 1.4 : 1);
+  const dmg = gunDmg(p) * lastStand(p);
   if ((G.gear.active.overdrive || 0) > 0) sparks(sp.x, sp.y, '#ffe79a', 1, 30);
   if (W.flame) { flameCone(p, sp, ang, range, dmg); return; }
   if (W.zap) { zapChain(p, sp, tgt, dmg, W.zap); return; }

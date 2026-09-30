@@ -25,6 +25,7 @@ import { saveMeta, saveSettings } from '../core/save.js';
 import { mountJourney, glyphURL, MARK_NAMES } from './journey.js';
 import { cancelStick, setStickMode } from '../input/input.js';
 import { isNative, WEB_URL } from '../core/native.js';
+import { SHOP_TABS, renderShop, statsHTML, tabCounts } from './shop.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const ic = (name, cls = '') => `<i class="icon ${cls}" style="background-image:url(${iconURL(name)})"></i>`;
@@ -64,7 +65,8 @@ export function initUI(root, h) {
   <div id="sheetBack"></div>
   <div class="plate rivets" id="sheet">
     <div class="head"><h2>ATÖLYE</h2><button class="btn test ${TEST_MODE ? '' : 'hide'}" id="testBtn">TEST ∞</button><button class="close" id="sheetClose" aria-label="Kapat">✕</button></div>
-    <div class="tabs"><button class="tab on" data-tab="up">GELİŞTİR</button><button class="tab" data-tab="pick">KAZMA</button><button class="tab" data-tab="mods">SİLAH</button><button class="tab" data-tab="craft">ÜRET<span class="dot"></span></button></div>
+    <div class="stats" id="sheetStats"></div>
+    <div class="tabs">${SHOP_TABS.map(([k, l], i) => `<button class="tab ${i ? '' : 'on'}" data-tab="${k}">${l}<span class="cnt"></span></button>`).join('')}</div>
     <div class="storebar" id="sheetStore"></div>
     <div class="body" id="sheetBody"></div>
   </div>
@@ -86,7 +88,7 @@ export function initUI(root, h) {
   tap($('#sheetClose'), closeSheet);
   tap($('#testBtn'), () => { if (dispatch({ t: CMD.TEST })) { refreshSheet(); refreshHUD(true); } });
   tap($('#sheetBack'), closeSheet);
-  document.querySelectorAll('#sheet .tab').forEach(t => tap(t, () => { sheetTab = t.dataset.tab; if (sheetTab === 'craft' && !App.meta.seenCraft) { App.meta.seenCraft = true; saveMeta(App.meta); } refreshSheet(); $('#sheetBody').scrollTop = 0; }));
+  document.querySelectorAll('#sheet .tab').forEach(t => tap(t, () => { sheetTab = t.dataset.tab; refreshSheet(); $('#sheetBody').scrollTop = 0; }));
 
   on('toast', d => toast(d.text, d.icon, d.bad));
   on('bagPop', k => { const n = $('#bagN'); n.parentElement.classList.remove('shake'); if (RES[k] && RES[k].master && once('o' + k)) toast(RES[k].label + ' · Atölye’de ' + UPGRADES[RES[k].master].name + ' açar', k); });
@@ -372,140 +374,21 @@ export function closeSheet() {
 }
 export function sheetOpen() { return $('#sheet').classList.contains('on'); }
 
-function costHTML(c) {
-  return '<span class="cost">' + Object.keys(c).map(k => `<span class="${(G.store[k] || 0) >= c[k] ? '' : 'no'}">${ic(k, 's')}${c[k]}</span>`).join('') + '</span>';
-}
-// AL düğmesi; Fener kilidi varsa kilitli düğme
-function buyBtn(k, c) {
-  const lack = c ? beaconLack(k) : 0;
-  if (lack) return `<button class="btn buy lock" disabled>${ic('base', 's')}${beaconReq(k, G.lvl[k])}</button>`;
-  return `<button class="btn buy" ${c && canAfford(c) ? '' : 'disabled'}>AL</button>`;
-}
-const lockNote = k => { const c = upgradeCost(k), n = c ? beaconLack(k) : 0; return n ? `<div class="eff lockn">${n} Fener daha yak (biyomun tüm yuvalarını yık)</div>` : ''; };
-// silah ustalığı / alet seviyesi satırı
-function lvRow(g, k, justKey) {
-  const w = g === 'w', l = w ? weaponLvl(k) : toolLvl(k), max = w ? WEAPON_UP.max : TOOL_UP.max, c = w ? weaponUpCost(k) : toolUpCost(k);
-  const eff = w ? `Hasar +%${Math.round(WEAPON_UP.dmg * 100 * l)} · atış hızı +%${Math.round(WEAPON_UP.cd * 100 * l)}` : `Hasar +%${Math.round(TOOL_UP.dmg * 100 * l)} · dayanıklılık +%${Math.round(TOOL_UP.hp * 100 * l)}`;
-  return `<div class="plate row sub ${c ? '' : 'max'} ${justKey === g + k ? 'just' : ''}" data-lvup="${g}:${k}"><div class="main"><div class="name">${w ? 'Ustalık' : 'Seviye'} ${pips(l, max)}</div><div class="eff">${eff}</div>${c ? costHTML(c) : ''}</div>${c ? `<button class="btn buy" ${canAfford(c) ? '' : 'disabled'}>GELİŞTİR</button>` : ''}</div>`;
-}
 function pips(l, max) { let s = '<span class="pips">'; for (let i = 0; i < max; i++) s += `<i class="${i < l ? 'on' : ''}"></i>`; return s + '</span>'; }
 
 // test düğmesi: geliştirmede ya da adreste ?test varken görünür
 const TEST_MODE = import.meta.env.DEV || /[?&]test/.test(location.search);
-let sheetTab = 'up';
+let sheetTab = 'pick';
 function refreshSheet(justKey) {
   if (!G) return;
   $('#sheetStore').innerHTML = RES_KEYS.filter(k => BASE_RES.includes(k) || G.store[k] > 0).map(k => `<span class="chip">${ic(k, 's')}<span>${G.store[k]}</span></span>`).join('');
-  document.querySelectorAll('#sheet .tab').forEach(t => t.classList.toggle('on', t.dataset.tab === sheetTab));
-  $('#sheet .tab[data-tab="craft"]').classList.toggle('new', !App.meta.seenCraft);
-  const body = $('#sheetBody');
-  let h = '';
-  const upRow = k => {
-    const u = UPGRADES[k], l = G.lvl[k], max = u.costs.length, c = upgradeCost(k);
-    const eff = c ? `${u.desc(l)} → <b>${u.desc(l + 1).replace(/^[^\d×]*/, '')}</b>` : u.desc(l);
-    return `<div class="plate row ${c ? '' : 'max'} ${justKey === k ? 'just' : ''}" data-up="${k}">
-      ${ic(u.icon, 'l')}
-      <div class="main"><div class="name">${u.name} ${pips(l, max)}</div><div class="eff">${eff}</div>${c ? costHTML(c) : ''}${lockNote(k)}</div>
-      ${buyBtn(k, c)}</div>`;
-  };
-  // kazma/silah türü satırı: sahipsen TAK, değilsen fiyat + AL
-  const gearRow = (g, k) => {
-    const d = g === 'w' ? WEAPONS[k] : PICK_TYPES[k], own = (g === 'w' ? G.gear.wOwn : G.gear.pOwn).includes(k), on = (g === 'w' ? G.player.wpn : G.player.pk) === k;
-    if (own) return `<div class="plate row owned ${on ? 'eq' : ''}" data-gear="${g}:${k}">${ic(d.icon, 'l')}<div class="main"><div class="name">${d.name}${on ? ' <span class="have">ELİNDE</span>' : ''}</div><div class="eff">${d.desc}</div></div>${on ? '' : '<button class="btn buy">TAK</button>'}</div>`;
-    return `<div class="plate row ${justKey === k ? 'just' : ''}" data-gear="${g}:${k}">${ic(d.icon, 'l')}<div class="main"><div class="name">${d.name}</div><div class="eff">${d.desc}</div>${costHTML(d.cost)}</div><button class="btn buy" ${canAfford(d.cost) ? '' : 'disabled'}>AL</button></div>`;
-  };
-  if (sheetTab === 'pick') {
-    const t = PICK_TIERS[G.lvl.drill], next = PICK_TIERS[G.lvl.drill + 1], c = upgradeCost('drill');
-    h += '<div class="sec">KAZMAN</div>';
-    h += `<div class="plate pickcard"><img class="sw" src="${pickIconURL(G.lvl.drill)}" alt=""><div class="main"><div class="name">${t.name} · ${PICK_TYPES[G.player.pk].name}</div><div class="eff">Kazı gücü <b>${pickDmg().toFixed(1)}</b> · vuruş aralığı <b>${pickInterval().toFixed(2)} sn</b></div></div></div>`;
-    h += '<div class="sec">SATIN AL</div>';
-    if (next) h += `<div class="plate row ${justKey === 'drill' ? 'just' : ''}" data-up="drill"><img class="sw" style="width:28px;height:28px;image-rendering:pixelated" src="${pickIconURL(G.lvl.drill + 1)}" alt="">
-      <div class="main"><div class="name">${next.name}</div><div class="eff">Güç ×${next.dmg} · aralık ${next.interval} sn${next.glow ? ' · parlar' : ''}</div>${costHTML(c)}${lockNote('drill')}</div>
-      ${buyBtn('drill', c)}</div>`;
-    else h += '<div class="note">En güçlü kazma sende. Boşluk bile sana dayanamaz.</div>';
-    h += '<div class="sec">GELİŞTİR</div>';
-    h += upRow('sharp') + upRow('swing');
-    h += '<div class="sec">KAZMA TÜRÜ · HER MADENCİ KENDİNİ SEÇER</div>';
-    for (const k of PICK_TYPE_KEYS) h += gearRow('p', k);
-    h += `<div class="note">Derin kayalar sert ve her biyomda kazı biraz daha ağırlaşır. Son kademeler ve türler derin cevher ister: yukarı dönüp al, daha derine in.</div>`;
-  } else if (sheetTab === 'mods') {
-    h += '<div class="sec">SİLAH GÜCÜ · TÜM SİLAHLAR</div>' + upRow('blaster');
-    h += '<div class="sec">SİLAHLAR · HER MADENCİ KENDİNİ SEÇER</div>';
-    for (const k of WEAPON_KEYS) { h += gearRow('w', k); if (G.gear.wOwn.includes(k)) h += lvRow('w', k, justKey); }
-    const slots = modSlots();
-    h += `<div class="sec">EKLENTİLER · ${G.gear.eq.length}/${slots} YUVA</div>`;
-    for (const k of MOD_KEYS) {
-      const m = MODS[k], owned = G.gear.owned.includes(k), eq = G.gear.eq.includes(k);
-      if (owned) h += `<div class="plate row owned ${eq ? 'eq' : ''}" data-mod="${k}">${ic(m.icon, 'l')}<div class="main"><div class="name">${m.name}${m.active ? ' <span class="have">' + m.cd + ' sn</span>' : ''}</div><div class="eff">${m.desc}</div></div>
-        <button class="btn buy">${eq ? 'ÇIKAR' : 'TAK'}</button></div>`;
-      else h += `<div class="plate row ${justKey === k ? 'just' : ''}" data-modbuy="${k}">${ic(m.icon, 'l')}<div class="main"><div class="name">${m.name}</div><div class="eff">${m.desc}</div>${costHTML(m.cost)}</div>
-        <button class="btn buy" ${canAfford(m.cost) ? '' : 'disabled'}>AL</button></div>`;
-    }
-    h += '<div class="note">Aktif eklentiler ekranın sağındaki düğmelerden (klavyede Q / E) kullanılır.</div>';
-  } else if (sheetTab === 'up') {
-    h += '<div class="sec">YÜKSELTMELER</div>';
-    for (const k of UPGRADE_KEYS) {
-      const u = UPGRADES[k], l = G.lvl[k], max = u.costs.length, c = upgradeCost(k);
-      const eff = c ? `${u.desc(l)} → <b>${u.desc(l + 1).replace(/^[^\d×]*/, '')}</b>` : u.desc(l);
-      h += `<div class="plate row ${c ? '' : 'max'} ${justKey === k ? 'just' : ''}" data-up="${k}">
-        ${ic(u.icon, 'l')}
-        <div class="main"><div class="name">${u.name} ${pips(l, max)}</div><div class="eff">${eff}</div>${c ? costHTML(c) : ''}${lockNote(k)}</div>
-        ${buyBtn(k, c)}</div>`;
-    }
-    const master = MASTER_KEYS.filter(k => G.lvl[k] || RES_KEYS.some(o => RES[o].master === k && (G.store[o] > 0 || G.player.bag[o] > 0)));
-    if (master.length) {
-      h += '<div class="sec">USTA İŞİ · DERİN CEVHERLE</div>';
-      for (const k of master) {
-        const u = UPGRADES[k], c = upgradeCost(k);
-        h += `<div class="plate row ${c ? '' : 'max'} ${justKey === k ? 'just' : ''}" data-up="${k}">${ic(u.icon, 'l')}
-          <div class="main"><div class="name">${u.name}${c ? '' : ' <span class="have">ALINDI</span>'}</div><div class="eff">${u.desc()}</div>${c ? costHTML(c) : ''}</div>
-          ${c ? `<button class="btn buy" ${canAfford(c) ? '' : 'disabled'}>AL</button>` : ''}</div>`;
-      }
-    }
-    h += `<div class="note">Aletler (Nöbetçi, Alev Kulesi, Havan) <b>ÜRET</b> sekmesinde. Kemerden durduğun yere kurulur; aynı anda ${DEPLOY_MAX + (hasPerk('ucuncuAlet') ? 1 : 0)} tane.</div>`;
-    if (G.contracts.length) {
-      h += '<div class="sec">KONTRATLAR</div>' + contractsHTML();
-    }
-    if (G.perks.length) {
-      h += '<div class="sec">KALINTILAR</div>';
-      for (const k of G.perks) h += `<div class="plate row">${ic(PERKS[k].icon, 'l')}<div class="main"><div class="name">${PERKS[k].name}</div><div class="eff">${PERKS[k].desc}</div></div></div>`;
-    }
-  } else {
-    for (const k of ITEM_KEYS) {
-      const d = ITEMS[k], st = craftState(k);
-      if (k === ITEM_KEYS[0]) h += '<div class="sec">EŞYALAR · KEMERDEN KULLANILIR</div>';
-      if (k === BUILD_KEYS[0]) h += `<div class="sec">ALETLER · DURDUĞUN YERE KUR (EN FAZLA ${DEPLOY_MAX + (hasPerk('ucuncuAlet') ? 1 : 0)})</div>`;
-      if (st === 'locked') {
-        h += `<div class="plate row locked">${ic('schematic', 'l')}<div class="main"><div class="name">${d.name}</div><div class="eff">Şema gerekli — Kalıntı sandıklarında bulunur.</div></div></div>`;
-        continue;
-      }
-      h += `<div class="plate row ${justKey === k ? 'just' : ''}" data-craft="${k}">${ic(d.icon, 'l')}
-        <div class="main"><div class="name">${d.name} <span class="have">${G.items[k]}/${d.max}</span></div><div class="eff">${d.desc}</div>${costHTML(itemCost(k))}</div>
-        <button class="btn buy" ${st === 'ok' ? '' : 'disabled'}>${st === 'full' ? 'DOLU' : 'ÜRET'}</button></div>`;
-      if (d.build) h += lvRow('t', k, justKey);
-    }
-  }
-  const scroll = body.scrollTop;
-  body.innerHTML = h;
-  body.scrollTop = scroll;
-  body.querySelectorAll('[data-up] .buy').forEach(b => tap(b, () => {
-    const k = b.closest('[data-up]').dataset.up;
-    if (dispatch({ t: CMD.BUY, k })) { refreshSheet(k); refreshHUD(true); tutEvent('bought'); }
-  }));
-  body.querySelectorAll('[data-modbuy] .buy').forEach(b => tap(b, () => { const k = b.closest('[data-modbuy]').dataset.modbuy; if (dispatch({ t: CMD.MODBUY, k })) { refreshSheet(k); refreshHUD(true); } }));
-  body.querySelectorAll('[data-mod] .buy').forEach(b => tap(b, () => { const k = b.closest('[data-mod]').dataset.mod; if (dispatch({ t: CMD.MODEQ, k })) { refreshSheet(); refreshHUD(true); } }));
-  body.querySelectorAll('[data-gear] .buy').forEach(b => tap(b, () => {
-    const [g, k] = b.closest('[data-gear]').dataset.gear.split(':');
-    if (dispatch({ t: CMD.GEAR, g, k })) { refreshSheet(k); refreshHUD(true); }
-  }));
-  body.querySelectorAll('[data-lvup] .buy').forEach(b => tap(b, () => {
-    const [g, k] = b.closest('[data-lvup]').dataset.lvup.split(':');
-    if (dispatch({ t: CMD.LVUP, g, k })) { refreshSheet(g + k); refreshHUD(true); }
-  }));
-  body.querySelectorAll('[data-craft] .buy').forEach(b => tap(b, () => {
-    const k = b.closest('[data-craft]').dataset.craft;
-    if (dispatch({ t: CMD.CRAFT, k })) { refreshSheet(k); refreshHUD(true); }
-  }));
+  $('#sheetStats').innerHTML = statsHTML(ic);
+  const n = tabCounts();
+  document.querySelectorAll('#sheet .tab').forEach(t => { t.classList.toggle('on', t.dataset.tab === sheetTab); t.querySelector('.cnt').textContent = n[t.dataset.tab] || ''; });
+  renderShop($('#sheetBody'), sheetTab, justKey, {
+    ic, tap, pickIconURL, contractsHTML,
+    after(k, bought) { refreshSheet(k); if (k) refreshHUD(true); if (bought) tutEvent('bought'); },
+  });
 }
 
 // kademe renkli küçük kazma ikonu (atölye kartı için)

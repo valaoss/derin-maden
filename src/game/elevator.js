@@ -60,7 +60,7 @@ export function callElevator(p, to) {
 
 export function updateRide(p, dt) {
   const rd = p.ride; rd.t += dt;
-  // uzun yolculukta kabin hızlanır: yol uzadıkça artar, 4 biyom ve üstünde 3 kat
+  // uzun yolculukta kabin hızlanır: yol uzadıkça artar, 4 biyom ve üstünde 4 kat
   const sp = ELEVATOR.speed * (1 + Math.min(ELEVATOR.far, (rd.d0 || 0) / (STRATUM_ROWS * TILE * ELEVATOR.farRows))) * (p.carrying ? 0.6 : 1);
   const dy = rd.y - p.y;
   p.y += Math.sign(dy) * Math.min(Math.abs(dy), sp * dt);

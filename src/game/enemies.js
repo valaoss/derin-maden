@@ -4,6 +4,7 @@
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y, GROUND_ROW, stratumOfRow } from '../config.js';
 import { T, TD } from '../data/tiles.js';
+import { directorHp, ttkFloor } from './power.js';
 import { ENEMIES, BARRICADE, BUILDS, ELITE, BURN, AFFIX, AFFIX_KEYS, enemyHpMul, enemyDmgMul } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, solidAt, damageTile, idx, matOf } from '../world/map.js';
@@ -35,7 +36,8 @@ export { ENEMY_COL };
 // lv: uyanış seviyesi (0..4); can ve hasar doğduğu biyomun derinliğiyle ölçeklenir
 export function spawnEnemy(type, x, y, lv = 0) {
   const d = ENEMIES[type], st = Math.max(0, stratumOfRow(Math.floor(y / TILE)));
-  const hp = d.hp * enemyHpMul(st, lv, d.boss) * (G.mods ? G.mods.hp : 1);
+  let hp = d.hp * enemyHpMul(st, lv, d.boss) * (G.mods ? G.mods.hp : 1);
+  hp = d.boss ? Math.max(hp, ttkFloor(true)) : hp * directorHp(st);
   const e = {
     type, d, x, y, px: x, py: y, hp, maxHp: hp, r: d.r, face: 1, anim: rnd() * 4,
     hitT: 0, kx: 0, ky: 0, atkCd: 0.6, fireCd: 1 + rnd(), emergeT: 0.9, wob: rnd() * 6,
@@ -50,7 +52,7 @@ export function spawnEnemy(type, x, y, lv = 0) {
 }
 // Elit: daha dayanıklı, daha büyük, altın düşürür; çizimde altın aura
 export function makeElite(e) {
-  e.elite = true; e.hp *= ELITE.hp; e.maxHp = e.hp; e.scale = ELITE.scale; e.r = e.r * 1.2; e.dmgMul *= ELITE.dmg;
+  e.elite = true; e.hp = Math.max(e.hp * ELITE.hp, ttkFloor(false)); e.maxHp = e.hp; e.scale = ELITE.scale; e.r = e.r * 1.2; e.dmgMul *= ELITE.dmg;
   // derin elitler özellik kazanır (biyom 6+: 1, 14+: 2, 22+: 3)
   const st = Math.max(0, stratumOfRow(Math.floor(e.y / TILE))), n = ELITE.affixAt.filter(s => st >= s).length;
   if (n) {
