@@ -121,7 +121,7 @@ export const UPGRADES = {
     range: [78, 84, 90, 96, 102, 110, 118, 126, 132, 138, 144, 148, 152, 156, 160, 164], lock: true,
     costs: [{ iron: 8 }, { iron: 16, water: 5 }, { cobalt: 12 }, { cobalt: 24, water: 10 }, { cobalt: 36, crystal: 10, yesim: 3 }, { crystal: 30, gold: 24, opal: 3 }, { crystal: 50, gold: 40, opal: 5 }, { crystal: 75, gold: 60, inci: 4 },
       { crystal: 105, gold: 85, inci: 6 }, { crystal: 140, gold: 115, akik: 5 }, { crystal: 180, gold: 150, akik: 7 }, { crystal: 230, gold: 190, yildiz: 6 }, { crystal: 290, gold: 240, elmas: 6 }, { crystal: 360, gold: 300, elmas: 8 }, { crystal: 450, gold: 380, kehribar: 8 }],
-    desc: l => `Hasar ${[8, 11, 14, 18, 23, 30, 38, 48, 60, 75, 92, 112, 136, 165, 200, 240][l]}`,
+    desc: l => `Tüm silahlara işler: temel hasar ${[8, 11, 14, 18, 23, 30, 38, 48, 60, 75, 92, 112, 136, 165, 200, 240][l]}`,
   },
   lamp: {
     name: 'Fener', icon: 'lamp',

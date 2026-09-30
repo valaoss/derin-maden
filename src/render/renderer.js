@@ -8,7 +8,7 @@ import { PICK_TIERS, AFFIX, ELEVATOR, DEEP_ORES, MERCHANT } from '../data/balanc
 import { PERKS, SOY } from '../data/relics.js';
 import { WELL } from '../data/balance.js';
 import { WELL_X } from '../game/well.js';
-import { critterSprite, CW, CH } from './critters.js';
+import { drawCritter } from './critters.js';
 import { drawWonders, drawWondersGlow, drawWondersFx } from './wonders.js';
 import { drawLiquids, drawLiquidGlow, liquidLights } from './liquids.js';
 import { drawAmbient } from './ambient.js';
@@ -719,11 +719,12 @@ function drawCritters(r0, r1) {
   const t = G.time;
   for (const cr of G.critters || []) {
     if (cr.found || cr.r < r0 - 1 || cr.r > r1 + 1 || !G.rev[cr.r * COLS + cr.c]) continue;
-    const x = cr.c * TILE, y = cr.r * TILE + 3, br = Math.sin(t * 2 + cr.c) > 0.3 ? 1 : 0;
-    ctx.drawImage(critterSprite(cr.k, false, true), x, y - br, CW, CH + br);
+    const x = cr.c * TILE + 8, feet = cr.r * TILE + 16;
+    shadow(x, feet - 1, 9, 0.25);
+    drawCritter(ctx, cr.k, x, feet, { closed: true, t, seed: cr.c + cr.r, turn: (cr.c + cr.r) % 2 ? 1 : -1 });
     const z = (t * 0.6 + cr.r * 0.37) % 1;
     ctx.globalAlpha = 1 - z; ctx.fillStyle = '#dff6ff';
-    const zx = Math.round(x + 13 + z * 4), zy = Math.round(y - 2 - z * 8);
+    const zx = Math.round(x + 5 + z * 4), zy = Math.round(feet - 16 - z * 8);
     ctx.fillRect(zx, zy, 3, 1); ctx.fillRect(zx + 1, zy + 1, 1, 1); ctx.fillRect(zx, zy + 2, 3, 1);
     ctx.globalAlpha = 1;
   }
@@ -739,22 +740,31 @@ function drawCritters(r0, r1) {
     ctx.globalAlpha = 1;
   }
 }
-// yoldaş: sahibinin arkasından seker, durunca oturur ve arada zıplar; asansörde yanında durur
+// yoldaş: sahibinin arkasından yaylı bir takiple yürür (adımlar gidilen yola bağlı), durunca oturup nefes alır,
+// arada zıplar; yön değişimi ani değil: kısa bir kararlılıktan sonra gövde daralıp öbür yana açılır
 const petPos = new Map();
 function drawPet(p, alpha) {
   if (!p.pet || !CRITTERS[p.pet]) return;
   const px = lerp(p.px, p.x, alpha), py = lerp(p.py, p.y, alpha);
   let q = petPos.get(p.i);
-  const tx = p.ride ? px + 4 : px - p.face * 12, ty = p.ride ? py + 1 : py + 1;
-  if (!q || Math.hypot(q.x - tx, q.y - ty) > 90) { q = { x: tx, y: ty, face: p.face, hopT: 0 }; petPos.set(p.i, q); }
-  const dt = 1 / 60, dx = tx - q.x, dy = ty - q.y;
-  q.x += dx * Math.min(1, dt * 6); q.y += dy * Math.min(1, dt * 8);
-  if (Math.abs(dx) > 1.5) q.face = dx > 0 ? 1 : -1;
-  const moving = Math.hypot(dx, dy) > 2;
-  const hop = moving ? Math.abs(Math.sin(G.time * 12)) * 3 : (G.time % 4 < 0.3 ? Math.sin((G.time % 4) / 0.3 * Math.PI) * 3 : 0);
-  const x = Math.round(q.x - CW / 2), y = Math.round(q.y + 7 - CH - hop);
-  shadow(q.x, q.y + 6, 8, 0.3);
-  ctx.drawImage(critterSprite(p.pet, q.face < 0), x, y);
+  const tx = p.ride ? px + 5 : px - p.face * 12, ty = py + 1;
+  if (!q || q.k !== p.pet || Math.hypot(q.x - tx, q.y - ty) > 90) { q = { k: p.pet, x: tx, y: ty, vx: 0, vy: 0, face: p.face, turn: p.face, ph: 0, t: G.time, hold: 0 }; petPos.set(p.i, q); }
+  const dt = clamp(G.time - q.t, 0, 0.05); q.t = G.time;
+  // yay: hedefe hızlanır, yaklaşınca yavaşlar
+  q.vx += ((tx - q.x) * 24 - q.vx * 8.5) * dt; q.vy += ((ty - q.y) * 40 - q.vy * 12) * dt;
+  const v = Math.hypot(q.vx, q.vy); if (v > 150) { q.vx *= 150 / v; q.vy *= 150 / v; }
+  q.x += q.vx * dt; q.y += q.vy * dt;
+  const sp = Math.abs(q.vx) + Math.abs(q.vy) * 0.4;
+  // yön: yürürken gittiği yana, dururken sahibinin baktığı yana; kısa bir bekleme sonra döner
+  const want = Math.abs(q.vx) > 14 ? Math.sign(q.vx) : Math.abs(q.vx) < 4 ? p.face : q.face;
+  if (want !== q.face) { q.hold += dt; if (q.hold > (sp > 14 ? 0.1 : 0.35)) { q.face = want; q.hold = 0; } } else q.hold = 0;
+  q.turn += (q.face - q.turn) * Math.min(1, dt * 8);
+  q.ph += Math.min(sp, 120) * dt * 0.32;
+  const walk = clamp(sp / 26, 0, 1);
+  // dururken ara sıra küçük bir zıplama
+  const it = (G.time + p.i * 1.3) % 5, hop = (walk < 0.2 && it < 0.32 ? Math.sin(it / 0.32 * Math.PI) * 3 : 0) + (1 - Math.abs(q.turn)) * 3;
+  shadow(q.x, q.y + 6, Math.round(9 - hop), 0.28);
+  drawCritter(ctx, p.pet, q.x, q.y + 7 - hop, { turn: q.turn, ph: q.ph, walk, t: G.time, seed: p.i * 3.1 });
 }
 
 // şans kuyusu: taş bilezik, kiremit çatı, sallanan kova, kenarda kurbağa.
@@ -1177,8 +1187,6 @@ function drawBossFx(e, alpha) {
 function pickTier() { return PICK_TIERS[Math.min(PICK_TIERS.length - 1, G.lvl.drill)]; }
 // silah türü: namlu boyu, rengi, kalınlığı
 const GUN = { blaster: [5, P.metal], sacma: [6, '#b07a42', 1], makineli: [6, '#6a7898'], alev: [5, '#e0502a', 1], tufek: [8, '#dfe6f0'], simsek: [4, '#6fd0ff'], roket: [7, '#7a8a4a', 1], kirag: [5, '#bff4ff', 1] };
-// kazma türü: baş arkası / önü uzunluğu, kalın mı
-const HEAD = { matkap: [0, 5], genis: [5, 5], balyoz: [3, 3, 1], burgu: [1, 5] };
 function drawPlayer(p, alpha) {
   if (p.dead) { drawDowned(p, alpha); return; }
   if (p.ride) { const rd = p.ride, b = rd.board || 0; drawCab(b > 0 ? SHAFT_X : Math.round(lerp(p.px, p.x, alpha)), Math.round(lerp(p.py, p.y, alpha)), b > ELEVATOR.lever ? 0 : 1 - Math.max(0, b) / ELEVATOR.lever); }
@@ -1359,15 +1367,67 @@ function drawArmAndPick(p, x, y, flip, pass, cache) {
   pline3(gx, gy, hx, hy, P.ink);
   pline(gx, gy, hx, hy, tier.handle);
   pline(gx + Math.round(px), gy + Math.round(py), gx + Math.round(px) + Math.cos(ang) * 4, gy + Math.round(py) + Math.sin(ang) * 4, P.woodL);
-  // baş: kavisli çubuk (öne uzun, arkaya kısa), kontur
-  const hd = HEAD[p.pk] || [3, 4];
-  const tipX = hx + px * hd[1] + Math.cos(ang) * 1.5, tipY = hy + py * hd[1] + Math.sin(ang) * 1.5;
-  const backX = hx - px * hd[0], backY = hy - py * hd[0];
-  if (hd[2]) { const ox = Math.cos(ang), oy = Math.sin(ang); pline3(backX + ox, backY + oy, tipX + ox, tipY + oy, P.ink); pline(backX + ox, backY + oy, tipX + ox, tipY + oy, tier.head); }
-  pline3(backX, backY, tipX, tipY, P.ink);
-  pline(backX, backY, tipX, tipY, tier.head);
-  pline(hx, hy, tipX, tipY, tier.headL);
-  ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(tipX), Math.round(tipY), 1, 1);
+  // baş: türüne göre ayrı biçim. L(u, v): u sap ekseni boyunca (dışa +), v ön yüz yönü (+ uç)
+  const ax = Math.cos(ang), ay = Math.sin(ang), L = (u, v) => [hx + ax * u + px * v, hy + ay * u + py * v];
+  const seg = (u0, v0, u1, v1, col, thick) => { const [a, b] = L(u0, v0), [c, d] = L(u1, v1); (thick ? pline3 : pline)(a, b, c, d, col); };
+  const dot = (u, v, col) => { const [a, b] = L(u, v); ctx.fillStyle = col; ctx.fillRect(Math.round(a), Math.round(b), 1, 1); };
+  const spin = p.dig ? Math.floor(G.time * 24) % 2 : 0;
+  let tip;
+  switch (p.pk) {
+    case 'matkap': {   // motor gövdesi + dönen konik uç
+      for (let u = -1; u <= 1; u++) seg(u, -3, u, 1, P.ink, true);
+      for (let u = -1; u <= 1; u++) seg(u, -3, u, 1, u === 1 ? tier.headL : tier.head);
+      seg(-1, -1, 1, -1, '#e8c040');
+      seg(0, 1, 0, 6, P.ink, true); seg(-1, 2, 1, 2, P.ink, true);
+      for (let v = 2; v <= 6; v++) { const w = v < 4 ? 1 : 0; seg(-w, v, w, v, (v + spin) % 2 ? tier.headL : tier.head); }
+      tip = L(0, 6.5); break;
+    }
+    case 'genis': {    // uzun, iki ucu genişleyen çift ağız
+      seg(0, -5, 0, 5, P.ink, true); seg(-2, -5, 2, -5, P.ink, true); seg(-2, 5, 2, 5, P.ink, true);
+      seg(0, -5, 0, 5, tier.head); seg(-2, -5, 2, -5, tier.head); seg(-2, 5, 2, 5, tier.headL);
+      seg(0, 1, 0, 5, tier.headL);
+      tip = L(0, 5.5); break;
+    }
+    case 'balyoz': {   // ağır dikdörtgen blok, bantlı
+      for (let u = -2; u <= 2; u++) seg(u, -3, u, 3, P.ink, true);
+      for (let u = -2; u <= 2; u++) seg(u, -3, u, 3, tier.head);
+      seg(-2, 3, 2, 3, tier.headL); seg(2, -3, 2, 3, tier.headL);
+      seg(-2, -1, 2, -1, P.ink); seg(-2, 1, 2, 1, P.ink);
+      tip = L(0, 3.5); break;
+    }
+    case 'burgu': {    // yakalı uzun vida, dönerken helezon kayar
+      seg(-2, -1, 2, -1, P.ink, true); seg(-2, -1, 2, -1, tier.head);
+      seg(0, -1, 0, 7, P.ink, true); seg(0, -1, 0, 7, tier.head);
+      for (let v = spin; v < 7; v += 2) { seg(-1, v, 1, v + 1, tier.headL); dot(-1, v, P.ink); }
+      tip = L(0, 7.5); break;
+    }
+    case 'akik': {     // kıvrık kan kırmızısı ağız, ortada akik taşı
+      seg(0, -2, 0, 3, P.ink, true); seg(0, 3, 1.5, 6, P.ink, true); seg(1.5, 6, 3, 7, P.ink, true);
+      seg(0, -2, 0, 3, '#a01830'); seg(0, 3, 1.5, 6, '#a01830'); seg(1.5, 6, 3, 7, '#ff6070');
+      seg(-1, 0, -1, 4, '#ff6070');
+      dot(0, 0, '#ff3050'); dot(1, 0, '#ffb0b8');
+      tip = L(3, 7); break;
+    }
+    default: {         // madenci / kadife / hazine: kavisli çubuk (öne uzun, arkaya kısa)
+      tip = [hx + px * 4 + ax * 1.5, hy + py * 4 + ay * 1.5];
+      const [bx, by] = L(0, -3);
+      pline3(bx, by, tip[0], tip[1], P.ink);
+      pline(bx, by, tip[0], tip[1], tier.head);
+      pline(hx, hy, tip[0], tip[1], tier.headL);
+      if (p.pk === 'kadife') {   // uçta yumuşak kadife yastık, sapta sargı
+        pline3(tip[0], tip[1], tip[0] + px, tip[1] + py, '#5a2468');
+        pline(tip[0], tip[1], tip[0] + px, tip[1] + py, '#c080d8');
+        dot(-1, 0, '#8a3a9a'); dot(-2, 0, '#8a3a9a');
+        tip = [tip[0] + px * 1.5, tip[1] + py * 1.5];
+      } else if (p.pk === 'hazine') {   // altın kaplamalı, ortada parlayan zümrüt
+        seg(0, -3, 0, -1, '#ffd24a'); seg(0, 2, 0, 4, '#ffd24a');
+        seg(-1, 0, 1, 0, P.ink, true); dot(0, 0, '#5fe0b8');
+        if ((G.time * 2 + p.i) % 2 < 0.25) dot(1, 0, '#ffffff');
+      }
+    }
+  }
+  const tipX = tip[0], tipY = tip[1];
+  if (p.pk !== 'kadife') { ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(tipX), Math.round(tipY), 1, 1); }
   // ön kol + el
   pline(shoulderX, shoulderY, gx, gy, P.skin);
   pline(shoulderX, shoulderY + 1, gx, gy + 1, P.skinD);

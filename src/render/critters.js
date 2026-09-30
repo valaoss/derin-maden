@@ -33,3 +33,36 @@ export function critterURL(k, dark = false) {
   if (dark) { x.globalCompositeOperation = 'source-atop'; x.fillStyle = '#2a2238'; x.fillRect(0, 0, CW * 2, CH * 2); }
   return cv.toDataURL();
 }
+
+// ---------- canlı çizim ----------
+// Dünyada 1/1.15 ölçekte çizilir. Yürürken ön ve arka ayak çifti sırayla kalkar, gövde adımla hafifçe zıplar;
+// dönüş anında değil: gövde yatay ölçekte daralıp öbür yana açılır. Yarasa kanat çırpar, balık süzülür, salyangoz uzayıp kısalır.
+export const CSC = 1 / 1.15;
+const MODE = { gozYarasa: 'fly', boslukBalik: 'swim', yildizSalyangoz: 'slide' };
+// o: { turn: -1..1 (yön ve dönüş), ph: adım fazı, walk: 0..1, t, closed, seed }
+export function drawCritter(ctx, k, x, feet, o = {}) {
+  const t = o.t || 0, seed = o.seed || 0, mode = MODE[k] || 'walk', walk = o.walk || 0, ph = o.ph || 0;
+  const blink = !o.closed && ((t + seed * 1.7) % 3.6) < 0.13;
+  const s = critterSprite(k, false, o.closed || blink), W = s.width, H = s.height;
+  let sx = 1, sy = 1, tilt = 0, bob = 0, lift = 0;
+  const breathe = Math.sin(t * 2.6 + seed) * (o.closed ? 0.05 : 0.025);
+  sy += breathe; sx -= breathe * 0.5;
+  if (mode === 'fly') { bob = 4 + Math.sin(t * 5 + seed) * 1.5; sy += Math.sin(t * 16 + seed) * 0.1; tilt = walk * 0.12; }
+  else if (mode === 'swim') { bob = 3 + Math.sin(t * 2.2 + seed) * 1.2; tilt = Math.sin(t * 3 + seed) * 0.1 + walk * 0.08; sx += Math.sin(t * 6) * 0.03 * (1 + walk); }
+  else if (mode === 'slide') { sx += Math.sin(ph * 2) * 0.1 * walk; sy -= Math.sin(ph * 2) * 0.07 * walk; }
+  else { lift = Math.sin(ph) * walk; bob = Math.abs(Math.sin(ph)) * walk * 1.2; tilt = Math.sin(ph) * walk * 0.05 + walk * 0.04; sy -= Math.cos(ph * 2) * 0.04 * walk; }
+  const turn = Math.abs(o.turn ?? 1) < 0.25 ? Math.sign(o.turn || 1) * 0.25 : (o.turn ?? 1);
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(feet - bob));
+  if (tilt) ctx.rotate(-tilt * Math.sign(turn));
+  ctx.scale(turn * CSC * sx, CSC * sy);
+  if (mode === 'walk') {
+    // gövde (alttaki iki sıra hariç), sonra ayaklar: yarısı sırayla kalkar
+    const legH = 2, half = Math.floor(W / 2), la = Math.max(0, lift) * 1.6, lb = Math.max(0, -lift) * 1.6;
+    ctx.drawImage(s, 0, 0, W, H - legH, -W / 2, -H, W, H - legH);
+    ctx.drawImage(s, 0, H - legH, half, legH, -W / 2, -legH - la, half, legH);
+    ctx.drawImage(s, half, H - legH, W - half, legH, -W / 2 + half, -legH - lb, W - half, legH);
+  } else ctx.drawImage(s, -W / 2, -H);
+  ctx.restore();
+  return bob;
+}

@@ -18,7 +18,7 @@ const VAL = {
   drill: l => PICK_TIERS[l].dmg, sharp: l => UPGRADES.sharp.mult[l], swing: l => 1 / UPGRADES.swing.mult[l],
   blaster: l => UPGRADES.blaster.dmg[l], armor: l => UPGRADES.armor.hp[l], bag: l => BAG_CAPS[l], lamp: l => UPGRADES.lamp.radius[l],
 };
-const LABEL = { drill: 'Kazı gücü ×', sharp: 'Kazı gücü ×', swing: 'Vuruş hızı ×', blaster: 'Hasar ', armor: 'Maks can ', bag: 'Kapasite ', lamp: 'Görüş ' };
+const LABEL = { drill: 'Kazı gücü ×', sharp: 'Kazı gücü ×', swing: 'Vuruş hızı ×', blaster: 'Tüm silahlar: temel hasar ', armor: 'Maks can ', bag: 'Kapasite ', lamp: 'Görüş ' };
 const fmt = v => String(+v.toFixed(2));
 
 const upOk = k => { const c = upgradeCost(k); return !!c && canAfford(c) && !beaconLack(k); };
