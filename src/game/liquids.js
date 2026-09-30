@@ -1,7 +1,7 @@
 // Sıvılar: hücre tabanlı su ve lav. Her hücre 0-8 birim tutar; önce aşağı düşer, sonra yanlara yayılır.
 // Şelale Mağarası'nda kaynaktan havuza dökülen şelaleler, Kor Katmanı'nda lav şelalesi ve kapalı lav cepleri.
 // Kazdığın tüneller sıvıya yol açar; su lava değince obsidyen olur. Tamsayı işlemler: kilit adımda deterministik.
-import { COLS, ROWS, TILE, GROUND_ROW, STRATUM_ROWS, STRATA_COUNT, PLAY_MIN_COL, PLAY_MAX_COL, CENTER_COL } from '../config.js';
+import { COLS, ROWS, TILE, GROUND_ROW, STRATUM_ROWS, STRATA_COUNT, PLAY_MIN_COL, PLAY_MAX_COL, CENTER_COL, stratumOfRow } from '../config.js';
 import { T, TD, HOST_TILE } from '../data/tiles.js';
 import { LIQUID } from '../data/balance.js';
 import { mulberry32 } from '../core/util.js';
@@ -66,6 +66,8 @@ const react = (i, j) => {
 function flowStep(lavaTurn) {
   const lq = G.lq, lk = G.lk, dir = (G.lqT & 1) ? 1 : -1, tot = [0, 0];
   for (let r = ROWS - 2; r >= GROUND_ROW; r--) {
+    // sıvı kendi biyomunun dışına düşerken toprağa emilir: su Şelale Mağarası'ndan, lav Kor Katmanı'ndan sonsuza akmaz
+    const home = G.order ? G.order[stratumOfRow(r + 1)] : -1;
     for (let n = 0; n < COLS; n++) {
       const c = dir > 0 ? n : COLS - 1 - n, i = r * COLS + c;
       let a = lq[i]; if (!a) continue;
@@ -79,8 +81,12 @@ function flowStep(lavaTurn) {
       // aşağı
       if (!solid(b)) {
         if (lq[b] && lk[b] !== k) { react(i, b); continue; }
-        const m = Math.min(8 - lq[b], a);
-        if (m > 0) { lq[b] += m; lk[b] = k; a = lq[i] = a - m; if (!a) continue; }
+        const m = Math.min(8 - lq[b], a), free = !lq[b];
+        if (m > 0) {
+          lq[b] += m; lk[b] = k; a = lq[i] = a - m;
+          if (free && home !== (k === LAVA ? LAVA_BIOME : FALLS_BIOME)) lq[b]--;
+          if (!a) continue;
+        }
       }
       // yanlara: iki komşuyla eşitlen
       let moved = false;

@@ -470,7 +470,7 @@ export function updateOrbs(dt) {
         continue;
       }
     } else if (fullNear) {
-      if (isLocal(fullNear) && G.bagFullT <= 0) { G.bagFullT = 1.6; sfx.bagFull(); emit('bagFull'); }
+      if (isLocal(fullNear) && G.bagFullT <= 0) { G.bagFullT = 14; sfx.bagFull(); emit('bagFull'); }
       o.x += Math.sin(o.t * 3) * 3 * dt;
     } else {
       o.y += Math.sin(o.t * 2.4) * 4 * dt; // hafif süzülme
