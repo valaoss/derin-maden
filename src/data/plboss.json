@@ -1,0 +1,178 @@
+{
+ "balrog": {
+  "cell": 128,
+  "cols": 16,
+  "rot": 0,
+  "anims": {
+   "idle": {
+    "row": 1,
+    "n": 16
+   },
+   "walk": {
+    "row": 2,
+    "n": 16
+   },
+   "hurt": {
+    "row": 3,
+    "n": 16
+   },
+   "die": {
+    "row": 4,
+    "n": 16
+   },
+   "intro": {
+    "row": 5,
+    "n": 13
+   },
+   "roar": {
+    "row": 6,
+    "n": 16
+   },
+   "shadow": {
+    "row": 7,
+    "n": 16
+   },
+   "sword": {
+    "row": 8,
+    "n": 16
+   },
+   "whip": {
+    "row": 9,
+    "n": 16
+   },
+   "whip2": {
+    "row": 10,
+    "n": 16
+   },
+   "wings": {
+    "row": 11,
+    "n": 16
+   }
+  },
+  "feet": 128,
+  "cx": 64,
+  "rows": 12,
+  "scale": 0.62
+ },
+ "kavurgan": {
+  "cell": 128,
+  "cols": 16,
+  "rot": 0,
+  "anims": {
+   "idle": {
+    "row": 1,
+    "n": 16
+   },
+   "walk": {
+    "row": 2,
+    "n": 16
+   },
+   "hurt": {
+    "row": 3,
+    "n": 16
+   },
+   "die": {
+    "row": 4,
+    "n": 16
+   },
+   "bones": {
+    "row": 5,
+    "n": 16
+   },
+   "breath": {
+    "row": 6,
+    "n": 16
+   },
+   "embers": {
+    "row": 7,
+    "n": 16
+   }
+  },
+  "feet": 123,
+  "cx": 64,
+  "rows": 8,
+  "scale": 0.62
+ },
+ "karakok": {
+  "cell": 128,
+  "cols": 16,
+  "rot": 0,
+  "anims": {
+   "idle": {
+    "row": 1,
+    "n": 16
+   },
+   "walk": {
+    "row": 2,
+    "n": 16
+   },
+   "hurt": {
+    "row": 3,
+    "n": 16
+   },
+   "die": {
+    "row": 4,
+    "n": 16
+   },
+   "burrow": {
+    "row": 5,
+    "n": 16
+   },
+   "rise": {
+    "row": 6,
+    "n": 16
+   },
+   "spikes": {
+    "row": 7,
+    "n": 16
+   },
+   "summon": {
+    "row": 8,
+    "n": 16
+   }
+  },
+  "feet": 126,
+  "cx": 64,
+  "rows": 9,
+  "scale": 0.62
+ },
+ "otegoz": {
+  "cell": 128,
+  "cols": 16,
+  "rot": 0,
+  "anims": {
+   "idle": {
+    "row": 1,
+    "n": 16
+   },
+   "hurt": {
+    "row": 2,
+    "n": 16
+   },
+   "die": {
+    "row": 3,
+    "n": 16
+   },
+   "blink": {
+    "row": 4,
+    "n": 16
+   },
+   "gaze": {
+    "row": 5,
+    "n": 16
+   },
+   "orbs": {
+    "row": 6,
+    "n": 16
+   },
+   "pull": {
+    "row": 7,
+    "n": 16
+   }
+  },
+  "feet": 122,
+  "cx": 64,
+  "rows": 8,
+  "scale": 0.6
+ }
+}

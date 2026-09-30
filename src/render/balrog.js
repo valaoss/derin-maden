@@ -1,11 +1,12 @@
-// Balrog: gövdesi PixelLab sprite'ı (bossart.js); burada karşılaşmanın kendi parçaları var: gölge dumanı, alev kamçısı,
+// Balrog: hacimli yön ve saldırı pozları; gölge dumanı, canlı alevler ve alev kamçısı.
 // kükreme ışığı ve yükselen korlar.
 // Karşılaşma öncesi: karanlık sis toplanır, gölgede iki göz açılır; ölümde alevi söner, gölgeye gömülür.
 import { TILE } from '../config.js';
 import { BALROG } from '../data/balance.js';
 import { G } from '../game/state.js';
 import { hash2, clamp, lerp } from '../core/util.js';
-import { drawBossArt, drawBossArtGlow } from './bossart.js';
+import { drawBossArt, drawBossArtGlow, artAttachment } from './bossart.js';
+import { flame, origin as flameOrigin } from './beast.js';
 
 let X, OX, OY, F;
 const SC = 1.5; // iskelet (kamçı eli, sis içindeki gözler) sprite boyuna oturur
@@ -26,14 +27,14 @@ function pose(e, alpha) {
   const ph = e.anim * 0.9, walk = moving ? 1 : 0;
   let sp = (rage ? 0.62 : 0.42) + Math.sin(t * 1.4) * 0.07, fire = rage ? 1.3 : 1, roar = 0, crouch = (e.wind || 0) * 3, lean = 0;
   // kılıç ve kamçı elleri (yerel: +x ileri, +y aşağı, köken ayaklar)
-  let swA = 1.05, swH = [2, -18], whH = [9, -18], whip = { mode: 'idle' };
+  let swA = 1.05, swH = [2, -18], whH = [28.7, -42], whip = { mode: 'idle' };
   if (A) {
     if (A.k === 'sword') {
       if (A.stage === 'raise') { const k = clamp(1 - A.st / 0.8, 0, 1), s = k * k * (3 - 2 * k); swA = lerp(1.05, -2.3, s); swH = [lerp(2, -3, s), lerp(-18, -52, s)]; lean = -2 * s; }
       else { const k = clamp(1 - A.st / 0.7, 0, 1); swA = k < 0.55 ? 1.45 : lerp(1.45, 1.05, (k - 0.55) / 0.45); swH = [lerp(16, 2, Math.max(0, k - 0.55) / 0.45), lerp(-13, -18, Math.max(0, k - 0.55) / 0.45)]; lean = 3 * (1 - k); crouch = 4 * (1 - k); }
     } else if (A.k === 'whip') {
-      if (A.stage === 'wind') { const k = clamp(e.wind || 0, 0, 1); whH = [lerp(9, -4, k), lerp(-18, -46, k)]; whip = { mode: 'wind', k }; lean = -2 * k; }
-      else if (A.stage === 'lash') { const k = clamp(1 - A.st / 0.36, 0, 1); whH = [lerp(-2, 15, Math.min(1, k * 2)), lerp(-44, -22, Math.min(1, k * 2))]; whip = { mode: 'lash', k, a: A.a, len: A.len || 90 }; lean = 3; }
+      if (A.stage === 'wind') { const k = clamp(e.wind || 0, 0, 1); whip = { mode: 'wind', k }; }
+      else if (A.stage === 'lash') { const k = clamp(1 - A.st / 0.36, 0, 1); whip = { mode: 'lash', k, a: A.a, len: A.len || 90 }; }
     } else if (A.k === 'wings') {
       const tt = 2.2 - A.T;
       if (tt < 0.9) { const k = tt / 0.9; sp = lerp(0.42, 0.15, k); crouch = 4 * k; }
@@ -53,7 +54,7 @@ function pose(e, alpha) {
     sink = dying > 0.3 ? Math.pow((dying - 0.3) / 0.7, 1.4) * 40 : 0; tilt = -dying * 5;
   }
   const hit = e.hitT > 0;
-  return { t, x, y, fy: y + 7, F: e.face || 1, rage, intro, dying, walk, ph, sp, fire, roar, crouch, lean, swA, swH, whH, whip, sink, tilt, hit, fade: e.fade || 0 };
+  return { t, x, y, fy: y + 7, F: e.face || 1, rage, intro, dying, walk, ph, sp, fire, roar, crouch, lean, swA, swH, whH, whip, sink, tilt, hit, fade: e.fade || 0, e, alpha };
 }
 function setOrigin(P) { OX = Math.round(P.x) + P.lean * P.F; OY = Math.round(P.fy + P.sink); F = P.F; }
 
@@ -67,7 +68,7 @@ export function drawBalrog(ctx, e, alpha) {
   if (e.under) { smoke(P, 1.4); return; }
   const a0 = (P.intro < 1 ? 0.2 + 0.8 * clamp(P.intro / 0.5, 0, 1) : 1) * (1 - P.fade) * (P.dying > 0.85 ? 1 - (P.dying - 0.85) / 0.15 : 1);
   smoke(P, 1 + P.fade * 2 + P.dying * 2 + (P.intro < 1 ? 1 - P.intro : 0));
-  // gövde: PixelLab sprite (yürüme, kılıç, ölüm bossart.js'te); kamçı kodla çizilir
+  // Gövde ve ışık aynı eklem pozunu paylaşır; kamçı gerçek saldırı yönünde uzar.
   drawBossArt(ctx, e, alpha, a0);
   X.globalAlpha = a0;
   whipLine(P, up(P, P.whH), false);
@@ -88,7 +89,8 @@ function smoke(P, amt) {
 
 // kamçı noktaları (dünya koordinatı)
 function whipPoints(P, hand) {
-  const hx = wx(hand[0]), hy = wy(hand[1]), N = 18, seg = 3.6 * SC, pts = [[hx, hy]], t = P.t, W = P.whip;
+  const attached = artAttachment(P.e, P.alpha, 'hand');
+  const hx = attached ? attached[0] : wx(hand[0]), hy = attached ? attached[1] : wy(hand[1]), N = 32, seg = 2.05 * SC, pts = [[hx, hy]], t = P.t, W = P.whip;
   if (W.mode === 'lash') {
     const ca = Math.cos(W.a), sa = Math.sin(W.a), reach = W.len * Math.min(1, W.k * 1.7);
     for (let i = 1; i <= N; i++) { const f = i / N, wave = Math.sin(i * 0.9 - W.k * 16) * (1 - W.k) * 6 * f; pts.push([hx + ca * reach * f - sa * wave, hy + sa * reach * f + ca * wave]); }
@@ -110,8 +112,9 @@ function whipLine(P, hand, glow) {
   if (P.sink > 20) return;
   const pts = whipPoints(P, hand);
   X.lineCap = 'round'; X.lineJoin = 'round';
-  X.strokeStyle = glow ? '#ff6a1a' : '#1a0c08'; X.lineWidth = (glow ? 1.5 : 2) * SC;
+  X.strokeStyle = glow ? '#ff6a1a' : '#1a0c08'; X.lineWidth = (glow ? 1.7 : 2.4) * SC;
   X.beginPath(); pts.forEach(([a, b], i) => i ? X.lineTo(a, b) : X.moveTo(a, b)); X.stroke();
+  if (glow) { X.strokeStyle = '#ffe090'; X.lineWidth = 0.65 * SC; X.stroke(); }
   X.lineWidth = 1;
   return pts;
 }
@@ -123,6 +126,17 @@ export function drawBalrogGlow(ctx, e, alpha, glow) {
   const fade = 1 - P.fade, t = P.t, fire = P.fire * fade;
   const clipY = OY - P.sink;
   drawBossArtGlow(ctx, e, alpha, glow, fade * Math.min(1, fire + 0.3));
+  const eye = artAttachment(e, alpha, 'eyes'), chest = artAttachment(e, alpha, 'chests');
+  if (eye && fire > 0.01) {
+    flameOrigin(ctx, 0, 0, 1, 1);
+    // The burning mane has independent tongues and a bright core, not a static halo.
+    for (let i = 0; i < 5; i++) {
+      const h = (7 + Math.sin(t * (7 + i * 0.6) + i * 2) * 3 + (P.rage ? 5 : 0)) * fire;
+      flame(eye[0] - P.F * (7 + i * 2), eye[1] - 8 + i * 1.2, h, 3, -P.F * 0.2, i, P.rage);
+    }
+    if (eye[3] !== false) glow(eye[0], eye[1], 'rgba(255,196,82,0.75)', 7, Math.min(1, fire));
+    if (chest) glow(chest[0], chest[1], 'rgba(255,83,20,0.32)', 22, Math.min(1, fire) * (0.65 + Math.sin(t * 4) * 0.15));
+  }
   if (P.roar > 0.05 && fade > 0) { const m = up(P, [12, -40]); glow(wx(m[0]), wy(m[1]), 'rgba(255,140,40,0.8)', Math.round(6 + P.roar * 10), P.roar); }
   if (fire <= 0.01) return;
   glow(OX, OY - 2, 'rgba(255,90,30,0.4)', 26, Math.min(1, fire) * (0.7 + 0.2 * Math.sin(t * 5)));

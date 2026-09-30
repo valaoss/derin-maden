@@ -7,10 +7,14 @@ import { G } from '../game/state.js';
 import { pathAt } from '../game/serpent.js';
 import { hash2, clamp, lerp } from '../core/util.js';
 import { blobSprite, vignette } from './beast.js';
+import { drawArtFrame } from './bossart.js';
+import { bossMotion } from './bossmotion.js';
+import { drawBoss3D } from './boss3d.js';
 
 const X0 = PLAY_MIN_COL * TILE, X1 = (PLAY_MAX_COL + 1) * TILE, SC = 1.4;
 const C = { out: '#03070c', body: '#10283a', mid: '#1a3c50', belly: '#3a6a70', fin: '#0c2030', finTip: '#2a6a80', spot: '#5ae0ff', spot2: '#b8f8ff', eye: '#d8ffff', gum: '#6a1a2a', tooth: '#e8f0f0' };
 let X;
+const headViews = new WeakMap();
 const rad = (i, n) => (2.5 + 7.5 * Math.pow(1 - i / n, 0.55)) * SC;
 
 function clipPlay() { X.save(); X.beginPath(); X.rect(X0, -1e6, X1 - X0, 2e6); X.clip(); }
@@ -35,6 +39,11 @@ function headPose(e, alpha, pts) {
 export function drawSerpent(ctx, e, alpha) {
   X = ctx; const pts = bodyPts(e);
   if (!pts.length && (e.under || !e.bs)) return;
+  const H = headPose(e, alpha, pts);
+  clipPlay();
+  const ready = drawBoss3D(ctx, e, alpha, 1, false, serpentPose(H, pts));
+  X.restore();
+  if (ready) return;
   const n = SERPENT.n, fade = e.dead ? clamp(e.dieT / 0.8, 0, 1) : 1;
   clipPlay(); X.globalAlpha = fade;
   // kuyruktan başa: kontur, gövde, karın, sırt yüzgeçleri
@@ -48,17 +57,57 @@ export function drawSerpent(ctx, e, alpha) {
       X.fillStyle = C.out; X.beginPath(); X.arc(x, y, r + 1, 0, Math.PI * 2); X.fill();
     } else {
       X.globalAlpha = fade * (inRock ? 0.45 : 1);
-      X.fillStyle = C.body; X.beginPath(); X.arc(x, y, r, 0, Math.PI * 2); X.fill();
-      X.fillStyle = C.belly; X.beginPath(); X.arc(x - nx * r * 0.45, y - ny * r * 0.45, r * 0.55, 0, Math.PI * 2); X.fill();
-      if (i % 3 === 0) { X.fillStyle = C.mid; X.fillRect(Math.round(x + nx * r * 0.3), Math.round(y + ny * r * 0.3), 2, 1); }
+      // Curved bands model a cylinder: a cool back, pale underside and narrow rim light.
+      const bands = ['#081521', '#102a3a', '#1c4051', '#315e67', '#50828a'];
+      for (let layer = 0; layer < bands.length; layer++) {
+        const rr = r * (1 - layer * 0.16), shift = (layer - 1) * r * 0.13;
+        X.fillStyle = bands[layer]; X.beginPath(); X.arc(x - nx * shift, y - ny * shift, rr, 0, Math.PI * 2); X.fill();
+      }
+      // Staggered scale rows follow the body's tangent and disappear around its far side.
+      for (let row = -1; row <= 1; row++) {
+        const s = row * r * 0.53, offset = (i + row) % 2 ? 1.4 : -1.4;
+        const sx = x + nx * s + dx / d * offset, sy = y + ny * s + dy / d * offset;
+        X.strokeStyle = row < 0 ? '#447480' : '#0b2334'; X.lineWidth = 1;
+        X.beginPath(); X.moveTo(sx - dx / d * 2, sy - dy / d * 2);
+        X.quadraticCurveTo(sx + nx * 2, sy + ny * 2, sx + dx / d * 2, sy + dy / d * 2); X.stroke();
+      }
     }
   }
   X.globalAlpha = fade;
-  if (!e.under || e.dead) head(headPose(e, alpha, pts));
+  if (!e.under || e.dead) head(headPose(e, alpha, pts), e);
   X.globalAlpha = 1; X.restore();
 }
 
-function head(H) {
+function serpentPose(H, pts) {
+  return { yaw: Math.cos(H.a) < 0 ? Math.PI - 0.22 : 0.22, roll: -Math.atan2(Math.sin(H.a), Math.abs(Math.cos(H.a))) * (Math.cos(H.a) < 0 ? -1 : 1), feet: H.y, body: pts, act: { k: 'breath', fire: H.open > 0.3 }, wind: H.open };
+}
+function headArt(H, e, glow = false) {
+  if (drawBoss3D(X, e, 1, 1, glow, serpentPose(H, bodyPts(e)))) return true;
+  const direction = Math.round(H.a / (Math.PI / 4)), view = (direction % 8 + 8) % 8;
+  const attack = H.open > 0.32 && Math.abs(Math.sin(H.a)) < 0.38;
+  const row = e.dead || attack ? 1 : 0, fr = e.dead ? 3 : attack ? 1 : view;
+  const face = row && Math.cos(H.a) < 0 ? -1 : 1;
+  const motion = bossMotion('dunyaYilani', G.time, attack ? { k: 'cast' } : null, e.wind || 0, 0, e.dead ? 1 - clamp(e.dieT / (e.d.dieT || 1), 0, 1) : 0);
+  let state = headViews.get(e);
+  if (!state || G.time < state.time) { state = { view, previous: view, changed: -9, time: G.time }; headViews.set(e, state); }
+  if (state.view !== view) { state.previous = state.view; state.view = view; state.changed = G.time; }
+  state.time = G.time;
+  const k = clamp((G.time - state.changed) / 0.14, 0, 1), blend = k * k * (3 - 2 * k);
+  const alpha = X.globalAlpha;
+  const paint = (frame, opacity) => {
+    X.save(); X.translate(H.x, H.y);
+    // Authored front, rear and quarter views supply volume; residual tilt follows the spine.
+    X.rotate(row ? Math.atan2(Math.sin(H.a), Math.abs(Math.cos(H.a))) * face : H.a - direction * Math.PI / 4);
+    const ready = drawArtFrame(X, 'dunyaYilani', row, frame, 0, 18, face, alpha * opacity, 1, glow, motion);
+    X.restore(); return ready;
+  };
+  if (!row && blend < 1) paint(state.previous, 1 - blend);
+  return paint(fr, row ? 1 : blend);
+}
+
+function head(H, e) {
+  if (headArt(H, e)) return;
+  X.restore();
   X.save(); X.translate(H.x, H.y); X.rotate(H.a); if (Math.cos(H.a) < 0) X.scale(1, -1); X.scale(SC, SC);
   const o = H.open * 7;
   // yan yüzgeçler ve boynuzlar (arkaya savrulur)
@@ -98,9 +147,14 @@ export function drawSerpentGlow(ctx, e, alpha, glow) {
   X.globalAlpha = 1;
   if (!e.under || e.dead) {
     const H = headPose(e, alpha, pts), ca = Math.cos(H.a), sa = Math.sin(H.a), fl = ca < 0 ? -1 : 1;
-    const ex = H.x + (10 * ca - (-6 * fl) * sa) * SC, ey = H.y + (10 * sa + (-6 * fl) * ca) * SC;
-    glow(ex, ey, 'rgba(160,250,255,0.7)', 7, 1 - k);
-    X.globalAlpha = 1 - k; X.fillStyle = C.eye; X.fillRect(Math.round(ex) - 1, Math.round(ey), 3, 1); X.globalAlpha = 1;
+    X.globalAlpha = 1 - k;
+    if (headArt(H, e, true)) glow(H.x, H.y - 10, 'rgba(90,224,255,0.24)', 18, 1 - k);
+    else {
+      const ex = H.x + (10 * ca - (-6 * fl) * sa) * SC, ey = H.y + (10 * sa + (-6 * fl) * ca) * SC;
+      glow(ex, ey, 'rgba(160,250,255,0.7)', 7, 1 - k);
+      X.fillStyle = C.eye; X.fillRect(Math.round(ex) - 1, Math.round(ey), 3, 1);
+    }
+    X.globalAlpha = 1;
     if (H.open > 0.3) { const mx = H.x + 16 * ca * SC, my = H.y + 16 * sa * SC; glow(mx, my, 'rgba(90,224,200,0.6)', Math.round(6 + H.open * 10), H.open); }
   }
   // sonraki çıkış: duvar çatlar ve yol parlar
@@ -166,3 +220,4 @@ export function drawSerpentDark(ctx, camX, camY, vw, vh, alpha) {
   }
 }
 const t0 = () => G.time;
+

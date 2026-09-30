@@ -45,7 +45,7 @@ export function placeHoard(g) {
 export const inHall = (H, x, y) => { const c = x / TILE, r = y / TILE; return c >= H.c0 - 1 && c <= H.c1 + 2 && r >= H.r0 - 2 && r <= H.r1 + 1; };
 function goldLeft(H) { let n = 0; for (let r = H.r0; r <= H.r1; r++) for (let c = H.c0; c <= H.c1; c++) if (TD[tileAt(c, r)].ore === 'gold' || TD[tileAt(c, r)].chest) n++; return n; }
 // uyuyan ejderin gövdesi (dünya): saldırı bu kutuya değerse uyanır
-export const hoardBox = H => ({ x: H.c * TILE + 8, y: H.r * TILE - 6, w: 44, h: 22 });
+export const hoardBox = H => ({ x: H.c * TILE + 8, y: H.r * TILE - 16, w: 64, h: 30 });
 const inBox = (B, x, y, m = 0) => Math.abs(x - B.x) < B.w + m && Math.abs(y - B.y) < B.h + m;
 
 function attacked(H, dt) {
@@ -117,7 +117,7 @@ export function updateHoard(dt) {
 }
 
 // ---------- saldırılar ----------
-const MOUTH = e => [e.x + e.face * 40, e.y - 34];
+const MOUTH = e => [e.x + e.face * 72, e.y - 23]; // Yeni nefes pozunun ağzı: [152,105], köken [80,136].
 KITS.ejder = {
   cd: { breath: 1.5, tail: 1, gust: 6, soar: 4 },
   choose(e, p, dp, B) {

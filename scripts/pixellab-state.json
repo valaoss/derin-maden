@@ -1,0 +1,206 @@
+{
+  "balrog": {
+    "characterId": "c5dd3621-8f22-461d-9a53-f5a1d9528fdd",
+    "createJob": "07b36d91-2604-417a-8915-6ce3141dd55f",
+    "anims": {
+      "idle": {
+        "jobs": {},
+        "groupId": "65102f7e-024b-4944-9115-6577e3537f6e"
+      }
+    },
+    "sa": {
+      "sword": {
+        "east": {
+          "job": "524b103e-a505-4bf4-9bfc-95acb668655d",
+          "key": 2
+        }
+      },
+      "walk": {
+        "east": {
+          "job": "8b77747d-d1ca-4212-8cae-f624f91389af",
+          "key": 2
+        }
+      },
+      "idle": {
+        "east": {
+          "job": "053f8295-9460-4411-bb8f-c98d608a01cf",
+          "key": 1
+        }
+      },
+      "wings": {
+        "east": {
+          "job": "764dbe8c-afbd-49fe-ab70-0bd440206146",
+          "key": 2
+        }
+      },
+      "whip": {
+        "east": {
+          "job": "4762c62a-b47b-4f96-a8f0-72d15aba8073",
+          "key": 2
+        }
+      },
+      "intro": {
+        "east": {
+          "job": "197ac182-70b0-4863-a7bc-8b26aee78267",
+          "key": 1
+        }
+      },
+      "shadow": {
+        "east": {
+          "job": "80144184-99ec-464f-a46c-4fe9044191d3",
+          "key": 1
+        }
+      }
+    }
+  },
+  "kavurgan": {
+    "characterId": "536cde73-638a-4b26-a274-02fd7cf021d9",
+    "createJob": "2bc859e2-96af-409e-b2bc-944160880516",
+    "key": 2,
+    "anims": {},
+    "sa": {
+      "idle": {
+        "east": {
+          "job": "913c588c-ecc0-4243-a6b7-cf3b381fb275",
+          "key": 2
+        }
+      },
+      "walk": {
+        "east": {
+          "job": "566e04f0-1de1-4425-bc8d-dc1ae692c00c",
+          "key": 2
+        }
+      },
+      "breath": {
+        "east": {
+          "job": "26b591a3-ad7e-431e-be71-22d760371e4b",
+          "key": 2
+        }
+      },
+      "die": {
+        "east": {
+          "job": "f1aa7335-e702-4fcb-bf0d-f6d6d41a0a9c",
+          "key": 3
+        }
+      },
+      "embers": {
+        "east": {
+          "job": "0f0d7b88-cd4d-44aa-bc75-b3987fddcbc4",
+          "key": 3
+        }
+      },
+      "bones": {
+        "east": {
+          "job": "2f5f4806-5bd0-47a0-b685-3db67ebd7bff",
+          "key": 4
+        }
+      }
+    }
+  },
+  "karakok": {
+    "characterId": "cdc13068-bbe2-4974-8b2f-aab3ca8b76ac",
+    "createJob": "5ce18dc4-7425-498f-b212-8f9a1ca53136",
+    "key": 3,
+    "anims": {},
+    "sa": {
+      "idle": {
+        "east": {
+          "job": "743ebb4b-d356-4d80-80f9-da314bf59957",
+          "key": 3
+        }
+      },
+      "walk": {
+        "east": {
+          "job": "df88ac5a-68aa-4e76-97b5-11ff8420a49a",
+          "key": 3
+        }
+      },
+      "spikes": {
+        "east": {
+          "job": "4fca1fea-0ad3-49cd-a40b-2c8aa9ed4f0b",
+          "key": 3
+        }
+      },
+      "burrow": {
+        "east": {
+          "job": "e5379cb2-5c38-44ab-9653-6deb52bc0a0f",
+          "key": 3
+        }
+      },
+      "rise": {
+        "east": {
+          "job": "0c175716-fab5-4e7a-8ea5-5839a8218eb9",
+          "key": 3
+        }
+      },
+      "summon": {
+        "east": {
+          "job": "2aad7a47-21bc-4405-bcb0-3e422412698f",
+          "key": 3
+        }
+      },
+      "hurt": {
+        "east": {
+          "job": "03d63582-3b22-4a2d-9a74-dc7e8dcbb907",
+          "key": 3
+        }
+      },
+      "die": {
+        "east": {
+          "job": "b459912d-9934-47a9-a8f6-b6d8aae67d07",
+          "key": 3
+        }
+      }
+    }
+  },
+  "otegoz": {
+    "characterId": "426848b1-f573-4cf2-baad-2f6677a93999",
+    "createJob": "19077344-036d-49e6-b395-2f4f7d0b7f36",
+    "key": 4,
+    "anims": {},
+    "sa": {
+      "idle": {
+        "east": {
+          "job": "892c3b32-6761-4723-9f2c-2427f1d40fbe",
+          "key": 4
+        }
+      },
+      "orbs": {
+        "east": {
+          "job": "90f41879-9747-4efb-85ba-06c0cb64492a",
+          "key": 4
+        }
+      },
+      "pull": {
+        "east": {
+          "job": "6f8d1ea3-9652-4e85-b2bf-5abe6b4a2322",
+          "key": 4
+        }
+      },
+      "gaze": {
+        "east": {
+          "job": "847e50c1-0d03-4ed7-a63e-5abd0a93dae7",
+          "key": 4
+        }
+      },
+      "hurt": {
+        "east": {
+          "job": "ff164016-026d-4d02-96e7-55a0c78390d4",
+          "key": 4
+        }
+      },
+      "die": {
+        "east": {
+          "job": "7018c23a-1a66-46ab-870d-bb1fd9a899a2",
+          "key": 4
+        }
+      },
+      "blink": {
+        "east": {
+          "job": "19fb507a-3eb0-45af-8650-2f2269cddca4",
+          "key": 4
+        }
+      }
+    }
+  }
+}

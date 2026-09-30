@@ -3,3 +3,6 @@ dist
 .DS_Store
 .claude/settings.local.json
 .claude/serve.js
+.env
+tmp/
+*.log

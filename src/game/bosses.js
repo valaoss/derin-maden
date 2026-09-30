@@ -406,7 +406,7 @@ Object.assign(KITS, {
 
 // BALROG: alev kamçısı (uzak, öfkede çeker), alev kılıcı (yeri yarar), gölge kanatları (korku + kor yağmuru),
 // gölgeye karışıp arkanda belirme. Yürürken kayayı parçalar; öfkede çevresini kavurur.
-const ARM = e => [e.x + e.face * 7, e.y - 12];
+const ARM = e => [e.x + e.face * 43, e.y - 55];
 KITS.balrog = {
   cd: { whip: 1.2, sword: 0.8, wings: 7, shadow: 9 },
   choose(e, p, dp, B) {

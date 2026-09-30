@@ -1,150 +1,243 @@
-// Sıvı çizimi: dinlenen su düz yüzeyli ve dalgalı, düşen su akış çizgili ince bir perde; şelalenin çarptığı yerde köpük.
-// Lav koyu kabuklu, turuncu yüzeyli, kabarcıklı; ışık katmanında parlar. Buhar: su lavla buluşunca.
+// Liquid rendering is independent of the simulation: continuous world-space flow, depth and surface effects.
 import { COLS, ROWS, TILE } from '../config.js';
-import { TD } from '../data/tiles.js';
+import { TD, T } from '../data/tiles.js';
 import { G } from '../game/state.js';
 import { on } from '../core/events.js';
-import { hash2 } from '../core/util.js';
+import { hash2, clamp } from '../core/util.js';
 
 const steam = [];
 on('steam', d => { if (steam.length < 40) steam.push({ x: d.x, y: d.y, t0: G.time }); });
+const FADE = 0.65;
+let seenOf, seen, seenK, levels, lastT = 0, flow, flow2;
 let X;
-const R = (col, x, y, w = 1, h = 1) => { X.fillStyle = col; X.fillRect(Math.round(x), Math.round(y), w, h); };
-// su: derinlikle koyulaşan renk kademeleri (hücre sınırında bant oluşmaz), lav: yüzeyde parlak, dipte koyu
-const WD = ['rgba(52,138,214,0.62)', 'rgba(40,116,196,0.7)', 'rgba(30,96,178,0.78)', 'rgba(22,76,156,0.84)'];
-const LD = ['#d8501e', '#b83a16', '#962a10', '#7a200c'];
-const W = { top: '#9ae0ff', foam: '#e8f8ff', fall: 'rgba(70,160,230,0.72)', fallD: 'rgba(40,120,205,0.55)', streak: '#cff0ff' };
-const L = { top: '#ffb040', crust: '#5a1a0a', hot: '#fff0a0', fall: '#d8501e', fallD: '#a8300f' };
+const rect = (col, x, y, w = 1, h = 1) => { if (h <= 0 || w <= 0) return; X.fillStyle = col; X.fillRect(Math.round(x), Math.round(y), Math.ceil(w), Math.ceil(h)); };
+const solid = i => i < 0 || i >= G.map.length || !TD[G.map[i]] || TD[G.map[i]].solid;
+const liquid = (i, k) => i >= 0 && i < G.lq.length && G.lq[i] > 0 && G.lk[i] === k && !solid(i);
+const water = ['rgba(52,140,192,0.5)', 'rgba(36,106,162,0.56)', 'rgba(26,78,130,0.62)', 'rgba(18,56,100,0.68)'];
+const lava = ['#da4a19', '#b83213', '#8c220f', '#65170d'];
+const wave = (x, t, k) => k ? Math.sin(x * 0.095 - t * 1.2) * 0.65 + Math.sin(x * 0.24 + t * 0.8) * 0.3 : Math.sin(x * 0.075 - t * 2.1) * 1.05 + Math.sin(x * 0.19 + t * 3.3) * 0.45;
 
-// şelale perdesi: kaynak sınırda aç-kapa akar ve sıvı paketler halinde düşer; hücre son görüldüğü andan
-// FADE sn boyunca perde olarak kalır, incelerek söner. Böylece akış kesintisiz görünür.
-const FADE = 0.7;
-let seen = null, seenK = null, lv = null, seenOf = null, lastT = 0;
-// düşen sıvı: sabit genişlikte perde; çizgiler dünya y'sine bağlı, hücreden hücreye kesintisiz akar
-function drawFall(k, c, r, f, t) {
-  const x = c * TILE, y = r * TILE, full = k ? 10 : 12, w = Math.max(2, Math.round(full * (0.35 + 0.65 * f) / 2) * 2);
-  const x0 = x + 8 - w / 2;
-  R(k ? L.fall : W.fall, x0, y, w, 16);
-  if (w > 4) R(k ? L.fallD : W.fallD, x0 + 2, y, w - 4, 16);
-  R(k ? L.top : W.top, x0, y, 1, 16); R(k ? L.top : W.top, x0 + w - 1, y, 1, 16);
-  const sp = k ? 40 : 95, P = k ? 22 : 18, col = k ? L.hot : W.streak;
-  for (let q = 1; q < w - 1; q += 3) {
-    const o = (t * sp + hash2(c, q, 5) * P) % P;
-    for (let yy = -P; yy < 16; yy += P) { const a = Math.max(0, yy + o), b = Math.min(16, yy + o + 4); if (b > a) R(col, x0 + q, y + a, 1, b - a); }
+// Düşen akış: dar, yarı saydam gövde; düzensiz uzunlukta köpük/kor çizgileri; yalnız dış kenarlarda parlak hat ve serpinti.
+function fall(k, c, r, strength, t, joinL = false, joinR = false, yy0 = 0) {
+  const y0 = r * TILE, width = Math.round((k ? 8 : 7) * (0.45 + strength * 0.55));
+  const speed = k ? 34 : 118;
+  for (let yy = yy0; yy < TILE; yy++) {
+    const y = y0 + yy, bend = Math.sin(y * 0.07 - t * (k ? 1.1 : 2.6)) * (k ? 0.5 : 0.9);
+    // yan yana akan sütunlar tek geniş perde olur: birleşen kenar hücre sınırına kadar dolar
+    const x = joinL ? c * TILE : Math.round(c * TILE + 8 + bend - width / 2), xe = joinR ? c * TILE + TILE : (joinL ? c * TILE + 8 + bend + width / 2 : x + width), w = Math.max(3, Math.round(xe - x));
+    rect(k ? 'rgba(232,84,28,0.92)' : 'rgba(58,146,200,0.58)', x, y, w, 1);
+    rect(k ? 'rgba(178,48,22,0.9)' : 'rgba(22,90,152,0.42)', x + 2, y, w - 4, 1);
+    if (!joinL) rect(k ? '#ffb040' : 'rgba(190,236,248,0.55)', x, y, 1, 1);
+    if (!joinR) rect(k ? '#ff8a2c' : 'rgba(120,200,235,0.5)', x + w - 1, y, 1, 1);
+    // hızları ve boyları farklı şeritler: ritmik kesik çizgi yerine rastgele köpük
+    for (let lane = 0; lane < 3; lane++) {
+      const seg = 13 + lane * 6, ph = y - t * speed * (0.8 + lane * 0.14) + hash2(lane, c, 3) * 97;
+      const idx = Math.floor(ph / seg), h = hash2(idx, lane * 7 + c, 5), inside = ph - idx * seg;
+      if (h > 0.35 && inside < 2 + h * 6) {
+        const bright = h > 0.8;
+        rect(k ? (bright ? '#ffe89a' : '#ffb347') : (bright ? 'rgba(232,250,255,0.9)' : 'rgba(170,225,245,0.6)'), x + 1 + Math.floor(lane * (w - 2) / 3) + (h > 0.6 ? 1 : 0), y, 1, 1);
+      }
+    }
+    // dış serpinti
+    const sp = hash2(Math.floor(y - t * speed * 0.9), c, 9);
+    if (!joinL && sp > 0.9) rect(k ? 'rgba(255,150,60,0.6)' : 'rgba(200,240,255,0.35)', x - 1 - Math.floor((sp - 0.9) * 20), y, 1, 1);
+    if (!joinR && sp < 0.1) rect(k ? 'rgba(255,150,60,0.6)' : 'rgba(200,240,255,0.35)', x + w + Math.floor(sp * 20), y, 1, 1);
+    if (k && sp > 0.5 && sp < 0.53) rect('#5a1a10', x + 2 + Math.floor((sp - 0.5) * 100) % Math.max(1, w - 4), y, 1, 1);
   }
+}
+
+function texture(k, x, y, top, bottom, depth, t) {
+  if (k) {
+    // Sıcak kanallar yavaş akar; üstte düzensiz, kararmış kabuk parçaları yüzer.
+    for (let yy = Math.ceil(top + 2); yy < bottom; yy += 2) for (let xx = x; xx < x + TILE; xx += 2) {
+      const u = xx * 0.16 + Math.sin(yy * 0.11 + t * 0.7) * 1.6 - t * 0.5, v = yy * 0.17 + Math.sin(xx * 0.09 - t * 0.4);
+      const heat = Math.sin(u) * Math.cos(v) + Math.sin(u * 1.9 + v * 0.7) * 0.35;
+      if (heat > 0.78) rect(depth < 2 ? '#ffa93a' : '#e0601f', xx, yy, 2, 1);
+      else if (heat > 0.62 && depth < 1) rect('#ff7d24', xx, yy, 1, 1);
+      if (heat < -0.66 && hash2(xx, yy, 6) > 0.35) { const w = 2 + Math.floor(hash2(xx, yy, 7) * 3); rect('#3f1c17', xx, yy, w, 1); rect('#7a3222', xx + w - 1, yy, 1, 1); }
+    }
+  } else {
+    // Kırılan ışık: dünya koordinatlı, kareler arası dikişsiz; derinde sönük yatay ışık bantları
+    for (let yy = Math.ceil(top + 2); yy < bottom; yy += 2) for (let xx = x; xx < x + TILE; xx += 2) {
+      const a = Math.sin(xx * 0.15 + yy * 0.2 + t * 1.0), b = Math.sin(xx * 0.11 - yy * 0.17 - t * 0.7);
+      if (a + b > 1.55) rect(depth < 2 ? 'rgba(150,230,240,0.26)' : 'rgba(80,165,210,0.16)', xx, yy, 2, 1);
+      else if (a + b < -1.6 && depth > 0) rect('rgba(8,30,60,0.22)', xx, yy, 2, 1);
+    }
+    if (depth > 0) for (let yy = Math.ceil(top); yy < bottom; yy++) { const g = Math.sin(yy * 0.9 + x * 0.05 - t * 0.35); if (g > 0.93) rect('rgba(110,200,235,0.1)', x, yy, TILE, 1); }
+  }
+}
+
+function surface(k, c, r, height, hl, hr, t) {
+  const x = c * TILE, y = r * TILE, pal = k ? lava : water;
+  for (let px = 0; px < TILE; px++) {
+    const f = (px + 0.5) / TILE, h0 = f < 0.5 ? hl + (height - hl) * f * 2 : height + (hr - height) * (f - 0.5) * 2;
+    const h = clamp(Math.round(h0 + wave(x + px, t, k) * Math.min(1, h0 / 5)), 1, TILE);
+    const top = y + TILE - h;
+    rect(pal[0], x + px, top, 1, h);
+    if (h > 7) rect(pal[1], x + px, Math.max(top + 4, y + 12), 1, Math.min(4, h - 4));
+    rect(k ? '#ffb942' : 'rgba(151,223,237,0.9)', x + px, top, 1, 1);
+    if (k && (Math.sin((x + px) * 0.22 - t * 2) > 0.5)) rect('#ffe991', x + px, top, 1, 1);
+    if (!k && Math.sin((x + px) * 0.17 - t * 2.1) > 0.72) rect('#defbff', x + px, top, 1, 1);
+  }
+  const tp = y + TILE - height;
+  X.save(); X.beginPath();
+  for (let px = 0; px < TILE; px++) { const f = (px + 0.5) / TILE, h0 = f < 0.5 ? hl + (height - hl) * f * 2 : height + (hr - height) * (f - 0.5) * 2; const h = clamp(Math.round(h0 + wave(x + px, t, k) * Math.min(1, h0 / 5)), 1, TILE); X.rect(x + px, y + TILE - h + 1, 1, h - 1); }
+  X.clip(); texture(k, x, y, tp, y + TILE, 0, t); X.restore();
+  if (k) {
+    const seed = hash2(c, r, 12), age = ((t * 0.55 + seed * 3) % 3);
+    const bx = x + 3 + seed * 9, by = tp + wave(bx, t, 1);
+    if (age < 0.65 && height > 4) {
+      const size = Math.sin(age / 0.65 * Math.PI) * 3;
+      rect('#73200d', bx - size, by - size * 0.6, size * 2 + 1, 2);
+      rect('#ffc350', bx - size, by - size * 0.6 - 1, size * 2 + 1, 1);
+      rect('#fff1b0', bx - size, by - size * 0.6 - 1, 1, 1);
+    } else if (age < 1 && height > 4) {
+      const a = (age - 0.65) / 0.35;
+      for (let n = 0; n < 3; n++) rect(n === 1 ? '#ffe080' : '#ff8c27', bx + (n - 1) * a * 8, by - Math.sin(a * Math.PI) * (4 + n), 1, 1);
+    }
+    const ember = ((t * 0.35 + seed) % 1);
+    X.globalAlpha = Math.sin(ember * Math.PI) * 0.6;
+    rect('#ffcf70', bx + Math.sin(t + c) * ember * 5, by - ember * 15, 1, 1); X.globalAlpha = 1;
+  } else {
+    const s = hash2(c, r, 8), age = ((t * 0.4 + s) % 1);
+    if (age < 0.65 && height > 7 && s > 0.65) {
+      const by = y + TILE - age * height;
+      rect('rgba(154,230,245,0.4)', x + 4 + s * 7, by, 2, 1);
+      rect('rgba(154,230,245,0.4)', x + 4 + s * 7, by + 1, 1, 1);
+    }
+  }
+}
+
+function splash(k, x, top, t, seed) {
+  for (let n = 0; n < 7; n++) {
+    const age = ((t * (k ? 1.1 : 2.2) + n / 7 + seed) % 1);
+    const sign = n % 2 ? 1 : -1, spread = 2 + age * (k ? 8 : 12);
+    rect(k ? '#ffba46' : '#e2faff', x + sign * spread, top - Math.sin(age * Math.PI) * (3 + n % 3 * 2), 1, age < 0.4 ? 2 : 1);
+    if (age > 0.55) rect(k ? '#ff9130' : 'rgba(177,233,244,0.65)', x + sign * spread, top + 1, 2, 1);
+  }
+  rect(k ? '#ffd565' : 'rgba(233,253,255,0.88)', x - 4, top - 1, 9, 2);
+  const ring = (t * 1.5 + seed) % 1;
+  X.globalAlpha = 1 - ring;
+  rect(k ? '#ffb23d' : '#bceefa', x - 4 - ring * 11, top + 1, 3, 1);
+  rect(k ? '#ffb23d' : '#bceefa', x + 3 + ring * 11, top + 1, 3, 1); X.globalAlpha = 1;
 }
 
 export function drawLiquids(ctx, r0, r1) {
   if (!G.lq) return;
-  X = ctx; const t = G.time, lq = G.lq, lk = G.lk, map = G.map;
-  if (seenOf !== lq) { seen = new Float32Array(COLS * ROWS).fill(-99); seenK = new Uint8Array(COLS * ROWS); lv = new Float32Array(COLS * ROWS); seenOf = lq; lastT = t; }
-  const dt = Math.min(0.1, Math.max(0, t - lastT)); lastT = t;
-  const ease = Math.min(1, dt * 7);
-  const liq = (i, k) => lq[i] && lk[i] === k && !TD[map[i]].solid;
-  // yumuşatılmış seviye: benzetim birim birim atlar, görüntü akar
-  const level = i => lv[i];
-  for (let r = r0 - 1; r <= r1 + 1; r++) for (let c = 0; c < COLS; c++) { const i = r * COLS + c; if (i < 0 || i >= lv.length) continue; lv[i] = lq[i] ? (lv[i] ? lv[i] + (lq[i] - lv[i]) * ease : lq[i]) : 0; }
-  // aşağı akan hücreler (alttan yukarı): altı dolmamış ya da yine aşağı akıyor, yanında durgun su yok
-  const flow = new Uint8Array((r1 - r0 + 1) * COLS);
-  for (let c = 0; c < COLS; c++) {
-    let below = 0;
-    for (let r = Math.min(ROWS - 2, r1 + 10); r >= r0; r--) {
-      const i = r * COLS + c, b = i + COLS;
-      const k = lk[i], sup = j => lq[j] && lk[j] === k && !TD[map[j]].solid && (TD[map[j + COLS]].solid || lq[j + COLS] >= 8);
-      const rest = j => sup(j) && (sup(j - 1) || sup(j + 1));   // durgun havuz: en az iki hücre genişliğinde
-      below = lq[i] && !TD[map[i]].solid && !TD[map[b]].solid && (lq[b] < 8 || (below && lk[b] === k)) && !rest(i - 1) && !rest(i + 1) ? 1 : 0;
-      if (r <= r1) flow[(r - r0) * COLS + c] = below;
+  X = ctx; r0 = Math.max(0, r0); r1 = Math.min(ROWS - 1, r1);
+  const t = G.time, lq = G.lq, lk = G.lk;
+  if (seenOf !== lq) { seenOf = lq; seen = new Float32Array(lq.length).fill(-99); seenK = new Uint8Array(lq.length); levels = new Float32Array(lq.length); flow = new Uint8Array(lq.length); flow2 = new Uint8Array(lq.length); lastT = t; steam.length = 0; }
+  const ease = 1 - Math.exp(-Math.min(0.1, Math.max(0, t - lastT)) * 9); lastT = t;
+  for (let r = Math.max(0, r0 - 1); r <= Math.min(ROWS - 1, r1 + 1); r++) for (let c = 0; c < COLS; c++) { const i = r * COLS + c; levels[i] = lq[i] ? levels[i] ? levels[i] + (lq[i] - levels[i]) * ease : lq[i] : 0; }
+  // Sınıflandırma (aşağıdan yukarıya): altı katı ya da dolu gövdeyse gövde/yüzey, yoksa akış.
+  // Havada asılı kalan hücreler ve havuz kenarından taşan su akış olarak çizilir; havuz tek gövde + tek yüzeydir.
+  const rb = Math.min(ROWS - 1, r1 + 12), rt = Math.max(0, r0 - 8);
+  // Kaynaktan beslenen dar oluk (1-2 hücre geniş, iki yanı kaya): hücreler dolu olsa da bu bir şelaledir, durgun havuz değil.
+  const fed = flow2;
+  for (let c = 0; c < COLS; c++) for (let r = rb; r >= rt; r--) {
+    const i = r * COLS + c, bI = i + COLS;
+    if (!lq[i] || solid(i)) { flow[i] = 0; continue; }
+    const rest = solid(bI) || (flow[bI] === 1 && lk[bI] === lk[i]);
+    flow[i] = rest ? (lq[i] >= 8 ? 1 : 2) : 3;   // 1 gövde, 2 yüzey, 3 akış
+  }
+  for (let r = rt; r <= rb; r++) {
+    let c = 0;
+    while (c < COLS) {
+      const i = r * COLS + c;
+      if (!flow[i]) { fed[i] = 0; c++; continue; }
+      const k = lk[i]; let e = c; while (e + 1 < COLS && flow[r * COLS + e + 1] && lk[r * COLS + e + 1] === k) e++;
+      const narrow = e - c + 1 <= 2 && (solid(i - 1) || solid(r * COLS + e + 1));   // dar oluk: en az bir yanı kaya (öteki yan anlık boş olabilir)
+      let f = 0;
+      for (let q = c; q <= e; q++) { const j = r * COLS + q, up = j - COLS, tu = G.map[up]; if (tu === T.SPRING || tu === T.LAVAVENT || (fed[up] && lq[up] && lk[up] === k)) f = 1; }
+      // dar dikey boşlukta 2+ hücre yüksek duran su da akış gibi çizilir (dar kuyuda blok görünmez)
+      if (!f && narrow) for (let q = c; q <= e; q++) { const j = r * COLS + q, up = j - COLS, dn = j + COLS; if ((lq[up] && lk[up] === k && !solid(up)) || (lq[dn] && lk[dn] === k && !solid(dn) && lq[dn] >= 8)) f = 1; }
+      for (let q = c; q <= e; q++) { const j = r * COLS + q; fed[j] = narrow && f ? 1 : 0; if (fed[j] && flow[j] !== 3) flow[j] = 3; }
+      c = e + 1;
     }
   }
+  const isTop = i => flow[i] === 2 || (flow[i] === 1 && flow[i - COLS] !== 1);
+  const hOf = i => flow[i] === 1 ? TILE : levels[i] * 2;
   for (let c = 0; c < COLS; c++) {
-    // derinlik: yukarıdan aynı sıvıyla dolu kaç hücre var
     let depth = 0;
-    for (let r = r0 - 6; r < r0; r++) { const i = r * COLS + c; depth = i >= 0 && lq[i] ? (liq(i - COLS, lk[i]) ? depth + 1 : 0) : 0; }
-    for (let r = r0; r <= r1; r++) {
-      const i = r * COLS + c, a = lq[i];
-      if (!a) {
-        depth = 0;
-        const f = 1 - (t - seen[i]) / FADE;
-        if (f > 0 && !TD[map[i]].solid) drawFall(seenK[i], c, r, f, t);
+    for (let r = rt; r <= r1; r++) {
+      const i = r * COLS + c, k = lk[i], x = c * TILE, y = r * TILE, kind = flow[i];
+      if (!kind) {
+        depth = 0; const strength = 1 - (t - seen[i]) / FADE;
+        if (r >= r0 && !solid(i) && strength > 0) fall(seenK[i], c, r, strength * 0.8, t);
         continue;
       }
-      const k = lk[i], up = liq(i - COLS, k), b = i + COLS, x = c * TILE, y = r * TILE;
-      depth = up ? depth + 1 : 0;
-      const chute = TD[map[i - 1]].solid && TD[map[i + 1]].solid && !TD[map[b]].solid && lq[b] && lk[b] === k;
-      const falling = flow[(r - r0) * COLS + c] || chute;
-      if (falling) { seen[i] = t; seenK[i] = k; drawFall(k, c, r, 1, t); continue; }
-      // dar geçit (yanlarında aynı sıvı yok) ve üstünden akış geliyor: perde devam eder; altı kayaysa
-      // akış yana döner, havuzsa suya karışır. Tek hücrelik dolu kare bloklar oluşmaz.
-      const pool = j => liq(j, k) && !flow[(r - r0) * COLS + (j - r * COLS)];
-      if (!pool(i - 1) && !pool(i + 1) && seen[i - COLS] > t - 0.3) {
-        drawFall(k, c, r, 1, t);
-        if (TD[map[b]].solid) for (const d of [-1, 1]) if (seen[i + d] > t - 0.3) {
-          const x0 = d > 0 ? x + 8 : x - 8; R(k ? L.fall : W.fall, x0, y + 9, 16, 7); R(k ? L.top : W.top, x0, y + 9, 16, 1);
+      if (kind === 3) {
+        depth = 0; seen[i] = t; seenK[i] = k;
+        if (r < r0) continue;
+        const fromAbove = (lq[i - COLS] && lk[i - COLS] === k && !solid(i - COLS)) || seen[i - COLS] > t - FADE || G.map[i - COLS] === T.SPRING || G.map[i - COLS] === T.LAVAVENT;
+        if (solid(i + COLS)) {
+          // basamak: düşen su yere çarpar, sığ bir tabaka olarak yana akar ve kenardan devam eder
+          if (fromAbove) fall(k, c, r, 0.7, t, false, false, 0);
+          const sh = 5 + Math.sin(t * 3 + c) * 0.5;
+          surface(k, c, r, sh, sh, sh, t); splash(k, x + 8, y + TILE - sh, t, c);
+          continue;
         }
+        // yandan beslenen akış: basamak seviyesinden aşağı başlar, hücre tepesinden değil
+        fall(k, c, r, 0.55 + 0.45 * Math.min(1, lq[i] / 4), t, flow[i - 1] === 3 && lk[i - 1] === k, flow[i + 1] === 3 && lk[i + 1] === k, fromAbove ? 0 : 10);
         continue;
       }
       seen[i] = -99;
-      const pal = k ? LD : WD;
-      if (up) {
-        // tam dolu iç hücre: derinlik kademesi, üst yarı bir önceki kademeye geçiş
-        const d0 = Math.min(3, depth - 1), d1 = Math.min(3, depth);
-        R(pal[d0], x, y, 16, 8); R(pal[d1], x, y + 8, 16, 8);
-        if (k) for (let q = 0; q < 2; q++) { const cx = (hash2(c, r, q) * 16 + t * (1.5 + q)) % 14; R(L.crust, x + cx, y + 4 + q * 7, 3, 1); }
+      const top = isTop(i); depth = top ? 0 : depth + 1;
+      const impact = seen[i - COLS] > t - 0.3 && seenK[i - COLS] === k;
+      if (r < r0) continue;
+      if (!top) {
+        // gövde: düz kutu değil, derinlikle koyulaşan yarı saydam katmanlar; kaya dokusu hafif görünür
+        const pal = k ? lava : water, d = Math.min(3, depth);
+        rect(pal[d], x, y, TILE, TILE);
+        if (d < 3) { rect(pal[d + 1], x, y + 8, TILE, 8); if (!k) rect('rgba(8,28,58,0.18)', x, y + 13, TILE, 3); }
+        if (!k && depth === 1) rect('rgba(120,200,235,0.08)', x, y, TILE, 2);
+        texture(k, x, y, y, y + TILE, depth, t);
         continue;
       }
-      // yüzey hücresi: köşe yükseklikleri komşularla ortalanır, yüzey kesintisiz bir eğri olur
-      // şelalenin çarptığı hücre: düşen paket bir an yüzeyi yükseltir; görüntü komşu yüzeyle hizalanır
-      let me = level(i) * 2;
-      if (seen[i - COLS] > t - 0.3) { let n = 0, sum = 0; for (const j of [i - 1, i + 1]) if (liq(j, k) && !liq(j - COLS, k)) { sum += level(j) * 2; n++; } if (n) me = Math.min(me, sum / n + 1); }
-      const side = j => liq(j, k) && !liq(j - COLS, k) ? (level(j) * 2 + me) / 2 : me;
-      const hl = side(i - 1), hr = side(i + 1);
-      for (let px = 0; px < 16; px += 2) {
-        const f = (px + 1) / 16, h0 = hl + (me - hl) * Math.min(1, f * 2) + (hr - me) * Math.max(0, f * 2 - 1);
-        const wave = Math.sin(t * (k ? 1.6 : 2.6) + (x + px) * 0.35) * (k ? 0.5 : 0.8) * Math.min(1, h0 / 6);
-        const h = Math.max(1, Math.min(16, Math.round(h0 + wave))), top = y + 16 - h;
-        R(pal[0], x + px, top, 2, h);
-        if (h > 8) R(pal[1], x + px, y + 12, 2, 4);
-        R(k ? L.top : W.top, x + px, top, 2, 1);
-      }
-      if (k) {
-        for (let q = 0; q < 2; q++) { const cx = (hash2(c, r, q) * 16 + t * (2 + q)) % 14; R(L.crust, x + cx, y + 16 - me + 3 + q * 3, 3, 1); }
-        const bp = (t * 0.7 + hash2(c, r, 9)) % 1;
-        if (bp < 0.25 && me > 3) R(L.hot, x + 4 + hash2(r, c, 4) * 8, y + 16 - me - bp * 12, 2, 2);
-      } else {
-        const hi = (t * 8 + hash2(c, r, 3) * 16) % 14; if (me > 3) R('rgba(255,255,255,0.8)', x + hi, y + 16 - me + 2, 2, 1);
-      }
-      // şelalenin çarptığı yer: köpük ve sıçrayan damlalar
-      if (seen[i - COLS] > t - 0.2 && seenK[i - COLS] === k) {
-        const tp = y + 16 - me, s = Math.floor(t * 12);
-        for (let q = 0; q < 6; q++) R(k ? L.hot : W.foam, x + 2 + hash2(c, s + q, 7) * 12, tp - 1 + hash2(q, s, c) * 3, 1, 1);
-        for (let q = 0; q < 3; q++) { const u = ((t * 2.2 + q / 3) % 1); R(k ? L.top : W.foam, x + 8 + (q - 1) * (2 + u * 6), tp - Math.sin(u * Math.PI) * 5, 1, 1); }
-      }
+      // yüzey: komşu yüzeylerle yumuşatılır; akışın düştüğü yerde yüzey çizgisi komşulara uyar
+      let height = hOf(i);
+      const nb = j => flow[j] && lk[j] === k && isTop(j);
+      if (impact) { const sides = [i - 1, i + 1].filter(nb); if (sides.length) height = Math.min(height, sides.reduce((sum, j) => sum + hOf(j), 0) / sides.length + 1); }
+      const side = j => nb(j) ? (height + hOf(j)) / 2 : flow[j] === 1 && lk[j] === k ? TILE : height;
+      if (impact) fall(k, c, r, 0.8, t);
+      surface(k, c, r, height, side(i - 1), side(i + 1), t);
+      if (impact) splash(k, x + 8, y + TILE - height, t, hash2(c, r, 4));
     }
   }
   for (let n = steam.length - 1; n >= 0; n--) {
-    const s = steam[n], a = t - s.t0; if (a > 1.2 || a < 0) { steam.splice(n, 1); continue; }
-    X.globalAlpha = 0.7 * (1 - a / 1.2);
-    for (let q = 0; q < 5; q++) R('#e8e8f0', s.x - 6 + q * 3 + Math.sin(a * 4 + q) * 2, s.y - a * 26 - q * 2, 2, 2);
-    X.globalAlpha = 1;
+    const s = steam[n], age = t - s.t0;
+    if (age > 1.6 || age < 0) { steam.splice(n, 1); continue; }
+    for (let q = 0; q < 5; q++) {
+      X.globalAlpha = (1 - age / 1.6) * (0.32 - q * 0.035);
+      const size = 2 + age * 3, xx = s.x + Math.sin(age * 2 + q * 1.4) * age * 7, yy = s.y - age * 25 - q * 3;
+      rect('#dee5eb', xx - size / 2, yy, size, 2); rect('#eef1f4', xx - size / 2 + 1, yy - 1, Math.max(1, size - 2), 1);
+    }
   }
+  X.globalAlpha = 1;
 }
 
-// ışık katmanı üstü: lav yüzeyi ve şelale perdesi hafifçe parlar
 export function drawLiquidGlow(ctx, r0, r1, glow) {
   if (!G.lq) return;
-  const lq = G.lq, lk = G.lk;
-  for (let r = r0; r <= r1; r++) for (let c = 0; c < COLS; c++) {
-    const i = r * COLS + c; if (!lq[i] || (lq[i - COLS] && lk[i - COLS] === lk[i])) continue;
-    if (lk[i] === 1) glow(c * TILE + 8, r * TILE + 12, 'rgba(255,120,40,0.5)', 16, 0.55);
-    else if (!TD[G.map[i + COLS]].solid && lq[i + COLS] < 8) glow(c * TILE + 8, r * TILE + 8, 'rgba(120,210,255,0.25)', 10, 0.5);
+  X = ctx;
+  for (let r = Math.max(0, r0); r <= Math.min(ROWS - 1, r1); r++) for (let c = 0; c < COLS; c++) {
+    const i = r * COLS + c, k = G.lk[i]; if (!liquid(i, k) || !flow) continue;
+    // akış karanlıkta hafif görünür: su soluk mavi, lav kor
+    if (flow[i] === 3) { glow(c * TILE + 8, r * TILE + 8, k ? 'rgba(255,113,25,0.35)' : 'rgba(120,200,240,0.16)', k ? 16 : 12, k ? 0.8 : 0.35); continue; }
+    if (flow[i - COLS] && flow[i - COLS] !== 3) continue;
+    const height = (levels && seenOf === G.lq ? levels[i] : G.lq[i]) * 2, x = c * TILE, y = r * TILE + TILE - height;
+    if (k) {
+      const pulse = 0.65 + Math.sin(G.time * 1.7 + c * 0.8) * 0.13;
+      glow(x + 8, y + 3, 'rgba(255,113,25,0.5)', 21, pulse);
+      for (let px = 0; px < TILE; px += 2) rect('#ffc766', x + px, y + wave(x + px, G.time, 1), 2, 1);
+    }
+  }
+}
+export function liquidLights(r0, r1, out) {
+  if (!G.lq) return;
+  for (let r = Math.max(0, r0); r <= Math.min(ROWS - 1, r1); r++) for (let c = 0; c < COLS; c++) {
+    const i = r * COLS + c;
+    if (liquid(i, 1) && !liquid(i - COLS, 1) && (c + r) % 2 === 0) out.push({ x: c * TILE + 8, y: r * TILE + TILE - G.lq[i] * 2 + 4, s: 2.4 + Math.sin(G.time * 1.7 + c * 0.8) * 0.15 });
   }
 }
 
-// ışık kaynağı: lav yüzeyi çevresini aydınlatır
-export function liquidLights(r0, r1, out) {
-  if (!G.lq) return;
-  for (let r = r0; r <= r1; r++) for (let c = 0; c < COLS; c++) {
-    const i = r * COLS + c;
-    if (G.lq[i] && G.lk[i] === 1 && !(G.lq[i - COLS] && G.lk[i - COLS] === 1) && (c + r) % 2 === 0) out.push({ x: c * TILE + 8, y: r * TILE + 10, s: 2.4 });
-  }
-}
+export const _liqDebug = () => ({ flow, seen, levels });

@@ -64,7 +64,9 @@ const react = (i, j) => {
 };
 
 function flowStep(lavaTurn) {
-  const lq = G.lq, lk = G.lk, dir = (G.lqT & 1) ? 1 : -1, tot = [0, 0];
+  const lq = G.lq, lk = G.lk, dir = (G.lqT & 1) ? 1 : -1, tot = [0, 0], last = G.lqTot || [0, 0];
+  const cnt = [0, 0]; for (const s of G.springs) cnt[s.k]++;
+  const full = [last[0] >= LIQUID.cap[0] * cnt[0], last[1] >= LIQUID.cap[1] * cnt[1]];
   for (let r = ROWS - 2; r >= GROUND_ROW; r--) {
     // sıvı kendi biyomunun dışına düşerken toprağa emilir: su Şelale Mağarası'ndan, lav Kor Katmanı'ndan sonsuza akmaz
     const home = G.order ? G.order[stratumOfRow(r + 1)] : -1;
@@ -81,6 +83,8 @@ function flowStep(lavaTurn) {
       // aşağı
       if (!solid(b)) {
         if (lq[b] && lk[b] !== k) { react(i, b); continue; }
+        // sınır dolduğunda kaynak susmaz (akış kesik kesik olmaz): birikecek suyu havuz emer
+        if (full[k] && lq[i - COLS] && lk[i - COLS] === k && (solid(b + COLS) || lq[b + COLS] >= 8)) { lq[i] = 0; continue; }
         const m = Math.min(8 - lq[b], a), free = !lq[b];
         if (m > 0) {
           lq[b] += m; lk[b] = k; a = lq[i] = a - m;
@@ -88,13 +92,20 @@ function flowStep(lavaTurn) {
           if (!a) continue;
         }
       }
-      // yanlara: iki komşuyla eşitlen
+      // yanlara: iki komşuyla eşitlen; altı doluysa (havuz üstü) daha hızlı yayılır, kule kurmaz
       let moved = false;
+      const settled = solid(b) || lq[b] >= 8;
       for (const d of [dir, -dir]) {
         const j = i + d, cj = c + d;
         if (cj < 0 || cj >= COLS || solid(j)) continue;
         if (lq[j] && lk[j] !== k) { react(i, j); moved = true; break; }
-        if (lq[j] < a - 1) { const m = (a - lq[j]) >> 1; lq[j] += m; lk[j] = k; a = lq[i] = a - m; moved = true; }
+        if (lq[j] < a - 1) { const m = settled ? Math.ceil((a - lq[j]) / 2) : (a - lq[j]) >> 1; lq[j] += m; lk[j] = k; a = lq[i] = a - m; moved = true; }
+      }
+      // havuz üstünde 2+ birim yığılmışsa yana taşar
+      if (settled && a >= 3) for (const d of [dir, -dir]) {
+        const j = i + d, cj = c + d;
+        if (cj < 0 || cj >= COLS || solid(j) || (lq[j] && lk[j] !== k)) continue;
+        if (lq[j] < a - 1) { lq[j] += 1; lk[j] = k; a = lq[i] = a - 1; moved = true; }
       }
       // tek birimlik sızıntı buharlaşır / soğur
       if (a === 1 && !moved && (G.lqT + i) % LIQUID.dry === 0) lq[i] = 0;
@@ -109,13 +120,12 @@ export function updateLiquids(dt) {
     G.lqT = (G.lqT | 0) + 1;
     const lavaTurn = G.lqT % LIQUID.lavaSlow === 0, tot = flowStep(lavaTurn);
     // kaynaklar: toplam sınırın altındaysa aktar (sınır: sel olmasın)
-    const cnt = [0, 0]; for (const s of G.springs) cnt[s.k]++;
+    G.lqTot = tot;
     for (const s of G.springs) {
       if (s.k === LAVA && !lavaTurn) continue;
       const i = (s.r + 1) * COLS + s.c; if (solid(i)) continue;
-      const room = LIQUID.cap[s.k] * cnt[s.k] - tot[s.k]; if (room <= 0) continue;
       if (G.lq[i] && G.lk[i] !== s.k) continue;
-      const add = Math.min(LIQUID.emit[s.k], 8 - G.lq[i], room);
+      const add = Math.min(LIQUID.emit[s.k], 8 - G.lq[i]);
       if (add > 0) { G.lq[i] += add; G.lk[i] = s.k; }
     }
   }

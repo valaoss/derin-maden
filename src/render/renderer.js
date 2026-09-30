@@ -58,8 +58,8 @@ export function updateCamera(dt, instant = false) {
   let ty = py - view.vh * 0.42;
   if (p.dig && p.digDir[1] > 0) ty += 18;
   else if (p.moving && p.dy > 0.5) ty += 10;
-  // Balrog yakınsa kadraj yukarı kayar: boyu ve boynuzları görünsün
-  const bal = G.enemies.find(e => (e.type === 'balrog' || e.type === 'ejder') && (!e.dead || e.dieT > 0));
+  // Büyük boss gövdeleri ve kanatları oyuncunun üstünde kadraja sığsın.
+  const bal = G.enemies.find(e => e.d.boss && (!e.dead || e.dieT > 0) && Math.abs(e.y - py) < 100);
   if (bal && Math.abs(bal.y - py) < 100) ty = Math.min(ty, Math.min(py, bal.y) - view.vh * 0.62);
   // hazine salonu: içerideyken salon kadraja oturur
   const HH = G.hoard;
@@ -1019,7 +1019,8 @@ function enemyPose(e, alpha) {
 function drawEnemy(e, alpha, camY, vh) {
   const x = lerp(e.px, e.x, alpha), y = lerp(e.py, e.y, alpha);
   if (e.type === 'dunyaYilani') { drawSerpent(ctx, e, alpha); return; }
-  if (y < camY - 30 || y > camY + vh + 90) return;
+  const margin = hasBossArt(e) ? 240 : 90;
+  if (y < camY - margin || y > camY + vh + margin) return;
   if (e.type === 'balrog') { drawBalrog(ctx, e, alpha); return; }
   if (e.type === 'ejder') { drawDragon(ctx, e, alpha); return; }
   if (hasBossArt(e)) { if (e.under) { drawMound(x, y); return; } if (drawBossArt(ctx, e, alpha)) return; }
