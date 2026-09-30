@@ -50,8 +50,11 @@ export function snapshotJourney() {
       if (!isJump(a, b)) dist += Math.hypot(b[1] - a[1], b[2] - a[2]) / 2;
       if (b[2] > deep[2]) deep = b;
     }
+    // yalnız iniş: yalnızca yeni en derin noktalar kalır (geri çıkma, gidip gelme, asansör dönüşü çizilmez)
+    const down = [];
+    for (const q of pts) if (!down.length || q[2] > down[down.length - 1][2]) down.push(q);
     return {
-      name: p.name || (G.mp ? 'MADENCİ ' + (p.i + 1) : 'SEN'), col: HELMETS[(p.helm | 0) % HELMETS.length].c, pts, deep,
+      name: p.name || (G.mp ? 'MADENCİ ' + (p.i + 1) : 'SEN'), col: HELMETS[(p.helm | 0) % HELMETS.length].c, pts: down, deep,
       depth: Math.max(0, Math.floor(deep[2] / 2) - GROUND_ROW), dist: Math.round(dist),
       downs: J.m.filter(m => m[0] === 'down' && m[4] === p.i).length, local: p === G.player,
     };
@@ -123,13 +126,10 @@ export function mountJourney(cv, J) {
     ctx.beginPath();
     for (let i = 0; i < k; i++) {
       const p = pts[i], X = fx(p[1]) + q.off, Y = fy(p[2]);
-      if (i === 0 || isJump(pts[i - 1], p)) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+      if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
     }
     ctx.stroke();
-    ctx.setLineDash([2, 3]); ctx.lineWidth = Math.max(1, lw / 2); ctx.globalAlpha = alpha * 0.6;
-    ctx.beginPath();
-    for (let i = 1; i < k; i++) if (isJump(pts[i - 1], pts[i])) { ctx.moveTo(fx(pts[i - 1][1]) + q.off, fy(pts[i - 1][2])); ctx.lineTo(fx(pts[i][1]) + q.off, fy(pts[i][2])); }
-    ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+    ctx.globalAlpha = 1;
   }
   const label = (txt, x, y, col, align = 'left') => {
     ctx.textAlign = align; ctx.lineWidth = 3; ctx.strokeStyle = P.ink; ctx.strokeText(txt, x, y); ctx.fillStyle = col; ctx.fillText(txt, x, y);

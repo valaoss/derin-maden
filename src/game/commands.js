@@ -7,9 +7,12 @@ import { useMod } from './combat.js';
 import { addPing } from './pings.js';
 import { callElevator } from './elevator.js';
 import { rerollOffer } from './chests.js';
+import { buyMerch } from './merchant.js';
+import { wish } from './well.js';
+import { castLine } from './wonders.js';
 import { emit } from '../core/events.js';
 
-export const CMD = { USE: 'u', BUY: 'b', CRAFT: 'c', PICKUP: 'k', PERK: 'p', MODBUY: 'mb', MODEQ: 'me', MODUSE: 'mu', PING: 'g', ELEV: 'el', GEAR: 'gr', TEST: 'tx', LVUP: 'lu', REROLL: 'rr' };
+export const CMD = { USE: 'u', BUY: 'b', CRAFT: 'c', PICKUP: 'k', PERK: 'p', MODBUY: 'mb', MODEQ: 'me', MODUSE: 'mu', PING: 'g', ELEV: 'el', GEAR: 'gr', TEST: 'tx', LVUP: 'lu', REROLL: 'rr', MERCH: 'mc', WISH: 'wi', FISH: 'fi' };
 
 // Simülasyon içinde çalışır: pi = komutu veren oyuncu indeksi
 export function execCmd(pi, cmd) {
@@ -29,6 +32,9 @@ export function execCmd(pi, cmd) {
     case CMD.TEST: return testFunds(p);
     case CMD.LVUP: return levelUp(cmd.g === 'w' ? 'w' : 't', String(cmd.k), p);
     case CMD.REROLL: return rerollOffer(p);
+    case CMD.MERCH: return buyMerch(p, cmd.i | 0);
+    case CMD.WISH: return wish(p);
+    case CMD.FISH: return castLine(p);
     case CMD.PERK: {
       const off = G.perkOffer;
       if (!off || off.pi !== pi || !off.keys.includes(cmd.k)) return false;

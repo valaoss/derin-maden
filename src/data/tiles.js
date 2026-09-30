@@ -15,6 +15,8 @@ export const T = {
   // v6 biyomlar (20-29): ana kaya + biyoma özgü taş
   MUTE: 62, TIDE: 63, FLESH: 64, MIRROR: 65, AMBERROCK: 66, MAGNETROCK: 67, HUNGER: 68, ROOTWOOD: 69, SEA: 70, ZERO: 71,
   LURE: 72, CLAM: 73, NODE: 74, AMBER: 75, MAGNET: 76, EGG: 77, LUMEN: 78,
+  // Şelale Mağarası ve sıvılar: ıslak kaya, su kaynağı, lav ağzı, gider
+  FALLROCK: 79, SPRING: 80, LAVAVENT: 81, SINK: 82,
 };
 
 // mat: doku/ses/parçacık malzemesi ('host' => katmanın ana kayası); plain: sıradan kaya (damar/tehlike/dönüşüm yerleşebilir)
@@ -105,6 +107,10 @@ TD[T.AMBER]  = { solid: true, hp: 20, mat: 'host', amber: true, glow: 1.8, gem: 
 TD[T.MAGNET] = { solid: true, hp: 16, mat: 'host', ore: 'iron', amt: 4, glow: 1 };                                                 // mıknatıs taşı: bol demir
 TD[T.EGG]    = { solid: true, hp: 10, mat: 'host', egg: true, glow: 1.6, gem: ['#2a3a1a', '#7aa040', '#d8f0a0', '#ffffff'] };     // yumurta: kırılmazsa çatlar
 TD[T.LUMEN]  = { solid: true, hp: 8, mat: 'host', lumen: true, glow: 3.2, gem: ['#0a2a3a', '#2a8ab0', '#8af0ff', '#ffffff'] };    // ışık mantarı: iyileştirir, aydınlatır
+TD[T.FALLROCK] = { solid: true, hp: 8, mat: 'falls', plain: true };                                                                 // Şelale Mağarası: ıslak, yosunlu kayağan taş
+TD[T.SPRING]   = { solid: true, hp: Infinity, mat: 'host', unbreakable: true, spring: 'water', glow: 1.6, gem: ['#0a2a4a', '#2a7ac8', '#8ad8ff', '#ffffff'] }; // su kaynağı
+TD[T.LAVAVENT] = { solid: true, hp: Infinity, mat: 'host', unbreakable: true, spring: 'lava', glow: 2.6, gem: ['#4a0a04', '#c0301a', '#ff8a3a', '#fff0a0'] };  // lav ağzı
+TD[T.SINK]     = { solid: true, hp: Infinity, mat: 'host', unbreakable: true, sink: true, gem: ['#060608', '#1a1a22', '#34343e', '#5a5a66'] };                 // gider: havuzun dibinde sıvıyı yutar
 export const CHEST_TILE = { wood: T.CHEST, iron: T.CHEST_IRON, gold: T.CHEST_GOLD, arms: T.CHEST_ARMS, ore: T.CHEST_ORE, supply: T.CHEST_SUPPLY, cursed: T.CHEST_CURSED, ancient: T.CHEST_ANCIENT, mimic: T.MIMIC };
 export const DEEP_TILE = [T.YESIM, T.OPAL, T.INCI, T.AKIK, T.YILDIZ, T.ELMAS, T.KEHRIBAR];
 
@@ -114,8 +120,8 @@ export const isPlain = t => !!TD[t].plain;
 // Biyomun ana kayası (cevher tile'larının etrafı ve arka duvar): 30 biyom (kimliğe göre)
 export const HOST_MAT = ['dirt', 'stone', 'moss', 'hard', 'ice', 'bone', 'magma', 'dense', 'obsidian', 'void',
   'quick', 'storm', 'gilt', 'fungus', 'glass', 'titan', 'chrono', 'blood', 'echo', 'genesis',
-  'mute', 'tide', 'flesh', 'mirror', 'amber', 'magnet', 'hunger', 'rootwood', 'sea', 'zero'];
+  'mute', 'tide', 'flesh', 'mirror', 'amber', 'magnet', 'hunger', 'rootwood', 'sea', 'zero', 'falls'];
 // Biyomun ana kaya tile'ı
 export const HOST_TILE = [T.DIRT, T.STONE, T.MOSS, T.HARD, T.ICE, T.BONE, T.MAGMA, T.DENSE, T.OBSIDIAN, T.VOID,
   T.QUICK, T.STORM, T.GILT, T.FUNGUS, T.GLASS, T.TITAN, T.CHRONO, T.BLOOD, T.ECHO, T.GENESIS,
-  T.MUTE, T.TIDE, T.FLESH, T.MIRROR, T.AMBERROCK, T.MAGNETROCK, T.HUNGER, T.ROOTWOOD, T.SEA, T.ZERO];
+  T.MUTE, T.TIDE, T.FLESH, T.MIRROR, T.AMBERROCK, T.MAGNETROCK, T.HUNGER, T.ROOTWOOD, T.SEA, T.ZERO, T.FALLROCK];

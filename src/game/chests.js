@@ -98,7 +98,7 @@ export function applyOffer(k, p) {
   return true;
 }
 
-function offer(p, type, keys) {
+export function offer(p, type, keys) {
   if (keys.length) { G.perkOffer = { pi: p.i, keys, chest: type }; emit('perkOffer', p.i); }
   else if (isLocal(p)) emit('toast', { text: CHESTS[type].name + ' boş çıktı', icon: 'chest' });
 }

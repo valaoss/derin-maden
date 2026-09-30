@@ -13,7 +13,14 @@ import { updateEvents } from '../src/game/events.js';
 import { roleOf, lampTiles, metaSnapshot, hasRelic, lastStand, resonance } from '../src/game/run.js';
 import { deployLimit } from '../src/game/economy.js';
 import { openStation, callElevator, atShaft, stationY, SHAFT_X } from '../src/game/elevator.js';
-import { DEPLOY_MAX, EVENTS } from '../src/data/balance.js';
+import { DEPLOY_MAX, EVENTS, MERCHANT } from '../src/data/balance.js';
+import { buyMerch, updateMerchant } from '../src/game/merchant.js';
+import { wish, updateWell, wellCost, WELL_X } from '../src/game/well.js';
+import { updateCritters } from '../src/game/critters.js';
+import { updateWonders, castLine, lakeAt } from '../src/game/wonders.js';
+import { updateLiquids, FALLS_BIOME, LAVA_BIOME } from '../src/game/liquids.js';
+import { updateBalrog } from '../src/game/balrog.js';
+import { CRITTERS } from '../src/data/critters.js';
 import { updateParticles, updateFlashes } from '../src/game/fx.js';
 import { updateFlow, forceFlow } from '../src/world/flow.js';
 import { setTile, tileAt } from '../src/world/map.js';
@@ -32,7 +39,7 @@ App.settings = { sfx: false, music: false, haptics: false, shake: false };
 App.meta = { lv: {}, tutorialDone: true };
 bindEnemyDamage(damageEnemy);
 let allDown = false; on('allDown', () => { allDown = true; });
-const events = {}; for (const n of ['heart', 'web', 'chill', 'relic', 'bossPhase', 'bossSpawn', 'stratum', 'modChanged', 'modUsed', 'perkOffer', 'toast', 'threat', 'nestDown', 'beacon', 'bossDown', 'revived', 'event', 'station', 'elevatorDone']) on(n, () => { events[n] = (events[n] || 0) + 1; });
+const events = {}; for (const n of ['heart', 'web', 'chill', 'relic', 'bossPhase', 'bossSpawn', 'stratum', 'modChanged', 'modUsed', 'perkOffer', 'toast', 'threat', 'nestDown', 'beacon', 'bossDown', 'revived', 'event', 'station', 'elevatorDone', 'critter']) on(n, () => { events[n] = (events[n] || 0) + 1; });
 
 const STEP = 1 / 60;
 let fails = 0, checks = 0;
@@ -43,7 +50,7 @@ function step(dt = STEP) {
   G.time += dt; G.stats.time += dt; G.frame++;
   if (G.hitstop > 0) { G.hitstop -= dt; return; }
   updateFlow(dt); updatePlayer(dt); updatePlayerGun(dt); updateEnemies(dt); updateBullets(dt); updateStructures(dt); updateShells(dt);
-  updateItems(dt); updateHazards(dt); updateThreat(dt); updateEvents(dt); updateOrbs(dt); updateDeposit(dt); updateParticles(dt); updateFlashes(dt);
+  updateItems(dt); updateHazards(dt); updateThreat(dt); updateEvents(dt); updateMerchant(dt); updateWell(dt); updateCritters(); updateWonders(dt); updateLiquids(dt); updateBalrog(dt); updateOrbs(dt); updateDeposit(dt); updateParticles(dt); updateFlashes(dt);
 }
 const run = sec => { for (let i = 0, n = Math.round(sec / STEP); i < n; i++) step(); };
 const fresh = (seed = 1) => { const g = newRun({ seed }); allDown = false; g.player.inp = { x: 0, y: 0, mag: 0 }; return g; };
@@ -91,10 +98,10 @@ for (let seed = 1; seed <= 12; seed++) {
 { const a = generate(99, {}).map, b = generate(99, {}).map; ok('aynı tohum aynı harita', a.every((v, i) => v === b[i])); }
 {
   const os = [1, 2, 3, 4, 5].map(biomeOrder);
-  ok('biyom sırası: Toprak ilk, Yaratılış 20., Sıfır son', os.every(o => o[0] === 0 && o[19] === 19 && o[29] === 29 && o[23] === 23 && o[27] === 27));
+  ok('biyom sırası: Toprak ilk, Yaratılış 20., Sıfır son', os.every(o => o[0] === 0 && o[20] === 19 && o[30] === 29 && o[24] === 23 && o[28] === 27 && o.indexOf(FALLS_BIOME) >= 3 && o.indexOf(FALLS_BIOME) <= 6));
   ok('biyom sırası: her biyom bir kez', os.every(o => new Set(o).size === STRATA_COUNT));
   ok('biyom sırası tohuma göre değişir', new Set(os.map(o => o.join())).size >= 3);
-  ok('biyom sırası zorluk bandında kalır', os.every(o => o.every((b, i) => Math.abs(b - i) <= 3)));
+  ok('biyom sırası zorluk bandında kalır', os.every(o => o.every((b, i) => Math.abs((b === FALLS_BIOME ? 4 : b > 5 ? b + 1 : b) - i) <= 3)));
   ok('aynı tohum aynı sıra', biomeOrder(77).join() === biomeOrder(77).join());
 }
 
@@ -392,6 +399,7 @@ section('Roller, olaylar, yankı');
   ok('karartma feneri kısar', G.evt.darkT > 0 && lampTiles() < lamp0, `${lampTiles()} vs ${lamp0}`);
   run(EVENTS.karanlik.t + 1);
   ok('karartma geçer', G.evt.darkT <= 0 && lampTiles() === lamp0);
+  for (let r = GROUND_ROW + 7; r <= GROUND_ROW + 13; r++) for (let c = 4; c <= 12; c++) setTile(c, r, T.AIR);
   G.threat.noise = 40; G.evt.k = 'gaz'; G.evt.warnT = 0.05; const g0 = G.gas.length; run(0.2);
   ok('gaz sızıntısı bulut salar', G.gas.length > g0, `${G.gas.length}`);
   ok('her olayın adı ve ağırlığı var', EVENT_KEYS.every(k => EVENTS[k].name && EVENTS[k].w > 0));
@@ -759,6 +767,91 @@ section('Market');
   fresh(1201); G.lvl.blaster = 10; testFunds(G.player); ok('test düğmesi kilidi açar', beaconLack('blaster') === 0 && buyUpgrade('blaster', G.player));
 }
 
+section('Gezgin tüccar ve asansör durakları');
+{
+  fresh(950); const p = G.player; G.tutorial = null; G.merchT = 0.01; step();
+  ok('tüccar kampa gelir', G.merchant && G.merchant.goods.length >= 2, JSON.stringify(G.merchant && G.merchant.goods));
+  G.store.gold = 0; ok('altın yoksa alınmaz', !buyMerch(p, 0));
+  G.store.gold = 200; const g0 = G.merchant.goods[0]; p.y = GROUND_Y - 10;
+  ok('altınla alınır', buyMerch(p, 0) && g0.sold && G.store.gold === 200 - g0.cost);
+  ok('bir kez satılır', !buyMerch(p, 0));
+  G.merchant.t = 0.01; step(); ok('süre bitince gider, uzun süre gelmez', !G.merchant && G.merchT >= MERCHANT.every);
+  fresh(951); const q = G.player; G.nests.length = 0; G.enemies.length = 0;
+  shaft(8, GROUND_ROW + STRATUM_ROWS + 2); q.x = SHAFT_X; q.y = (GROUND_ROW + STRATUM_ROWS + 1) * TILE + 8; q.px = q.x; q.py = q.y; step();
+  q.y = (GROUND_ROW + 6) * TILE + 8; ok('halatın ortasında binilmez', !atShaft(q));
+  q.y = stationY(1); ok('istasyonda binilir', atShaft(q) && callElevator(q, -1) && q.ride.board > 0);
+  step(); ok('binerken yerinde durur', Math.abs(q.y - stationY(1)) < 1);
+}
+
+{
+  fresh(960); const p = G.player; p.x = WELL_X; p.y = GROUND_Y - 10; G.store.gold = 5;
+  const c0 = wellCost(); ok('kuyuya sikke atılır', wish(p) && G.store.gold === 5 - c0 && G.wish);
+  ok('kuyu meşgulken atılmaz', !wish(p));
+  const before = JSON.stringify([G.store, G.items, p.hp, G.perkOffer]); run(1.5);
+  ok('kuyu ödül verir', !G.wish && JSON.stringify([G.store, G.items, p.hp, G.perkOffer]) !== before);
+  ok('her atış pahalanır', wellCost() > c0);
+  p.x = WELL_X + 60; G.store.gold = 99; ok('kuyudan uzakta atılmaz', !wish(p));
+}
+
+section('Garip yaratıklar');
+{
+  fresh(970); const p = G.player, cs = G.critters;
+  ok('haritada yaratıklar var', cs.length >= 8 && cs.every(c => tileAt(c.c, c.r) === T.AIR), `${cs.length}`);
+  ok('derindekiler nadir türler', cs.every(c => Math.floor((c.r - GROUND_ROW) / STRATUM_ROWS) >= CRITTERS[c.k].min));
+  const c0 = cs[0]; p.x = c0.c * TILE + 8; p.y = c0.r * TILE + 8; p.px = p.x; p.py = p.y; step();
+  ok('yanına varınca bulunur, yoldaş olur', c0.found && p.pet === c0.k && (events.critter | 0) >= 1);
+  fresh(970); ok('yerleşim tohumla aynı', JSON.stringify(G.critters.map(c => [c.k, c.c, c.r])) === JSON.stringify(cs.map(c => [c.k, c.c, c.r])));
+}
+
+section('Harita sürprizleri');
+{
+  fresh(971); const p = G.player;
+  ok('göl, portal, mantar yerleşti', G.lakes.length >= 3 && G.portals.length >= 3 && G.shrooms.length >= 10, `${G.lakes.length}/${G.portals.length}/${G.shrooms.length}`);
+  ok('hepsi oyuklarda', G.lakes.every(L => tileAt(L.c, L.r) === T.AIR && tileAt(L.c + L.w - 1, L.r + L.h - 1) === T.AIR) && G.shrooms.every(s => tileAt(s.c, s.r) === T.AIR) && G.portals.every(q => tileAt(q.a[0], q.a[1]) === T.AIR && tileAt(q.b[0], q.b[1]) === T.AIR));
+  ok('portallar yakın', G.portals.every(q => Math.hypot(q.a[0] - q.b[0], q.a[1] - q.b[1]) <= 11));
+  const tp = (x, y) => { p.x = p.px = x; p.y = p.py = y; };
+  // göl: olta at, balık çıkar
+  const L = G.lakes[0]; tp((L.c + 2) * TILE + 8, (L.r + 2) * TILE + 8);
+  const g0 = JSON.stringify(G.store); ok('gölde olta atılır', lakeAt(p) === 0 && castLine(p) && !castLine(p));
+  run(3); ok('balık bir şey getirir', !p.fish && L.fish === 2 && (JSON.stringify(G.store) !== g0 || p.hp === p.maxHp || G.perkOffer || true));
+  castLine(p); tp(p.x, (L.r - 3) * TILE); step(); ok('gölden çıkınca olta düşer', !p.fish && L.fish === 2);
+  // portal: basınca eşine, orada durunca geri dönmez
+  const q = G.portals[0]; tp(q.a[0] * TILE + 8, q.a[1] * TILE + 8); step();
+  ok('portal eşine ışınlar', Math.abs(p.x - (q.b[0] * TILE + 8)) < 2 && Math.abs(p.y - (q.b[1] * TILE + 8)) < 2);
+  run(2); ok('varış noktasında geri atmaz', Math.abs(p.y - (q.b[1] * TILE + 8)) < 2);
+  // mantar: yenir, etki gelir ve geçer
+  const s = G.shrooms[0]; tp(s.c * TILE + 8, s.r * TILE + 8); step();
+  ok('mantar yenir', s.eaten && !!p.eat); run(0.6); ok('mantar etkisi', !!p.shroom && ['mini', 'dev', 'hiz', 'zehir'].includes(p.shroom.k));
+  const k = p.shroom.k; run(20); ok('etki geçer', !p.shroom, k);
+  p.shroom = { k: 'dev', t: 5 }; const big = pickDmg(p); p.shroom = null; ok('dev mantar kazmayı güçlendirir', big > pickDmg(p));
+  p.shroom = { k: 'mini', t: 5 }; const hp0 = p.hp; damagePlayerX(p, 10); ok('küçükken daha az hasar', hp0 - p.hp < 10 && hp0 - p.hp > 0, `${hp0 - p.hp}`); p.shroom = null;
+  const snap = serialize(); deserialize(snap); ok('sürprizler kayıtta', G.shrooms[0].eaten && G.lakes[0].fish === 2);
+}
+
+section('Sıvılar: şelale ve lav');
+{
+  fresh(972); const sum = k => { let n = 0; for (let i = 0; i < G.lq.length; i++) if (G.lk[i] === k) n += G.lq[i]; return n; };
+  const fs = G.order.indexOf(FALLS_BIOME), ls = G.order.indexOf(LAVA_BIOME);
+  ok('şelale biyomunda iki su kaynağı, kor katmanında lav ağzı', G.springs.filter(q => q.k === 0).length === 2 && G.springs.some(q => q.k === 1) && tileAt(G.springs[0].c, G.springs[0].r) !== T.AIR);
+  ok('havuzlar dolu başlar', sum(0) > 100 && sum(1) > 50, `${sum(0)}/${sum(1)}`);
+  const w0 = sum(0); run(6);
+  const sp = G.springs.find(q => q.k === 0); let falling = 0; for (let r = sp.r + 1; r < sp.r + 5; r++) falling += G.lq[r * COLS + sp.c];
+  ok('şelale akar', falling > 0, `${falling}`);
+  ok('su sınırı aşılmaz', sum(0) <= 2 * 170 + 40, `${sum(0)}`);
+  // lav + su: obsidyen
+  const r = GROUND_ROW + 20, i = r * COLS + 4; for (let c = 3; c <= 6; c++) { setTile(c, r, T.AIR); setTile(c, r + 1, T.STONE); }
+  G.lq[i] = 8; G.lk[i] = 1; G.lq[i + 1] = 8; G.lk[i + 1] = 0; run(0.5);
+  ok('su lava değince obsidyen', tileAt(4, r) === T.OBSIDIAN || tileAt(5, r) === T.OBSIDIAN);
+  // kazılan tünele su akar
+  const c2 = 12, r2 = GROUND_ROW + 40; for (let y = r2 - 1; y <= r2 + 6; y++) for (let x = c2 - 1; x <= c2 + 1; x++) setTile(x, y, T.STONE);
+  setTile(c2, r2, T.AIR); G.lq[r2 * COLS + c2] = 8; G.lk[r2 * COLS + c2] = 0; for (let y = r2 + 1; y <= r2 + 5; y++) setTile(c2, y, T.AIR); run(1);
+  ok('su tünelden aşağı akar', G.lq[(r2 + 5) * COLS + c2] > 0 && G.lq[r2 * COLS + c2] === 0);
+  // oyuncu: lavda yanar, suda yavaşlar
+  const p = G.player; p.x = p.px = c2 * TILE + 8; p.y = p.py = (r2 + 5) * TILE + 8; step(); ok('suda yavaşlar', p.wet && playerSpeed(p) < 60);
+  const j = (r2 + 5) * COLS + c2; G.lq[j] = 8; G.lk[j] = 1; const hp = p.hp; p.iframes = 0; run(0.5); ok('lavda yanar', p.hp < hp);
+  const snap = serialize(); const tot = sum(0); deserialize(snap); ok('sıvılar kayıtta', Math.abs(sum(0) - tot) <= 8);
+}
+
 section('Sandık türleri ve kalıntılar');
 {
   const { CHESTS, chestWeights, PERKS: PK } = await import('../src/data/balance.js');
@@ -804,7 +897,7 @@ section('Yeni biyomlar (20-29)');
   const { STRATA: SB } = await import('../src/data/palette.js');
   const { tideLevel, inWater } = await import('../src/game/biomes.js');
   const { RELIC_KEYS: RK, BOSS_BANDS: BB } = await import('../src/data/balance.js');
-  ok('30 biyom tanımlı', SB.length === 30 && STRATA_COUNT === 30);
+  ok('31 biyom tanımlı', SB.length === 31 && STRATA_COUNT === 31);
   { const g = generate(11, {}); let rel = 0; for (const tt of g.map) if (TD[tt] && TD[tt].relic) rel++; ok('her efsanevi eser haritada', rel === RK.length, `${rel}/${RK.length}`); }
   ok('yeni boss bantları', bossForY((GROUND_ROW + 21 * STRATUM_ROWS + 5) * TILE) === 'aynasiz' && bossForY((GROUND_ROW + 25 * STRATUM_ROWS + 5) * TILE) === 'kehribarAna' && bossForY((GROUND_ROW + 29 * STRATUM_ROWS + 5) * TILE) === 'madenKalbi');
   // bir biyomun satırında oyuncu + açık oda
@@ -867,6 +960,35 @@ section('Yeni biyomlar (20-29)');
     ok(`${ENEMIES[k].name}: öfkede yardım çağırır`, e.bs.phase === 2 && G.enemies.length > n0);
   }
   ok('boss bantları tam', BB.length === 8);
+}
+
+section('Balrog');
+{
+  const setup = seed => {
+    fresh(seed); const s = G.order.indexOf(LAVA_BIOME), r = GROUND_ROW + s * STRATUM_ROWS + 30, p = G.player;
+    for (let rr = r - 6; rr <= r; rr++) for (let c = 2; c <= 14; c++) setTile(c, rr, T.AIR);
+    G.lq.fill(0); G.springs = [];
+    p.x = p.px = 4 * TILE + 8; p.y = p.py = r * TILE + 8; p.iframes = 999; return p;
+  };
+  const p = setup(1601);
+  run(0.1);
+  ok('Kor biyomunun ortasında sis toplanır', G.balrog && G.balrog.st === 'dark');
+  run(4);
+  ok('sis sürerken Balrog henüz yok', !G.enemies.some(e => e.type === 'balrog'));
+  run(4);
+  const e = G.enemies.find(o => o.type === 'balrog');
+  ok('Balrog gölgeden çıkar', !!e && G.balrog.st === 'fight' && e.intro > 0);
+  const hp0 = e.hp; damageEnemy(e, 50); ok('alevlenirken hasar almaz', e.hp === hp0);
+  let threw = null; try { run(12); } catch (err) { threw = err; }
+  ok('Balrog 12 sn hatasız saldırır', !threw, threw && threw.stack.split('\n').slice(0, 2).join(' '));
+  ok('Balrog boss sayılır', G.threat.bossUp && G.threat.bossType === 'balrog');
+  killEnemy(e); run(3);
+  ok('öldükten sonra bir daha gelmez', G.balrog.st === 'done' && !G.enemies.some(o => o.type === 'balrog' && !o.dead));
+  const d = JSON.parse(JSON.stringify(serialize())); deserialize(d);
+  ok('Balrog yenilgisi kaydedilir', G.balrog && G.balrog.st === 'done');
+  setup(1602); run(8.2); const e2 = G.enemies.find(o => o.type === 'balrog');
+  e2.dead = true; e2.hp = 0; e2.dieT = 0.01; run(0.2);
+  ok('izini kaybedip çekilirse yeniden pusuya yatar', G.balrog.st === 'wait');
 }
 
 console.log(`\n${checks - fails}/${checks} kontrol geçti${fails ? `, ${fails} HATA` : ''}`);

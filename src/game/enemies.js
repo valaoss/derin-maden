@@ -30,14 +30,14 @@ const ENEMY_COL = { rodent: '#b07a4a', bug: '#5a9a5a', spitter: '#9a5ac0', flyer
   spider: '#6a4a8a', spiderling: '#8a6aaa', broodmother: '#5a2a6a', frostbat: '#9ad8ff', skitter: '#d0c0a0', magmite: '#ff7a3a', voidling: '#7a6aff', ogolem: '#4a3e68',
   quickling: '#c8d8e4', droplet: '#c8d8e4', voltbat: '#3a8aff', gilded: '#ffd870', sporeling: '#a8f070', mirrorling: '#d8f8ff', titanling: '#7a9a78', chronoling: '#ffd890', leech: '#c02a30', echoer: '#8a86b0', seraph: '#fff4e8', mimic: '#b07a42',
   korAvci: '#8a90a0', yilan: '#2a8ab0', orucu: '#d06070', kalkanli: '#c8d0ff', diriltici: '#ffb040', kene: '#a8604e', fare: '#9a9a50', tozbocek: '#c8c080', yumurtaci: '#7e9a50', isikYiyen: '#3a6aa8',
-  aynasiz: '#c8d0ff', kehribarAna: '#ffb040', madenKalbi: '#ff3a6a' };
+  aynasiz: '#c8d0ff', kehribarAna: '#ffb040', madenKalbi: '#ff3a6a', balrog: '#ff5a1a' };
 export { ENEMY_COL };
 
 // lv: uyanış seviyesi (0..4); can ve hasar doğduğu biyomun derinliğiyle ölçeklenir
 export function spawnEnemy(type, x, y, lv = 0) {
   const d = ENEMIES[type], st = Math.max(0, stratumOfRow(Math.floor(y / TILE)));
   let hp = d.hp * enemyHpMul(st, lv, d.boss) * (G.mods ? G.mods.hp : 1);
-  hp = d.boss ? Math.max(hp, ttkFloor(true)) : hp * directorHp(st);
+  hp = d.boss ? Math.max(hp, ttkFloor(true)) * (d.hpMul || 1) : hp * directorHp(st);
   const e = {
     type, d, x, y, px: x, py: y, hp, maxHp: hp, r: d.r, face: 1, anim: rnd() * 4,
     hitT: 0, kx: 0, ky: 0, atkCd: 0.6, fireCd: 1 + rnd(), emergeT: 0.9, wob: rnd() * 6,
@@ -45,7 +45,7 @@ export function spawnEnemy(type, x, y, lv = 0) {
     wind: 0, lunge: 0, dieT: 0, lastF: 0, vx: 0, vy: 0,
     blindCd: 2 + rnd() * 2, flashT: 0, tongue: 0, tongueCd: 1.5, tx: 0, ty: 0, howlCd: 2 + rnd() * 2, howlT: 0,
     burnT: 0, burnTick: 0, blinkCd: 1.5 + rnd() * 2, blinkT: 0, broodT: d.brood || 0, elite: false, scale: 1, dmgMul: ((G.mods && G.mods.dmg) || 1) * enemyDmgMul(st), breathe: rnd() * 6, lostT: 0,
-    zapCd: 1.5, puffT: d.puff || 0, mirrorCd: 0, quakeCd: 2.5, rewindCd: 3, judgeCd: 2.5, beamT: 0, beamP: -1, sack: 0, baseMax: hp, aff: null, shield: 0, shieldMax: 0, sinceHit: 9, spMul: 1,
+    zapCd: 1.5, puffT: d.puff || 0, mirrorCd: 0, quakeCd: 2.5, rewindCd: 8, judgeCd: 2.5, beamT: 0, beamP: -1, sack: 0, baseMax: hp, aff: null, shield: 0, shieldMax: 0, sinceHit: 9, spMul: 1,
   };
   G.enemies.push(e);
   return e;
@@ -89,7 +89,7 @@ export function losClear(x0, y0, x1, y1, ignoreBarricade = false) {
 }
 
 export function damageEnemy(e, dmg, dx = 0, dy = 0, knock = 1, silent = false) {
-  if (e.hp <= 0 || e.dead || e.emergeT > 0.3 || e.under) return;
+  if (e.hp <= 0 || e.dead || e.emergeT > 0.3 || e.under || e.intro > 0) return;
   const full = e.hp >= e.maxHp;
   let real = dmg * (1 - (e.d.armor || 0)) * (e.elite || e.d.boss ? 1 + pv('devAvcisi') : 1);
   // kalıntılar: yavaşlamışa Kırılgan, yanana Ateş rezonansı, tam canlıya Suikastçi
@@ -143,7 +143,7 @@ function nearLocal(e) { const l = G.player; return Math.hypot(l.x - e.x, l.y - e
 export function killEnemy(e) {
   if (e.dead) return;
   if (e.illusion) { e.hp = 0; e.dead = true; e.dieT = 0.2; sparks(e.x, e.y, '#d8f8ff', 8, 80); return; } // cam kopya: ganimet yok, sayılmaz
-  e.hp = 0; e.dead = true; e.dieT = e.d.boss ? 0.9 : 0.42;
+  e.hp = 0; e.dead = true; e.dieT = e.d.dieT || (e.d.boss ? 0.9 : 0.42);
   if (e.d.boss) markJourney('boss', e.x, e.y);
   e.dieDx = e.hitDx || 0; e.dieDy = e.hitDy || 0;
   const col = ENEMY_COL[e.type];
@@ -681,7 +681,7 @@ function updateSignature(e, dt, p, dp) {
   if (d.rewind && p && !p.dead) {
     e.rewindCd -= dt;
     if (e.rewindCd <= 0 && dp < d.rewindRange && losClear(e.x, e.y, p.x, p.y) && p.hist && p.hist.length >= 60) {
-      e.rewindCd = d.rewind; e.blinkT = 0.3; e.lunge = 1;
+      e.rewindCd = d.rewind + rnd() * 8; e.blinkT = 0.3; e.lunge = 1;
       const hx = p.hist[0], hy = p.hist[1];
       if (!solidAt(Math.floor(hx / TILE), Math.floor(hy / TILE)) && Math.hypot(hx - p.x, hy - p.y) > 12) {
         ring(p.x, p.y, '#ffd890', 26); sparks(p.x, p.y, '#ffd890', 10, 80);

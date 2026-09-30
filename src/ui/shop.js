@@ -7,8 +7,9 @@ import { PERKS, SOY, SOY_KEYS, RESONANCE, perkDesc, maxLv } from '../data/relics
 import { offerInfo, ROMAN } from '../game/chests.js';
 import { gunDps } from '../game/power.js';
 import { dispatch, CMD } from '../game/commands.js';
+import { goodInfo } from '../game/merchant.js';
 
-export const SHOP_TABS = [['pick', 'KAZMA'], ['mods', 'SİLAH'], ['up', 'DONANIM'], ['craft', 'KEMER']];
+export const SHOP_TABS = [['pick', 'KAZMA'], ['mods', 'SİLAH'], ['up', 'DONANIM'], ['craft', 'KEMER'], ['merch', 'TÜCCAR']];
 const sel = {};
 let lastStats = null;
 
@@ -26,7 +27,8 @@ const masterSeen = k => G.lvl[k] || G.store[masterOre(k)] > 0 || G.player.bag[ma
 
 // sekme başına alınabilir iş sayısı (rozet)
 export function tabCounts() {
-  const n = { pick: 0, mods: 0, up: 0, craft: 0 };
+  const n = { pick: 0, mods: 0, up: 0, craft: 0, merch: 0 };
+  if (G.merchant) for (const g of G.merchant.goods) n.merch += !g.sold && (G.store.gold | 0) >= g.cost;
   for (const k of ['drill', 'sharp', 'swing']) n.pick += upOk(k);
   for (const k of PICK_TYPE_KEYS) n.pick += !G.gear.pOwn.includes(k) && !!PICK_TYPES[k].cost && canAfford(PICK_TYPES[k].cost);
   n.mods += upOk('blaster');
@@ -91,7 +93,21 @@ export function renderShop(body, tab, justKey, x) {
   };
 
   let h = '';
-  if (tab === 'pick') {
+  if (tab === 'merch') {
+    const M = G.merchant;
+    if (!M) h += '<div class="note">Tüccar gitti. Arada yine uğrar.</div>';
+    else {
+      h += `<div class="sec">GEZGİN TÜCCAR · ${Math.ceil(M.t)} SN SONRA GİDER</div>`;
+      M.goods.forEach((g, i) => {
+        const d = goodInfo(g), info = g.k === 'perk' ? offerInfo(g.id) : null;
+        const tag = g.k === 'perk' ? info.tag : g.k === 'item' ? 'EŞYA · KEMERİ DOLDURUR' : 'EKLENTİ';
+        const desc = info ? info.desc : d.desc;
+        const btn = g.sold ? '<span class="maxb">SATILDI</span>' : `<button class="btn buy" ${(G.store.gold | 0) >= g.cost ? '' : 'disabled'}>${ic('gold', 's')}${g.cost}</button>`;
+        h += `<div class="plate row merch ${g.sold ? 'max' : ''} ${justKey === 'm' + i ? 'just' : ''}" data-merch="${i}"${info ? ` style="--c:${info.col}"` : ''}>${ic(d.icon, 'l')}<div class="main"><div class="name">${d.name} <span class="have"${info ? ` style="color:${info.col}"` : ''}>${tag}</span></div><div class="eff">${desc}</div></div>${btn}</div>`;
+      });
+      h += '<div class="note">Mallar altınla alınır; her mal bir kez satılır.</div>';
+    }
+  } else if (tab === 'pick') {
     h += track('drill', `<img class="sw" src="${pickIconURL(G.lvl.drill)}" alt="">`) + track('sharp') + track('swing');
     h += '<div class="sec">KAZMA TÜRÜ · HER MADENCİ KENDİNİ SEÇER</div>';
     h += grid('pt', gearTiles('p', PICK_TYPE_KEYS, PICK_TYPES), gearDet('p', PICK_TYPES));
@@ -163,5 +179,6 @@ function bind(body, x) {
   q('[data-mod] .buy', b => { const k = b.closest('[data-mod]').dataset.mod; if (dispatch({ t: CMD.MODEQ, k })) after(k); });
   q('[data-gear] .buy', b => { const [g, k] = b.closest('[data-gear]').dataset.gear.split(':'); if (dispatch({ t: CMD.GEAR, g, k })) after(k); });
   q('[data-lvup] .buy', b => { const [g, k] = b.closest('[data-lvup]').dataset.lvup.split(':'); if (dispatch({ t: CMD.LVUP, g, k })) after(g + k); });
+  q('[data-merch] .buy', b => { const i = +b.closest('[data-merch]').dataset.merch; if (dispatch({ t: CMD.MERCH, i })) after('m' + i, true); });
   q('[data-craft] .buy', b => { const k = b.closest('[data-craft]').dataset.craft; if (dispatch({ t: CMD.CRAFT, k })) after(k); });
 }

@@ -286,6 +286,10 @@ export const sfx = {
     if (!ok('frost', 0.1)) return;
     tone(ctx.currentTime, 0.08, { type: 'triangle', f: vary(2200, 0.04), f2: 1500, gain: 0.05 });
   },
+  drum() { if (!ok('drum', 0.3)) return; const t = ctx.currentTime; tone(t, 0.55, { type: 'sine', f: 78, f2: 38, gain: 0.4, a: 0.005 }); noise(t, 0.35, { type: 'lowpass', f: 160, gain: 0.3 }); tone(t + 0.16, 0.4, { type: 'sine', f: 62, f2: 34, gain: 0.22 }); },
+  growl() { if (!ok('growl', 1)) return; const t = ctx.currentTime; tone(t, 1.6, { type: 'sawtooth', f: 58, f2: 44, gain: 0.07, a: 0.4 }); noise(t, 1.5, { type: 'bandpass', f: 220, f2: 140, q: 3, gain: 0.12, a: 0.4 }); },
+  roar() { if (!ok('roar', 0.8)) return; const t = ctx.currentTime; tone(t, 1.3, { type: 'sawtooth', f: 120, f2: 48, gain: 0.13, a: 0.06 }); tone(t, 1.2, { type: 'square', f: 82, f2: 40, gain: 0.06, a: 0.08 }); noise(t, 1.3, { type: 'bandpass', f: 520, f2: 160, q: 1.2, gain: 0.3, a: 0.05 }); noise(t, 0.9, { type: 'lowpass', f: 180, gain: 0.35, a: 0.03 }); },
+  whip() { if (!ok('whip', 0.12)) return; const t = ctx.currentTime; noise(t, 0.07, { type: 'highpass', f: 3200, gain: 0.22 }); tone(t, 0.06, { type: 'square', f: 2200, f2: 380, gain: 0.05 }); noise(t + 0.02, 0.2, { type: 'bandpass', f: 900, q: 0.7, gain: 0.1 }); },
   flame() { if (!ok('flame', 0.12)) return; noise(ctx.currentTime, 0.14, { type: 'bandpass', f: vary(900), q: 0.7, gain: 0.08 }); },
   mortar() {
     if (!ok('mortar', 0.3)) return;

@@ -20,7 +20,7 @@ for (const k in ORE_RAMP) ramp('o_' + k, ORE_RAMP[k]);
 ramp('grass', [P.ink, P.grass0, P.grass1, P.grass2]);
 const MAT_SEED = { dirt: 11, stone: 23, hard: 37, dense: 53, bedrock: 71, found: 83, vault: 97, moss: 101, ice: 113, bone: 127, magma: 131, obsidian: 139, void: 149,
   quick: 151, storm: 157, gilt: 163, gate: 167, fungus: 173, glass: 179, titan: 181, chrono: 191, blood: 193, echo: 197, genesis: 199,
-  mute: 211, tide: 223, flesh: 227, mirror: 229, amber: 233, magnet: 239, hunger: 241, rootwood: 251, sea: 257, zero: 263 };
+  mute: 211, tide: 223, flesh: 227, mirror: 229, amber: 233, magnet: 239, hunger: 241, rootwood: 251, sea: 257, zero: 263, falls: 269 };
 const gemCache = new Map();
 function gemRamp(gem) { let r = gemCache.get(gem); if (!r) { r = gem.map(hexToRgb); gemCache.set(gem, r); } return r; }
 
@@ -229,6 +229,14 @@ function baseShade(mat, wx, wy, s) {
       if (Math.abs(v - 0.5) < 0.03) return 1;
       if (h < 0.03) return 4;
       return m > 0.6 || m < 0.35 ? 3 : 2;
+    }
+    case 'falls': {
+      // ıslak kayağan: dikey su izleri, arada yosun lekesi
+      const st = vnoise(wx / 2.5, wy / 16, s + 5);
+      if (st > 0.72) return 3;
+      if (st < 0.22) return 1;
+      if (vnoise(wx / 5, wy / 5, s + 9) > 0.7 && h < 0.5) return 4;
+      return n > 0.6 ? 3 : 2;
     }
     case 'mute': {
       // sağır taş: yumuşak gri keçe, yatay sessiz çizgiler

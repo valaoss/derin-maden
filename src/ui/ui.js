@@ -1,4 +1,8 @@
 // DOM arayüzü: HUD, atölye, perk seçimi, menüler, bildirimler, öğretici.
+import { CRITTERS, CRITTER_KEYS } from '../data/critters.js';
+import { critterURL } from '../render/critters.js';
+import { nearWell, wellCost } from '../game/well.js';
+import { lakeAt } from '../game/wonders.js';
 import { TILE, GROUND_Y, stratumOfRow, STRATUM_ROWS } from '../config.js';
 import { UPGRADES, UPGRADE_KEYS, PICK_KEYS, MODS, MOD_KEYS, BUILDS, BUILD_KEYS, PERKS, META, META_KEYS, RES_KEYS, ENEMIES, ITEMS, ITEM_KEYS, CONTRACTS, RES, BASE_RES, MASTER_KEYS, KADEME, DEPLOY_MAX, ROLES, ROLE_KEYS, EVENTS, RELICS, RELIC_KEYS, WEAPONS, WEAPON_KEYS, PICK_TYPES, PICK_TYPE_KEYS } from '../data/balance.js';
 import { STRATA } from '../data/palette.js';
@@ -57,6 +61,8 @@ export function initUI(root, h) {
   <div id="coach"><div class="hand" style="background-image:url(${iconURL('hand')})"></div><div class="plate msg"></div></div>
   <div id="banner"><div class="k"></div><div class="n"></div><div class="rule"></div></div>
   <button class="btn hide" id="workshopBtn">${ic('drill', 'l')}<span>ATÖLYE</span><span class="badge"></span></button>
+  <button class="btn hide" id="fishBtn">${ic('fish', 'l')}<span>OLTA · <b id="fishC"></b></span></button>
+  <button class="btn hide" id="wellBtn">${ic('gold', 'l')}<span>KUYU · <b id="wellC"></b></span></button>
   <button class="btn hide" id="elevBtn">${ic('base', 'l')}<span>ASANSÖR</span></button>
   <div id="belt"></div>
   <button class="btn dark" id="chatBtn" aria-label="Hızlı mesaj">${ic('hand', 'l')}</button>
@@ -84,6 +90,40 @@ export function initUI(root, h) {
   tap($('#chatBtn'), toggleChat);
   tap($('#workshopBtn'), openSheet);
   tap($('#elevBtn'), showElevPop);
+  tap($('#wellBtn'), () => { if (!dispatch({ t: CMD.WISH })) sfx.deny(); });
+  tap($('#fishBtn'), () => { if (!dispatch({ t: CMD.FISH })) sfx.deny(); });
+  on('critter', d => {
+    const C = CRITTERS[d.k];
+    if (d.pi !== G.localIdx) { toast('Partnerin bir yoldaş buldu: ' + C.name, 'heart'); return; }
+    const m = App.meta, fresh = !(m.pets || []).includes(d.k);
+    if (fresh) { m.pets = (m.pets || []).concat(d.k); m.pet = d.k; saveMeta(m); }
+    banner(fresh ? 'YENİ YOLDAŞ' : 'YOLDAŞ', C.name, 'gold'); sfx.buy();
+    setTimeout(() => toast(C.lore, 'heart'), 2400);
+  });
+  on('wishThrow', d => { if (d.pi === G.localIdx) sfx.click(); });
+  on('wishDone', d => {
+    if (d.pi !== G.localIdx) return;
+    const g = d.got; sfx.buy();
+    if (g.k === 'res' || g.k === 'gold') toast(`Kuyu: +${g.n} ${RES[g.k === 'gold' ? 'gold' : g.id].label}`, g.k === 'gold' ? 'gold' : g.id);
+    else if (g.k === 'item') toast('Kuyu: ' + ITEMS[g.id].name, ITEMS[g.id].icon);
+    else if (g.k === 'heal') toast('Kuyu: can doldu, hızlandın!', 'heart');
+    else toast('Kuyu: bir sandık çıkardı!', 'chest');
+  });
+  const SHROOM_TXT = { mini: ['Küçüldün!', 'Hızlısın, zor vurulursun'], dev: ['Devleştin!', 'Kazman çok daha güçlü'], hiz: ['Hızlandın!', 'Rüzgâr gibisin'], zehir: ['Zehirli mantar!', 'Birkaç saniye can kaybı'] };
+  on('shroomEat', d => { if (d.pi === G.localIdx) sfx.click(); });
+  on('shroom', d => { if (d.pi !== G.localIdx) return; const [a, b] = SHROOM_TXT[d.k]; toast(`Mantar: ${a} ${b}`, d.k === 'zehir' ? 'skull' : 'spark', d.k === 'zehir'); if (d.k === 'zehir') sfx.cough(); else sfx.heal(); });
+  on('shroomEnd', d => { if (d.pi === G.localIdx && d.k !== 'zehir') toast('Mantarın etkisi geçti', 'spark'); });
+  on('fishCast', d => { if (d.pi === G.localIdx) sfx.click(); });
+  on('fishDone', d => {
+    if (d.pi !== G.localIdx) return;
+    const g = d.got; sfx.buy();
+    if (g.k === 'res' || g.k === 'gold') toast(`Olta: +${g.n} ${RES[g.k === 'gold' ? 'gold' : g.id].label}`, g.k === 'gold' ? 'gold' : g.id);
+    else if (g.k === 'item') toast('Olta: ' + ITEMS[g.id].name, ITEMS[g.id].icon);
+    else if (g.k === 'heal') toast('Olta: şifalı balık, can doldu', 'heart');
+    else toast('Olta: batık bir sandık çıktı!', 'chest');
+  });
+  on('merchant', on => { if (on) { banner('GEZGİN TÜCCAR', 'Kampa geldi', 'gold'); toast('Tüccar kampta: Atölye’de TÜCCAR sekmesi', 'gold'); } else { toast('Tüccar kamptan ayrıldı', 'gold'); if (sheetOpen()) refreshSheet(); } });
+  on('merchantSoon', () => toast('Tüccar 20 sn içinde gidiyor', 'gold'));
   on('station', s => toast('Asansör istasyonu açıldı: ' + STRATA[biomeOf(s)].name, 'base'));
   on('elevator', d => { if (d.pi === G.localIdx) hidePop(); else toast('Partner asansöre bindi', 'base'); });
   tap($('#sheetClose'), closeSheet);
@@ -124,6 +164,7 @@ export function initUI(root, h) {
   on('hordeDone', () => toast('Dalga bitti · kısa bir nefes arası', 'wave'));
   on('bossWarn', k => banner((ENEMIES[k] ? up(ENEMIES[k].name) : 'BİR ŞEY') + ' UYANIYOR', 'HEMEN SUS YA DA KAÇ', true));
   on('bossSpawn', k => { const B = ENEMIES[k]; if (B && once(k)) setTimeout(() => toast(B.lore, 'skull', true), 2600); });
+  on('balrog', k => { if (k === 'dark') toast('Derinden davul sesleri geliyor… ışık sönüyor', 'skull', true); else if (k === 'eyes') toast('Gölgede bir şey sana bakıyor', 'skull', true); });
   on('bossPhase', k => { const B = ENEMIES[k]; if (B) banner(up(B.name), 'ÖFKELENDİ', true); });
   on('event', d => { const e = EVENTS[d.k]; if (!e) return; if (d.phase === 'warn') banner(e.name, e.sub, e.good ? 'gold' : true); else if (d.k === 'karanlik') toast('Fenerin kısıldı · ' + e.t + ' sn', 'lamp', true); });
   on('ping', d => { if (!G.mp) return; const p = G.players[d.pi]; if (d.pi !== G.localIdx) { toast((p && p.name || 'Partner') + ' işaret bıraktı', 'hand'); sfx.ping(); } else sfx.click(); });
@@ -267,9 +308,13 @@ export function refreshHUD(force = false) {
 
   // atölye butonu
   const surf = p.y < GROUND_Y && !p.dead && !(G.tutorial && G.tutorial.step < 3);
-  const any = anyAffordable();
+  const any = anyAffordable() || !!(G.merchant && G.merchant.goods.some(g => !g.sold && (G.store.gold | 0) >= g.cost));
   set(0, 'ws', surf, v => $('#workshopBtn').classList.toggle('hide', !v));
   const elev = !p.dead && !p.ride && atShaft(p) && destinations(p).length > 0;
+  const wl = nearWell(p) && !(G.tutorial) ? wellCost() + (G.wish ? 'w' : '') + ((G.store.gold | 0) >= wellCost() ? '' : 'x') : '';
+  set(0, 'well', wl, v => { const b = $('#wellBtn'); b.classList.toggle('hide', !v); if (v) { $('#wellC').textContent = wellCost(); b.disabled = !!G.wish || (G.store.gold | 0) < wellCost(); } });
+  const li = G.tutorial ? -1 : lakeAt(p), fish = li >= 0 ? G.lakes[li].fish + (p.fish ? 'f' : '') : '';
+  set(0, 'fish', fish, v => { const b = $('#fishBtn'); b.classList.toggle('hide', !v); if (v) { $('#fishC').textContent = G.lakes[li].fish; b.disabled = !!p.fish; } });
   set(0, 'elev', elev, v => { $('#elevBtn').classList.toggle('hide', !v); if (!v) hidePop(); });
   set(0, 'wsb', any, v => $('#workshopBtn').classList.toggle('has', v));
   // eşya kemeri: sadece elindeki eşyalar; kullanılamayan soluk
@@ -360,8 +405,10 @@ export function tutorialTick(dt) {
 }
 
 // ---------------- atölye ----------------
+let merchSeen = null;
 function openSheet() {
   if (G.player.y >= GROUND_Y) return;
+  if (G.merchant && merchSeen !== G.merchant) { merchSeen = G.merchant; sheetTab = 'merch'; }
   hooks.pause(false, true);
   cancelStick();
   refreshSheet();
@@ -386,6 +433,8 @@ function refreshSheet(justKey) {
   $('#sheetStore').innerHTML = RES_KEYS.filter(k => BASE_RES.includes(k) || G.store[k] > 0).map(k => `<span class="chip">${ic(k, 's')}<span>${G.store[k]}</span></span>`).join('');
   $('#sheetStats').innerHTML = statsHTML(ic);
   const n = tabCounts();
+  if (sheetTab === 'merch' && !G.merchant) sheetTab = 'pick';
+  $('#sheet .tab[data-tab="merch"]').classList.toggle('hide', !G.merchant);
   document.querySelectorAll('#sheet .tab').forEach(t => { t.classList.toggle('on', t.dataset.tab === sheetTab); t.querySelector('.cnt').textContent = n[t.dataset.tab] || ''; });
   renderShop($('#sheetBody'), sheetTab, justKey, {
     ic, tap, pickIconURL, contractsHTML,
@@ -692,6 +741,9 @@ export function showCamp(back) {
       ${META_KEYS.map(k => { const d = META[k], l = m.lv[k] | 0, max = l >= d.max, c = d.costs[l];
         return `<div class="plate row ${max ? 'max' : ''}" data-k="${k}">${ic(d.icon, 'l')}<div class="main"><div class="name">${d.name} ${pips(l, d.max)}</div><div class="eff">${d.desc}</div></div>
           <button class="btn buy" ${!max && m.oz >= c ? '' : 'disabled'}>${ic('oz', 's')}${max ? '' : c}</button></div>`; }).join('')}
+      <div class="sec">YOLDAŞLAR · ${(m.pets || []).length}/${CRITTER_KEYS.length} · SEÇ, SEFERDE YANINDA GEZSİN</div>
+      <div class="pets">${CRITTER_KEYS.map(k => { const own = (m.pets || []).includes(k), C = CRITTERS[k];
+        return `<button class="pet ${own ? 'own' : ''} ${m.pet === k ? 'on' : ''}" data-pet="${k}" ${own ? '' : 'disabled'}><img src="${critterURL(k, !own)}" alt=""><span>${own ? C.name : '~' + (C.min * STRATUM_ROWS) + 'm'}</span></button>`; }).join('')}</div>
       <div class="sec">EFSANEVİ ESERLER · ${(m.relics || []).length}/${RELIC_KEYS.length}</div>
       ${RELIC_KEYS.map(k => { const d = RELICS[k], own = (m.relics || []).includes(k);
         return `<div class="plate row ${own ? 'relicrow' : 'locked'}">${ic(own ? d.icon : 'schematic', 'l')}<div class="main"><div class="name">${own ? d.name : '???'}</div><div class="eff">${own ? d.desc : d.lore}</div></div></div>`; }).join('')}
@@ -703,6 +755,7 @@ export function showCamp(back) {
       m.oz -= d.costs[l]; m.lv[k] = l + 1; saveMeta(m); sfx.buy(); render();
       s.querySelector(`[data-k="${k}"]`).classList.add('just');
     }));
+    s.querySelectorAll('.pet.own').forEach(b => tap(b, () => { const k = b.dataset.pet; m.pet = m.pet === k ? null : k; saveMeta(m); sfx.click(); render(); }));
     tap($('#cBack'), () => { s.classList.remove('on'); back(); });
   };
   hideScreens(); render(); s.classList.add('on');

@@ -50,6 +50,7 @@ export const MAT_RAMP = {
   // v6 biyomlar
   mute:     ['#0c0c10', '#22242c', '#383c48', '#545a6a', '#8a90a0'],
   tide:     ['#041014', '#0c2a34', '#16444e', '#2a6a74', '#5aa8b0'],
+  falls:    ['#081210', '#142a26', '#20443a', '#346652', '#62a086'],
   flesh:    ['#140406', '#3a0e16', '#5e1a26', '#8a2e3a', '#d06070'],
   mirror:   ['#0e0e16', '#2e3040', '#50546a', '#8a90aa', '#e0e8ff'],
   amber:    ['#140a02', '#3e2008', '#6a3a10', '#a8641c', '#ffb040'],
@@ -86,6 +87,7 @@ export const WALL_RAMP = {
   genesis:  ['#0a0808', '#1a1416', '#262022', '#342c30'],
   mute:     ['#060608', '#0c0d10', '#121418', '#181b20'],
   tide:     ['#02080a', '#061216', '#0a1a20', '#0e222a'],
+  falls:    ['#030a08', '#07140f', '#0b1c16', '#0f261e'],
   flesh:    ['#0a0204', '#140408', '#1e080c', '#280c12'],
   mirror:   ['#06060a', '#0c0c14', '#12121e', '#181a28'],
   amber:    ['#0a0501', '#140a03', '#1e1005', '#281608'],
@@ -154,4 +156,5 @@ export const STRATA = [
   { name: 'Kök Tahtı',         short: 'TAHT',     dark: [4, 10, 5],   decor: 'root',   fx: 'spore', tint: 'rgba(90,200,90,0.06)', sig: 'yumurtaci', legend: true, desc: 'Dünya ağacının kökü. Yumurtaları 8 sn içinde kır.' },
   { name: 'Sessiz Deniz',      short: 'DENİZ',    dark: [1, 2, 6],    decor: 'lumen',  fx: 'star',  tint: 'rgba(20,40,120,0.08)', sig: 'isikYiyen', sea: true, desc: 'Burada ölçer sönmez, durmadan dolar. Hızlı ol.' },
   { name: 'Sıfır Noktası',     short: 'SIFIR',    dark: [10, 10, 10], decor: 'halo',   fx: 'halo',  tint: 'rgba(255,255,255,0.04)', sig: ['korAvci', 'kalkanli', 'diriltici', 'kene', 'yumurtaci', 'isikYiyen'], legend: true, desc: 'Her şeyin başladığı yer. Kalp burada.' },
+  { name: 'Şelale Mağarası',   short: 'ŞELALE',   dark: [3, 9, 10],   decor: 'fern',   fx: 'mist',  tint: 'rgba(90,210,220,0.05)', sig: 'frostbat', falls: true, desc: 'Yeraltı şelaleleri çağlar. Su kazdığın tünellere akar; lavla buluşunca obsidyene döner.' },
 ];

@@ -29,12 +29,11 @@ export function openStation(s) {
   return true;
 }
 
-// şaftta mı: kampta şaft hizasında ya da açılmış şaftın içinde
+// binilebilir mi: yalnız kampta ya da bir istasyon platformunda, şaft hizasında (halatın ortasında olmaz)
 export function atShaft(p) {
-  if (Math.abs(p.x - SHAFT_X) > ELEVATOR.snap) return false;
-  if (p.y < GROUND_Y) return G.stations.length > 0;
-  if (!G.stations.length) return false;
-  return Math.floor(p.y / TILE) <= stationRow(G.stations[G.stations.length - 1]) + 1;
+  if (Math.abs(p.x - SHAFT_X) > ELEVATOR.snap || !G.stations.length) return false;
+  if (p.y < GROUND_Y) return true;
+  return G.stations.some(s => Math.abs(stationY(s) - p.y) <= ELEVATOR.stop);
 }
 // hedefler: -1 kamp, sonra istasyonlar; bulunduğun kat hariç
 export function destinations(p) {
@@ -49,17 +48,27 @@ export function callElevator(p, to) {
   if (to !== -1 && !G.stations.includes(to)) return false;
   const y = stationY(to);
   if (Math.abs(y - p.y) <= 6) return false;
-  p.ride = { y, to, t: 0, d0: Math.abs(y - p.y) }; p.dig = null; p.x = SHAFT_X;
+  // binme: kabine yürü, kolu indir (kısa), sonra yola çık
+  p.ride = { y, to, t: 0, d0: Math.abs(y - p.y), board: ELEVATOR.walk + ELEVATOR.lever, x0: p.x }; p.dig = null;
   addNoise(ELEVATOR.noise, p.x, p.y);
-  if (hear(p)) sfx.build();
-  if (isLocal(p)) haptic(15);
-  sparks(p.x, p.y - 10, '#ffe79a', 4, 40);
   emit('elevator', { pi: p.i, to });
   return true;
 }
 
 export function updateRide(p, dt) {
-  const rd = p.ride; rd.t += dt;
+  const rd = p.ride;
+  p.iframes = Math.max(p.iframes, 0.2); p.dig = null;
+  if (rd.board > 0) {
+    const was = rd.board; rd.board -= dt;
+    const walk = rd.board > ELEVATOR.lever;
+    if (walk) { p.moving = true; p.walkT += dt * 10; if (SHAFT_X !== rd.x0) p.face = Math.sign(SHAFT_X - rd.x0); }
+    else p.moving = false;
+    p.x = walk ? SHAFT_X + (rd.x0 - SHAFT_X) * (rd.board - ELEVATOR.lever) / ELEVATOR.walk : SHAFT_X;
+    if (was > ELEVATOR.lever && rd.board <= ELEVATOR.lever && hear(p)) sfx.click();
+    if (rd.board <= 0) { if (hear(p)) sfx.build(); if (isLocal(p)) haptic(15); sparks(p.x, p.y - 10, '#ffe79a', 4, 40); }
+    return;
+  }
+  rd.t += dt;
   // uzun yolculukta kabin hızlanır: yol uzadıkça artar, 4 biyom ve üstünde 4 kat
   const sp = ELEVATOR.speed * (1 + Math.min(ELEVATOR.far, (rd.d0 || 0) / (STRATUM_ROWS * TILE * ELEVATOR.farRows))) * (p.carrying ? 0.6 : 1);
   const dy = rd.y - p.y;

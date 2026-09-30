@@ -1260,6 +1260,9 @@ const ICONS = {
   chain: [
     '..........', '.kkkk.....', 'kmMMmk....', 'kMkkkkkk..', 'kmMkmMMmk.',
     '.kkkMkkMk.', '...kmMMmkk', '....kkkkMk', '......kmMk', '.......kk.'],
+  fish: [
+    '..........', '...kkkk.kk', '..kOOOOkOk', '.kZkOOOOOk', '.kkkOOOkOk',
+    '..kOOOOk.k', '...kFFk...', '....kk....', '..........', '..........'],
   gem: [
     '....k.....', '...kWk.k..', '...kCkkCk.', '..kkCVkkCk', '.kWkVVVkVk',
     '.kCVVVkkk.', '.kVVVkk...', '..kVkk....', '...kk.....', '..........'],

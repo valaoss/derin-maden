@@ -3,7 +3,7 @@
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y, GROUND_ROW, PLAYER_MIN_Y, WORLD_W, BASE_X, BASE_Y, stratumOfRow, depthOfY } from '../config.js';
 import { T, TD, isMineable, isPlain } from '../data/tiles.js';
-import { PLAYER, UPGRADES, PERKS, RES_KEYS, PICK_TIERS, RELIC_OF_BIOME, DEEP_ORES, DIG_DEPTH, ADREN, KEHRIBAR } from '../data/balance.js';
+import { PLAYER, UPGRADES, PERKS, RES_KEYS, PICK_TIERS, RELIC_OF_BIOME, DEEP_ORES, DIG_DEPTH, ADREN, KEHRIBAR, SHROOM, LIQUID } from '../data/balance.js';
 import { RES_COL } from '../data/palette.js';
 import { G, App, biomeOf } from './state.js';
 import { tileAt, solidAt, setTile, damageTile, matOf } from '../world/map.js';
@@ -65,7 +65,7 @@ function laneOpen(p, dx, dy) {
 }
 
 export function playerSpeed(p) {
-  return PLAYER.speed * (1 + pv('simsekAdim')) * (hasPerk('adrenPompa') && p.hp < p.maxHp * 0.5 ? 1.25 : 1) * (p.adrenT > 0 ? ADREN.speed : 1) * (p.carrying ? 0.85 : 1) * (p.fearT > 0 ? 0.6 : 1) * (p.slowT > 0 ? 0.55 : 1) * (p.webT > 0 ? 0.35 : 1) * (p.hasteT > 0 ? 1.45 : 1) * (inWater(p.x, p.y) ? 0.6 : 1);
+  return PLAYER.speed * (1 + pv('simsekAdim')) * (hasPerk('adrenPompa') && p.hp < p.maxHp * 0.5 ? 1.25 : 1) * (p.adrenT > 0 ? ADREN.speed : 1) * (p.carrying ? 0.85 : 1) * (p.fearT > 0 ? 0.6 : 1) * (p.slowT > 0 ? 0.55 : 1) * (p.webT > 0 ? 0.35 : 1) * (p.hasteT > 0 ? 1.45 : 1) * (inWater(p.x, p.y) ? 0.6 : p.wet ? LIQUID.wetSpd : 1) * (p.shroom ? p.shroom.k === 'mini' ? SHROOM.miniSpd : p.shroom.k === 'dev' ? SHROOM.bigSpd : 1 : 1);
 }
 
 export function alivePlayers() { return G.players.filter(p => !p.dead); }
@@ -521,6 +521,7 @@ export function damagePlayer(p, amount, sx, sy) {
     return;
   }
   if (G.lvl.elmasDeri) amount *= 0.75;
+  if (p.shroom && p.shroom.k === 'mini') amount *= SHROOM.miniDmg;
   // Aynalı Taç: hasarın yarısı en yakın saldırana yansır
   if (hasRelic('aynaTac')) { let best = null, bd = 40; for (const e of G.enemies) { if (e.dead || e.d.boss) continue; const d = Math.hypot(e.x - sx, e.y - sy); if (d < bd) { bd = d; best = e; } } if (best) { damageEnemyExt(best, amount * 0.5, 0, 0, 0.3); sparks(best.x, best.y, '#c8d0ff', 5, 60); } }
   amount *= 1 - pv('buzZirh');

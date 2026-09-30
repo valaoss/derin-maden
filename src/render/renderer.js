@@ -4,7 +4,18 @@ import { COLS, ROWS, TILE, GROUND_Y, GROUND_ROW, WORLD_W, WORLD_H, BASE_X, CENTE
 import { T, TD } from '../data/tiles.js';
 import { P, RES_COL, ORE_RAMP, STRATA, MAT_RAMP, TIDE_COL } from '../data/palette.js';
 import { tideLevel } from '../game/biomes.js';
-import { PICK_TIERS, AFFIX } from '../data/balance.js';
+import { PICK_TIERS, AFFIX, ELEVATOR, DEEP_ORES, MERCHANT } from '../data/balance.js';
+import { PERKS, SOY } from '../data/relics.js';
+import { WELL } from '../data/balance.js';
+import { WELL_X } from '../game/well.js';
+import { critterSprite, CW, CH } from './critters.js';
+import { drawWonders, drawWondersGlow, drawWondersFx } from './wonders.js';
+import { drawLiquids, drawLiquidGlow, liquidLights } from './liquids.js';
+import { drawAmbient } from './ambient.js';
+import { drawBalrog, drawBalrogGlow, drawBalrogDark, drawBalrogOmen, balrogLights } from './balrog.js';
+import { SHROOM } from '../data/balance.js';
+import { CRITTERS } from '../data/critters.js';
+import { on as onEvt } from '../core/events.js';
 import { G, biomeOf } from '../game/state.js';
 import { SPR, sprCanvas, sprEm, glowSprite, playerSprites, HELMETS } from './sprites.js';
 import { drawTiles, flushDirty } from './tiles.js';
@@ -42,6 +53,9 @@ export function updateCamera(dt, instant = false) {
   let ty = py - view.vh * 0.42;
   if (p.dig && p.digDir[1] > 0) ty += 18;
   else if (p.moving && p.dy > 0.5) ty += 10;
+  // Balrog yakınsa kadraj yukarı kayar: boyu ve boynuzları görünsün
+  const bal = G.enemies.find(e => e.type === 'balrog' && (!e.dead || e.dieT > 0));
+  if (bal && Math.abs(bal.y - py) < 100) ty = Math.min(ty, Math.min(py, bal.y) - view.vh * 0.62);
   ty = clamp(ty, minY, maxY);
   const tx = clamp(px - view.vw / 2, 0, Math.max(0, WORLD_W - view.vw));
   const cx = WORLD_W <= view.vw ? (WORLD_W - view.vw) / 2 : tx;
@@ -183,6 +197,7 @@ export function render(alpha, opts = {}) {
 
   const r0 = Math.max(0, Math.floor(camY / TILE) - 1), r1 = Math.min(ROWS - 1, Math.floor((camY + vh) / TILE) + 1);
   drawDecor(r0, r1);
+  drawAmbient(ctx, r0, r1);
   drawTileOverlays(r0, r1);
   drawTide(camY, vh);
   drawBeacons(r0, r1);
@@ -190,6 +205,9 @@ export function render(alpha, opts = {}) {
   // maden kulesi makarası: biri derindeyken döner
   if (G.players.some(p => !p.dead && p.y > GROUND_Y + 32)) wheelA += dtR * 4;
   drawBase();
+  drawShelf();
+  drawWell();
+  if (G.merchant) drawMerchant(G.merchant);
   for (const s of G.structures) drawStructure(s);
   for (const s of G.satchels) {
     if (s.echo) { ctx.globalAlpha = 0.55 + 0.35 * Math.sin(G.time * 4); ctx.strokeStyle = '#74efcf'; ctx.beginPath(); ctx.arc(s.x, s.y, 9 + Math.sin(G.time * 4) * 2, 0, Math.PI * 2); ctx.stroke(); }
@@ -205,7 +223,11 @@ export function render(alpha, opts = {}) {
     ctx.fillStyle = p.col; ctx.fillRect(Math.round(p.x), Math.round(p.y), p.size, p.size);
     ctx.globalAlpha = 1;
   }
+  drawLiquids(ctx, r0, r1);
+  drawWonders(ctx, r0, r1);
+  drawCritters(r0, r1);
   for (const e of G.enemies) drawEnemy(e, alpha, camY, vh);
+  if (!opts.hidePlayer) for (const p of G.players) drawPet(p, alpha);
   if (!opts.hidePlayer) for (const p of G.players) {
     if (pred.on && p === G.player) {
       // yerel madenci tahmin edilen konumda (lockstep gecikmesi gizlenir)
@@ -215,6 +237,7 @@ export function render(alpha, opts = {}) {
       p.px = ox; p.py = oy; p.x = x0; p.y = y0;
     } else drawPlayer(p, alpha);
   }
+  drawWondersFx(ctx);
   if (!opts.hidePlayer && canary.on) drawCanary();
   ctx.restore();
 
@@ -223,6 +246,8 @@ export function render(alpha, opts = {}) {
   const src = lightSourcesFor(G, opts.hidePlayer ? 0 : lampTiles());
   glowTileSources(G, lr0, lr1, src);
   decorLights(lr0, lr1, src);
+  liquidLights(lr0, lr1, src);
+  balrogLights(src);
   computeLight(lr0, lr1, src, opts.hidePlayer ? 0.42 : 0.26);
   drawLight(camX, camY, dk);
   // biyom renk tonu (hafif)
@@ -232,6 +257,7 @@ export function render(alpha, opts = {}) {
     ctx.globalAlpha = SB.pulse ? 0.45 + 0.55 * Math.abs(Math.sin(G.time * 1.3)) : 1;
     ctx.fillStyle = tint; ctx.fillRect(0, 0, vw, vh); ctx.globalAlpha = 1;
   }
+  drawBalrogDark(ctx, camX, camY, vw, vh, alpha);
 
   // ---- ışık yayanlar ----
   ctx.save();
@@ -448,6 +474,13 @@ function drawDecor(r0, r1) {
       ctx.fillStyle = P.ink; ctx.fillRect(x - 2, ty, 5, 2); for (let i = 0; i < len; i++) ctx.fillRect(x - 1 + (i > len / 2 ? 0 : -0), ty + i, i > len * 0.6 ? 1 : 3, 1);
       ctx.fillStyle = '#5ab0cc'; ctx.fillRect(x - 1, ty, 3, 1); for (let i = 1; i < len - 1; i++) ctx.fillRect(x, ty + i, 1, 1);
       ctx.fillStyle = '#bff4ff'; ctx.fillRect(x - 1, ty + 1, 1, Math.max(1, len - 3));
+    } else if (k === 'fern') {
+      // eğrelti: ıslak yosunlu yapraklar, uçta damla
+      const sw = Math.round(Math.sin(G.time * 1.2 + c * 3) * 0.7);
+      ctx.fillStyle = '#2a6a3a'; ctx.fillRect(x, y - 6, 1, 6);
+      ctx.fillStyle = '#4ab060'; ctx.fillRect(x - 3 + sw, y - 5, 3, 1); ctx.fillRect(x + 1 + sw, y - 4, 3, 1); ctx.fillRect(x - 3, y - 3, 3, 1); ctx.fillRect(x + 1, y - 2, 3, 1);
+      ctx.fillStyle = '#8ae08a'; ctx.fillRect(x - 3 + sw, y - 5, 1, 1); ctx.fillRect(x + 3, y - 2, 1, 1);
+      if (Math.floor(G.time * 1.5 + c) % 4 === 0) { ctx.fillStyle = '#bfeaff'; ctx.fillRect(x + 3 + sw, y - 3, 1, 1); }
     } else if (k === 'bone') {
       // kaburga/kafatası: küçük kemik yığını
       ctx.fillStyle = P.ink; ctx.fillRect(x - 3, y - 4, 7, 4); ctx.fillRect(x + 4, y - 2, 3, 2);
@@ -641,6 +674,233 @@ function drawBase() {
   }
 }
 
+// kamp rafı: bu seferde bulunan derin cevherler (üst raf) ve kalıntılar (alt raf, soy renginde)
+const SHELF_X = BASE_X + 84;
+function drawShelf() {
+  const x = SHELF_X - 13, y = GROUND_Y - 22;
+  ctx.fillStyle = P.ink; ctx.fillRect(x - 1, y - 1, 28, 23);
+  ctx.fillStyle = '#4a2e1c'; ctx.fillRect(x, y, 26, 22);
+  ctx.fillStyle = P.wood;
+  for (const py of [y + 9, y + 19]) { ctx.fillStyle = P.ink; ctx.fillRect(x - 1, py, 28, 3); ctx.fillStyle = P.woodL; ctx.fillRect(x, py, 26, 1); }
+  let i = 0;
+  for (const k of DEEP_ORES) {
+    if (!(G.collected[k] > 0)) continue;
+    const cx = x + 2 + i * 3.4, c = RES_COL[k];
+    ctx.fillStyle = P.ink; ctx.fillRect(Math.round(cx) - 1, y + 3, 4, 6);
+    ctx.fillStyle = c; ctx.fillRect(Math.round(cx), y + 4, 2, 5);
+    ctx.fillStyle = '#fff'; ctx.fillRect(Math.round(cx), y + 4, 1, 1);
+    i++;
+  }
+  G.perks.slice(-8).forEach((k, j) => {
+    const d = PERKS[k], c = d.curse ? '#c040ff' : d.leg ? '#ffb050' : d.duo ? '#ffd24a' : d.soy ? SOY[d.soy].col : '#fff';
+    const cx = x + 2 + j * 3, cy = y + 14 + (j % 2);
+    ctx.fillStyle = P.ink; ctx.fillRect(cx - 1, cy - 1, 4, 5);
+    ctx.fillStyle = c; ctx.fillRect(cx, cy, 2, 3);
+  });
+  if (G.perks.length || i) glow(SHELF_X, y + 10, 'rgba(255,220,140,0.35)', 16, 0.25 + 0.1 * Math.sin(G.time * 2));
+}
+// garip yaratıklar: açığa çıkmış oyukta uyur (nefes alır, z harfleri); bulununca kalpler saçar
+const petFx = [];
+onEvt('critter', d => petFx.push({ x: d.x, y: d.y, t0: G.time }));
+function drawCritters(r0, r1) {
+  const t = G.time;
+  for (const cr of G.critters || []) {
+    if (cr.found || cr.r < r0 - 1 || cr.r > r1 + 1 || !G.rev[cr.r * COLS + cr.c]) continue;
+    const x = cr.c * TILE, y = cr.r * TILE + 3, br = Math.sin(t * 2 + cr.c) > 0.3 ? 1 : 0;
+    ctx.drawImage(critterSprite(cr.k, false, true), x, y - br, CW, CH + br);
+    const z = (t * 0.6 + cr.r * 0.37) % 1;
+    ctx.globalAlpha = 1 - z; ctx.fillStyle = '#dff6ff';
+    const zx = Math.round(x + 13 + z * 4), zy = Math.round(y - 2 - z * 8);
+    ctx.fillRect(zx, zy, 3, 1); ctx.fillRect(zx + 1, zy + 1, 1, 1); ctx.fillRect(zx, zy + 2, 3, 1);
+    ctx.globalAlpha = 1;
+  }
+  for (let i = petFx.length - 1; i >= 0; i--) {
+    const f = petFx[i], a = t - f.t0;
+    if (a > 1.4 || a < 0) { petFx.splice(i, 1); continue; }
+    ctx.globalAlpha = Math.min(1, (1.4 - a) * 2);
+    for (let k = 0; k < 6; k++) {
+      const ang = k * 1.047 + a, rr = 6 + a * 18, hx = Math.round(f.x + Math.cos(ang) * rr), hy = Math.round(f.y - 4 + Math.sin(ang) * rr * 0.6 - a * 10);
+      ctx.fillStyle = k % 2 ? '#f08aa0' : '#ffd0dc';
+      ctx.fillRect(hx, hy, 1, 1); ctx.fillRect(hx + 2, hy, 1, 1); ctx.fillRect(hx, hy + 1, 3, 1); ctx.fillRect(hx + 1, hy + 2, 1, 1);
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+// yoldaş: sahibinin arkasından seker, durunca oturur ve arada zıplar; asansörde yanında durur
+const petPos = new Map();
+function drawPet(p, alpha) {
+  if (!p.pet || !CRITTERS[p.pet]) return;
+  const px = lerp(p.px, p.x, alpha), py = lerp(p.py, p.y, alpha);
+  let q = petPos.get(p.i);
+  const tx = p.ride ? px + 4 : px - p.face * 12, ty = p.ride ? py + 1 : py + 1;
+  if (!q || Math.hypot(q.x - tx, q.y - ty) > 90) { q = { x: tx, y: ty, face: p.face, hopT: 0 }; petPos.set(p.i, q); }
+  const dt = 1 / 60, dx = tx - q.x, dy = ty - q.y;
+  q.x += dx * Math.min(1, dt * 6); q.y += dy * Math.min(1, dt * 8);
+  if (Math.abs(dx) > 1.5) q.face = dx > 0 ? 1 : -1;
+  const moving = Math.hypot(dx, dy) > 2;
+  const hop = moving ? Math.abs(Math.sin(G.time * 12)) * 3 : (G.time % 4 < 0.3 ? Math.sin((G.time % 4) / 0.3 * Math.PI) * 3 : 0);
+  const x = Math.round(q.x - CW / 2), y = Math.round(q.y + 7 - CH - hop);
+  shadow(q.x, q.y + 6, 8, 0.3);
+  ctx.drawImage(critterSprite(p.pet, q.face < 0), x, y);
+}
+
+// şans kuyusu: taş bilezik, kiremit çatı, sallanan kova, kenarda kurbağa.
+// Sikke atılınca dönerek uçar, suya düşer (halka + damlalar), kurbağa zıplar; ödül baloncukla kuyudan yükselir.
+let wishFx = null, frogHop = -9;
+onEvt('wishDone', d => { wishFx = { t0: G.time, got: d.got }; frogHop = G.time; });
+onEvt('wishThrow', () => { frogHop = -9; });
+const coinPx = (x, y, w) => { ctx.fillStyle = P.ink; ctx.fillRect(x - w - 1, y - 3, w * 2 + 2, 6); ctx.fillStyle = '#e0a020'; ctx.fillRect(x - w, y - 2, w * 2, 4); ctx.fillStyle = '#ffe79a'; ctx.fillRect(x - w, y - 2, Math.max(1, w), 1); };
+function rewardPx(g, x, y) {
+  const R = (c, px, py, w, h) => { ctx.fillStyle = c; ctx.fillRect(px, py, w, h); };
+  if (g.k === 'gold') { coinPx(x, y, 3); return; }
+  if (g.k === 'res') { const c = RES_COL[g.id] || '#fff'; R(P.ink, x - 3, y - 4, 7, 9); R(c, x - 2, y - 3, 5, 7); R('#fff', x - 1, y - 2, 1, 2); return; }
+  if (g.k === 'heal') { R(P.ink, x - 4, y - 3, 9, 6); R(P.ink, x - 3, y + 3, 7, 1); R(P.ink, x - 1, y + 4, 3, 1); R('#ec4a4a', x - 3, y - 2, 3, 4); R('#ec4a4a', x + 1, y - 2, 3, 4); R('#ec4a4a', x - 2, y + 2, 5, 1); R('#ffb0b0', x - 2, y - 1, 1, 1); return; }
+  if (g.k === 'chest') { R(P.ink, x - 5, y - 4, 11, 9); R('#a8701e', x - 4, y - 3, 9, 7); R('#ffd24a', x - 4, y - 1, 9, 1); R('#ffd24a', x, y - 1, 1, 3); return; }
+  R(P.ink, x - 4, y - 4, 9, 9); R('#8a9ab8', x - 3, y - 3, 7, 7); R('#dfe6f0', x - 3, y - 3, 7, 1); R('#5ae08a', x - 1, y - 1, 3, 3);
+}
+function drawWell() {
+  const R = (c, px, py, w, h) => { ctx.fillStyle = c; ctx.fillRect(px, py, w, h); };
+  const x = WELL_X, y = GROUND_Y, t = G.time, W = G.wish;
+  shadow(x, y, 20, 0.35);
+  // su ağzı + parıltı
+  R(P.ink, x - 9, y - 12, 18, 3); R('#1a3a6a', x - 8, y - 11, 16, 2);
+  const sh = Math.floor(t * 2) % 8; R('#6ab0f0', x - 6 + sh, y - 11, 2, 1);
+  // taş bilezik
+  R(P.ink, x - 9, y - 10, 18, 10);
+  const stones = [[-8, -9, 5], [-3, -9, 6], [3, -9, 5], [-8, -5, 3], [-5, -5, 6], [1, -5, 4], [5, -5, 3], [-8, -2, 5], [-3, -2, 5], [2, -2, 6]];
+  for (const [sx, sy, w] of stones) { R('#8a8a9a', x + sx, y + sy, w - 1, 3); R('#aaaabb', x + sx, y + sy, w - 1, 1); R('#5a5a6a', x + sx, y + sy + 2, w - 1, 1); }
+  R('#4a8a4a', x - 9, y - 1, 3, 1); R('#5aaa5a', x + 6, y - 2, 2, 2);
+  // direkler + çatı
+  R(P.ink, x - 9, y - 27, 3, 17); R(P.ink, x + 6, y - 27, 3, 17);
+  R('#7a4e2a', x - 8, y - 26, 1, 15); R('#7a4e2a', x + 7, y - 26, 1, 15);
+  for (let i = 0; i < 5; i++) { const w = 24 - i * 4; R(P.ink, x - w / 2 - 1, y - 27 - i * 2, w + 2, 3); R(i % 2 ? '#d05a4a' : '#b04038', x - w / 2, y - 27 - i * 2, w, 2); R('#e8806a', x - w / 2, y - 27 - i * 2, w, 1); }
+  // çıkrık + ip + kova (hafif sallanır)
+  R(P.ink, x - 7, y - 22, 14, 2); R('#9a6636', x - 6, y - 22, 12, 1);
+  R(P.ink, x + 7, y - 23, 3, 3); R('#c9a54a', x + 8, y - 22, 1, 1);
+  const bob = Math.round(Math.sin(t * 1.6) * 1), by = y - 17 + bob;
+  R('#c8b898', x, y - 21, 1, by - (y - 21));
+  R(P.ink, x - 3, by, 7, 5); R('#8a5e34', x - 2, by + 1, 5, 3); R('#b0b8c8', x - 2, by + 2, 5, 1);
+  // kurbağa: kenarda oturur, göz kırpar; sikke düşünce ve ödülde zıplar
+  const k = W ? 1 - W.t / WELL.delay : 1;
+  const hopA = W && k > 0.55 ? (k - 0.55) / 0.45 : Math.max(0, 1 - (t - frogHop) / 0.5);
+  const hop = Math.round(Math.sin(Math.min(1, hopA) * Math.PI) * 6 * (hopA > 0 && hopA < 1 ? 1 : 0));
+  const fx = x + 12, fy = y - 12 - hop, blink = (t % 3.2) < 0.12;
+  R(P.ink, fx - 3, fy - 1, 7, 5);
+  R('#5ab04a', fx - 2, fy, 5, 3); R('#8ad06a', fx - 2, fy, 5, 1); R('#e8e08a', fx - 1, fy + 2, 3, 1);
+  R(P.ink, fx - 3, fy - 3, 3, 3); R(P.ink, fx + 1, fy - 3, 3, 3);
+  R(blink ? '#5ab04a' : '#fff', fx - 2, fy - 2, 1, 1); R(blink ? '#5ab04a' : '#fff', fx + 2, fy - 2, 1, 1);
+  R('#f08aa0', fx - 3, fy + 1, 1, 1); R('#f08aa0', fx + 3, fy + 1, 1, 1);
+  if (hop > 0) { const ny = fy - 9 - (6 - hop); R(P.ink, fx + 3, ny, 2, 5); R(P.ink, fx + 1, ny + 3, 3, 3); R('#9fe8ff', fx + 2, ny + 4, 1, 1); R('#9fe8ff', fx + 4, ny + 1, 1, 3); }
+  // uçan sikke: oyuncudan kuyuya kavis, dönerek
+  if (W) {
+    if (k < 0.55) {
+      const q = k / 0.55, sx = lerp(W.x, x, q), sy = lerp(y - 14, y - 11, q) - Math.sin(q * Math.PI) * 26;
+      const w = [3, 2, 1, 2][Math.floor(t * 20) % 4];
+      coinPx(Math.round(sx), Math.round(sy), w);
+    } else {
+      const q = (k - 0.55) / 0.45;
+      ctx.globalAlpha = 1 - q; ctx.strokeStyle = '#9fe8ff'; ctx.lineWidth = 1;
+      ctx.strokeRect(Math.round(x - 2 - q * 6) + 0.5, y - 11.5, Math.round(4 + q * 12), 1); ctx.globalAlpha = 1;
+      for (let i = 0; i < 4; i++) { const dx = (i - 1.5) * 3 * (1 + q * 2), dy = -Math.sin(q * Math.PI) * (7 + i % 2 * 3); R('#9fe8ff', Math.round(x + dx), Math.round(y - 12 + dy), 1, 2); }
+    }
+  }
+  // ödül: kuyudan yükselen baloncuk, etrafında pırıltı ve kalpler
+  if (wishFx) {
+    const a = t - wishFx.t0;
+    if (a > 1.8) wishFx = null;
+    else {
+      const rise = Math.min(1, a / 0.5), py = Math.round(y - 14 - rise * 22 - Math.max(0, a - 0.5) * 4), s = a < 0.5 ? 1 + (1 - rise) * 0 : 1;
+      ctx.globalAlpha = a > 1.4 ? (1.8 - a) / 0.4 : 1;
+      ctx.fillStyle = 'rgba(159,232,255,0.25)'; ctx.beginPath(); ctx.arc(x, py, 8 * s, 0, 7); ctx.fill();
+      ctx.strokeStyle = '#dff6ff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, py, 8, 0, 7); ctx.stroke();
+      R('#fff', x - 5, py - 5, 2, 1); R('#fff', x - 6, py - 4, 1, 2);
+      rewardPx(wishFx.got, x, py + (Math.floor(t * 4) % 2));
+      for (let i = 0; i < 5; i++) { const ang = t * 3 + i * 1.26, rr = 12 + Math.sin(t * 5 + i) * 2; R(i % 2 ? '#ffe79a' : '#fff', Math.round(x + Math.cos(ang) * rr), Math.round(py + Math.sin(ang) * rr), 1, 1); }
+      for (let i = 0; i < 2; i++) { const hx = x + (i ? 10 : -12), hy = Math.round(py + 6 - a * 14 - i * 3); R('#f08aa0', hx, hy, 1, 1); R('#f08aa0', hx + 2, hy, 1, 1); R('#f08aa0', hx, hy + 1, 3, 1); R('#f08aa0', hx + 1, hy + 2, 1, 1); }
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+// gezgin tüccar: arabası + pelerinli satıcı; gelirken ve giderken yürür
+const MERCH_X = BASE_X - 76;
+function drawMerchant(M) {
+  const a = MERCHANT.stay - M.t, walkIn = Math.max(0, 1.2 - a), walkOut = Math.max(0, 1.2 - M.t);
+  const x = Math.round(MERCH_X - walkIn * 70 - walkOut * 70), y = GROUND_Y;
+  const moving = walkIn > 0 || walkOut > 0, step = moving ? Math.floor(G.time * 10) % 2 : 0;
+  const R = (c, px, py, w, h) => { ctx.fillStyle = c; ctx.fillRect(px, py, w, h); };
+  shadow(x + 8, y, 16, 0.35);
+  // --- araba ---
+  // tekerlekler (tahta, parmaklı)
+  for (const wx of [x - 1, x + 15]) {
+    R(P.ink, wx - 1, y - 8, 9, 8); R(P.ink, wx, y - 9, 7, 10);
+    R('#6a4526', wx, y - 8, 7, 8); R('#8a5e34', wx + 1, y - 8, 5, 1);
+    R('#3e2616', wx + 1, y - 7, 5, 6); R('#8a5e34', wx + 3, y - 7, 1, 6); R('#8a5e34', wx + 1, y - 4, 5, 1);
+    R('#c9a54a', wx + 3, y - 4, 1, 1);
+  }
+  // kasa: tahta kalas, damar, köşe demirleri
+  R(P.ink, x - 4, y - 18, 28, 11);
+  R('#7a4e2a', x - 3, y - 17, 26, 9);
+  R('#9a6636', x - 3, y - 17, 26, 1); R('#5a361c', x - 3, y - 13, 26, 1); R('#5a361c', x - 3, y - 9, 26, 1);
+  R('#8a5a30', x + 2, y - 16, 5, 1); R('#8a5a30', x + 12, y - 12, 6, 1);
+  R('#8a9ab8', x - 3, y - 17, 2, 9); R('#8a9ab8', x + 21, y - 17, 2, 9);
+  // tabela: altın sikke
+  R(P.ink, x + 6, y - 16, 9, 7); R('#e8d8b0', x + 7, y - 15, 7, 5);
+  R('#e0a020', x + 9, y - 14, 3, 3); R('#ffe79a', x + 9, y - 14, 1, 1);
+  // mallar: çuval, testi, kristal, halı rulosu
+  R(P.ink, x - 2, y - 24, 7, 7); R('#c8a66a', x - 1, y - 23, 5, 6); R('#e0c890', x - 1, y - 23, 5, 1); R('#8a6a3a', x + 1, y - 24, 1, 2);
+  R(P.ink, x + 5, y - 25, 6, 8); R('#3a7a9a', x + 6, y - 24, 4, 7); R('#6ab0d0', x + 6, y - 24, 1, 5); R('#2a4a6a', x + 7, y - 26, 2, 2);
+  R(P.ink, x + 11, y - 23, 5, 6); R('#c070ff', x + 12, y - 22, 3, 4); R('#f0c8ff', x + 12, y - 22, 1, 1);
+  R(P.ink, x + 16, y - 22, 7, 5); R('#b03040', x + 17, y - 21, 5, 3); R('#e8c060', x + 17, y - 20, 5, 1);
+  if (Math.floor(G.time * 2) % 3 === 0) R('#fff', x + 13, y - 25, 1, 1);
+  // tente: direkler + çizgili, alt kenarı dalgalı ve gölgeli
+  R(P.ink, x - 3, y - 36, 2, 20); R(P.ink, x + 21, y - 36, 2, 20);
+  R('#6a4526', x - 3, y - 35, 1, 18); R('#6a4526', x + 21, y - 35, 1, 18);
+  R(P.ink, x - 6, y - 38, 32, 7);
+  for (let i = 0; i < 6; i++) {
+    const cx = x - 5 + i * 5, red = i % 2 === 0;
+    R(red ? '#c0404a' : '#f2e6c8', cx, y - 37, 5, 4);
+    R(red ? '#e0606a' : '#fffaf0', cx, y - 37, 5, 1);
+    R(red ? '#8a2a34' : '#c8b898', cx, y - 33, 5, 1);
+    R(P.ink, cx + 1, y - 32, 3, 2); R(red ? '#c0404a' : '#f2e6c8', cx + 2, y - 32, 1, 1);
+  }
+  // --- tüccar: geniş şapka, sakal, kaftan, sırt çantası, fener ---
+  const mx = x + 28, my = y - step;
+  // sırt çantası (arkada, battaniye rulosu üstte)
+  R(P.ink, mx - 7, my - 17, 6, 10); R('#7a5a3a', mx - 6, my - 16, 4, 8); R('#9a7a50', mx - 6, my - 16, 1, 8);
+  R(P.ink, mx - 8, my - 20, 7, 4); R('#6a8a5a', mx - 7, my - 19, 5, 2); R('#8aaa70', mx - 7, my - 19, 5, 1);
+  // bacaklar / çizmeler
+  R(P.ink, mx - 3, my - 5, 7, 5);
+  R('#3a2a22', mx - 2, my - 4, 2, 4); R('#3a2a22', mx + 1 + step, my - 4, 2, 4);
+  // kaftan
+  R(P.ink, mx - 4, my - 16, 9, 12);
+  R('#2e6a6a', mx - 3, my - 15, 7, 10);
+  R('#4a9a8a', mx - 3, my - 15, 2, 10); R('#1e4a4a', mx + 3, my - 15, 1, 10);
+  R('#e0a020', mx - 3, my - 9, 7, 1); R('#ffe79a', mx, my - 9, 1, 1);
+  R(P.ink, mx + 2, my - 8, 3, 3); R('#c9902a', mx + 2, my - 8, 2, 2);
+  // kafa: yüz + sakal
+  R(P.ink, mx - 3, my - 22, 8, 8);
+  R('#e8b88a', mx - 2, my - 21, 6, 4); R('#c08860', mx - 2, my - 18, 6, 1);
+  R(P.ink, mx + 2, my - 20, 1, 1);
+  R('#d8d0c0', mx - 2, my - 18, 6, 3); R('#fffaf0', mx - 1, my - 18, 2, 1); R('#a8a090', mx + 2, my - 16, 2, 1);
+  R('#c07050', mx + 4, my - 19, 1, 1);
+  // şapka: geniş kenar + tüy
+  R(P.ink, mx - 6, my - 24, 13, 3); R('#5a3a24', mx - 5, my - 23, 11, 1);
+  R(P.ink, mx - 3, my - 28, 8, 5); R('#6a4a2e', mx - 2, my - 27, 6, 4); R('#8a6a44', mx - 2, my - 27, 6, 1);
+  R('#c0404a', mx - 2, my - 25, 6, 1);
+  R('#ffd24a', mx - 4, my - 30, 1, 4); R('#ffe79a', mx - 5, my - 31, 1, 2);
+  // elde fener: sopa ucunda, sallanır
+  const sw = Math.round(Math.sin(G.time * 3) * 1);
+  R(P.ink, mx + 5, my - 14, 1, 6); R(P.ink, mx + 5, my - 15, 5, 1);
+  const lx = mx + 8 + sw, ly = my - 14;
+  R(P.ink, lx - 2, ly, 5, 6); R('#ffd24a', lx - 1, ly + 1, 3, 4); R('#fff4c0', lx, ly + 2, 1, 2);
+  glow(lx, ly + 3, 'rgba(255,210,120,0.55)', 14, 0.6 + 0.15 * Math.sin(G.time * 5));
+  // gelince başında altın işaret (mal kaldıysa)
+  if (!moving && !M.goods.every(g => g.sold)) {
+    const ey = my - 40 + (Math.floor(G.time * 3) % 2);
+    R(P.ink, mx - 1, ey - 1, 4, 9); R('#ffd24a', mx, ey, 2, 5); R('#ffd24a', mx, ey + 6, 2, 1);
+  }
+}
+
 function drawStructure(s) {
   const x = Math.round(s.x), y = Math.round(s.y);
   const pop = s.buildT > 0 ? Math.round(s.buildT * 8) : 0;
@@ -695,7 +955,7 @@ function drawRock(k) {
 const CHEST_GLOW = { wood: 'rgba(255,210,74,0.3)', iron: 'rgba(223,230,240,0.25)', mimic: 'rgba(223,230,240,0.25)', gold: 'rgba(255,230,120,0.45)', arms: 'rgba(255,138,58,0.35)', ore: 'rgba(120,160,255,0.35)', supply: 'rgba(236,74,74,0.3)', cursed: 'rgba(255,58,106,0.4)', ancient: 'rgba(90,255,234,0.45)' };
 // ---------- düşmanlar ----------
 const EN_OFFSET = { rodent: 1, bug: 1, spitter: 2, flyer: -2, boomer: 1, brute: 1, worm: 0, glarer: -3, lurker: 2, howler: 1, shade: 0 };
-const DIE_T = e => (e.d.boss ? 0.9 : 0.42);
+const DIE_T = e => e.d.dieT || (e.d.boss ? 0.9 : 0.42);
 // çizim parametreleri: sprite karesi, ayak noktası, ölçek, flip
 function enemyPose(e, alpha) {
   const x = lerp(e.px, e.x, alpha), y = lerp(e.py, e.y, alpha);
@@ -735,7 +995,8 @@ function enemyPose(e, alpha) {
 }
 function drawEnemy(e, alpha, camY, vh) {
   const x = lerp(e.px, e.x, alpha), y = lerp(e.py, e.y, alpha);
-  if (y < camY - 30 || y > camY + vh + 30) return;
+  if (y < camY - 30 || y > camY + vh + 90) return;
+  if (e.type === 'balrog') { drawBalrog(ctx, e, alpha); return; }
   const frames = SPR[e.type];
   if (e.dead) {
     // ölüm: beyaz flaş, sonra yana yatıp yere yayılır ve solar
@@ -904,7 +1165,7 @@ const GUN = { blaster: [5, P.metal], sacma: [6, '#b07a42', 1], makineli: [6, '#6
 const HEAD = { matkap: [0, 5], genis: [5, 5], balyoz: [3, 3, 1], burgu: [1, 5] };
 function drawPlayer(p, alpha) {
   if (p.dead) { drawDowned(p, alpha); return; }
-  if (p.ride) drawCab(Math.round(lerp(p.px, p.x, alpha)), Math.round(lerp(p.py, p.y, alpha)));
+  if (p.ride) { const rd = p.ride, b = rd.board || 0; drawCab(b > 0 ? SHAFT_X : Math.round(lerp(p.px, p.x, alpha)), Math.round(lerp(p.py, p.y, alpha)), b > ELEVATOR.lever ? 0 : 1 - Math.max(0, b) / ELEVATOR.lever); }
   else if (p.iframes > 0 && p.hurtT <= 0 && Math.floor(p.iframes * 14) % 2 === 0) return;
   const x = Math.round(lerp(p.px, p.x, alpha)), y = Math.round(lerp(p.py, p.y, alpha));
   const S = playerSprites(p.helm);
@@ -918,8 +1179,13 @@ function drawPlayer(p, alpha) {
   const dip = p.digAnim > 0.6 ? 1 : 0;
   // hamle: vuruş anında hedefe doğru 1px
   const lx = p.digAnim > 0.7 ? p.digDir[0] : 0, ly = p.digAnim > 0.7 ? p.digDir[1] : 0;
-  const top = y - 9 + bob + dip + ly;
+  const chew = p.eat && Math.floor(G.time * 14) % 2 ? 1 : 0;
+  const top = y - 9 + bob + dip + ly + chew;
   const feetY = y + 6;
+  // mantar: küçülme/büyüme yumuşak geçişle, ayak hizasından
+  const sk = shroomScale(p);
+  ctx.save();
+  if (sk !== 1) { ctx.translate(x, feetY); ctx.scale(sk, sk); ctx.translate(-x, -feetY); }
   // gölge
   shadow(x, feetY, 8, 0.35);
   // iniş ezilmesi
@@ -959,16 +1225,35 @@ function drawPlayer(p, alpha) {
   }
   // korku: baş üstünde titrek ünlem
   if (p.fearT > 0 && Math.floor(G.time * 8) % 2 === 0) { ctx.fillStyle = '#c08ab0'; ctx.fillRect(x - 1, top - 9, 2, 5); ctx.fillRect(x - 1, top - 3, 2, 2); }
+  // zehirli mantar: yeşil kabarcıklar; hız mantarı: arkada sarı çizgiler
+  const SH = p.shroom;
+  if (SH && SH.k === 'zehir') for (let i = 0; i < 3; i++) { const k = (G.time * 0.9 + i * 0.33) % 1; ctx.globalAlpha = 1 - k; ctx.fillStyle = i % 2 ? '#7ad04a' : '#b8f080'; ctx.fillRect(Math.round(x - 3 + i * 3 + Math.sin(k * 6 + i) * 1.5), Math.round(top - 2 - k * 9), 2, 2); ctx.globalAlpha = 1; }
+  if (SH && SH.k === 'hiz' && p.moving) { ctx.fillStyle = '#ffe14a'; for (let i = 0; i < 3; i++) ctx.fillRect(x - p.face * (8 + ((Math.floor(G.time * 20) + i * 3) % 5)), top + 4 + i * 4, 3, 1); }
+  ctx.restore();
+}
+// mantar ölçeği: hedef değere yumuşakça yaklaşır, geçişte hafif esner
+const scaleOf = new Map();
+function shroomScale(p) {
+  const tg = p.shroom ? p.shroom.k === 'mini' ? SHROOM.mini : p.shroom.k === 'dev' ? SHROOM.big : 1 : 1;
+  let c = scaleOf.get(p.i) ?? 1;
+  c += (tg - c) * 0.12; if (Math.abs(tg - c) < 0.01) c = tg;
+  scaleOf.set(p.i, c);
+  return c;
 }
 
 // baygın oyuncu: yerde yatar, kask yanıp söner; partner yaklaşınca kaldırma halkası
 // asansör kabini: halat + kafes
-function drawCab(x, y) {
+function drawCab(x, y, lever = 1) {
   ctx.fillStyle = '#3a3230'; ctx.fillRect(x - 1, GROUND_Y - 40, 2, y - 12 - (GROUND_Y - 40));
   ctx.fillStyle = P.ink; ctx.fillRect(x - 9, y - 13, 18, 2); ctx.fillRect(x - 9, y + 8, 18, 2);
   ctx.fillRect(x - 9, y - 13, 2, 23); ctx.fillRect(x + 7, y - 13, 2, 23);
   ctx.fillStyle = '#c9a54a'; ctx.fillRect(x - 8, y - 12, 16, 1); ctx.fillRect(x - 8, y + 8, 16, 1);
   ctx.fillStyle = 'rgba(255,231,154,0.12)'; ctx.fillRect(x - 7, y - 11, 14, 19);
+  // kol: yukarıdan aşağı iner; inince yeşil yanar
+  const lx = x + 9, ly = y - 2, ey = Math.round(ly - 5 + lever * 10);
+  ctx.fillStyle = P.ink; ctx.fillRect(lx, Math.min(ly, ey) - 1, 3, Math.abs(ey - ly) + 3);
+  ctx.fillStyle = '#8a9ab8'; ctx.fillRect(lx + 1, Math.min(ly, ey), 1, Math.abs(ey - ly) + 1);
+  ctx.fillStyle = lever >= 1 ? '#5ae08a' : '#ec4a4a'; ctx.fillRect(lx, ey - 1, 3, 3);
 }
 // maden kanaryası: küçük sarı kuş; yuva sezince ona doğru titreyen ok
 function drawCanary() {
@@ -1079,6 +1364,9 @@ function drawArmAndPick(p, x, y, flip, pass, cache) {
 function drawEmissive(r0, r1, alpha, opts) {
   const t = G.time;
   ctx.globalCompositeOperation = 'lighter';
+  drawWondersGlow(ctx, r0, r1, glow);
+  drawLiquidGlow(ctx, r0, r1, glow);
+  drawBalrogOmen(ctx, glow);
   // üs pencereleri ve anten ışığı
   const b = G.base, s = SPR.base;
   ctx.drawImage(s.em, Math.round(b.x - s.w / 2), GROUND_Y - s.h);
@@ -1225,6 +1513,7 @@ function drawEmissive(r0, r1, alpha, opts) {
   // düşman gözleri: karanlıkta görünür; ara sıra göz kırpar
   for (const e of G.enemies) {
     if (e.bs && !e.dead) drawBossFx(e, alpha);
+    if (e.type === 'balrog') { drawBalrogGlow(ctx, e, alpha, glow); continue; }
     if (e.emergeT > 0 || e.dead || e.under || e.sink > 0) continue;
     const x = lerp(e.px, e.x, alpha), y = lerp(e.py, e.y, alpha);
     if (e.d.boss) {

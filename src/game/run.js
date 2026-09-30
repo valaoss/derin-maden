@@ -1,7 +1,11 @@
 // Sefer oluşturma, türetilmiş değerler ve kayıt/yükleme.
+import { placeCritters } from './critters.js';
+import { placeWonders } from './wonders.js';
+import { placeLiquids } from './liquids.js';
+import { CRITTERS } from '../data/critters.js';
 import { COLS, ROWS, TILE, GROUND_ROW, BASE_X, BASE_Y, CENTER_COL, STRATUM_ROWS, stratumOfRow, PLAY_MIN_COL, PLAY_MAX_COL } from '../config.js';
 import { PERKS, RESONANCE } from '../data/relics.js';
-import { UPGRADES, PLAYER, BUILDS, ITEMS, ITEM_KEYS, SCHEMATICS, CONTRACTS, kademeMods, MOD_SLOTS, PICK_TIERS, ROLES, RES_KEYS, MASTER_KEYS, PICK_TYPES, WEAPONS, ADREN, TOOL_UP, WEAPON_UP, BUILD_KEYS } from '../data/balance.js';
+import { MERCHANT, SHROOM, UPGRADES, PLAYER, BUILDS, ITEMS, ITEM_KEYS, SCHEMATICS, CONTRACTS, kademeMods, MOD_SLOTS, PICK_TIERS, ROLES, RES_KEYS, MASTER_KEYS, PICK_TYPES, WEAPONS, ADREN, TOOL_UP, WEAPON_UP, BUILD_KEYS } from '../data/balance.js';
 import { T, TD } from '../data/tiles.js';
 import { makeThreat, scanNests } from './threat.js';
 import { makeEvents } from './events.js';
@@ -58,7 +62,7 @@ export function makePlayer(i, helm = i, name = '', role = '') {
     face: i ? -1 : 1, dx: 0, dy: 1, hp: 0, maxHp: 0, iframes: 0, dead: false,
     dig: null, digT: 0, digAnim: 0, digDir: [0, 1], walkT: 0, moving: false, up: false, upT: 0, downT: 0, reviveP: 0, gone: false, autoUp: false,
     wpn: 'blaster', pk: 'std', barrier: 0, barrierT: 0, adrenT: 0,
-    fireCd: 0, aim: 0, aimT: 0, carrying: false, ride: null, hurtT: 0, shockCd: 0, squash: 0, recallT: 0, gasT: 0,
+    pet: null, shroom: null, eat: null, fish: null, portCd: 0, portLock: -1, fireCd: 0, aim: 0, aimT: 0, carrying: false, ride: null, hurtT: 0, shockCd: 0, squash: 0, recallT: 0, gasT: 0,
     bag: emptyRes(), inp: { x: 0, y: 0, mag: 0 }, landT: 0, airT: 0, blindT: 0, fearT: 0, pullX: 0, pullY: 0, slowT: 0, webT: 0, burnT: 0,
   };
 }
@@ -83,7 +87,7 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
     base: { x: BASE_X, y: BASE_Y, hp: 0, maxHp: 0, hurtT: 0 },
     store: emptyRes(), collected: emptyRes(),
     lvl: { drill: Math.min(2, ml.keskinUc | 0), sharp: 0, swing: 0, bag: 0, armor: 0, blaster: Math.min(2, ml.ayarliBl | 0), lamp: 0, ...Object.fromEntries(MASTER_KEYS.map(k => [k, 0])) },
-    perks: [], perkLv: {}, rerolls: 0, items: emptyItems(), perkOffer: null,
+    perks: [], perkLv: {}, rerolls: 0, items: emptyItems(), perkOffer: null, merchant: null, merchT: MERCHANT.first, wish: null, wishes: 0, balrog: null,
     gear: { owned: [], eq: [], cd: {}, active: {}, wOwn: ['blaster'], pOwn: ['std'], wLvl: {}, tLvl: {} },
     kademe, mods, daily, contracts: [],
     bombs: [], rocks: [], falls: [], gas: [], shells: [], hazT: 0,
@@ -114,6 +118,10 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
   recompute(true);
   if (ml.hazirTaret) g.items.turret = 1;
   if (g.players.some(p => p.role === 'yikici')) g.items.dynamite = Math.max(g.items.dynamite | 0, 3);
+  Object.assign(g, tutorial ? { lq: null, lk: null, springs: [], lqT: 0 } : placeLiquids(g, seed));
+  g.critters = tutorial ? [] : placeCritters(g, seed);
+  Object.assign(g, tutorial ? { lakes: [], portals: [], shrooms: [] } : placeWonders(g, seed));
+  if (!tutorial && App.meta && CRITTERS[App.meta.pet]) g.player.pet = App.meta.pet;
   g.nests = scanNests();
   for (const n of g.nests) { const s = stratumOfRow(n.r); g.nestTotal[s] = (g.nestTotal[s] | 0) + 1; }
   // fener asansörü: temizlenmiş biyomların altına iniş (merkez şaft açılır, oyuncular oraya başlar)
@@ -183,7 +191,7 @@ export function recompute(fill = false) {
 }
 
 // kazma: kademe + tür + keskinlik + hızlı sallama
-export function pickDmg(p = G.player) { return PICK_TIERS[G.lvl.drill].dmg * pickType(p).dmg * UPGRADES.sharp.mult[G.lvl.sharp] * (hasRelic('kivilcim') ? 2 : 1) * (G.lvl.yildizCekirdek ? 1.4 : 1) * (hasRelic('sifirTasi') ? 1.4 : 1) * (resonance('toprak') ? 1.5 : 1) * (hasPerk('camTop') ? 1.8 : 1) * (hasPerk('acKazma') ? 2.2 : 1); }
+export function pickDmg(p = G.player) { return PICK_TIERS[G.lvl.drill].dmg * pickType(p).dmg * UPGRADES.sharp.mult[G.lvl.sharp] * (hasRelic('kivilcim') ? 2 : 1) * (G.lvl.yildizCekirdek ? 1.4 : 1) * (hasRelic('sifirTasi') ? 1.4 : 1) * (resonance('toprak') ? 1.5 : 1) * (hasPerk('camTop') ? 1.8 : 1) * (hasPerk('acKazma') ? 2.2 : 1) * (p && p.shroom && p.shroom.k === 'dev' ? SHROOM.bigPick : 1); }
 export function pickInterval(p = G.player) { return PICK_TIERS[G.lvl.drill].interval * pickType(p).int * UPGRADES.swing.mult[G.lvl.swing]; }
 // kazı/kırma gürültü çarpanı: Sessiz Adım, Gölge rezonansı, Gürültü Tanrısı
 export function perkNoise() { return (1 - pv('sessizAdim')) * (resonance('golge') ? 0.65 : 1) * (hasPerk('gurultuTanrisi') ? 1.6 : 1); }
@@ -210,12 +218,12 @@ export function serialize() {
   const g = G;
   return {
     v: 8, seed: g.seed, rng: g.rng, heartRow: g.heartRow, order: g.order, map: b64(g.map), rev: b64(g.rev), buried: b64(g.buried), bhp: g.bhp, gear: { owned: g.gear.owned, eq: g.gear.eq, wOwn: g.gear.wOwn, pOwn: g.gear.pOwn, wLvl: g.gear.wLvl, tLvl: g.gear.tLvl },
-    base: { hp: g.base.hp }, bag: g.player.bag, store: g.store, collected: g.collected, lvl: g.lvl, perks: g.perks, perkLv: g.perkLv, rerolls: g.rerolls,
+    base: { hp: g.base.hp }, bag: g.player.bag, store: g.store, collected: g.collected, lvl: g.lvl, perks: g.perks, perkLv: g.perkLv, rerolls: g.rerolls, merchant: g.merchant, merchT: g.merchT, wishes: g.wishes, critters: g.critters, lakes: g.lakes, portals: g.portals, shrooms: g.shrooms, lq: g.lq ? b64(g.lq) : null, lk: g.lk ? b64(g.lk) : null, lqT: g.lqT, balrogDone: !!(g.balrog && g.balrog.st === 'done'),
     items: g.items, structures: g.structures.map(s => ({ type: s.type, c: s.c, r: s.r, hp: s.hp })),
     kademe: g.kademe, daily: g.daily, contracts: g.contracts,
     threat: { noise: g.threat.noise }, evt: { t: g.evt.t }, beacons: g.beacons, stations: g.stations, selfRevive: g.selfRevive, startStratum: g.startStratum,
     stats: g.stats, maxStratum: g.maxStratum, tutorial: g.tutorial,
-    player: { x: g.player.x, y: g.player.y, hp: g.player.hp, carrying: g.player.carrying, role: g.player.role, wpn: g.player.wpn, pk: g.player.pk },
+    player: { x: g.player.x, y: g.player.y, hp: g.player.hp, carrying: g.player.carrying, role: g.player.role, wpn: g.player.wpn, pk: g.player.pk, pet: g.player.pet },
     satchels: g.satchels, journey: g.journey,
   };
 }
@@ -226,6 +234,10 @@ export function deserialize(d) {
   if (g.map.length !== COLS * ROWS) throw new Error('harita boyutu uyumsuz'); g.bhp = d.bhp || {}; g.heartRow = d.heartRow; if (d.order) g.order = d.order;
   Object.assign(g.player.bag, d.bag); Object.assign(g.store, d.store); Object.assign(g.collected, d.collected);
   for (const k in d.lvl || {}) if (k in g.lvl) g.lvl[k] = Math.max(0, Math.min(UPGRADES[k].costs.length, d.lvl[k] | 0)); g.perks = (d.perks || []).filter(k => PERKS[k]); g.perkLv = d.perkLv || {}; g.rerolls = d.rerolls | 0;
+  if (d.merchant && Array.isArray(d.merchant.goods)) g.merchant = d.merchant; if (d.merchT !== undefined) g.merchT = +d.merchT || 0; g.wishes = d.wishes | 0; if (Array.isArray(d.critters)) g.critters = d.critters.filter(c => CRITTERS[c.k]);
+  for (const k of ['lakes', 'portals', 'shrooms']) if (Array.isArray(d[k])) g[k] = d[k];
+  if (d.balrogDone) g.balrog = { st: 'done', t: 99 };
+  if (d.lq && d.lk && g.lq) { const a = unb64(d.lq), b = unb64(d.lk); if (a.length === g.lq.length && b.length === g.lk.length) { g.lq = a; g.lk = b; g.lqT = d.lqT | 0; } }
   if (d.gear) { g.gear.owned = d.gear.owned || []; g.gear.eq = d.gear.eq || []; g.gear.wOwn = (d.gear.wOwn || ['blaster']).filter(k => WEAPONS[k]); g.gear.pOwn = (d.gear.pOwn || ['std']).filter(k => PICK_TYPES[k]);
     for (const k in d.gear.wLvl || {}) if (WEAPONS[k]) g.gear.wLvl[k] = Math.min(WEAPON_UP.max, d.gear.wLvl[k] | 0);
     for (const k in d.gear.tLvl || {}) if (BUILD_KEYS.includes(k)) g.gear.tLvl[k] = Math.min(TOOL_UP.max, d.gear.tLvl[k] | 0); }

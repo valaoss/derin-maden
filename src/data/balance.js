@@ -264,7 +264,7 @@ export const ENEMIES = {
   sporeling:  { name: 'Spor Böceği', hp: 95, speed: 30, dmg: 14, r: 6, armor: 0.3, ranged: true, web: true, range: 70, fireCd: 2.2, puff: 4.5, cost: 4 }, // spor bulutu: dostları iyileştirir, seni yavaşlatır
   mirrorling: { name: 'Cam Gölgesi', hp: 70, speed: 50, dmg: 18, r: 4, phase: true, mirror: 6, cost: 3.5 },                          // vurulunca cam kopyalar çıkarır
   titanling:  { name: 'Dev Parçası', hp: 280, speed: 19, dmg: 34, r: 9, armor: 0.5, dig: 99, digRate: 5, knockResist: 0.9, stomp: true, quake: 5, quakeRange: 80, loot: [['crystal', 2], ['iron', 2]], cost: 9 }, // yere vurur: sarsıntı + tavan çöker
-  chronoling: { name: 'Zaman Gözü', hp: 85, speed: 32, dmg: 20, r: 5, fly: true, blink: true, blinkCd: 2.6, rewind: 6, rewindRange: 110, cost: 4.5 }, // seni 3 sn önceki yerine geri sarar
+  chronoling: { name: 'Zaman Gözü', hp: 85, speed: 32, dmg: 20, r: 5, fly: true, blink: true, blinkCd: 4.5, rewind: 18, rewindRange: 110, cost: 4.5 }, // seni 3 sn önceki yerine geri sarar
   leech:      { name: 'Kan Sülüğü', hp: 140, speed: 26, dmg: 16, r: 6, armor: 0.25, burrow: true, dig: 99, digRate: 7, knockResist: 0.75, drain: true, loot: [['iron', 3]], cost: 5 }, // ısırınca kan emer: iyileşir ve büyür, sen kanarsın
   echoer:     { name: 'Yankıcı', hp: 95, speed: 32, dmg: 14, r: 6, howl: true, howlRange: 110, howlCd: 5.5, echoNoise: 10, cost: 4 }, // ulumasi ölçeri yükseltir, sürüyü hızlandırır
   // v6 biyom imzaları
@@ -284,6 +284,8 @@ export const ENEMIES = {
     loot: [['crystal', 10], ['gold', 8], ['kehribar', 2]], lore: 'Yumurtaları yere düşünce çatlar; reçinesi seni yere yapıştırır.' },
   madenKalbi: { name: 'Madenin Kalbi', title: 'FALL', col: '#ff3a6a', hp: 1100, speed: 16, dmg: 30, r: 12, armor: 0.3, fly: true, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0,
     loot: [['crystal', 14], ['gold', 12], ['kehribar', 3]], lore: 'Maden yaşıyor. Duvarlar ona ait: duvara yaslanma, yerinde durma.' },
+  balrog: { name: 'Balrog', title: 'Kadim Gölge ve Alev', col: '#ff5a1a', hp: 900, speed: 19, dmg: 32, r: 12, armor: 0.35, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 2.6, hpMul: 1.4,
+    loot: [['crystal', 10], ['gold', 10], ['cobalt', 6]], lore: 'Kor Katmanının dibinde uyuyan kadim gölge. Kamçısı uzağa uzanır, kılıcı yeri yarar; gölgeye karışıp arkanda belirir.' },
   mimic:      { name: 'Taklitçi', hp: 110, speed: 50, dmg: 22, r: 6, armor: 0.2, knockResist: 0.5, cost: 4 },                         // sandık kılığında; ölünce gerçek sandık teklifi
   seraph:     { name: 'Işık Bekçisi', hp: 120, speed: 42, dmg: 16, r: 5, fly: true, blind: true, blindRange: 52, blindCd: 4, judge: 5, judgeRange: 120, loot: [['crystal', 1]], cost: 5 }, // yargı ışını: nişan alır, kaçmazsan çarpar
 };
@@ -386,7 +388,11 @@ export const RELIC_KEYS = Object.keys(RELICS);
 export const RELIC_OF_BIOME = Object.fromEntries(RELIC_KEYS.map(k => [RELICS[k].biome, k]));
 
 // Sefer içi asansör: merkez şaft, ulaşılan her biyomda istasyon
-export const ELEVATOR = { speed: 230, snap: 7, noise: 3, far: 3, farRows: 4 / 3 };
+export const ELEVATOR = { speed: 230, snap: 7, noise: 3, far: 3, farRows: 4 / 3, walk: 0.14, lever: 0.14, stop: 12 };
+// gezgin tüccar: ilk gelişi, sonraki gelişler arası, kampta kalma süresi (sn); fiyatlar altın
+// şans kuyusu: sikke at, kuyu bir şey verir; her atış pahalanır
+export const WELL = { cost: 5, step: 2, delay: 1.1, near: 16 };
+export const MERCHANT = { first: 240, every: 360, jitter: 180, stay: 60, relic: 14, relicStep: 3, item: 6, mod: 20, leg: 45, legChance: 0.3 };
 
 // Roller: madenci kartında seçilir, ekipte birbirini tamamlar
 export const ROLES = {
@@ -462,3 +468,12 @@ export function ozForRun(s) {
     RES_KEYS.reduce((a, k) => a + (s.collected[k] || 0) * RES[k].value, 0)
   );
 }
+// harita sürprizleri: yeraltı gölü (olta), portal taşı çifti (kısa ışınlanma), yenebilir mantar
+export const LAKE = { chance: 0.42, w: 4, h: 3, fish: 3, bite: 1.2, biteVar: 1.4 };
+export const PORTAL = { chance: 0.35, min: 5, max: 9, reach: 7, cd: 1 };
+export const SHROOM = { chance: 0.6, per: 2, reach: 10, eat: 0.5, dur: 18, haste: 12, poisonT: 6, poisonDmg: 1.5, mini: 0.6, big: 1.45, miniDmg: 0.6, miniSpd: 1.15, bigSpd: 0.9, bigPick: 1.7 };
+// sıvılar: her 'every' karede bir akış adımı; lav 'lavaSlow' adımda bir akar; kaynak başına toplam sınır ve adım başı akış
+export const LIQUID = { every: 3, lavaSlow: 2, dry: 40, cap: [170, 120], emit: [4, 2], drain: [2, 1], lavaDmg: 7, wetSpd: 0.72 };
+
+// Balrog: Kor Katmanı'nın ortasına inen madenciyi bir kez karşılar. dark: sisin toplanma süresi (sn), intro: alevlenme
+export const BALROG = { depth: 16, dark: 7.5, intro: 2.6, drum: 1.15, aura: 28, auraDmg: 4, carve: 0.3 };

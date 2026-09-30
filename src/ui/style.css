@@ -532,3 +532,19 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .reroll[disabled] { opacity: .45; }
 .tile.soyt { box-shadow: inset 0 0 0 2px var(--c), inset 0 3px 0 0 var(--plateL); }
 .tile.soyt .tc { color: var(--c); }
+
+/* gezgin tüccar */
+#sheet .tab.hide { display: none; }
+#sheet .tab[data-tab="merch"]:not(.on) { color: #ffd24a; }
+.row.merch { box-shadow: inset 0 0 0 2px var(--ink), inset 4px 0 0 0 var(--c, #ffd24a); }
+#wellBtn, #fishBtn { position: absolute; right: calc(var(--sar) + 14px); bottom: calc(var(--sab) + 96px); min-width: 84px; height: 60px; padding: 0 8px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; transition: opacity .2s, transform .2s; }
+.lefty #wellBtn, .lefty #fishBtn { right: auto; left: calc(var(--sal) + 14px); }
+#wellBtn.hide, #fishBtn.hide { opacity: 0; transform: translateY(20px); pointer-events: none; }
+#wellBtn[disabled], #fishBtn[disabled] { opacity: .55; }
+/* yoldaşlar */
+.pets { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; }
+.pet { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px 5px; background: var(--plateD); box-shadow: inset 0 0 0 2px var(--ink); clip-path: var(--cut2); color: var(--dim); font: inherit; font-size: 9px; line-height: 1.1; text-align: center; border: 0; }
+.pet img { width: 48px; height: 39px; image-rendering: pixelated; }
+.pet.own { color: var(--text); }
+.pet.on { box-shadow: inset 0 0 0 2px #ffd24a, 0 0 10px rgba(255,210,74,.45); color: #ffd24a; }
+.pet[disabled] { opacity: .7; }

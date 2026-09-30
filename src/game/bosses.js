@@ -3,10 +3,10 @@
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y, PLAY_MIN_COL, PLAY_MAX_COL, stratumOfRow } from '../config.js';
 import { T, TD } from '../data/tiles.js';
-import { BOSS_BANDS } from '../data/balance.js';
+import { BOSS_BANDS, BALROG } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, solidAt, setTile, matOf } from '../world/map.js';
-import { breakTile, damagePlayer, blindPlayer, pullPlayer, webPlayer } from './player.js';
+import { breakTile, damagePlayer, blindPlayer, pullPlayer, webPlayer, scarePlayer } from './player.js';
 import { spawnEnemy, losClear, damageStructure } from './enemies.js';
 import { sparks, debris, shake, ring, flashLight, dust, hitstop, particle } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
@@ -404,6 +404,152 @@ Object.assign(KITS, {
   },
 });
 
+// BALROG: alev kamçısı (uzak, öfkede çeker), alev kılıcı (yeri yarar), gölge kanatları (korku + kor yağmuru),
+// gölgeye karışıp arkanda belirme. Yürürken kayayı parçalar; öfkede çevresini kavurur.
+const ARM = e => [e.x + e.face * 7, e.y - 12];
+KITS.balrog = {
+  cd: { whip: 1.2, sword: 0.8, wings: 7, shadow: 9 },
+  choose(e, p, dp, B) {
+    const los = losClear(e.x, e.y - 6, p.x, p.y);
+    if (B.cd.sword <= 0 && dp < 52) return 'sword';
+    if (B.cd.shadow <= 0 && (dp > 125 || (!los && dp > 50)) && dp < 280) return 'shadow';
+    if (B.cd.wings <= 0 && dp < 150) return 'wings';
+    if (B.cd.whip <= 0 && dp > 28 && dp < 120 && los) return 'whip';
+    return null;
+  },
+  start: {
+    whip(e, p, B) {
+      const A = B.act; B.cd.whip = B.phase === 2 ? 2.6 : 3.4; A.T = 9; A.stage = 'wind'; A.st = 0.6; A.n = B.phase === 2 ? 2 : 1;
+      e.face = p.x >= e.x ? 1 : -1; const [hx, hy] = ARM(e); A.a = Math.atan2(p.y - 3 - hy, p.x - hx); sfx.arm();
+    },
+    sword(e, p, B) { const A = B.act; B.cd.sword = B.phase === 2 ? 3.2 : 4.2; A.T = 9; A.stage = 'raise'; A.st = 0.8; e.face = p.x >= e.x ? 1 : -1; sfx.flame(); },
+    wings(e, p, B) {
+      const A = B.act; B.cd.wings = B.phase === 2 ? 8 : 11; A.T = 2.2; A.done = false; sfx.rumble();
+      if (!B.hinted) { B.hinted = true; emit('toast', { text: 'Kanatlarını açıyor: kor yağmuru geliyor!', icon: 'flame', bad: true }); }
+    },
+    shadow(e, p, B) { const A = B.act; B.cd.shadow = B.phase === 2 ? 7 : 10; A.T = 9; A.stage = 'fade'; A.st = 0.7; A.tgt = p.i; sfx.shade(); },
+  },
+  run: {
+    whip(e, dt, p, B) {
+      const A = B.act; A.st -= dt; const [hx, hy] = ARM(e);
+      if (A.stage === 'wind') {
+        e.wind = 1 - Math.max(0, A.st) / 0.6;
+        if (p) A.a += Math.max(-2 * dt, Math.min(2 * dt, angDiff(Math.atan2(p.y - 3 - hy, p.x - hx), A.a)));
+        if (A.st <= 0) { A.stage = 'lash'; A.st = 0.36; A.len = beamLen(hx, hy, A.a, 120); A.hit = []; A.crack = false; A.fire = true; sfx.whip(); shake(0.15); }
+        return;
+      }
+      if (A.stage === 'lash') {
+        const k = 1 - Math.max(0, A.st) / 0.36, reach = A.len * Math.min(1, k * 1.7);
+        e.lunge = 1 - k;
+        for (const q of live()) if (!A.hit.includes(q.i) && onBeam(q, hx, hy, A.a, reach, 7)) {
+          A.hit.push(q.i); damagePlayer(q, 18 * e.dmgMul, hx, hy); q.burnT = Math.max(q.burnT || 0, 2.5);
+          if (B.phase === 2) pullPlayer(q, -Math.cos(A.a) * 150, -Math.sin(A.a) * 150);
+          sparks(q.x, q.y, '#ffb040', 8, 90);
+        }
+        if (!A.crack && k > 0.6) {
+          A.crack = true; const tx = hx + Math.cos(A.a) * A.len, ty = hy + Math.sin(A.a) * A.len;
+          sparks(tx, ty, '#ffd060', 12, 120); sparks(tx, ty, '#ff5a1a', 8, 70); flashLight(tx, ty, 3, 0.15); igniteGas(tx, ty, 18); shake(0.25); sfx.whip();
+        }
+        if (A.st <= 0) {
+          A.fire = false;
+          if (--A.n > 0 && p) { A.stage = 'wind'; A.st = 0.35; e.face = p.x >= e.x ? 1 : -1; }
+          else { A.stage = 'rest'; A.st = 0.35; }
+        }
+        return;
+      }
+      if (A.st <= 0) A.T = 0;
+    },
+    sword(e, dt, p, B) {
+      const A = B.act; A.st -= dt;
+      if (A.stage === 'raise') {
+        e.wind = 1 - Math.max(0, A.st) / 0.8;
+        if (rnd() < dt * 30) particle(e.x - e.face * 4 + (rnd() - 0.5) * 6, e.y - 38, (rnd() - 0.5) * 20, -40, 0.4, rnd() < 0.5 ? '#ffd060' : '#ff5a1a', 1, 1, -40);
+        if (A.st <= 0) {
+          A.stage = 'fall'; A.st = 0.7; A.fire = true; e.lunge = 1;
+          const fx = e.x + e.face * 18, fy = e.y + 4;
+          hitPlayers(fx, fy, 22, 30 * e.dmgMul, q => { q.burnT = Math.max(q.burnT || 0, 2); });
+          B.rings.push({ x: fx, y: fy, r: 6, R: B.phase === 2 ? 96 : 76, v: 140, dmg: 16 * e.dmgMul, hit: [], col: '#ff6a1a', los: false });
+          // yer yarılır: kılıcın iki yanında gecikmeli kor çatlakları
+          for (let i = 1; i <= (B.phase === 2 ? 4 : 3); i++) for (const s of [-1, 1]) { const mx = fx + s * i * 16; if (openSpot(mx, fy - 4)) mark(e, mx, fy - 4, 9, 0.25 + i * 0.14, 14, 'ember'); }
+          const c0 = Math.floor(fx / TILE), r0 = Math.floor(fy / TILE);
+          for (let c = c0 - 1; c <= c0 + 1; c++) if (TD[tileAt(c, r0 + 1)].solid && breakable(c, r0 + 1) && rnd() < 0.5) breakTile(c, r0 + 1, null);
+          debris(fx, fy, 'stone', 14); sparks(fx, fy, '#ffd060', 20, 150); sparks(fx, fy, '#ff5a1a', 14, 90); flashLight(fx, fy, 7, 0.4);
+          dust(fx, fy + 4, 8, 'rgba(60,30,20,0.6)'); shake(0.7); hitstop(0.08); sfx.explode(); haptic(80);
+          for (const s of G.structures) if (!s.dead && Math.hypot(s.x - fx, s.y - fy) < 60) damageStructure(s, 14);
+        }
+        return;
+      }
+      if (A.st <= 0) { A.fire = false; A.T = 0; }
+    },
+    wings(e, dt, p, B) {
+      const A = B.act, t = 2.2 - A.T;
+      if (t < 0.9) { e.wind = t / 0.9; return; }
+      if (!A.done) {
+        A.done = true; A.fire = true; e.lunge = 1;
+        for (const q of live()) {
+          const d = Math.hypot(q.x - e.x, q.y - e.y) || 1;
+          if (d > 200) continue;
+          scarePlayer(q, 1.6);
+          if (d < 90) pullPlayer(q, (q.x - e.x) / d * 160, (q.y - e.y) / d * 80);
+          const n = B.phase === 2 ? 6 : 4;
+          for (let i = 0; i < n; i++) { const [x, y] = i ? spotNear(q.x, q.y, 48) : [q.x, q.y]; mark(e, x, y, 10, 0.8 + i * 0.16, 16, 'ember'); }
+        }
+        ring(e.x, e.y - 14, '#ff5a1a', 50); ring(e.x, e.y - 14, '#2a0a06', 70); flashLight(e.x, e.y - 14, 9, 0.5);
+        shake(0.8); hitstop(0.1); sfx.roar(); haptic([60, 40, 120]);
+      }
+      if (rnd() < dt * 40) { const a = rnd() * TAU, d = 20 + rnd() * 40; particle(e.x + Math.cos(a) * d, e.y - 14 + Math.sin(a) * d, Math.cos(a) * 50, Math.sin(a) * 50 - 30, 0.6, rnd() < 0.5 ? '#ff7a2a' : '#ffd060', 1, 1, -20); }
+    },
+    shadow(e, dt, p, B) {
+      const A = B.act; A.st -= dt;
+      if (A.stage === 'fade') {
+        e.fade = 1 - Math.max(0, A.st) / 0.7;
+        if (rnd() < dt * 30) dust(e.x + (rnd() - 0.5) * 20, e.y - rnd() * 30, 1, 'rgba(20,10,12,0.7)');
+        if (A.st <= 0) { A.stage = 'glide'; A.st = 0.9; e.under = true; }
+        return;
+      }
+      if (A.stage === 'glide') {
+        if (A.st <= 0) {
+          const q0 = G.players[A.tgt], q = q0 && !q0.dead ? q0 : p;
+          if (q) {
+            const side = q.face ? -q.face : 1;
+            let x = q.x + side * 34, y = q.y;
+            if (!openSpot(x, y)) [x, y] = spotNear(q.x - side * 20, q.y, 36);
+            if (openSpot(x, y)) { e.x = e.px = x; e.y = e.py = y; }
+            e.face = q.x >= e.x ? 1 : -1;
+          }
+          A.stage = 'form'; A.st = 0.55; e.under = false;
+          const c0 = Math.floor(e.x / TILE), r0 = Math.floor(e.y / TILE);
+          for (let r = r0 - 2; r <= r0; r++) for (let c = c0 - 1; c <= c0 + 1; c++) if (TD[tileAt(c, r)].solid && breakable(c, r)) breakTile(c, r, null);
+          dust(e.x, e.y - 10, 10, 'rgba(20,10,12,0.8)'); sfx.shade();
+        }
+        return;
+      }
+      if (A.stage === 'form') {
+        e.fade = Math.max(0, A.st) / 0.55;
+        if (A.st <= 0) {
+          e.fade = 0; A.T = 0;
+          hitPlayers(e.x, e.y - 6, 28, 22 * e.dmgMul, q => { q.burnT = Math.max(q.burnT || 0, 2); });
+          ring(e.x, e.y - 8, '#ff5a1a', 34); sparks(e.x, e.y - 8, '#ffd060', 18, 130); flashLight(e.x, e.y - 8, 7, 0.35); shake(0.5); sfx.flame(); sfx.roar();
+        }
+      }
+    },
+  },
+  // her kare: yürürken kayayı parçalar; öfkede yakın madencileri kavurur
+  tick(e, dt, B) {
+    B.carve = (B.carve || 0) - dt;
+    if (B.carve <= 0 && !e.under) {
+      B.carve = BALROG.carve;
+      const c0 = Math.floor(e.x / TILE), r0 = Math.floor(e.y / TILE); let n = 0;
+      for (let r = r0 - 3; r <= r0; r++) for (let c = c0 - 1; c <= c0 + 1; c++) { const d = TD[tileAt(c, r)]; if (d.solid && d.plain && breakable(c, r)) { breakTile(c, r, null); n++; } }
+      if (n) shake(0.12);
+    }
+    if (B.phase === 2) {
+      B.aura = (B.aura || 0) - dt;
+      if (B.aura <= 0) { B.aura = 0.6; for (const q of live()) if (Math.hypot(q.x - e.x, q.y - e.y + 10) < BALROG.aura) { damagePlayer(q, BALROG.auraDmg * e.dmgMul, e.x, e.y); q.burnT = Math.max(q.burnT || 0, 1); } }
+    }
+  },
+};
+
 function initBoss(e) {
   const K = KITS[e.type];
   e.bs = { phase: 1, act: null, cd: Object.assign({}, K.cd), marks: [], rings: [], hinted: false };
@@ -414,7 +560,7 @@ function enrage(e) {
   e.flashT = 0.6; ring(e.x, e.y, e.d.col, 44); ring(e.x, e.y, '#ffffff', 26); sparks(e.x, e.y, e.d.col, 24, 140);
   shake(0.6); hitstop(0.12); flashLight(e.x, e.y, 8, 0.5); sfx.howl(); haptic([40, 60, 120]);
   if (e.type === 'ezeli') for (let k = 0; k < 2; k++) { const s = spawnEnemy('seraph', e.x + (k ? 18 : -18), e.y - 6, G.wave.num); s.emergeT = 0.3; }
-  const call = { aynasiz: ['kalkanli', 'kalkanli'], kehribarAna: ['yumurtaci', 'diriltici'], madenKalbi: ['korAvci', 'kalkanli', 'isikYiyen'] }[e.type];
+  const call = { balrog: ['magmite', 'magmite', 'magmite'], aynasiz: ['kalkanli', 'kalkanli'], kehribarAna: ['yumurtaci', 'diriltici'], madenKalbi: ['korAvci', 'kalkanli', 'isikYiyen'] }[e.type];
   if (call) call.forEach((t, k) => { const s = spawnEnemy(t, e.x + (k - (call.length - 1) / 2) * 20, e.y - 4, G.wave.num); s.emergeT = 0.4; });
   emit('bossPhase', e.type);
 }
@@ -466,6 +612,8 @@ export function updateBoss(e, dt, p, dp) {
   if (!e.bs) initBoss(e);
   const B = e.bs, K = KITS[e.type];
   tickMarks(e, dt);
+  if (e.intro > 0) { e.intro -= dt; return true; }
+  if (K.tick) K.tick(e, dt, B);
   if (B.phase === 1 && e.hp < e.maxHp * 0.5) enrage(e);
   if (B.phase === 2) { e.slowT = Math.min(e.slowT, -0.1); if (rnd() < dt * 10) particle(e.x + (rnd() - 0.5) * 20, e.y + (rnd() - 0.5) * 14, 0, -20, 0.5, e.d.col, 1, 1, 0); }
   if (B.act) {

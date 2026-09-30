@@ -7,7 +7,7 @@ import { STRATA } from '../data/palette.js';
 import { mulberry32, fbm, vnoise } from '../core/util.js';
 
 // zorluk bantları: her bant kendi içinde karışır (ana kaya sertliği ve düşman gücü derinlikle artmaya devam eder)
-const BANDS = [[0], [1, 2], [3, 4, 5], [6, 7], [8, 9], [10, 11], [12, 13, 14], [15, 16, 17, 18], [19], [20, 21, 22], [23], [24, 25, 26], [27], [28], [29]];
+const BANDS = [[0], [1, 2], [3, 4, 5, 30], [6, 7], [8, 9], [10, 11], [12, 13, 14], [15, 16, 17, 18], [19], [20, 21, 22], [23], [24, 25, 26], [27], [28], [29]];
 export function biomeOrder(seed) {
   const rnd = mulberry32((seed | 0) ^ 0x5bd1e995);
   const out = [];
@@ -53,6 +53,7 @@ const STRATA_GEN = [
   { mats: [[T.ROOTWOOD, 0.72], [T.MOSS, 0.1], [T.TITAN, 0.18]],                      veins: { crystal: 9, gold: 8 },                       chests: 4, caves: 0.22, haz: 1.4, feat: 'throne' },
   { mats: [[T.SEA, 0.76], [T.VOID, 0.12], [T.ECHO, 0.12]],                           veins: { crystal: 10, gold: 8 },                      chests: 3, caves: 0.3,  haz: 1.2, feat: 'lumen' },
   { mats: [[T.ZERO, 0.72], [T.GENESIS, 0.14], [T.MIRROR, 0.14]],                     veins: { crystal: 12, gold: 10, cobalt: 4 },          chests: 4, caves: 0.2,  haz: 1.6, feat: 'zero' },
+  { mats: [[T.FALLROCK, 0.68], [T.MOSS, 0.16], [T.STONE, 0.16]],                       veins: { water: 7, iron: 4, cobalt: 3, gold: 2 },     chests: 2, caves: 0.24, haz: 0.7 },
 ];
 const ORE_T = { iron: T.IRON, water: T.WATER, cobalt: T.COBALT, crystal: T.CRYSTAL, gold: T.GOLD };
 
@@ -121,7 +122,7 @@ export function generate(seed, opts = {}) {
   for (let s = 0; s < STRATA_COUNT; s++) {
     const r0 = GROUND_ROW + s * STRATUM_ROWS, v = GEN(s).veins;
     for (const res in v) {
-      for (let i = 0; i < v[res]; i++) {
+      for (let i = 0, n = Math.round(v[res] * STRATUM_ROWS / 36); i < n; i++) {
         let minR = r0 + 2;
         if (s === 0 && res === 'water') minR = r0 + 12;
         if (s === 1 && res === 'gold') minR = r0 + 20;
@@ -231,7 +232,7 @@ export function generate(seed, opts = {}) {
       // Ters Saray: kapılarla mühürlü salon; taht, sandıklar ve Kara Elmas avizeler tavanda
       const h0 = r0 + 11, h1 = r0 + 22, c0 = 4, c1 = 12;
       for (let r = h0; r <= h1; r++) for (let c = c0; c <= c1; c++) set(c, r, r === h0 || r === h1 || c === c0 || c === c1 ? T.GATE : T.AIR);
-      for (const cc of [5, 11]) { set(cc, h0 + 1, T.MIRROR); set(cc, h0 + 2, T.MIRROR); set(cc, h0 + 3, T.ELMAS); }
+      for (const cc of [5, 11]) { set(cc, h0 + 1, T.MIRROR); set(cc, h0 + 2, T.MIRROR); set(cc, h0 + 3, DEEP_TILE[Math.min(DEEP_TILE.length - 1, Math.floor(s / 4))]); }
       for (let c = c0 + 1; c < c1; c++) if (c !== 5 && c !== 11 && c !== 7) set(c, h0 + 1, c % 2 ? T.GOLD : T.MIRROR);
       set(7, h0 + 1, T.GILT); set(7, h0 + 2, T.RELIC);
       set(6, h0 + 2, T.CHEST_GOLD); set(10, h0 + 2, T.CHEST_ANCIENT); chests.push([6, h0 + 2], [10, h0 + 2]);
@@ -259,7 +260,7 @@ export function generate(seed, opts = {}) {
   for (let s = 0; s < STRATA_COUNT; s++) {
     const r0 = GROUND_ROW + s * STRATUM_ROWS, bh = GEN(s).haz;
     const minR = s === 0 ? r0 + 14 : r0 + 2;
-    const loose = Math.round((s === 0 ? 1 : 2 + Math.min(4, s)) * hz * bh), gas = Math.round((s === 0 ? 0 : 1 + Math.min(4, s)) * hz * bh);
+    const K = STRATUM_ROWS / 36, loose = Math.round((s === 0 ? 1 : 2 + Math.min(4, s)) * hz * bh * K), gas = Math.round((s === 0 ? 0 : 1 + Math.min(4, s)) * hz * bh * K);
     for (let i = 0; i < loose; i++) {
       let c = 0, r = 0;
       for (let tries = 0; tries < 40; tries++) {
