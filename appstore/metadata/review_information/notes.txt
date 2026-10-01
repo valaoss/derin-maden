@@ -1,9 +1,5 @@
-FALL is a single-player and two-player co-op mining roguelite. No account or login is required.
+FALL is a single-player mining roguelite. No account or login is required, and no network connection is needed.
 
 How to play: drag the on-screen joystick to move; the miner digs in the direction of movement and fires automatically at nearby enemies. Tap ATÖLYE (Workshop) at the surface camp to buy upgrades with collected ore.
-
-Co-op (optional): Main menu > BİRLİKTE. "Hızlı Eşleş" (Quick Match) pairs two waiting players; "Oda Kur" (Create Room) gives an invite link/4-digit code for a second device. It needs two devices; devices connect peer-to-peer over WebRTC. Single-player needs no network.
-
-Communication between players is limited to six fixed quick-chat phrases and a map ping. There is no free-text chat. The player name (max 14 characters) is the only free-text field shown to the co-op partner.
 
 The app collects no data, contains no ads, no analytics and no in-app purchases. The in-game language is Turkish.

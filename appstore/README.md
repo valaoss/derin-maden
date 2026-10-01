@@ -5,8 +5,8 @@ Bu klasör mağaza için gereken her şeyi içerir. Sıra: önce Mac'te derleyip
 | Ne | Nerede |
 |---|---|
 | Xcode projesi (oyun içinde, ikon ve açılış ekranı hazır) | `ios/App/App.xcodeproj` |
-| Ekran görüntüleri, iPhone 6.9" (1320×2868), 6 adet | `appstore/screenshots/tr/iphone-6.9_*.png` |
-| Ekran görüntüleri, iPad 13" (2064×2752), 6 adet | `appstore/screenshots/tr/ipad-13_*.png` |
+| Ekran görüntüleri, iPhone 6.9" (1320×2868), 5 adet | `appstore/screenshots/tr/iphone-6.9_*.png` |
+| Ekran görüntüleri, iPad 13" (2064×2752), 5 adet | `appstore/screenshots/tr/ipad-13_*.png` |
 | Aynı görüntülerin İngilizce başlıklı hali | `appstore/screenshots/en-US/` |
 | Mağaza metinleri (Türkçe, İngilizce) | `appstore/metadata/tr/`, `appstore/metadata/en-US/` |
 | İnceleme notu (Apple'a) | `appstore/metadata/review_information/notes.txt` |
@@ -43,8 +43,8 @@ Paket kimliği `com.baranbulduk.fall`. Değiştirmek istersen ilk yüklemeden ö
 
 | Alan | Dosya |
 |---|---|
-| Screenshots, iPhone 6.9" | `screenshots/tr/iphone-6.9_01…06` sırayla sürükle |
-| Screenshots, iPad 13" | `screenshots/tr/ipad-13_01…06` |
+| Screenshots, iPhone 6.9" | `screenshots/tr/iphone-6.9_01…06 (05 yok)` sırayla sürükle |
+| Screenshots, iPad 13" | `screenshots/tr/ipad-13_01…06 (05 yok)` |
 | Promotional Text | `metadata/tr/promotional_text.txt` |
 | Description | `metadata/tr/description.txt` |
 | Keywords | `metadata/tr/keywords.txt` |
@@ -106,7 +106,7 @@ fastlane deliver --username APPLE_KIMLIGIN
 
 1. **Uygulama adı.** Mağazada adlar tekildir; yalın "FALL" büyük olasılıkla alınmış, bu yüzden "FALL: Derin Maden" yazdım. Ana ekrandaki ikon adı yine FALL.
 2. **Balrog ve Arkentaş adları.** İkisi de Tolkien eserlerinden; hak sahipleri marka konusunda hassas. Mağaza metinlerinde ve ekran görüntülerinde bu adları kullanmadım ama oyunun içinde duruyorlar. Yayından önce yeniden adlandırmanı öneririm.
-3. **Ortak mod bağlantısı.** Herkese açık PeerJS sunucusu kullanılıyor ve TURN yok; bazı mobil ağlarda iki cihaz bağlanamayabilir. Ayrıntı: `docs/ios.md`.
+3. **Ortak mod bağlantısı.** Uygulamada şimdilik gizli (web sürümünde açık); TURN eklenip mobil ağda test edilince açılacak. Herkese açık PeerJS sunucusu kullanılıyor ve TURN yok; bazı mobil ağlarda iki cihaz bağlanamayabilir. Ayrıntı: `docs/ios.md`.
 4. **iPad.** Uygulama iPhone + iPad olarak ayarlı; iPad'de oyun ekranın ortasında telefon genişliğinde bir sütunda çalışır. Yalnız iPhone istersen Xcode'da App hedefi → General → Supported Destinations'dan iPad'i kaldır (o zaman iPad görüntüleri gerekmez). İlk yayından sonra iPad desteği kaldırılamaz.
 
 ## Ekran görüntülerini yeniden üretmek
