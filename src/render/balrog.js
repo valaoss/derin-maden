@@ -238,7 +238,7 @@ export function drawBalrogOmen(ctx, glow) {
   if (t > 3.2) {
     const k = clamp((t - 3.2) / 0.8, 0, 1), bl = ((t * 0.7) % 3) < 0.12 ? 0 : 1, h = Math.max(1, Math.round(k * 2)) * bl;
     // çömelmiş 3B gövdenin göz hizası
-    if (h) { glow(wx(7), wy(-27), 'rgba(255,150,50,0.6)', 8, k); X.fillStyle = '#fff4a0'; X.fillRect(Math.round(wx(F > 0 ? 7 : 9)), Math.round(wy(-27)), 3, h); X.fillStyle = '#ffb040'; X.fillRect(Math.round(wx(F > 0 ? 4 : 5)), Math.round(wy(-27)), 2, h); }
+    if (h) { glow(wx(12), wy(-14), 'rgba(255,150,50,0.6)', 8, k); X.fillStyle = '#fff4a0'; X.fillRect(Math.round(wx(F > 0 ? 12 : 14)), Math.round(wy(-14)), 3, h); X.fillStyle = '#ffb040'; X.fillRect(Math.round(wx(F > 0 ? 9 : 10)), Math.round(wy(-14)), 2, h); }
   }
   const late = BALROG.dark - 2.6;
   if (t > late) {
@@ -257,6 +257,6 @@ export function balrogLights(out) {
     const s = 3.4 * clamp((intro - 0.12) / 0.4, 0, 1) * (1 - dying) * (e.bs && e.bs.phase === 2 ? 1.25 : 1) * (1 - (e.fade || 0));
     if (s > 0.2) out.push({ x: e.x, y: e.y - 18, s });
     const A = e.bs && e.bs.act;
-    if (A && A.k === 'breath' && A.stage === 'fire' && !e.dead) out.push({ x: e.x + Math.cos(A.a) * 50, y: e.y - 34 + Math.sin(A.a) * 50, s: 3.4 });
+    if (A && A.k === 'breath' && A.stage === 'fire' && !e.dead) out.push({ x: e.x + Math.cos(A.a) * 50, y: e.y - 17 + Math.sin(A.a) * 50, s: 3.4 });
   }
 }

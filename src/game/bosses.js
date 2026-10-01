@@ -406,8 +406,8 @@ Object.assign(KITS, {
 
 // BALROG: alev kamçısı (uzak, öfkede çeker), alev kılıcı (yeri yarar), gölge kanatları (korku + kor yağmuru), ateş nefesi,
 // alev alan kanatlarla havalanıp madencinin üstüne konma. Yürürken kayayı parçalar; öfkede çevresini kavurur.
-const ARM = e => [e.x + e.face * 24, e.y - 22]; // 3B modelin kamçı eli
-const MAW = e => [e.x + e.face * 15, e.y - 37]; // 3B modelin nefes duruşundaki ağzı
+const ARM = e => [e.x + e.face * 30, e.y - 16]; // 3B modelin kamçı eli
+const MAW = e => [e.x + e.face * 17, e.y - 17]; // 3B modelin nefes duruşundaki ağzı
 KITS.balrog = {
   cd: { whip: 1.2, sword: 0.8, wings: 7, breath: 4, swoop: 9 },
   choose(e, p, dp, B) {
