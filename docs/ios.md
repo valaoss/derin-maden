@@ -2,11 +2,13 @@
 
 Oyun Capacitor ile `ios/` altında yerel bir iOS uygulamasına sarılı. Web sürümü (GitHub Pages) aynen çalışmaya devam eder.
 
-- Paket kimliği: `com.valaoss.derinmaden` (`capacitor.config.json` ve Xcode'da değiştirilebilir, App Store'a yüklendikten sonra değişmez)
+- Paket kimliği: `com.valaoss.fall` (`capacitor.config.json` ve Xcode'da değiştirilebilir, App Store'a yüklendikten sonra değişmez)
 - Yalnızca dikey, tam ekran, durum çubuğu gizli; iPhone + iPad
 - Titreşim: Capacitor Haptics · Kayıt: localStorage + Preferences yedeği · Paylaşım: yerel paylaşım menüsü
 - Davet linkleri web adresine gider (`valaoss.github.io/derin-maden/?oda=KOD`); uygulama ve web birlikte oynayabilir
 - Gizlilik ve destek sayfası: `https://valaoss.github.io/derin-maden/gizlilik.html` (oyunda Ayarlar → Gizlilik ve destek)
+
+Mağaza metinleri, ekran görüntüleri ve alan alan yayın rehberi: `appstore/README.md`.
 
 ## Mac'te derleme
 

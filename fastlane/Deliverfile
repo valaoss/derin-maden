@@ -1,0 +1,9 @@
+# İsteğe bağlı: mağaza metinlerini ve ekran görüntülerini tek komutla App Store Connect'e yükler.
+# Mac'te proje kökünde:  fastlane deliver --username APPLE_KIMLIGIN
+app_identifier "com.valaoss.fall"
+metadata_path "./appstore/metadata"
+screenshots_path "./appstore/screenshots"
+skip_binary_upload true
+overwrite_screenshots true
+submit_for_review false
+precheck_include_in_app_purchases false

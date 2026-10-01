@@ -1,0 +1,1 @@
+mining,dig,roguelite,roguelike,pixel,boss,coop,cave,survival,action,miner,dungeon,ore,drill
