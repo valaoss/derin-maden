@@ -256,5 +256,169 @@
   "cx": 64,
   "rows": 8,
   "scale": 0.62
+ },
+ "aynasiz": {
+  "cell": 128,
+  "cols": 16,
+  "rot": 0,
+  "anims": {
+   "idle": {
+    "row": 1,
+    "n": 16
+   },
+   "walk": {
+    "row": 2,
+    "n": 16
+   },
+   "hurt": {
+    "row": 3,
+    "n": 16
+   },
+   "die": {
+    "row": 4,
+    "n": 16
+   },
+   "mirror": {
+    "row": 5,
+    "n": 16
+   },
+   "shards": {
+    "row": 6,
+    "n": 16
+   },
+   "step": {
+    "row": 7,
+    "n": 16
+   }
+  },
+  "feet": 126,
+  "cx": 64,
+  "rows": 8,
+  "scale": 0.62
+ },
+ "kehribarAna": {
+  "cell": 128,
+  "cols": 16,
+  "rot": 0,
+  "anims": {
+   "idle": {
+    "row": 1,
+    "n": 16
+   },
+   "walk": {
+    "row": 2,
+    "n": 16
+   },
+   "hurt": {
+    "row": 3,
+    "n": 16
+   },
+   "die": {
+    "row": 4,
+    "n": 16
+   },
+   "amber": {
+    "row": 5,
+    "n": 16
+   },
+   "eggs": {
+    "row": 6,
+    "n": 16
+   },
+   "resin": {
+    "row": 7,
+    "n": 16
+   }
+  },
+  "feet": 124,
+  "cx": 64,
+  "rows": 8,
+  "scale": 0.62
+ },
+ "madenKalbi": {
+  "cell": 128,
+  "cols": 16,
+  "rot": 0,
+  "anims": {
+   "idle": {
+    "row": 1,
+    "n": 16
+   },
+   "hurt": {
+    "row": 2,
+    "n": 16
+   },
+   "die": {
+    "row": 3,
+    "n": 16
+   },
+   "beat": {
+    "row": 4,
+    "n": 16
+   },
+   "fall": {
+    "row": 5,
+    "n": 16
+   },
+   "move": {
+    "row": 6,
+    "n": 16
+   },
+   "spikes": {
+    "row": 7,
+    "n": 16
+   }
+  },
+  "feet": 124,
+  "cx": 64,
+  "rows": 8,
+  "scale": 0.6
+ },
+ "ejder": {
+  "cell": 128,
+  "cols": 16,
+  "rot": 0,
+  "anims": {
+   "idle": {
+    "row": 1,
+    "n": 16
+   },
+   "walk": {
+    "row": 2,
+    "n": 16
+   },
+   "hurt": {
+    "row": 3,
+    "n": 16
+   },
+   "die": {
+    "row": 4,
+    "n": 16
+   },
+   "breath": {
+    "row": 5,
+    "n": 16
+   },
+   "gust": {
+    "row": 6,
+    "n": 16
+   },
+   "soar": {
+    "row": 7,
+    "n": 16
+   },
+   "tail": {
+    "row": 8,
+    "n": 16
+   },
+   "wake": {
+    "row": 9,
+    "n": 16
+   }
+  },
+  "feet": 124,
+  "cx": 64,
+  "rows": 10,
+  "scale": 0.68
  }
 }

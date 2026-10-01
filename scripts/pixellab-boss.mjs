@@ -69,11 +69,57 @@ export const BOSSES = {
       die: 'drops the sword and scepter, sinks to his knees, crumbles into a pile of gold coins and dust, the turban rolls away',
     },
   },
-  aynasiz: { description: 'Mirrorless Monarch: a faceless king made of shattered mirror shards and dark glass, reflective jagged armor, crown of broken glass, void where the face should be, dark fantasy, side view game boss', anims: {} },
-  kehribarAna: { description: 'Amber Mother: a giant insect queen encased in translucent glowing amber, six chitinous legs, egg sac abdomen, ancient trapped creatures visible inside the amber, dark fantasy, side view game boss', anims: {} },
-  madenKalbi: { description: 'Heart of the Mine: a colossal crystalline heart of glowing red gemstone with veins of ore and stone, pulsing light, rock tendrils, floating crystal shards orbiting, dark fantasy, side view game boss', anims: {} },
+  aynasiz: {
+    description: 'Mirrorless Monarch, Lord of Reflections: a tall faceless king whose body is made of shattered mirror shards and dark blue-silver glass, jagged reflective plate armor with cracks glowing pale blue, a crown of broken glass spikes, a smooth black void where the face should be with two faint white points, a long cape of hanging mirror fragments, holding a mirror-glass staff in the right hand, cold pale light, dark fantasy, side view game boss',
+    anims: {
+      idle: 'breathing idle, mirror shards shift and glint, the cape fragments sway and chime, faint reflections flicker across the armor',
+      walk: 'slow menacing walk forward, cape of mirror fragments swinging, glass armor plates sliding over each other',
+      mirror: 'raises the free hand and a glowing mirror pane forms in front of it, a reflection appears in the pane, then the pane fires bright white bolts forward',
+      step: 'the whole body shatters into hundreds of mirror shards that scatter and spin in the air, then the shards rush back together and the king reforms',
+      shards: 'crosses the arms over the chest then throws them wide, a ring of razor glass shards bursts outward from the body in all directions',
+      hurt: 'recoils from a hit, glass shards crack and fly off the body, the void face flickers',
+      die: 'the armor cracks all over, shards fall away piece by piece, the crown shatters and the figure collapses into a pile of broken glass',
+    },
+  },
+  kehribarAna: {
+    description: 'Amber Mother, Queen of the Hives: a giant insect queen boss, bulky wasp-like body encased in translucent glowing orange amber, six chitinous dark brown legs, a huge swollen egg sac abdomen glowing from inside with pale eggs visible, four tattered membrane wings, a crowned insect head with large black compound eyes and dripping mandibles, small ancient insects trapped inside the amber of the body, dark fantasy, side view game boss',
+    anims: {
+      idle: 'breathing idle, the egg sac abdomen pulses and glows, wings twitch, mandibles drip resin, legs shift',
+      walk: 'heavy six-legged crawl forward, abdomen dragging and swaying, wings buzzing briefly',
+      eggs: 'rears up and the egg sac contracts, lobs three glowing pale eggs high into the air forward in an arc',
+      resin: 'the head lunges forward and the mandibles open wide, spits a thick stream of sticky orange resin forward',
+      amber: 'raises the front legs and screeches, wings flare wide and glow, amber light shines down from above and amber drops begin to fall',
+      hurt: 'recoils from a hit, amber cracks and glowing fragments chip off the body, legs scramble',
+      die: 'the egg sac bursts, the amber body cracks and shatters, the queen collapses onto its side with legs curling up, amber shards scatter',
+    },
+  },
+  madenKalbi: {
+    description: 'Heart of the Mine, FALL: a colossal living heart boss of dark red glowing gemstone and raw ore, shaped like a real anatomical heart made of crystal, pulsing crimson light from deep inside, thick veins of black stone and copper ore running over the surface, jagged rock and crystal spikes growing from it, broken chains and mine rails embedded in its flesh, small floating red crystal shards orbiting around it, hovering in the air, dark fantasy, side view game boss',
+    anims: {
+      idle: 'hovering idle, the heart beats slowly with a double pulse, crimson light swells and fades, crystal shards orbit, stone veins glow',
+      move: 'drifts forward through the air, trailing red light and dust, the orbiting shards stream behind',
+      spikes: 'the heart clenches tight and the veins flash bright, long jagged stone spikes shoot out of its surface in all directions then retract',
+      fall: 'the heart swells and shudders violently, rock dust and small stones shake loose and fall from above',
+      beat: 'the heart squeezes smaller and darker, then explodes outward with a massive red shockwave pulse of light, veins blazing',
+      hurt: 'the heart flinches and cracks spread across the crystal, red light leaks out, shards scatter',
+      die: 'the beating slows and stutters, cracks spread everywhere, the heart splits open releasing a flood of red light then crumbles into dark stone and dust',
+    },
+  },
   dunyaYilani: { description: 'World Serpent: a gargantuan ancient serpent with obsidian scales, glowing rune markings, massive fanged jaws, coiled body, dark fantasy, side view game boss', anims: {} },
-  ejder: { description: 'Treasure Dragon: a massive golden-red dragon with gem-encrusted scales, gold coins stuck to its belly, great wings, horned head, fire in its throat, dark fantasy, side view game boss', anims: {} },
+  ejder: {
+    description: 'Treasure Dragon, Sleep of the Golden Hoard: a massive four-legged western dragon boss, copper-red scales with a bronze sheen, a bright golden belly with gold coins and gems stuck to it, large bat-like wings folded along the back, long ivory curved horns, a long spiked tail, a lion-like maw with ivory fangs, amber eyes, embers glowing in the throat, standing proudly, dark fantasy, side view game boss',
+    anims: {
+      idle: 'breathing idle, chest rises and falls, tail sways slowly, wings shift, embers glow in the throat, a coin falls off the belly',
+      walk: 'heavy four-legged stride forward, claws gripping the ground, tail swinging, wings tucked',
+      breath: 'the chest glows brighter and brighter from inside, the head rears back, then the jaws open and a huge torrent of orange fire pours forward',
+      tail: 'spins the body slightly and whips the long spiked tail around in a wide arc forward',
+      gust: 'spreads the wings wide and beats them powerfully forward, raising a storm of dust and gold coins',
+      soar: 'crouches then leaps into the air, wings beating hard, hovering high with legs tucked, then dives down claws first',
+      wake: 'lies curled asleep on a pile of gold coins with the tail wrapped around, then the eyes open, the head lifts, it shakes off coins and rises to stand on all fours with wings stretching',
+      hurt: 'recoils from a hit, scales and coins fly off, roars in pain',
+      die: 'staggers, the wings droop, collapses onto the belly, the head drops to the ground and the ember glow in the throat fades out',
+    },
+  },
   ezeli: {
     description: 'Ezeli the Eternal, Dream of the Core: a primordial angelic being older than creation, a tall veiled figure of pale golden light with no visible face, wrapped in flowing white and cream robes, surrounded by two slowly turning concentric golden halo rings covered in open watching eyes, four great wings made of pure light with feathers fading into sparks, floating in the air with no legs, trailing motes of starlight, radiant, holy and unknowable, dark fantasy, side view game boss',
     anims: {
@@ -181,7 +227,7 @@ async function sheet(boss) {
 }
 
 const [cmd, a, b, c] = process.argv.slice(2);
-if (cmd === 'balance') console.log(await api('GET', '/balance'));
+if (cmd === 'balance') { curKey = keyOf(+(a || 1)); console.log(JSON.stringify(await api('GET', '/balance'))); }
 else if (cmd === 'create') { curKey = keyOf(+(b || 1)); await create(a, +(b || 1)); }
 else if (cmd === 'rot') { curKey = keyOf(state[a]?.key || 1); await downloadRotations(a); }
 else if (cmd === 'anim') await anim(a, b, c ? c.split(',') : undefined);

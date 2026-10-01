@@ -308,5 +308,217 @@
         }
       }
     }
+  },
+  "aynasiz": {
+    "characterId": "e4d5bd5f-ee88-410b-a664-9c2328b8d5f0",
+    "createJob": "1dd451e3-0bf0-419c-97fe-cf300fa1554b",
+    "key": 7,
+    "anims": {},
+    "sa": {
+      "idle": {
+        "east": {
+          "job": "b7ccfba7-cfce-4c48-bf50-e3fecc29f3eb",
+          "key": 7
+        }
+      },
+      "walk": {
+        "east": {
+          "job": "31257f2a-7931-4d3f-91f2-c013ed816670",
+          "key": 7
+        }
+      },
+      "mirror": {
+        "east": {
+          "job": "8abb3be7-c7bf-44b4-8a7b-edbff2ce1011",
+          "key": 7
+        }
+      },
+      "step": {
+        "east": {
+          "job": "05a1342d-26c2-4dae-b9f3-4c839f419701",
+          "key": 7
+        }
+      },
+      "shards": {
+        "east": {
+          "job": "5543484d-d7fc-42b8-8675-9e9f58045b34",
+          "key": 7
+        }
+      },
+      "hurt": {
+        "east": {
+          "job": "6ad3ca46-a07e-4c29-acba-e9b1a565b150",
+          "key": 7
+        }
+      },
+      "die": {
+        "east": {
+          "job": "e16e3cbf-a80a-43bb-a9c3-ac7fd347be96",
+          "key": 7
+        }
+      }
+    }
+  },
+  "kehribarAna": {
+    "characterId": "bfbd10fd-2b60-4f79-aaa5-0c7109f241d0",
+    "createJob": "eaf161ce-4b06-4c90-b727-c9ae15739150",
+    "key": 8,
+    "anims": {},
+    "sa": {
+      "idle": {
+        "east": {
+          "job": "11e924ee-eef7-440e-8aa1-78b36c1c0107",
+          "key": 8
+        }
+      },
+      "walk": {
+        "east": {
+          "job": "9f6b13f0-5d38-488e-94d8-b9242a146aaf",
+          "key": 8
+        }
+      },
+      "eggs": {
+        "east": {
+          "job": "07960b0c-0ea3-4a4b-9aea-487bf2db1fc2",
+          "key": 8
+        }
+      },
+      "resin": {
+        "east": {
+          "job": "030f0749-dd9c-48e3-ba3b-a17c1e97d3fa",
+          "key": 8
+        }
+      },
+      "amber": {
+        "east": {
+          "job": "63d0b853-b9f9-4b30-a9c2-d80fd265df35",
+          "key": 8
+        }
+      },
+      "hurt": {
+        "east": {
+          "job": "ad9a9aa8-ec8f-4d4e-945d-c1dbbe6ffeda",
+          "key": 8
+        }
+      },
+      "die": {
+        "east": {
+          "job": "ba7469e8-9cc9-4bbf-917b-c8ee42e5d9b5",
+          "key": 8
+        }
+      }
+    }
+  },
+  "madenKalbi": {
+    "characterId": "759b0774-c131-47c7-bf0d-dece3df52605",
+    "createJob": "5f3aa70e-56af-403e-8f65-4f85761860b5",
+    "key": 9,
+    "anims": {},
+    "sa": {
+      "idle": {
+        "east": {
+          "job": "0f0aa1bb-001a-42e8-9054-429c9948f3af",
+          "key": 9
+        }
+      },
+      "beat": {
+        "east": {
+          "job": "3f309880-eece-4d01-9b6e-2ab4a4841a02",
+          "key": 9
+        }
+      },
+      "spikes": {
+        "east": {
+          "job": "a57984c4-32d3-4977-88aa-35756fe11abd",
+          "key": 9
+        }
+      },
+      "fall": {
+        "east": {
+          "job": "e23054da-5573-4819-871c-4783abb29348",
+          "key": 9
+        }
+      },
+      "hurt": {
+        "east": {
+          "job": "cb8eaa84-f5ed-411a-8118-d8742e9bf569",
+          "key": 9
+        }
+      },
+      "die": {
+        "east": {
+          "job": "2cbfd923-fc24-4d5f-97e6-7acdf74bcf98",
+          "key": 9
+        }
+      },
+      "move": {
+        "east": {
+          "job": "d6029fdb-edf8-4118-8ef0-b149912c2026",
+          "key": 9
+        }
+      }
+    }
+  },
+  "ejder": {
+    "characterId": "3ac0b39e-5488-444c-9537-7651e05ada17",
+    "createJob": "cc482af7-7e42-40d5-9477-433725a9c6b6",
+    "key": 10,
+    "anims": {},
+    "sa": {
+      "gust": {
+        "east": {
+          "job": "e7b24daa-b2cc-4af5-a417-0df12a3fd963",
+          "key": 6
+        }
+      },
+      "idle": {
+        "east": {
+          "job": "b252b0b6-5417-400a-93e3-385057bc5e99",
+          "key": 10
+        }
+      },
+      "breath": {
+        "east": {
+          "job": "3409ec1d-2f9a-4a34-b661-89a0bdabbca6",
+          "key": 10
+        }
+      },
+      "wake": {
+        "east": {
+          "job": "b5770b8d-9ace-400e-990e-8510a49efdd6",
+          "key": 10
+        }
+      },
+      "walk": {
+        "east": {
+          "job": "1eeb6d42-0423-42a2-85c2-0447e77f3983",
+          "key": 10
+        }
+      },
+      "soar": {
+        "east": {
+          "job": "8d7611e6-39cb-457a-9bbe-0d40bb37c197",
+          "key": 10
+        }
+      },
+      "tail": {
+        "east": {
+          "job": "0c703e08-9a89-4ead-85d3-278e3c6c4d9c",
+          "key": 10
+        }
+      },
+      "hurt": {
+        "east": {
+          "job": "cab04241-38f6-4711-b9bf-2b47d7ec8708",
+          "key": 10
+        }
+      },
+      "die": {
+        "east": {
+          "job": "f8dfc838-90e6-4b8a-a91e-85abd4fba0b8",
+          "key": 10
+        }
+      }
+    }
   }
 }

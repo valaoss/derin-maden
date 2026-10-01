@@ -12,6 +12,7 @@ import { BOSS_ART } from '../data/bossart.js';
 import { drawBossArt, drawBossArtGlow, drawArtFrame, artPoint, artPoseRow, artAttachment } from './bossart.js';
 import { bossMotion, motionPoint } from './bossmotion.js';
 import { drawBoss3D, boss3DPoint } from './boss3d.js';
+import { drawPLFrame } from './bosssprite.js';
 
 const SC = 1.45;
 const C = { scale: '#6a1a12', dark: '#3a0a08', back: '#2a0806', hi: '#a8442a', belly: '#c8902a', bellyD: '#8a5a18', wing: 'rgba(74,16,10,0.95)', wingFar: 'rgba(44,8,6,0.95)', bone: '#2a0806', horn: '#e0d0a8', hornD: '#8a7a60', claw: '#e8dcc0', eye: '#ffe060' };
@@ -254,8 +255,19 @@ function sleepingActor(H) {
   const wake = H.st === 'wake' ? clamp(H.t / HOARD.intro, 0, 1) : 0;
   return { e, options: { t: G.time, yaw: Math.PI - 0.16, sleep: 1 - (k => k * k * (3 - 2 * k))(clamp((wake - 0.18) / 0.43, 0, 1)), wake, act: { k: H.st === 'wake' ? 'wake' : 'sleep' } } };
 }
+// PixelLab: uyku = ölüm animasyonunun yatış karesi (nefesle kabarır); uyanış = yatıştan ayağa (ölüm geri sarılır), sonra kanat gerinmesi
+function hoardPL(ctx, H, glow) {
+  const k = H.st === 'wake' ? clamp(H.t / HOARD.intro, 0, 1) : 0, t = G.time;
+  const x = H.c * TILE + 8, feet = H.r * TILE + 16, br = k === 0 ? 1 + Math.sin(t * Math.PI * 2 / 3.2) * 0.012 + (H.lv >= 1 ? Math.sin(t * 9) * 0.004 : 0) : 1;
+  const LIE = 12, anim = k < 0.5 ? 'die' : 'wake', q = k < 0.5 ? (LIE - Math.floor(k / 0.5 * (LIE + 1)) + 0.5) / 16 : (k - 0.5) / 0.5 * 0.999;
+  ctx.save(); ctx.translate(x, feet); ctx.scale(1, br); ctx.translate(-x, -feet);
+  const ok = drawPLFrame(ctx, 'ejder', anim, q, x, feet, -1, glow ? 0.5 + k * 0.5 : 1, glow ? 'glow' : null);
+  ctx.restore();
+  return ok;
+}
 export function drawHoardDragon(ctx) {
   const H = G.hoard; if (!H || (H.st !== 'sleep' && H.st !== 'wake')) return;
+  if (hoardPL(ctx, H, false)) return;
   const P = pose({ hoard: H, F: -1 }, 1);
   const actor = sleepingActor(H);
   if (drawBoss3D(ctx, actor.e, 1, 1, false, actor.options)) {
@@ -372,6 +384,7 @@ export function drawHoardGlow(ctx, glow) {
     if (k < 0.25) { const x = c * TILE + 3 + Math.floor(h * 10), y = r * TILE + 2 + Math.floor(hash2(r, c, 9) * 8), s = Math.sin(k / 0.25 * Math.PI); ctx.globalAlpha = s; ctx.fillStyle = '#fff8d0'; ctx.fillRect(x, y, 1, 1); ctx.fillRect(x - 1, y, 3, 1); ctx.fillRect(x, y - 1, 1, 3); ctx.globalAlpha = 1; glow(x, y, 'rgba(255,220,120,0.4)', 5, s); }
   }
   if (H.st !== 'sleep' && H.st !== 'wake') return;
+  if (hoardPL(ctx, H, true)) return;
   const P = pose({ hoard: H, F: -1 }, 1);
   const actor = sleepingActor(H);
   if (drawBoss3D(ctx, actor.e, 1, P.eye * 0.7, true, actor.options)) {

@@ -43,7 +43,7 @@ function tint(s, key, col) {
 }
 
 // yaklaşık bağlantı noktaları (doğu karesi, hücre koordinatı)
-const POINTS = { balrog: { eyes: [77, 27], mouth: [80, 32], chests: [73, 50], hand: [49, 66] }, karakok: { eyes: [72, 40], mouth: [76, 50], chests: [64, 70] }, kavurgan: { eyes: [92, 40], mouth: [100, 48], chests: [64, 70] }, otegoz: { eyes: [70, 50], mouth: [70, 50], chests: [64, 64] }, sultan: { eyes: [72, 30], mouth: [74, 38], chests: [64, 60], hand: [84, 70] }, ezeli: { eyes: [66, 26], mouth: [66, 34], chests: [64, 56] } };
+const POINTS = { balrog: { eyes: [77, 27], mouth: [80, 32], chests: [73, 50], hand: [49, 66] }, karakok: { eyes: [72, 40], mouth: [76, 50], chests: [64, 70] }, kavurgan: { eyes: [92, 40], mouth: [100, 48], chests: [64, 70] }, otegoz: { eyes: [70, 50], mouth: [70, 50], chests: [64, 64] }, sultan: { eyes: [72, 30], mouth: [74, 38], chests: [64, 60], hand: [84, 70] }, ezeli: { eyes: [66, 26], mouth: [66, 34], chests: [64, 56] }, aynasiz: { eyes: [60, 24], mouth: [62, 32], chests: [52, 60], hand: [80, 40] }, kehribarAna: { eyes: [100, 40], mouth: [112, 52], chests: [70, 80] }, madenKalbi: { eyes: [64, 50], mouth: [64, 60], chests: [64, 64] }, ejder: { eyes: [100, 30], mouth: [112, 38], chests: [70, 80] } };
 
 const k01 = k => clamp(k, 0, 1);
 // eylem -> [animasyon adı, ilerleme 0..1 | null (döngü)]
@@ -71,6 +71,31 @@ const ACT = {
   ezeli(e, act) {
     if (act.k === 'pillars') return ['pillars', k01(1 - act.T / 0.4)];
     if (act.k === 'doom') return ['doom', k01(1 - act.T / 1.2)];
+    return null;
+  },
+  aynasiz(e, act) {
+    if (act.k === 'mirror') return ['mirror', k01(1 - act.T / 1.4)];
+    if (act.k === 'step') return ['step', k01(1 - act.T / 0.5)];
+    if (act.k === 'shards') return ['shards', k01(1 - act.T / 0.4)];
+    return null;
+  },
+  kehribarAna(e, act) {
+    if (act.k === 'eggs') return ['eggs', k01(1 - act.T / 0.4)];
+    if (act.k === 'resin') return ['resin', k01(1 - act.T / 0.4)];
+    if (act.k === 'amber') return ['amber', k01(1 - act.T / 0.3)];
+    return null;
+  },
+  madenKalbi(e, act) {
+    if (act.k === 'spikes') return ['spikes', k01(1 - act.T / 0.4)];
+    if (act.k === 'fall') return ['fall', k01(1 - act.T / 0.3)];
+    if (act.k === 'beat') return ['beat', k01(1 - act.T / 1)];
+    return null;
+  },
+  ejder(e, act) {
+    if (act.k === 'breath') return act.stage === 'glow' ? ['breath', k01(1 - act.st / 1.1) * 0.4] : act.stage === 'fire' ? ['breath', 0.4 + k01(1 - act.st / (e.bs?.phase === 2 ? 2 : 1.6)) * 0.5] : ['breath', 0.9 + k01(1 - act.st / 0.4) * 0.1];
+    if (act.k === 'tail') return ['tail', k01(1 - act.T / 0.9)];
+    if (act.k === 'gust') return ['gust', k01(1 - act.T / 1.3)];
+    if (act.k === 'soar') return act.stage === 'up' ? ['soar', k01(1 - act.st / 0.9) * 0.35] : act.stage === 'hover' ? ['soar', 0.35 + k01(1 - act.st / 2.4) * 0.35] : ['soar', 0.7 + k01(1 - act.st / 0.5) * 0.3];
     return null;
   },
   sultan(e, act) {
@@ -201,6 +226,16 @@ export function drawPLGlow(ctx, e, alpha, glow, a0 = 1) {
 }
 
 // bağlantı noktası: [x, y, P, görünür]; arkaya dönük karede göz görünmez
+// Varlık dışı tek kare (uyuyan ejder): anim adı + 0..1 ilerleme, ayak noktası
+export function drawPLFrame(ctx, type, anim, k, x, feet, F, a = 1, layer = null) {
+  const L = PL[type], s = sheet(type); if (!L || !s || !L.anims[anim]) return false;
+  const A = L.anims[anim], fr = Math.min(A.n - 1, Math.floor(k01(k) * A.n)), sc = L.scale || 1;
+  ctx.save(); ctx.globalAlpha = a; ctx.translate(Math.round(x), Math.round(feet)); ctx.scale(F * sc, sc);
+  ctx.drawImage(layer === 'glow' ? s.glow : s.img, fr * L.cell, A.row * L.cell, L.cell, L.cell, -L.cx, -L.feet, L.cell, L.cell);
+  ctx.restore(); ctx.globalAlpha = 1;
+  return true;
+}
+
 export function plAttachment(e, alpha, kind) {
   const P = pose(e, alpha, false), pt = POINTS[e.type]?.[kind]; if (!pt) return null;
   const L = P.L, [px, py] = pt;
