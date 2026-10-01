@@ -1,7 +1,7 @@
 // Ötegöz: havada süzülen dev göz. Mor iris, yarık göz bebeği; arkasını saran boşluk eti göz kapağı gibi kapanır,
 // altından uçlarında küçük gözler olan gölge dokunaçlar sarkar. Kamera sabittir: bakış yönü ekran düzleminde hedefe döner.
 import { dot } from '../soft3d.js';
-import { TAU, clamp, ss, bump, mad, norm, cross, ell, ball, tube, frame, hash } from './rig.js';
+import { TAU, clamp, ss, bump, mad, norm, cross, ell, ball, tube, frame, hash, meleeK } from './rig.js';
 
 const M = { EYE: 1, IRIS: 2, PUPIL: 3, FLESH: 4, TENT: 5, TIP: 6, VEIN: 7 };
 const R = 9.5, NT = 6, SEG = 7;
@@ -88,6 +88,12 @@ function pose(o) {
     // kısılır, sonra ışın: göz nişan yönüne kilitlenir ve tarar
     const k = ss(0, 0.8, 2.1 - A.T), f = A.fire ? 1 : 0;
     lid = 1 - 0.55 * k * (1 - f) - 0.15 * f; pupil = 0.45 - 0.35 * k; hot = 0.5 * k + 0.5 * f; reach = [-gx * 0.8 * f, -gy * 0.8 * f]; x -= gx * 1.2 * f; y -= gy * 1.2 * f; splay = 0.3 + 0.5 * f; zc = 0.62; rate = 34;
+  }
+  if (o.act === 'melee') {
+    // dokunaçlarını geriye toplar, sonra hepsini birden madenciye kamçılar
+    const [up, dn] = meleeK(o), k = -0.7 * up + 1.5 * dn;
+    reach = [gx * k, gy * k + 0.5 * up]; curl = 0.5 * up; tlen = 1 - 0.15 * up + 0.5 * dn; splay = 0.3 * up + 0.15 * dn; tsway = 1 - 0.7 * Math.max(up, dn);
+    x += gx * (-1.5 * up + 3 * dn); y += gy * (-1.5 * up + 3 * dn); pupil = 0.45 - 0.3 * up; hot = Math.max(hot, 0.5 * dn); lid = Math.min(lid, 1 - 0.3 * up); rate = 44;
   }
   if (o.blink > 0) { size = 1 - o.blink; lid = Math.min(lid, 1 - o.blink); hot = 1; curl = o.blink; tlen = 1 - 0.6 * o.blink; rate = 60; }
   if (rage && o.rageT < 1) { const k = bump(0, 0.15, 0.7, 1, o.rageT); pupil = 0.95; hot = 1; tsway = 3; splay = 0.2 + k; size = 1 + 0.12 * k; }

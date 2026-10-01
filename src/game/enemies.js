@@ -424,7 +424,8 @@ export function updateEnemies(dt) {
     // --- oyuncuya saldırı (yakında ve görüşte) ---
     if (p && dp < 60 && losClear(e.x, e.y, p.x, p.y)) {
       e.st = 'chase';
-      if (dp < e.r + 7) { e.wind = windup(e); e.face = p.x >= e.x ? 1 : -1; if (e.atkCd <= 0) attack(e, p); continue; }
+      // bosslar değerek vurmaz: düz vuruşları bosses.js'te (gerilir, sonra vurur)
+      if (dp < e.r + 7) { e.face = p.x >= e.x ? 1 : -1; if (e.d.boss) continue; e.wind = windup(e); if (e.atkCd <= 0) attack(e, p); continue; }
       const d = dp || 1;
       let vx = (p.x - e.x) / d * sp, vy = (p.y - e.y) / d * sp;
       if (e.d.fly) { vx += Math.cos(e.anim * 0.7) * 18; vy += Math.sin(e.anim * 0.9) * 18; }

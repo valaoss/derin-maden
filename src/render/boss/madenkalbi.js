@@ -1,7 +1,7 @@
 // Madenin Kalbi: koyu kızıl kristalden, havada asılı dev bir yürek. Çift vuruşla atar, içinden kızıl ışık sızar;
 // üstünde kara taş damarlar, bakır cevheri, kristal dikenler, gömülü ray ve kopuk zincirler; çevresinde kıymıklar döner.
 import { dot, line } from '../soft3d.js';
-import { TAU, clamp, ss, bump, mad, norm, tube, spike, prism, hash } from './rig.js';
+import { TAU, clamp, ss, bump, mad, norm, tube, spike, prism, hash, meleeK } from './rig.js';
 
 const M = { CRYSTAL: 1, STONE: 2, COPPER: 3, GLOW: 4, IRON: 5, SHARD: 6, DEAD: 7 };
 const rgb = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)], ramp = (...c) => c.map(rgb);
@@ -77,6 +77,10 @@ function pose(o) {
     // şişer ve sarsılır: tavan çöker
     const c = o.act === 'fall' ? o.since : 0.3 + o.since, k = bump(0, 0.12, 0.4, 0.8, c);
     s = 1 + 0.16 * k; x += Math.sin(t * 60) * 1.4 * k; y += Math.cos(t * 47) * k; beat = Math.max(beat, k * 0.8); swing = 1 + 3 * k; rate = 50;
+  } else if (o.act === 'melee') {
+    // büzülür, sonra dikenlerini madenciye doğru fırlatıp geri çeker
+    const [up, dn] = meleeK(o), dx = clamp(o.tx / 20, -1, 1), dy = clamp(-o.ty / 20, -1, 1), k = -1 * up + 3 * dn;
+    s = 1 - 0.12 * up + 0.07 * dn; spike = 0.8 * dn; spread = 1 - 0.3 * up + 0.35 * dn; beat = Math.max(beat, dn); x += dx * k; y += dy * k; orb += up * 2; rate = 50;
   } else if (o.act === 'beat' && A) {
     // küçülüp kararır, sonra bütün ışığıyla patlar
     const k = ss(0, 0.9, o.wind);

@@ -1,7 +1,7 @@
 // Hazine Ejderi savaş duruşları: bekleme, yürüyüş, alev nefesi, kuyruk darbesi, kanat fırtınası, havalanma/dalış, vuruş, öfke, ölüm.
 // Girdi o (boss/state.js): eylem, aşama, zamanlar, hedef yönü. Açılar derece tutulur, sonda radyana çevrilir.
 import { STAND, SLEEP, ROAR_NECK, COIL_NECK, LOOK } from './dragonpose.js';
-import { TAU, D, lerp, clamp, ss, bump, track, aimLocal } from './boss/rig.js';
+import { TAU, D, lerp, clamp, ss, bump, track, aimLocal, meleeK } from './boss/rig.js';
 
 const AIM = [0.1, 0.2, 0.25, 0.2, 0.1], FIRE_NECK = [18, 6, -6, -10, -6], DEAD_NECK = [-14, -18, -8, 4, 8], DIVE_NECK = [6, 2, -2, -4, -2];
 const TAIL_BACK = [10, 16, 20, 22, 22, 20, 16, 12, 8], TAIL_HIT = [14, 20, 24, 24, 22, 18, 14, 10, 6], TAIL_LOW = [-12, -8, -4, 0, 2, 2, 2, 0, 0], TAIL_HANG = [-16, -10, -6, -2, 2, 4, 4, 3, 2];
@@ -64,6 +64,12 @@ export function dragonFight(o) {
       const k = clamp(1 - A.st / 0.4, 0, 1);
       add(nP, [-6, -6, -2, 2, 4], Math.sin(k * Math.PI)); jaw = 0.3 * (1 - k); heat = 0.4 * (1 - k); aimW = 1 - k;
     }
+  } else if (o.act === 'melee') {
+    // ısırık: boynunu kobra gibi geri toplar, başını öne fırlatıp çenesini kapatır
+    const [up, dn] = meleeK(o), [ay, ap] = aimLocal(Math.cos(o.aim || 0), Math.sin(o.aim || 0), o.view);
+    aimY = clamp(ay, -1.3, 1.3); aimP = clamp(ap, -0.7, 1); lookW = 0; aimW = Math.max(0.5 * up, dn);
+    for (let i = 0; i < 5; i++) nP[i] = lerp(nP[i] + COIL_NECK[i] * up, FIRE_NECK[i], dn);
+    hd[0] = lerp(hd[0] - 10 * up, -4, dn); px += -2.5 * up + 3.5 * dn; py -= 1.2 * up; pitch += 4 * up - 3 * dn; jaw = Math.max(0.8 * up, 0.1 * dn); wing.open += 0.25 * up; wing.flap += 0.12 * up; rate = 44;
   } else if (o.act === 'tail') {
     // arkasına bakar, kuyruğu uzak yana toplar; gövdeyi çevirip kamçı gibi yakın yana savurur
     const c = o.since, wnd = ss(0, 0.4, c) * (1 - ss(0.44, 0.52, c)), turn = ss(0.44, 0.8, c), sw = bump(0.44, 0.52, 0.72, 0.82, c);

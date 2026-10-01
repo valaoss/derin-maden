@@ -3,7 +3,7 @@
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y, PLAY_MIN_COL, PLAY_MAX_COL, stratumOfRow } from '../config.js';
 import { T, TD } from '../data/tiles.js';
-import { BOSS_BANDS, BALROG } from '../data/balance.js';
+import { BOSS_BANDS, BALROG, BOSS_MELEE } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, solidAt, setTile, matOf } from '../world/map.js';
 import { breakTile, damagePlayer, blindPlayer, pullPlayer, webPlayer, scarePlayer } from './player.js';
@@ -586,9 +586,34 @@ KITS.balrog = {
   },
 };
 
+// düz vuruş (her bossta ortak): gerilirken hedefi izler, son anda kilitlenir; yayın dışına çıkan kurtulur
+function startMelee(e, p, B) {
+  const M = BOSS_MELEE;
+  B.cd.melee = M.cd; B.act = { k: 'melee', T: M.wind + M.rest, a: Math.atan2(p.y - e.y, p.x - e.x), R: e.r + M.reach, arc: M.arc, done: false };
+  e.face = p.x >= e.x ? 1 : -1;
+}
+function runMelee(e, dt, p, B) {
+  const A = B.act, M = BOSS_MELEE, t = M.wind + M.rest - A.T;
+  if (t < M.wind) {
+    e.wind = t / M.wind;
+    if (p && t < M.wind * 0.6) A.a += Math.max(-3 * dt, Math.min(3 * dt, angDiff(Math.atan2(p.y - e.y, p.x - e.x), A.a)));
+    e.face = Math.cos(A.a) >= 0 ? 1 : -1;
+    return;
+  }
+  if (A.done) return;
+  A.done = true; e.wind = 0; e.lunge = 1; sfx.whip();
+  let hit = false;
+  for (const q of live()) {
+    const dx = q.x - e.x, dy = q.y - e.y, d = Math.hypot(dx, dy) || 1;
+    if (d > A.R || (d > e.r && Math.abs(angDiff(Math.atan2(dy, dx), A.a)) > A.arc)) continue;
+    damagePlayer(q, e.d.dmg * e.dmgMul, e.x, e.y); pullPlayer(q, dx / d * M.push, dy / d * M.push * 0.6 - 40); sparks(q.x, q.y - 2, e.d.col, 8, 90); hit = true;
+  }
+  if (hit) { shake(0.35); hitstop(0.05); haptic(40); }
+}
+
 function initBoss(e) {
   const K = KITS[e.type];
-  e.bs = { phase: 1, act: null, cd: Object.assign({}, K.cd), marks: [], rings: [], hinted: false };
+  e.bs = { phase: 1, act: null, cd: Object.assign({ melee: 0.5 }, K.cd), marks: [], rings: [], hinted: false };
 }
 
 function enrage(e) {
@@ -664,7 +689,7 @@ export function updateBoss(e, dt, p, dp) {
   if (B.phase === 2) { e.slowT = Math.min(e.slowT, -0.1); if (rnd() < dt * 10) particle(e.x + (rnd() - 0.5) * 20, e.y + (rnd() - 0.5) * 14, 0, -20, 0.5, e.d.col, 1, 1, 0); }
   if (B.act) {
     B.act.T -= dt;
-    const run = K.run[B.act.k];
+    const run = B.act.k === 'melee' ? runMelee : K.run[B.act.k];
     if (run) run(e, dt, p, B);
     if (B.act.T <= 0) { B.act = null; e.wind = 0; }
     return true;
@@ -672,6 +697,7 @@ export function updateBoss(e, dt, p, dp) {
   const rate = B.phase === 2 ? 1.35 : 1;
   for (const k in B.cd) B.cd[k] -= dt * rate;
   if (!p || p.dead) return false;
+  if (K.melee !== false && !(B.cd.melee > 0) && !e.under && dp < e.r + BOSS_MELEE.range && (dp < e.r + 4 || losClear(e.x, e.y, p.x, p.y))) { startMelee(e, p, B); return true; }
   const k = K.choose(e, p, dp, B);
   if (!k) return false;
   B.act = { k, T: 1 };

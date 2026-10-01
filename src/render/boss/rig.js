@@ -1,6 +1,7 @@
 // 3B boss iskeletlerinin ortak parçaları: vektör, eklem çerçevesi, ilkel şekiller, ters kinematik, duruş eğrileri.
 // Birim: tasarım pikseli. +x ileri, +y yukarı, +z yaratığın sağı (kamera yanı).
 import { vert, tri, line } from '../soft3d.js';
+import { BOSS_MELEE } from '../../data/balance.js';
 
 export const TAU = Math.PI * 2, D = Math.PI / 180;
 export const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], mul = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
@@ -14,6 +15,8 @@ export const hash = n => { const s = Math.sin(n * 127.1 + 3.7) * 43758.5453; ret
 // ---------- duruş eğrileri ----------
 export const ss = (a, b, x) => { const k = clamp((x - a) / (b - a), 0, 1); return k * k * (3 - 2 * k); };
 export const bump = (a, b, c, d, x) => ss(a, b, x) * (1 - ss(c, d, x));
+// düz vuruş (oyundaki BOSS_MELEE zamanlaması): [gerilme, darbe] ağırlıkları
+export function meleeK(o) { const W = BOSS_MELEE.wind, c = o.since; return [ss(0, W * 0.8, c) * (1 - ss(W - 0.04, W + 0.05, c)), ss(W - 0.04, W + 0.05, c) * (1 - ss(W + 0.12, W + BOSS_MELEE.rest, c))]; }
 export function track(x, keys) {
   if (x <= keys[0][0]) return keys[0][1];
   for (let i = 1; i < keys.length; i++) if (x < keys[i][0]) return lerp(keys[i - 1][1], keys[i][1], ss(keys[i - 1][0], keys[i][0], x));

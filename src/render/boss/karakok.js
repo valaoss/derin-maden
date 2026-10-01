@@ -1,7 +1,7 @@
 // Karakök: kara, budaklı köklerden örülmüş kambur dev. Gövdesini saran kökler kıpırdar, damarlarında yeşil özsu parlar;
 // oyuk gözler, kıymık dişli ağız, pençeye dönen kök kollar, yere yayılan kök ayaklar.
 import { dot } from '../soft3d.js';
-import { TAU, D, lerp, clamp, ss, bump, mix, mad, sub, norm, at, ell, ball, bone, tube, skin, spike, frame, turn, aimLocal } from './rig.js';
+import { TAU, D, lerp, clamp, ss, bump, mix, mad, sub, norm, at, ell, ball, bone, tube, skin, spike, frame, turn, aimLocal, meleeK } from './rig.js';
 import { biped, stride } from './biped.js';
 
 const M = { BARK: 1, SAP: 2, MOSS: 3, HORN: 4, EYE: 5, MOUTH: 6, ROOT: 7 };
@@ -110,6 +110,11 @@ function pose(o) {
     // topraktan fırlar: kollar iki yana açık, gövde gerilmiş
     const k = 1 - ss(0.1, 0.7, o.since);
     sink = 30 * (1 - ss(0, 0.16, o.since)); for (const a of [R, L]) { a.sw += 30 * k; a.ab += 70 * k; } lean -= 26 * k; bend[0] -= 20 * k; y += 2.5 * k; head[0] += 18 * k; jaw = 0.8 * k; claw = 0.9; rate = 40;
+  } else if (o.act === 'melee') {
+    // yakındaki kolunu geriye kaldırır, pençesini madencinin üstüne indirir
+    const [up, dn] = meleeK(o), a = near > 0 ? R : L;
+    a.sw += 135 * up + 58 * dn; a.ab += 16 * up - 8 * dn; a.el += -12 * up - 26 * dn; bend[1] += near * (-18 * up + 16 * dn); lean += -10 * up + 14 * dn; bend[0] += -8 * up + 10 * dn; y += 1 * up - 3 * dn; x += -1 * up + 2 * dn;
+    head[0] += 6 * up - 4 * dn; jaw = 0.3 * up + 0.5 * dn; claw = 0.9; rate = 44; lookW = 0.4;
   } else if (o.act === 'summon' || (o.rage && o.rageT < 1.1)) {
     // göğüs kafesi açılır, içinden yeşil ışık taşar
     const k = o.act === 'summon' ? bump(0, 0.12, 0.25, 0.3, o.since) : bump(0, 0.2, 0.8, 1.1, o.rageT);

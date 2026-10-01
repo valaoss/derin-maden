@@ -34,7 +34,7 @@ export const PERKS = {
   ofke:       { soy: 'simsek', name: 'Öfke', icon: 'overdrive', v: [0.06, 0.09, 0.13], f: 'p', desc: 'Her öldürme 4 sn boyunca atış hızını %{v} artırır (6 kez birikir).' },
   statik:     { soy: 'simsek', name: 'Statik Yük', icon: 'nova', v: [8, 6, 4], f: 'x', desc: 'Düşman yakındayken {v} sn’de bir çevrene 12 mermilik halka atarsın.' },
   // ---- KAN: risk ve can
-  vampir:     { soy: 'kan', name: 'Vampir Mermi', icon: 'heart', v: [0.02, 0.035, 0.05], f: 'p', desc: 'Silahla verdiğin hasarın %{v}’i kadar can emersin.' },
+  vampir:     { soy: 'kan', name: 'Vampir Mermi', icon: 'heart', v: [0.02, 0.035, 0.05], f: 'p', desc: 'Silahla verdiğin hasarın %{v}’i kadar can emersin (saniyede en çok azami canın %1’i).' },
   sonDirenis: { soy: 'kan', name: 'Son Direniş', icon: 'elite', v: [1.5, 1.9, 2.4], f: 'x', desc: 'Canın %35’in altındayken kazman ve silahın {v} kat vurur.' },
   yasamOzu:   { soy: 'kan', name: 'Yaşam Özü', icon: 'heart', v: [0.01, 0.02, 0.03], f: 'p', desc: 'Her öldürme azami canının %{v}’ini yeniler.' },
   dikenZirh:  { soy: 'kan', name: 'Diken Zırh', icon: 'armor', v: [0.1, 0.2, 0.32], f: 'p', desc: 'Sana vuran yakındaki düşman azami canının %{v}’i kadar hasar alır.' },

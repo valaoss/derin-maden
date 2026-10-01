@@ -2,7 +2,7 @@
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y } from '../config.js';
 import { T, TD } from '../data/tiles.js';
-import { UPGRADES, BUILDS, MODS, BURN, THREAT, CRIT } from '../data/balance.js';
+import { UPGRADES, BUILDS, MODS, BURN, THREAT, CRIT, VAMP_CAP } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, damageTile } from '../world/map.js';
 import { damageEnemy, losClear, damageStructure, burnEnemy } from './enemies.js';
@@ -213,7 +213,12 @@ function blastAt(b, x, y, skip) {
 }
 
 // Vampir Mermi: verilen hasarın bir kısmı can olarak döner
-function vamp(p, real) { if (p && !p.dead && real > 0 && hasPerk('vampir')) p.hp = Math.min(p.maxHp, p.hp + real * pv('vampir')); }
+function vamp(p, real) {
+  if (!p || p.dead || !(real > 0) || !hasPerk('vampir')) return;
+  if (!(G.time - p.vampAt < 1)) { p.vampAt = G.time; p.vampN = 0; }
+  const h = Math.min(real * pv('vampir'), p.maxHp * VAMP_CAP - p.vampN);
+  if (h > 0) { p.vampN += h; p.hp = Math.min(p.maxHp, p.hp + h); }
+}
 function fire(x, y, ang, speed, dmg, from, pierce, pi = -1) {
   G.bullets.push({ x, y, px: x, py: y, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, life: 0.7, dmg, from, pierce, hit: null, pi });
   return G.bullets[G.bullets.length - 1];

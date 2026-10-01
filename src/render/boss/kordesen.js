@@ -1,7 +1,7 @@
 // Kördeşen: madeni madencilerden önce kazan dev kör köstebek. Kadife gibi koyu kürk, pembe burun, kürek gibi ön pençeler;
 // sırtında kürküne saplanmış altın cevheri, kristaller ve eski bir kazma. Hücumda matkap gibi dönerek kayayı yarar.
 import { dot, line } from '../soft3d.js';
-import { TAU, D, lerp, clamp, ss, bump, mix, mad, norm, at, turn, move, shift, frame, ell, ball, bone, tube, skin, spike, prism, ik, reach, aimLocal, hash } from './rig.js';
+import { TAU, D, lerp, clamp, ss, bump, mix, mad, norm, at, turn, move, shift, frame, ell, ball, bone, tube, skin, spike, prism, ik, reach, aimLocal, meleeK, hash } from './rig.js';
 
 const M = { FUR: 1, PINK: 2, CLAW: 3, GOLD: 4, CRYSTAL: 5, EYE: 6, IRON: 7, WOOD: 8, MOUTH: 9 };
 const rgb = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)], ramp = (...c) => c.map(rgb), fr = x => x - Math.floor(x);
@@ -99,6 +99,11 @@ function pose(o) {
     rear = up; pitch += 8 * dn; py -= 1.8 * dn; px += 2 * dn; headP += 14 * up - 10 * dn; jaw = 0.6 * up; spread = k;
     feet[2] = [mix1(feet[2][0], px + 20, up) + 5 * dn, 30 * up, mix1(feet[2][2], 6.5, up)]; feet[3] = [mix1(feet[3][0], px + 20, up) + 5 * dn, 30 * up, mix1(feet[3][2], -6.5, up)]; paw[0] = paw[1] = up;
     rate = 40; lookW = 0.2;
+  } else if (o.act === 'melee') {
+    // yakın yandaki ön pençesini geriye kaldırır, madenciyi tırmıklar
+    const [up, dn] = meleeK(o), i = near > 0 ? 2 : 3;
+    feet[i] = [feet[i][0] - 5 * up + 11 * dn, 13 * up + 5 * dn, feet[i][2] * (1 - 0.35 * dn)]; paw[i - 2] = Math.max(up, dn); spread = 1; roll += near * (-7 * up + 9 * dn); px += -1.5 * up + 3 * dn; pitch += 4 * up - 3 * dn;
+    headP += -4 * up + 8 * dn; jaw = 0.5 * dn; rate = 46; lookW = 0.3;
   } else if (o.act === 'coins' || (o.prev === 'coins' && !o.act && o.since < 0.4)) {
     // yakın yandaki pençe yerden cevher kepçeler, yelpaze gibi savurur
     const c = o.act === 'coins' ? o.since : 0.35 + o.since, back = bump(0, 0.06, 0.1, 0.16, c), sw = bump(0.1, 0.2, 0.4, 0.7, c), i = near > 0 ? 2 : 3;

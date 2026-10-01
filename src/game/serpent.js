@@ -38,6 +38,7 @@ function makePath(e, q, kind) {
 }
 
 KITS.dunyaYilani = {
+  melee: false, // gövdesiyle vurur: duvardan çıkışı önceden parlar
   cd: {},
   choose() { return 'swim'; },
   start: { swim(e, p, B) { B.act.T = 1e9; if (!B.sv) B.sv = { m: 'under', t: 0.4, n: 0, first: !!e.firstRear }; } },

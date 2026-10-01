@@ -1,7 +1,7 @@
 // Kehribar Ana: kovanların kraliçesi. Kehribar kaplı göğüs, içinde yumurtaların göründüğü şiş, ışıyan karın kesesi;
 // altı kitin bacak (üçer üçer adımlar), dört yırtık zar kanat, taçlı baş, iri petek gözler, açılıp kapanan çeneler.
 import { dot, line } from '../soft3d.js';
-import { TAU, D, lerp, clamp, ss, bump, mix, mad, norm, cross, at, turn, shift, frame, ell, ball, bone, tube, spike, leaf, ik, reach, aimLocal, hash } from './rig.js';
+import { TAU, D, lerp, clamp, ss, bump, mix, mad, norm, cross, at, turn, shift, frame, ell, ball, bone, tube, spike, leaf, ik, reach, aimLocal, meleeK, hash } from './rig.js';
 
 const M = { AMBER: 1, SAC: 2, EGG: 3, CHITIN: 4, EYE: 5, WING: 6, HORN: 7, DARK: 8 };
 const rgb = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)], ramp = (...c) => c.map(rgb), fr = x => x - Math.floor(x);
@@ -87,6 +87,10 @@ function pose(o) {
     // baş öne atılır, çeneler ardına kadar açılır: reçine püskürür
     const c = o.act === 'resin' ? o.since : 0.4 + o.since, back = bump(0, 0.06, 0.08, 0.14, c), k = bump(0.08, 0.16, 0.4, 0.7, c);
     headX = -2 * back + 4.5 * k; px += -1.5 * back + 2.5 * k; mand = 1 * k + 0.3 * back; pitch -= 5 * k; headP += 6 * k; sacP += 8 * k; lit = 0.6 + 0.4 * k; rate = 40; lookW = 1;
+  } else if (o.act === 'melee') {
+    // ön bacaklarını kaldırır, başını öne atıp çeneleriyle kapar
+    const [up, dn] = meleeK(o);
+    rear = 0.45 * up; headX = -2 * up + 5 * dn; px += -1.5 * up + 3 * dn; mand = Math.max(0.9 * up, 0.1 * dn); pitch -= 6 * dn; headP += -6 * up + 8 * dn; wing.buzz = Math.max(wing.buzz, up); lit = 0.6 + 0.4 * dn; rate = 46; lookW = 1;
   } else if (o.act === 'amber' || (o.prev === 'amber' && !o.act && o.since < 0.7)) {
     // ön ayaklarını kaldırıp çığlık atar; kanatlar açılıp ışır
     const c = o.act === 'amber' ? o.since : 0.3 + o.since, k = bump(0, 0.14, 0.6, 1, c);

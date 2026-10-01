@@ -16,7 +16,7 @@ import { updateEvents } from '../src/game/events.js';
 import { roleOf, lampTiles, metaSnapshot, hasRelic, lastStand, resonance } from '../src/game/run.js';
 import { deployLimit } from '../src/game/economy.js';
 import { openStation, callElevator, atShaft, stationY, SHAFT_X } from '../src/game/elevator.js';
-import { DEPLOY_MAX, EVENTS, MERCHANT } from '../src/data/balance.js';
+import { DEPLOY_MAX, EVENTS, MERCHANT, BOSS_MELEE } from '../src/data/balance.js';
 import { buyMerch, updateMerchant } from '../src/game/merchant.js';
 import { wish, updateWell, wellCost, WELL_X } from '../src/game/well.js';
 import { updateCritters } from '../src/game/critters.js';
@@ -584,6 +584,7 @@ section('Bosslar');
     const [p, e] = arena(710, k); const seen = new Set();
     for (let i = 0; i < 60 * 12; i++) { step(); if (e.bs && e.bs.act) seen.add(e.bs.act.k); p.hp = Math.max(p.hp, 5000); }
     ok(`${ENEMIES[k].name}: saldırı döngüsü`, seen.size >= 2 && p.hp < 9999, [...seen].join(','));
+    for (let i = 0; i < 600 && e.under; i++) step(); // toprağın altındayken vurulamaz
     const ev = events.bossPhase | 0; damageEnemy(e, e.maxHp * 0.6 / (1 - ENEMIES[k].armor), 0, 0, 0); run(0.3);
     ok(`${ENEMIES[k].name}: %50 canda öfkelenir`, e.bs.phase === 2 && (events.bossPhase | 0) === ev + 1, `faz ${e.bs.phase} ölü ${e.dead} can ${Math.round(e.hp)} emerge ${e.emergeT}`);
   }
@@ -597,6 +598,19 @@ section('Bosslar');
     for (let c = 3; c <= 13; c++) setTile(c, GROUND_ROW + 7, T.BEDROCK || T.STONE);
     p.hp = 9999; e.px = e.x; for (let i = 0; i < 60 * 2.6; i++) { step(); e.x = e.px = 8 * TILE + 8; e.y = e.py = (GROUND_ROW + 4) * TILE + 8; }
     ok('Kıyamet Halkası siperde vurmaz', p.hp === 9999, `hp ${p.hp}`); }
+  // düz vuruş: gövdeye değmek hasar vermez; dibine girene gerilir, sonra önüne vurur; yaydan çıkan kurtulur
+  { const [p, e] = arena(750, 'kordesen'); step(); const B = e.bs, pin = dx => { p.x = p.px = e.x + dx; p.y = p.py = e.y; };
+    const calm = m => { for (const k in B.cd) B.cd[k] = 99; B.cd.melee = m; B.act = null; e.wind = 0; p.hp = 9999; p.iframes = 0; };
+    calm(99); for (let i = 0; i < 120; i++) { pin(6); step(); }
+    ok('boss gövdesine değmek hasar vermez', p.hp === 9999 && !B.act, `hp ${p.hp}`);
+    calm(0); pin(14); step(); pin(14); step();
+    ok('boss dibindeki madenciye gerilir', !!B.act && B.act.k === 'melee' && p.hp === 9999 && e.wind > 0, `${B.act && B.act.k} hp ${p.hp}`);
+    for (let i = 0; i < 60 * BOSS_MELEE.wind + 2; i++) { pin(14); step(); }
+    ok('gerilme bitince düz vuruş vurur', p.hp < 9999 && B.cd.melee > 0, `hp ${p.hp}`);
+    for (let i = 0; i < 60; i++) { pin(14); step(); }
+    calm(0); pin(14); step(); pin(14); step();
+    for (let i = 0; i < 60; i++) { pin(70); step(); }
+    ok('yaydan çıkan düz vuruştan kurtulur', p.hp === 9999, `hp ${p.hp}`); }
   ok('bosslar deterministik', (() => { const h = []; for (let i = 0; i < 2; i++) { arena(740, 'kordesen'); spawnEnemy('ezeli', 6 * TILE + 8, (GROUND_ROW + 3) * TILE + 8, 3).emergeT = 0; run(8); h.push(hash()); } return h[0] === h[1]; })());
 }
 
@@ -997,7 +1011,7 @@ section('Sandık türleri ve kalıntılar');
   { const p = setup(1312); applyPerk('buzZirh'); const h = p.hp; damagePlayerX(p, 20); ok('Buz Zırhı hasarı azaltır', Math.abs(h - p.hp - 17) < 1e-6, `${h - p.hp}`); }
   { const p = setup(1313); applyPerk('lesBombasi'); const a = spawnEnemy('rodent', p.x + 30, p.y, 0), b = spawnEnemy('rodent', p.x + 36, p.y, 0); a.emergeT = b.emergeT = 0; b.hp = b.maxHp = 5; killEnemy(a); ok('Leş Bombası çevreyi vurur', b.dead); }
   { const p = setup(1314); G.meta.schem = []; applyPerk('bolKemer'); ok('Bol Kemer eşya verir', G.items.medkit === 1 && G.items.dynamite === 1); }
-  { const p = setup(1315); applyPerk('vampir'); G.lvl.blaster = 6; p.hp = 20; const e = spawnEnemy('brute', p.x, p.y + 40, 0); e.emergeT = 0; run(2); ok('Vampir Mermi can emer', p.hp > 20, `${p.hp}`); }
+  { const p = setup(1315); applyPerk('vampir'); G.lvl.blaster = 6; p.hp = 20; const e = spawnEnemy('brute', p.x, p.y + 40, 0); e.emergeT = 0; run(2); ok('Vampir Mermi can emer', p.hp > 20, `${p.hp}`); ok('Vampir Mermi saniyede sınırlı emer', p.hp <= 20 + p.maxHp * 0.01 * 3 + 0.01, `${p.hp}`); }
   { const p = setup(1316); applyPerk('donmusKalp'); const e = spawnEnemy('bug', p.x + 20, p.y, 0); e.emergeT = 0; p.hp = 25; damagePlayerX(p, 1); ok('Donmuş Kalp düşmanı dondurur', e.slowT > 4); }
   { const p = setup(1317); applyPerk('statik'); const e = spawnEnemy('bug', p.x, p.y + 30, 0); e.emergeT = 0; step(); ok('Statik Yük halka atar', p.novaT > 7, `${p.novaT}`); }
   ok('Kan Bağı tek başına çıkmaz', (() => { fresh(1318); for (let i = 0; i < 40; i++) if (perkChoices('gold').includes('kanBagi')) return false; return true; })());

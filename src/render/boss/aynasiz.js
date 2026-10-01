@@ -1,7 +1,7 @@
 // Aynasız Hükümdar: kırık ayna ve koyu cam parçalarından yüzsüz kral. Köşeli zırh, cam diken taç, boşluk yüz,
 // ayna kırıklarından pelerin; sağ elde ayna başlı asa. Işınlanırken parçalara ayrılıp yeniden birleşir.
 import { dot, line } from '../soft3d.js';
-import { TAU, D, clamp, ss, bump, mad, norm, at, ell, ball, leaf, spike, prism, frame, aimLocal, hash } from './rig.js';
+import { TAU, D, clamp, ss, bump, mad, norm, at, ell, ball, leaf, spike, prism, frame, aimLocal, meleeK, hash } from './rig.js';
 import { biped, stride } from './biped.js';
 
 const M = { GLASS: 1, MIRROR: 2, GLOW: 3, VOID: 4, EYE: 5, SHARD: 6, SHARD_B: 7, DARK: 8, PANE: 9 };
@@ -115,6 +115,11 @@ function pose(o) {
   } else if (o.act === 'step') {
     // ışınlanma: kırıklar yeni yerde toplanıp kralı yeniden kurar
     shatter = 1 - ss(0, 0.42, o.since); glow = 1; rate = 60;
+  } else if (o.act === 'melee') {
+    // asasını başının üstüne kaldırır, madencinin üstüne indirir
+    const [up, dn] = meleeK(o);
+    R.sw += 118 * up + 48 * dn; R.el -= 34 * up + 44 * dn; R.ab -= 6 * dn; bend[1] += near * (-12 * up + 14 * dn); lean += -6 * up + 13 * dn; bend[0] += -6 * up + 8 * dn; head[0] += 6 * up - 4 * dn; y += 1 * up - 2.5 * dn; x += 1.5 * dn;
+    cape += 0.3 * up + 0.7 * dn; glow = 0.4 + 0.6 * dn; rate = 46; lookW = 0.4;
   } else if (o.act === 'shards' || (o.prev === 'shards' && !o.act && o.since < 0.4)) {
     // kollarını göğsünde kavuşturur, sonra iki yana açar: cam kıymıkları halka olup saçılır
     const c = o.act === 'shards' ? o.since : 0.4 + o.since, cr = bump(0, 0.1, 0.14, 0.22, c), out = bump(0.14, 0.24, 0.5, 0.8, c);

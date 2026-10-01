@@ -195,7 +195,7 @@ export const MODS = {
   homing:   { name: 'Güdümlü',      icon: 'magnet',   cost: { water: 24, cobalt: 14 },  desc: 'Mermiler yakındaki düşmana kıvrılır; ıskalamak zorlaşır.' },
   chain:    { name: 'Yıldırım',     icon: 'chain',    cost: { cobalt: 20, gold: 8 },    desc: 'İsabet yakındaki bir düşmana sıçrar (yarım hasar).' },
   stun:     { name: 'Sersemletici', icon: 'shock',    cost: { iron: 40, gold: 12 },     v: 0.5, desc: 'İsabet alan düşman 0.5 sn saldıramaz (boss hariç).' },
-  leech:    { name: 'Can Çalan',    icon: 'heart',    cost: { water: 40, gold: 14 },    v: 0.02, cd: 1, desc: 'Silahla öldürdüğün düşman azami canının %2’sini yeniler (saniyede en çok bir kez).' },
+  leech:    { name: 'Can Çalan',    icon: 'heart',    cost: { water: 40, gold: 14 },    v: 0.01, cd: 2, desc: 'Silahla öldürdüğün düşman azami canının %1’ini yeniler (2 saniyede en çok bir kez).' },
   boom:     { name: 'Patlayıcı',    icon: 'boom',     cost: { crystal: 14, gold: 16 },  desc: 'Mermiler küçük bir alanda patlar.' },
   nova:     { name: 'Saçılma',      icon: 'nova',     cost: { crystal: 20, gold: 22 },  n: 6, v: 0.5, desc: 'Silahla öldürdüğün düşmandan 6 mermi saçılır (yarım hasar).' },
   overdrive:{ name: 'Aşırı Yük',    icon: 'overdrive', cost: { crystal: 24, gold: 26 }, dur: 3, cd: 12, desc: 'Ateş ederken 12 sn’de bir kendiliğinden devreye girer: 3 sn üç kat atış hızı.' },
@@ -517,6 +517,10 @@ export const SHROOM = { chance: 0.6, per: 2, reach: 10, eat: 0.5, dur: 18, haste
 // sıvılar: her 'every' karede bir akış adımı; lav 'lavaSlow' adımda bir akar; kaynak başına toplam sınır ve adım başı akış
 export const LIQUID = { every: 3, lavaSlow: 2, dry: 40, cap: [170, 120], emit: [4, 2], drain: [2, 1], lavaDmg: 7, wetSpd: 0.72 };
 
+// Boss düz vuruşu: madenci dibine girince (range) gerilir (wind), önündeki yaya (reach, arc) vurur, toparlanır (rest). Gövdeye değmek hasar vermez
+// Vampir Mermi: saniyede en çok azami canın bu kadarı emilir (sürünün içinde ölümsüzlük olmasın)
+export const VAMP_CAP = 0.01;
+export const BOSS_MELEE = { range: 12, reach: 20, arc: 1.15, wind: 0.5, rest: 0.4, cd: 1.5, push: 170 };
 // Balrog: Kor Katmanı'nın ortasına inen madenciyi bir kez karşılar. dark: sisin toplanma süresi (sn), intro: alevlenme
 export const BALROG = { depth: 16, dark: 7.5, intro: 2.6, drum: 1.15, aura: 28, auraDmg: 4, carve: 0.3 };
 // Dünya Yılanı: Sessiz Deniz'in ortasında bir kez; duvardan duvara geçer, yalnız başı vurulur

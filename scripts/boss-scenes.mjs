@@ -1,6 +1,6 @@
 // Boss animasyon sahneleri: oyun mantığındaki (bosses.js) zamanlamaları taklit eden sahte varlık durumu.
 // Hem önizleme betiği (boss-preview.mjs) hem tarayıcı vitrini (boss-viewer.html) kullanır.
-import { ENEMIES, BALROG } from '../src/data/balance.js';
+import { ENEMIES, BALROG, BOSS_MELEE } from '../src/data/balance.js';
 
 export function makeBoss(type, x = 0, y = 0) {
   return { type, x, y, px: x, py: y, face: 1, d: ENEMIES[type], anim: 0, hitT: 0, hitDx: 0, hitDy: 0, wind: 0, lunge: 0, dieT: 0, dead: false, wob: 0.5, intro: 0, blinkT: 0, emergeT: 0, sink: 0, fade: 0, flashT: 0, under: false, x0: x, y0: y, bs: { phase: 1, act: null, marks: [], rings: [] } };
@@ -26,6 +26,7 @@ const COMMON = {
   hurt: { dur: 1.6, run(c, e) { const k = c % 0.8; e.hitT = k < 0.09 ? 0.09 - k : 0; e.hitDx = -1; e.hitDy = 0; } },
   rage: { dur: 3, run(c, e) { e.bs.phase = c > 0.4 ? 2 : 1; } },
   die: { dur: 0, run(c, e) { const T = e.d.dieT || 0.9; if (c > 0.3) { e.dead = true; e.dieT = Math.max(0.001, T - (c - 0.3)); } } },
+  melee: { dur: 1.7, setup(e, p) { p.x = e.x + e.d.r + 10; }, run(c, e, p) { const W = BOSS_MELEE.wind, T = W + BOSS_MELEE.rest; if (c < T) { act(e, 'melee', { T: T - c, a: aim(e, p), R: e.d.r + BOSS_MELEE.reach, arc: BOSS_MELEE.arc, done: c >= W }); e.wind = c < W ? c / W : 0; } } },
   spawn: { dur: 2.4, run(c, e) { e.emergeT = Math.max(0, 1.4 - c); } },
 };
 COMMON.die.len = e => (e.d.dieT || 0.9) + 0.5;

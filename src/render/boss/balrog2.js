@@ -3,7 +3,7 @@
 // katı, zarı gölgedendir (uçlara doğru seyrelir).
 // Kamçının kendisi, duman ve korlar balrog.js'te (2B) çizilir; burada gövde ve duruşlar var. Eski model: balrog.js (?balrog=1).
 import { line, dot, vert, tri } from '../soft3d.js';
-import { TAU, D, lerp, clamp, ss, bump, mad, mix, norm, at, turn, frame, bone, ball, ell, tube, skin, loft, flame, spike, batWing, aimLocal, viewOf } from './rig.js';
+import { TAU, D, lerp, clamp, ss, bump, mad, mix, norm, at, turn, frame, bone, ball, ell, tube, skin, loft, flame, spike, batWing, aimLocal, meleeK, viewOf } from './rig.js';
 import { biped, stride } from './biped.js';
 
 const M = { SKIN: 1, LAVA: 2, HORN: 3, WING: 4, WING_OUT: 5, EDGE: 6, FLAME: 7, BLADE: 8, EYE: 9, MOUTH: 10, IRON: 11, FORE: 12, CORE: 13, ROCK: 14, BLAZE: 15, FANG: 16, FACE: 17, SHADE: 18, SHADE2: 19, SHADE3: 20, WBONE: 21 };
@@ -182,7 +182,7 @@ function build(g, P, o) {
 // ---------- duruşlar ----------
 const DIE_T = 2.6;
 // dururken ve yürürken göğsünü kameraya açar; saldırırken hedefe döner (darbe yandan okunur)
-const SIDE = { sword: 1, whip: 1, breath: 1 };
+const SIDE = { sword: 1, whip: 1, breath: 1, melee: 1 };
 const view = o => viewOf(o.yaw, !o.dying && (SIDE[o.act] || (o.act === 'swoop' && o.stage !== 'flap')) ? 0.42 : 0.95 - 0.4 * (o.dying ? 0 : o.walk), 0.4);
 function pose(o) {
   const t = o.t, A = o.A, rage = o.rage ? 1 : 0, dead = o.dying > 0, w = dead ? 0 : o.walk, near = Math.cos(o.view) >= 0 ? 1 : -1;
@@ -221,6 +221,11 @@ function pose(o) {
       fL[0] += 3 * f; jaw = Math.max(jaw, 0.5 * f); wing.open += 0.2; rate = 40;
     }
     lookW = 0.5;
+  } else if (o.act === 'melee') {
+    // pençe: boş elini geriye açar, omzunu çevirip madencinin üstüne savurur
+    const [up, dn] = meleeK(o);
+    L.sw += -52 * up + 96 * dn; L.ab += 36 * up - 14 * dn; L.el += 52 * up - 26 * dn; bend[1] += -28 * up + 20 * dn; lean += -6 * up + 13 * dn; bend[0] += -4 * up + 8 * dn; x += -1.5 * up + 2.8 * dn; y -= 2 * dn;
+    R.sw += 10 * up; fL[0] += 3.5 * dn; head[0] -= 4 * dn; jaw = Math.max(jaw, 0.7 * dn); wing.open += 0.18 * up + 0.22 * dn; wing.fan += 0.15 * dn; wing.flap += 0.12 * up - 0.12 * dn; fr0 *= 1 + 0.2 * dn; rate = 44; lookW = 0.5;
   } else if (o.act === 'wings' && A) {
     const tt = 2.2 - A.T;
     c = ss(0, 0.85, tt) * (1 - ss(0.88, 0.97, tt)); r = ss(0.88, 0.98, tt) * (1 - 0.85 * ss(0.5, 1.3, tt - 0.9)); rate = 30;

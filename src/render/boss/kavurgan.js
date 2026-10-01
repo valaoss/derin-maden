@@ -1,7 +1,7 @@
 // Kavurgan: kömürleşmiş kemikten ejder iskeleti. Açık göğüs kafesinin içinde kor yanar (kaburgaların arasından görünür),
 // eklemleri kızgın, göz çukurları alevli; yırtık kanat kemikleri, dikenli omurga kuyruğu.
 import { dot, line } from '../soft3d.js';
-import { TAU, D, lerp, clamp, ss, bump, mix, mad, norm, cross, at, dir, turn, move, frame, ball, bone, tube, spike, prism, loft, ik, reach, batWing, aimLocal, hash } from './rig.js';
+import { TAU, D, lerp, clamp, ss, bump, mix, mad, norm, cross, at, dir, turn, move, frame, ball, bone, tube, spike, prism, loft, ik, reach, batWing, aimLocal, meleeK, hash } from './rig.js';
 
 const M = { BONE: 1, JOINT: 2, EMBER: 3, EYE: 4, MOUTH: 5, MEMB: 6, HORN: 7 };
 const NECK = 4, TAIL = 7, NL = 4, TL = 4.2, TORSO = 8, HK = 1.3;
@@ -116,6 +116,11 @@ function pose(o) {
     hd[0] = lerp(STAND.head - 12 * k, -4, f); hd[2] = Math.sin(t * 42) * 2.5 * f; px += lerp(-2 * k, 2.5, f) + Math.sin(t * 42) * 0.2 * f; py -= 1.2 * k; pitch += lerp(4 * k, -3, f);
     jaw = lerp(0.1 + 0.15 * k, 0.95, f); coreK = 0.6 + 0.4 * k; hot = f; wing.open += 0.35 * k + 0.2 * f; wing.fan += 0.4 * k; wing.flap += 0.15 * k; aimW = lerp(0.4 * k, 1, f); flare = 0.4 * k;
     [6, 6, 4, 2].forEach((v, i) => { tP[i] += v * k; }); rate = 30;
+  } else if (o.act === 'melee') {
+    // ısırık: boynunu geri toplar, başını öne fırlatıp çenesini kapatır
+    const [up, dn] = meleeK(o), [ay, ap] = aimLocal(Math.cos(o.aim || 0), Math.sin(o.aim || 0), o.view); aimY = clamp(ay, -1.3, 1.3); aimP = clamp(ap, -0.8, 1); lookW = 0; aimW = Math.max(0.5 * up, dn);
+    for (let i = 0; i < NECK; i++) nP[i] = lerp(nP[i] + COIL[i] * up, FIRE_NECK[i], dn);
+    hd[0] = lerp(STAND.head - 10 * up, -2, dn); px += -2.5 * up + 4 * dn; py -= 1 * up; pitch += 3 * up - 4 * dn; jaw = Math.max(0.75 * up, 0.12 * dn); coreK = 0.6 + 0.3 * up; flare = 0.4 * dn; wing.open += 0.25 * up; rate = 46;
   } else if (o.act === 'embers' || (o.prev === 'embers' && !o.act && o.since < 0.6)) {
     // arka ayakları üstünde şaha kalkar, göğe kükrer: sırtından kor sütunu yükselir
     const c = o.act === 'embers' ? o.since : 0.45 + o.since, k = ss(0, 0.2, c) * (1 - ss(0.6, 1.05, c));

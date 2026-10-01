@@ -19,7 +19,7 @@ import { hasMob, drawMob, drawMobGlow } from './mob/actor.js';
 import { drawDragon, drawDragonGlow, drawHoardDragon, drawHoardGlow, dragonLights } from './dragon.js';
 import { drawHall, drawHallGlow, hallLights, hallCenter } from './hoard.js';
 import { inHall } from '../game/dragon.js';
-import { SHROOM } from '../data/balance.js';
+import { SHROOM, BOSS_MELEE } from '../data/balance.js';
 import { CRITTERS } from '../data/critters.js';
 import { on as onEvt } from '../core/events.js';
 import { G, biomeOf } from '../game/state.js';
@@ -1209,6 +1209,16 @@ function drawBossFx(e, alpha) {
     else if (A.stage === 'dash') glow(x, y, 'rgba(255,216,112,0.6)', 18, 1);
     else if (A.stage === 'daze') for (let i = 0; i < 3; i++) { const a = t * 5 + i * 2.1; ctx.fillStyle = i % 2 ? '#ffffff' : '#ffd870'; ctx.fillRect(Math.round(x + Math.cos(a) * 9), Math.round(y - 16 + Math.sin(a) * 3), 1, 1); }
   } else if (A.k === 'slam') { if (on) ringPx(x, y + 4, 76, '#ffd870', 2); }
+  else if (A.k === 'melee') {
+    // düz vuruş: önündeki yay yanıp söner (son anda kızarır); darbe anında beyaz bir savruluş
+    const hit = A.done, n = Math.round(A.R * A.arc * 1.4), c = hit ? '#ffffff' : e.wind > 0.7 ? '#ff5a3a' : e.d.col;
+    if (!hit || A.T > BOSS_MELEE.rest - 0.14) {
+      ctx.globalAlpha = hit ? 1 : 0.4 + e.wind * 0.6; ctx.fillStyle = c;
+      for (let i = 0; i <= n; i++) { if (!hit && !on && i % 2) continue; const a = A.a - A.arc + i / n * 2 * A.arc, s = hit ? 2 : 1; ctx.fillRect(Math.round(x + Math.cos(a) * A.R), Math.round(y + Math.sin(a) * A.R), s, s); }
+      if (!hit && on) { dashLine(x, y, A.a - A.arc, A.R, c); dashLine(x, y, A.a + A.arc, A.R, c); }
+      ctx.globalAlpha = 1;
+    }
+  }
   else if (A.k === 'doom') { glow(x, y, 'rgba(255,244,192,0.5)', Math.round(14 + e.wind * 40), 0.5 + e.wind * 0.5); if (on) ringPx(x, y, 20 + e.wind * 30, '#fff4c0', 1); }
 }
 

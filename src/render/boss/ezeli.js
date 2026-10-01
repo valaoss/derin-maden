@@ -1,7 +1,7 @@
 // Ezelî: yüzü olmayan, soluk altın ışıktan örtülü varlık. Krem cübbe aşağıda bir ışık kuyruğuna incelir (bacak yok);
 // çevresinde gözlerle kaplı, ters yönlere dönen iki altın hale; sırtında ışıktan dört kanat. Havada süzülür.
 import { dot, line } from '../soft3d.js';
-import { TAU, D, clamp, ss, bump, mad, norm, cross, at, ell, ball, bone, tube, skin, leaf, frame, aimLocal, hash, scaleGeo } from './rig.js';
+import { TAU, D, clamp, ss, bump, mad, norm, cross, at, ell, ball, bone, tube, skin, leaf, frame, aimLocal, meleeK, hash, scaleGeo } from './rig.js';
 import { biped } from './biped.js';
 
 const M = { ROBE: 1, LIGHT: 2, GOLD: 3, EYEW: 4, PUPIL: 5, WING: 6, WING2: 7, DARK: 8 };
@@ -89,6 +89,11 @@ function pose(o) {
     // kanatlarını içe kapatır, ışığı göğsünde toplar; haleler daralıp hızlanır
     const k = ss(0, 1, o.wind);
     for (const a of [R, L]) { a.sw += 44 * k; a.ab -= 46 * k; a.el += 84 * k; } lean += 10 * k; bend[0] += 12 * k; head[0] -= 14 * k; wing.open = 1 - 0.85 * k; core = k; rspin += k * k * 7; rsc = 1 - 0.28 * k; y -= 1.5 * k; lookW = 0;
+  } else if (o.act === 'melee') {
+    // bir kolunu ışıkla kaldırır, hüküm gibi indirir
+    const [up, dn] = meleeK(o);
+    R.sw += 140 * up + 55 * dn; R.el -= 12 * up + 14 * dn; R.ab += 10 * up - 10 * dn; lean += -6 * up + 14 * dn; bend[0] += -6 * up + 8 * dn; head[0] += 8 * up - 6 * dn; y += 1.5 * up - 2 * dn;
+    wing.flap += 0.3 * up - 0.25 * dn; core = 0.5 * up; flash = dn; rate = 44; lookW = 0.4;
   } else if (o.prev === 'doom' && !o.act && o.since < 0.8) {
     // kıyamet halkası: her şey dışarı patlar
     const k = 1 - ss(0, 0.8, o.since);
