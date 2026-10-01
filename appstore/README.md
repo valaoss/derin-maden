@@ -25,7 +25,7 @@ Gerekenler: güncel Xcode (App Store'dan), Xcode'a Apple Developer hesabınla gi
 
 Zip'te web derlemesi ve Capacitor eklentileri hazır geldiği için Mac'te Node kurmana gerek yok. Oyunu sonradan değiştirirsen: Node 20+ kur, proje klasöründe `npm ci` ve `npm run ios` çalıştır, Xcode'da **Build** numarasını bir artır, yeniden Archive et.
 
-Paket kimliği `com.valaoss.fall`. Değiştirmek istersen ilk yüklemeden önce `capacitor.config.json` ve Xcode'da değiştir; yüklendikten sonra değişmez.
+Paket kimliği `com.baranbulduk.fall`. Değiştirmek istersen ilk yüklemeden önce `capacitor.config.json` ve Xcode'da değiştir; yüklendikten sonra değişmez.
 
 ## 2. App Store Connect
 
@@ -36,7 +36,7 @@ Paket kimliği `com.valaoss.fall`. Değiştirmek istersen ilk yüklemeden önce 
 | Platform | iOS |
 | Name | `metadata/tr/name.txt` (FALL: Derin Maden) |
 | Primary Language | Turkish |
-| Bundle ID | com.valaoss.fall (listede yoksa önce developer.apple.com → Identifiers'da oluştur; Xcode ilk Archive'da kendisi de oluşturur) |
+| Bundle ID | com.baranbulduk.fall (listede yoksa önce developer.apple.com → Identifiers'da oluştur; Xcode ilk Archive'da kendisi de oluşturur) |
 | SKU | fall-ios-1 |
 
 **Sürüm sayfası (1.0)**

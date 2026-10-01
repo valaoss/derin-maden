@@ -2,7 +2,7 @@
 
 Oyun Capacitor ile `ios/` altında yerel bir iOS uygulamasına sarılı. Web sürümü (GitHub Pages) aynen çalışmaya devam eder.
 
-- Paket kimliği: `com.valaoss.fall` (`capacitor.config.json` ve Xcode'da değiştirilebilir, App Store'a yüklendikten sonra değişmez)
+- Paket kimliği: `com.baranbulduk.fall` (`capacitor.config.json` ve Xcode'da değiştirilebilir, App Store'a yüklendikten sonra değişmez)
 - Yalnızca dikey, tam ekran, durum çubuğu gizli; iPhone + iPad
 - Titreşim: Capacitor Haptics · Kayıt: localStorage + Preferences yedeği · Paylaşım: yerel paylaşım menüsü
 - Davet linkleri web adresine gider (`valaoss.github.io/derin-maden/?oda=KOD`); uygulama ve web birlikte oynayabilir
