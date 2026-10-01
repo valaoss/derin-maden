@@ -166,7 +166,7 @@ export function initUI(root, h) {
   on('bossWarn', k => banner((ENEMIES[k] ? up(ENEMIES[k].name) : 'BİR ŞEY') + ' UYANIYOR', 'SUS YA DA BİR YUVA YIK', true));
   on('bossCalm', k => banner((ENEMIES[k] ? up(ENEMIES[k].name) : 'DERİNLİK') + ' YENİDEN UYUDU', 'MADEN SUSTU'));
   on('bossSpawn', k => { const B = ENEMIES[k]; if (B && once(k)) setTimeout(() => toast(B.lore, 'skull', true), 2600); });
-  on('balrog', k => { if (k === 'dark') toast('Derinden davul sesleri geliyor… ışık sönüyor', 'skull', true); else if (k === 'eyes') toast('Gölgede bir şey sana bakıyor', 'skull', true); });
+  on('balrog', k => { if (k === 'dark') toast('Derinden boğuk gümbürtüler geliyor… ışık sönüyor', 'skull', true); else if (k === 'eyes') toast('Gölgede bir şey sana bakıyor', 'skull', true); });
   on('poseidon', k => { if (k === 'omen') toast('Salonun ortasında su kabarıyor… denizin sahibi geliyor', 'skull', true); });
   on('serpent', k => { if (k === 'omen') toast('Deniz sustu… duvarların ardında dev bir şey kıpırdıyor', 'skull', true); else if (k === 'crack') toast('Duvar çatlıyor!', 'skull', true); });
   on('hoard', k => {
@@ -703,12 +703,12 @@ export function showPause() {
     ${G.contracts.length ? '<div class="clist">' + contractsHTML() + '</div>' : ''}
     <button class="btn big" id="pRes">DEVAM</button>
     <button class="btn dark" id="pSet">AYARLAR</button>
-    <button class="btn dark" id="pPhoto">${ic('daily')} FOTOĞRAF ÇEK</button>
+    ${isNative ? '' : `<button class="btn dark" id="pPhoto">${ic('daily')} FOTOĞRAF ÇEK</button>`}
     <button class="btn dark" id="pEnd">SEFERİ BİTİR</button></div>`;
   s.classList.add('on');
   tap($('#pRes'), () => { s.classList.remove('on'); hooks.resume(); });
   tap($('#pSet'), () => { s.classList.remove('on'); showSettings(() => showPause()); });
-  tap($('#pPhoto'), () => hooks.photo());
+  if ($('#pPhoto')) tap($('#pPhoto'), () => hooks.photo()); // uygulamada yok (fotoğraf arşivi izni gerekir)
   let armed = false;
   tap($('#pEnd'), e => {
     if (!armed) { armed = true; e.currentTarget.textContent = 'EMİN MİSİN? TEKRAR DOKUN'; e.currentTarget.classList.replace('dark', 'danger'); return; }
