@@ -8,6 +8,7 @@ import { G } from './state.js';
 import { tileAt } from '../world/map.js';
 import { breakTile } from './player.js';
 import { spawnEnemy } from './enemies.js';
+import { bossBusy } from './bosses.js';
 import { LAVA_BIOME } from './liquids.js';
 import { shake, flashLight, debris, dust, ring, sparks, hitstop } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
@@ -22,7 +23,7 @@ export function updateBalrog(dt) {
   const s = G.order.indexOf(LAVA_BIOME); if (s < 0) return;
   const r0 = GROUND_ROW + s * STRATUM_ROWS;
   if (S.st === 'wait') {
-    if ((S.cd = (S.cd || 0) - dt) > 0 || G.enemies.some(e => e.d.boss && !e.dead)) return;
+    if ((S.cd = (S.cd || 0) - dt) > 0 || bossBusy(S)) return;
     const p = G.players.find(q => !q.dead && !q.ride && Math.floor(q.y / TILE) >= r0 + BALROG.depth && Math.floor(q.y / TILE) < r0 + STRATUM_ROWS);
     if (!p) return;
     // karşı tarafta, madencinin hizasında bir gölge köşesi

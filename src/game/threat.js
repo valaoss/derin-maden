@@ -66,10 +66,12 @@ function deepestUnder() {
   return best;
 }
 
-// biyomun imza düşmanı sık çıkar; derin biyomların (10+) imzaları yalnız kendi biyomunda görülür
+// biyomun imza düşmanı sık çıkar; derin biyomların (10+) imzaları yalnız kendi biyomunda görülür. Her biyomun basit canlıları (mobs) da araya karışır
+const MOB_SHARE = 0.3;
 function pickType(st, lv) {
   const b = biomeOf(st), S = STRATA[b], sig = Array.isArray(S.sig) ? S.sig[Math.floor(rnd() * S.sig.length)] : S.sig;
   const allowed = WAVES.allowed(2 + lv * 2, st).filter(t => !ENEMIES[t].boss && !ENEMIES[t].small);
+  if (S.mobs && rnd() < MOB_SHARE) return S.mobs[Math.floor(rnd() * S.mobs.length)];
   if (S.sig2 && rnd() < 0.25) return S.sig2;
   if (sig && rnd() < (b >= 10 ? 0.55 : 0.4) && (b >= 10 || allowed.includes(sig))) return sig;
   return allowed[Math.floor(rnd() * allowed.length)] || 'rodent';
@@ -86,7 +88,9 @@ function squadTypes(st, lv, n) {
   while (out.length < n) { let t = pickType(st, lv); if (out.length && tank(t)) t = pickType(st, lv); out.push(t); }
   return out;
 }
-const squadCost = ts => ts.reduce((a, t) => a + (ENEMIES[t].cost || 1), 0);
+// sürü türünde her gövde bütçeden ve sahadaki sınırdan düşer
+const squadCost = ts => ts.reduce((a, t) => a + (ENEMIES[t].cost || 1) * (ENEMIES[t].pack || 1), 0);
+const bodies = ts => ts.reduce((a, t) => a + (ENEMIES[t].pack || 1), 0);
 
 // yuvadan çıkış hücresi: komşu boşluk; yoksa oyuncuya doğru bir hücre patlatılır
 function exitCell(n, p) {
@@ -105,9 +109,9 @@ function exitCell(n, p) {
 function emerge(type, x, y, lv, i, sid) {
   const e = spawnEnemy(type, x, y, lv);
   e.emergeT = 0.8 + i * 0.35; e.sq = sid;
-  if (lv >= 3 && rnd() < THREAT.eliteChance && !e.d.small) makeElite(e);
-  // sürü türü: yanında birkaç kardeşiyle çıkar
-  for (let k = 1; k < (e.d.pack || 0); k++) { const o = spawnEnemy(type, x + (k - 2) * 3, y, lv); o.emergeT = e.emergeT + k * 0.12; o.sq = sid; }
+  if (lv >= 3 && rnd() < THREAT.eliteChance && !e.d.small && !e.d.timid) makeElite(e);
+  // sürü türü: yanında birkaç kardeşiyle çıkar (hücrenin içinde, dörderli sıralar)
+  for (let k = 1; k < (e.d.pack || 0); k++) { const o = spawnEnemy(type, x + ((k % 4) - 1.5) * 3, y + ((k >> 2) - 0.5) * 3, lv); o.emergeT = e.emergeT + k * 0.12; o.sq = sid; }
   return e;
 }
 function spawnFrom(n, p, lv, types, sid) {
@@ -256,7 +260,7 @@ export function updateThreat(dt) {
       const [a, b] = DIRECTOR.squad[L];
       const n = Math.min(a + Math.floor(rnd() * (b - a + 1)), Math.max(1, cap - alive));
       const types = squadTypes(dst, lv, n);
-      while (types.length > 1 && squadCost(types) > D.bank) types.pop();
+      while (types.length > 1 && (squadCost(types) > D.bank || bodies(types) > Math.max(1, cap - alive))) types.pop();
       if (squadCost(types) <= D.bank && launchSquad(lv, types)) { D.bank -= squadCost(types); D.gapT = DIRECTOR.gap[L] * (0.85 + rnd() * 0.3); }
     }
     // dalga: uyanış ve üstünde ara ara, önceden duyurulur

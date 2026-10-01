@@ -4,7 +4,7 @@ import { COLS, ROWS, TILE, GROUND_Y, GROUND_ROW, WORLD_W, WORLD_H, BASE_X, CENTE
 import { T, TD } from '../data/tiles.js';
 import { P, RES_COL, ORE_RAMP, STRATA, MAT_RAMP, TIDE_COL } from '../data/palette.js';
 import { tideLevel } from '../game/biomes.js';
-import { PICK_TIERS, AFFIX, ELEVATOR, DEEP_ORES, MERCHANT } from '../data/balance.js';
+import { PICK_TIERS, AFFIX, ELEVATOR, DEEP_ORES, MERCHANT, BUILDS } from '../data/balance.js';
 import { PERKS, SOY } from '../data/relics.js';
 import { WELL } from '../data/balance.js';
 import { WELL_X } from '../game/well.js';
@@ -15,6 +15,7 @@ import { drawAmbient } from './ambient.js';
 import { drawBalrog, drawBalrogGlow, drawBalrogDark, drawBalrogOmen, balrogLights } from './balrog.js';
 import { drawSerpent, drawSerpentGlow, drawSerpentOmen, drawSerpentOmenGlow, drawSerpentDark } from './serpent.js';
 import { hasBossArt, drawBossArt, drawBossArtGlow } from './bossart.js';
+import { drawPoseidonFx } from './poseidonfx.js';
 import { hasMob, drawMob, drawMobGlow } from './mob/actor.js';
 import { drawDragon, drawDragonGlow, drawHoardDragon, drawHoardGlow, dragonLights } from './dragon.js';
 import { drawHall, drawHallGlow, hallLights, hallCenter } from './hoard.js';
@@ -226,6 +227,14 @@ export function render(alpha, opts = {}) {
     ctx.globalAlpha = 1;
   }
   for (const b of G.bombs) spr(SPR.dynamite, b.x + (b.t < 0.6 ? Math.round((Math.random() - 0.5) * 2) : 0), b.y - 4);
+  // salyangoz salyası
+  for (const s of G.slimes) {
+    const x = Math.round(s.x), y = Math.round(s.y);
+    ctx.globalAlpha = Math.min(1, s.t) * 0.6; ctx.fillStyle = '#5a8a30'; ctx.fillRect(x - 5, y, 11, 2); ctx.fillRect(x - 3, y - 1, 7, 1);
+    ctx.fillStyle = '#c8f070'; ctx.fillRect(x - 2, y, 2, 1); ctx.fillRect(x + 2, y - 1, 1, 1);
+  }
+  ctx.globalAlpha = 1;
+  for (const b of G.bells) drawBell(b);
   for (const k of G.rocks) drawRock(k);
   // enkaz ve toz (ışıktan etkilenir)
   for (const p of G.particles) {
@@ -773,6 +782,8 @@ function drawPet(p, alpha) {
   const tx = p.ride ? px + 5 : px - p.face * 12, ty = py + 1;
   if (!q || q.k !== p.pet || Math.hypot(q.x - tx, q.y - ty) > 90) { q = { k: p.pet, x: tx, y: ty, vx: 0, vy: 0, face: p.face, ph: 0, t: G.time, hold: 0 }; petPos.set(p.i, q); }
   const dt = clamp(G.time - q.t, 0, 0.05); q.t = G.time;
+  // asansörde kabinin içinde sahibinin yanında oturur (yaylı takip kabinin hızına yetişemez)
+  if (p.ride && !(p.ride.board > 0)) { q.x = tx; q.y = ty; q.vx = q.vy = 0; }
   // yay: hedefe hızlanır, yaklaşınca yavaşlar
   q.vx += ((tx - q.x) * 24 - q.vx * 8.5) * dt; q.vy += ((ty - q.y) * 40 - q.vy * 12) * dt;
   const v = Math.hypot(q.vx, q.vy); if (v > 150) { q.vx *= 150 / v; q.vy *= 150 / v; }
@@ -950,42 +961,38 @@ function drawStructure(s) {
   const x = Math.round(s.x), y = Math.round(s.y);
   const pop = s.buildT > 0 ? Math.round(s.buildT * 8) : 0;
   const white = s.hurtT > 0;
-  if (s.type === 'turret') {
-    ctx.fillStyle = P.ink; ctx.fillRect(x - 5, y - 1 + pop, 11, 4);
-    ctx.fillStyle = P.metalD; ctx.fillRect(x - 4, y + pop, 9, 2);
-    ctx.fillStyle = P.ink; ctx.fillRect(x - 1, y - 4 + pop, 3, 4);
-    const ax = Math.cos(s.aim), ay = Math.sin(s.aim), rc = (s.recoil > 0 ? s.recoil : 0) * 2;
-    const hx = x, hy = y - 6 + pop;
-    pline(hx + ax * 2, hy + ay * 2, hx + ax * (9 - rc), hy + ay * (9 - rc), P.ink);
-    pline(hx + ax * 2, hy + ay * 2 - 1, hx + ax * (8 - rc), hy + ay * (8 - rc) - 1, P.metal);
-    ctx.fillStyle = P.ink; ctx.fillRect(hx - 4, hy - 3, 9, 7);
-    ctx.fillStyle = white ? '#fff' : '#6a7898'; ctx.fillRect(hx - 3, hy - 2, 7, 5);
-    ctx.fillStyle = white ? '#fff' : '#8a9ab8'; ctx.fillRect(hx - 3, hy - 2, 7, 1);
-    ctx.fillStyle = '#f2c14e'; ctx.fillRect(hx - 1, hy, 3, 1);
-  } else if (s.type === 'flame') {
-    ctx.fillStyle = P.ink; ctx.fillRect(x - 6, y - 8 + pop, 13, 11);
-    ctx.fillStyle = white ? '#fff' : '#8a3a2a'; ctx.fillRect(x - 5, y - 7 + pop, 11, 9);
-    ctx.fillStyle = white ? '#fff' : '#c05a3a'; ctx.fillRect(x - 5, y - 7 + pop, 11, 2);
-    ctx.fillStyle = P.metalD; ctx.fillRect(x - 5, y - 2 + pop, 11, 1);
-    const ax = Math.cos(s.aim), ay = Math.sin(s.aim), hx = x, hy = y - 7 + pop;
-    pline(hx, hy, hx + ax * 8, hy + ay * 8, P.ink); pline(hx, hy - 1, hx + ax * 7, hy + ay * 7 - 1, P.metal);
-    ctx.fillStyle = '#ffb050'; ctx.fillRect(x - 1, y - 4 + pop, 3, 2);
-  } else if (s.type === 'mortar') {
-    ctx.fillStyle = P.ink; ctx.fillRect(x - 7, y - 4 + pop, 15, 7);
-    ctx.fillStyle = white ? '#fff' : '#5a6278'; ctx.fillRect(x - 6, y - 3 + pop, 13, 5);
-    ctx.fillStyle = white ? '#fff' : '#7a86a0'; ctx.fillRect(x - 6, y - 3 + pop, 13, 1);
-    const dir = Math.cos(s.aim) >= 0 ? 1 : -1, rc = (s.recoil > 0 ? s.recoil : 0) * 2;
-    for (let i = 0; i < 4; i++) {
-      const bx = x + dir * (i * 1.5), by = y - 5 - i * 2 + pop + rc;
-      ctx.fillStyle = P.ink; ctx.fillRect(Math.round(bx) - 3, Math.round(by) - 1, 7, 3);
-      ctx.fillStyle = P.metal; ctx.fillRect(Math.round(bx) - 2, Math.round(by), 5, 1);
-    }
+  const R = (c, px, py, w, h) => { ctx.fillStyle = white ? '#fff' : c; ctx.fillRect(px, py, w, h); };
+  if (s.type === 'direk') {
+    // direk: taban, gövde, tepesinde yeşil haçlı fener (şifa verirken yanıp söner)
+    const lit = s.on && Math.floor(G.time * 6) % 2 ? '#d8fff0' : '#5fe0b8';
+    R(P.ink, x - 4, y + pop, 9, 3); R(P.metalD, x - 3, y + 1 + pop, 7, 1);
+    R(P.ink, x - 1, y - 12 + pop, 3, 13); R(P.metal, x, y - 11 + pop, 1, 11);
+    R(P.ink, x - 4, y - 19 + pop, 9, 8); R('#16695a', x - 3, y - 18 + pop, 7, 6);
+    R(lit, x, y - 18 + pop, 1, 6); R(lit, x - 3, y - 16 + pop, 7, 2);
+  } else if (s.type === 'sondaj') {
+    // sondaj: üç ayak, sarı motor kutusu, dönen burgu ucu (çalışırken titrer)
+    const j = s.on ? Math.floor(G.time * 30) % 2 : 0, bx = x + j, ph = s.on ? Math.floor(G.time * 14) : 0;
+    pline(bx - 4, y - 9 + pop, bx - 7, y + 2 + pop, P.ink); pline(bx + 4, y - 9 + pop, bx + 7, y + 2 + pop, P.ink);
+    pline(bx - 3, y - 9 + pop, bx - 6, y + 2 + pop, P.metalD); pline(bx + 3, y - 9 + pop, bx + 6, y + 2 + pop, P.metalD);
+    R(P.ink, bx - 5, y - 16 + pop, 11, 8); R('#c9902a', bx - 4, y - 15 + pop, 9, 6); R('#ffd24a', bx - 4, y - 15 + pop, 9, 1); R(P.ink, bx - 2, y - 13 + pop, 5, 1);
+    R(P.ink, bx - 1, y - 8 + pop, 3, 12);
+    for (let i = 0; i < 5; i++) R((i + ph) % 2 ? P.metal : P.metalD, bx, y - 8 + i * 2 + pop, 1, 2);
+    R(P.ink, bx - 2, y + 2 + pop, 5, 2); R('#dfe6f0', bx, y + 3 + pop, 1, 1);
   }
   if (s.hp < s.maxHp) {
     const w = 12, f = Math.max(0, s.hp / s.maxHp);
     ctx.fillStyle = P.ink; ctx.fillRect(x - w / 2 - 1, y - 17, w + 2, 3);
     ctx.fillStyle = f < 0.35 ? P.bad : '#5fe0b8'; ctx.fillRect(x - w / 2, y - 16, Math.round(w * f), 1);
   }
+}
+
+// Yem Zili: uçarken düz, çalarken iki yana sallanır
+function drawBell(b) {
+  const x = Math.round(b.x) + (b.left > 0 ? 0 : Math.round(Math.sin(G.time * 24) * 1.4)), y = Math.round(b.y);
+  ctx.fillStyle = P.ink; ctx.fillRect(x - 2, y - 5, 5, 8); ctx.fillRect(x - 4, y, 9, 3);
+  ctx.fillStyle = '#e0a020'; ctx.fillRect(x - 1, y - 4, 3, 5); ctx.fillRect(x - 3, y + 1, 7, 1);
+  ctx.fillStyle = '#ffe07a'; ctx.fillRect(x - 1, y - 4, 1, 3);
+  ctx.fillStyle = '#ff9a4a'; ctx.fillRect(x, y + 2, 1, 1);
 }
 
 function drawRock(k) {
@@ -1000,11 +1007,13 @@ function drawRock(k) {
 const CHEST_GLOW = { wood: 'rgba(255,210,74,0.3)', iron: 'rgba(223,230,240,0.25)', mimic: 'rgba(223,230,240,0.25)', gold: 'rgba(255,230,120,0.45)', arms: 'rgba(255,138,58,0.35)', ore: 'rgba(120,160,255,0.35)', supply: 'rgba(236,74,74,0.3)', cursed: 'rgba(255,58,106,0.4)', ancient: 'rgba(90,255,234,0.45)' };
 // ---------- düşmanlar ----------
 const EN_OFFSET = { rodent: 1, bug: 1, spitter: 2, flyer: -2, boomer: 1, brute: 1, worm: 0, glarer: -3, lurker: 2, howler: 1, shade: 0 };
-const DIE_T = e => e.d.dieT || (e.d.boss ? 0.9 : 0.42);
+const DIE_T = e => e.d.dieT || (e.d.boss ? 0.9 : 0.42), MOB_F = {};
+// Kıvılcım Sineği'nin ışığı doğduğu biyoma göre
+const FLY_GLOW = { 6: 'rgba(255,130,50,0.4)', 9: 'rgba(150,120,255,0.4)', 11: 'rgba(110,190,255,0.4)', 19: 'rgba(255,240,200,0.4)', 24: 'rgba(255,180,70,0.4)' };
 // çizim parametreleri: sprite karesi, ayak noktası, ölçek, flip
 function enemyPose(e, alpha) {
   const x = lerp(e.px, e.x, alpha), y = lerp(e.py, e.y, alpha);
-  const frames = SPR[e.type];
+  const frames = SPR[e.type] || MOB_F[e.type] || (MOB_F[e.type] = [0, 1].map(() => ({ w: e.d.r * 2 + 6, h: e.d.r * 2 + 6 }))); // yalnız 3B modeli olan tür: ölçü kutusu
   let fi = Math.floor(e.anim) % 2;
   if (e.type === 'lurker') fi = e.tongue > 0 ? 1 : 0;
   else if (e.type === 'howler') fi = e.howlT > 0 ? 1 : fi;
@@ -1191,6 +1200,7 @@ function drawBossFx(e, alpha) {
     ringPx(R.x, R.y, R.r, R.col); ringPx(R.x, R.y, R.r - 2, '#ffffff', 2); ringPx(R.x, R.y, R.r - 4, R.col, 1);
     ctx.globalAlpha = 1;
   }
+  if (e.type === 'poseidon') drawPoseidonFx(ctx, e, x, y, t, glow);
   const A = B.act;
   if (!A) return;
   const on = Math.floor(t * 14) % 2 === 0;
@@ -1612,9 +1622,17 @@ function drawEmissive(r0, r1, alpha, opts) {
   }
   // yapı ışıkları
   for (const s2 of G.structures) {
-    if (s2.type === 'flame') { glow(s2.x, s2.y - 5, 'rgba(255,140,60,0.25)', 6); if (s2.firing) glow(s2.x + Math.cos(s2.aim) * 18, s2.y - 4 + Math.sin(s2.aim) * 18, 'rgba(255,150,60,0.35)', 18); }
-    else glow(s2.x, s2.y - 6, 'rgba(242,193,78,0.2)', 6);
+    if (s2.type === 'direk') {
+      glow(s2.x, s2.y - 15, 'rgba(95,224,184,0.4)', s2.on ? 12 : 8, s2.on ? 0.7 + Math.sin(t * 6) * 0.3 : 0.6);
+      // şifa alanı: madenci yakındayken kesik halka
+      if (Math.hypot(G.player.x - s2.x, G.player.y - s2.y) < 90) {
+        const R = BUILDS.direk.range, n = 40; ctx.globalAlpha = s2.on ? 0.7 : 0.35; ctx.fillStyle = '#5fe0b8';
+        for (let i = 0; i < n; i++) if ((i + Math.floor(t * 4)) % 2) { const a = i / n * Math.PI * 2; ctx.fillRect(Math.round(s2.x + Math.cos(a) * R), Math.round(s2.y - 6 + Math.sin(a) * R), 1, 1); }
+        ctx.globalAlpha = 1;
+      }
+    } else glow(s2.x, s2.y - 11, 'rgba(242,193,78,0.3)', s2.on ? 9 : 6);
   }
+  for (const b2 of G.bells) { drawBell(b2); glow(b2.x, b2.y - 1, 'rgba(255,210,74,0.5)', b2.left > 0 ? 6 : Math.round(9 + Math.sin(t * 12) * 2)); }
   // fitil, gaz
   for (const b2 of G.bombs) { sprE(SPR.dynamite, b2.x, b2.y - 4); glow(b2.x, b2.y - 8, 'rgba(255,200,100,0.5)', 6); }
   for (const g of G.gas) if (!g.dead) glow(g.x, g.y, 'rgba(130,200,60,0.12)', Math.max(4, Math.round(g.rad)), Math.min(1, g.t));
@@ -1626,13 +1644,6 @@ function drawEmissive(r0, r1, alpha, opts) {
     ctx.fillStyle = '#9ad050';
     for (let i = 0; i < 3; i++) ctx.fillRect(c * TILE + 2 + Math.floor(hash2(c, r, 40 + i) * 12), r * TILE + 2 + Math.floor(hash2(c, r, 60 + i) * 12), 1, 1);
     ctx.globalAlpha = 1;
-  }
-  // havan mermileri
-  for (const sh of G.shells) {
-    const k = sh.t / sh.T, x = lerp(sh.sx, sh.tx, k), y = lerp(sh.sy, sh.ty, k) - Math.sin(k * Math.PI) * (30 + Math.abs(sh.tx - sh.sx) * 0.3);
-    ctx.fillStyle = '#ffd48a'; ctx.fillRect(Math.round(x) - 1, Math.round(y) - 1, 3, 3);
-    glow(x, y, 'rgba(255,200,120,0.4)', 5);
-    if (Math.floor(t * 8) % 2) { ctx.fillStyle = 'rgba(255,90,60,0.6)'; ctx.fillRect(Math.round(sh.tx) - 3, Math.round(sh.ty), 7, 1); }
   }
   // düşman gözleri: karanlıkta görünür; ara sıra göz kırpar
   for (const e of G.enemies) {
@@ -1663,6 +1674,10 @@ function drawEmissive(r0, r1, alpha, opts) {
     if (e.type === 'magmite') glow(x, y, 'rgba(255,120,40,0.35)', 9, 0.6 + Math.sin(t * 8 + e.wob) * 0.3);
     if (e.type === 'voidling') { glow(x, y, 'rgba(120,100,255,0.35)', 12, 0.6 + Math.sin(t * 3 + e.wob) * 0.3); if (e.blinkT > 0) glow(x, y, 'rgba(200,190,255,0.8)', Math.round(26 * (1 - e.blinkT / 0.3) + 6), e.blinkT / 0.3); }
     if (e.type === 'frostbat') glow(x, y, 'rgba(160,220,255,0.2)', 8, 0.7);
+    if (e.type === 'sinek') glow(x, y, FLY_GLOW[e.bio] || FLY_GLOW[6], 5, 0.6 + Math.sin(t * 9 + e.wob) * 0.4);
+    if (e.type === 'altinBocek') glow(x, y, 'rgba(255,210,74,0.3)', 7, 0.6 + Math.sin(t * 5 + e.wob) * 0.3);
+    if (e.type === 'kirpi' && e.flashT > 0) glow(x, y, 'rgba(230,200,255,0.6)', 14, e.flashT / 0.3);
+    if (e.type === 'kafatasi') glow(x, y, 'rgba(255,240,200,0.35)', Math.round(5 + (1 - Math.min(1, (e.riseT ?? 2.5) / 2.5)) * 8), 0.5 + Math.sin(t * 14) * 0.3);
     if (e.type === 'voltbat') glow(x, y, 'rgba(90,160,255,0.35)', e.flashT > 0 ? 16 : 8, e.flashT > 0 ? 1 : 0.6 + Math.sin(t * 9 + e.wob) * 0.3);
     if (e.type === 'seraph' && e.beamT > 0) glow(x, y, 'rgba(255,244,192,0.7)', Math.round(10 + (1 - e.beamT / 0.9) * 14), 1);
     if (e.type === 'chronoling' && e.rewindCd < 0.8) glow(x, y, 'rgba(255,216,144,0.6)', 14, 1 - e.rewindCd / 0.8);
@@ -1672,8 +1687,8 @@ function drawEmissive(r0, r1, alpha, opts) {
   // mermiler
   for (const bl of G.bullets) {
     if (bl.blast) { const c = bl.freeze ? '#bff4ff' : '#ffb050'; pline(bl.px, bl.py, bl.x, bl.y, c); ctx.fillStyle = P.ink; ctx.fillRect(Math.round(bl.x) - 2, Math.round(bl.y) - 2, 4, 4); ctx.fillStyle = bl.freeze ? '#ffffff' : '#ffe79a'; ctx.fillRect(Math.round(bl.x) - 1, Math.round(bl.y) - 1, 2, 2); glow(bl.x, bl.y, bl.freeze ? 'rgba(190,240,255,0.5)' : 'rgba(255,170,80,0.5)', 7); continue; }
-    const col = bl.from === 't' ? '#9fe8ff' : bl.fire ? '#ff9a4a' : bl.frost ? '#bff4ff' : bl.chain ? '#c8f0ff' : '#ffe79a';
-    pline(bl.px, bl.py, bl.x, bl.y, bl.from === 't' ? 'rgba(120,200,255,0.6)' : 'rgba(255,220,140,0.6)');
+    const col = bl.fire ? '#ff9a4a' : bl.frost ? '#bff4ff' : bl.chain ? '#c8f0ff' : '#ffe79a';
+    pline(bl.px, bl.py, bl.x, bl.y, 'rgba(255,220,140,0.6)');
     ctx.fillStyle = col; ctx.fillRect(Math.round(bl.x) - 1, Math.round(bl.y) - 1, 2, 2);
   }
   for (const bl of G.ebullets) {
@@ -1708,7 +1723,7 @@ function drawEmissive(r0, r1, alpha, opts) {
   const p = G.player;
   // yakındaki alet: geri alınabilir işareti (dokun)
   if (!opts.hidePlayer && !p.dead) for (const s2 of G.structures) {
-    if (Math.hypot(s2.x - p.x, s2.y - p.y) > 40) continue;
+    if (BUILDS[s2.type].once || Math.hypot(s2.x - p.x, s2.y - p.y) > 40) continue;
     const x = Math.round(s2.x), y = Math.round(s2.y) - 22 + Math.round(Math.sin(t * 3) * 1.5);
     ctx.fillStyle = P.ink; ctx.fillRect(x - 3, y - 1, 7, 3); ctx.fillRect(x - 1, y - 3, 3, 7);
     ctx.fillStyle = P.helm; ctx.fillRect(x - 2, y, 5, 1);

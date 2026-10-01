@@ -65,7 +65,8 @@ const react = (i, j) => {
 
 function flowStep(lavaTurn) {
   const lq = G.lq, lk = G.lk, dir = (G.lqT & 1) ? 1 : -1, tot = [0, 0], last = G.lqTot || [0, 0];
-  const cnt = [0, 0]; for (const s of G.springs) cnt[s.k]++;
+  // drain: suyu hemen gidere akan kaynak (su tapınağı) havuz sınırını büyütmez
+  const cnt = [0, 0]; for (const s of G.springs) if (!s.drain) cnt[s.k]++;
   const full = [last[0] >= LIQUID.cap[0] * cnt[0], last[1] >= LIQUID.cap[1] * cnt[1]];
   for (let r = ROWS - 2; r >= GROUND_ROW; r--) {
     // sıvı kendi biyomunun dışına düşerken toprağa emilir: su Şelale Mağarası'ndan, lav Kor Katmanı'ndan sonsuza akmaz

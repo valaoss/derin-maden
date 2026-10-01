@@ -1,6 +1,6 @@
 // Boss animasyon sahneleri: oyun mantığındaki (bosses.js) zamanlamaları taklit eden sahte varlık durumu.
 // Hem önizleme betiği (boss-preview.mjs) hem tarayıcı vitrini (boss-viewer.html) kullanır.
-import { ENEMIES, BALROG, BOSS_MELEE } from '../src/data/balance.js';
+import { ENEMIES, BALROG, BOSS_MELEE, POSEIDON } from '../src/data/balance.js';
 
 export function makeBoss(type, x = 0, y = 0) {
   return { type, x, y, px: x, py: y, face: 1, d: ENEMIES[type], anim: 0, hitT: 0, hitDx: 0, hitDy: 0, wind: 0, lunge: 0, dieT: 0, dead: false, wob: 0.5, intro: 0, blinkT: 0, emergeT: 0, sink: 0, fade: 0, flashT: 0, under: false, x0: x, y0: y, bs: { phase: 1, act: null, marks: [], rings: [] } };
@@ -90,6 +90,26 @@ const SCENES = {
       act(e, 'swoop', { stage: s.stage, st: s.st, T: 9, dur: 1, a: s.stage === 'flap' ? undefined : 0, fire: s.stage === 'fly' }); e.wind = s.stage === 'flap' ? s.k : 0;
       if (s.stage === 'fly') { const k = s.k * s.k * (3 - 2 * s.k); e.x = e.x0 + 90 * k; e.y = e.y0 - Math.sin(s.k * Math.PI) * 40; e.lunge = 1; } else if (s.stage === 'land') { e.x = e.x0 + 90; e.y = e.y0; }
     } },
+  },
+  poseidon: {
+    intro: { dur: 3.9, run(c, e) { e.introT = POSEIDON.intro; e.intro = Math.max(0, POSEIDON.intro - c); } },
+    spear: { dur: 2.6, run(c, e, p) {
+      const W = POSEIDON.spear.aim; e.bs.armed = c < W || c > W + 1.2; e.bs.reform = c > W + 0.75 && c <= W + 1.2 ? W + 1.2 - c : 0;
+      if (c < W + 0.5) { act(e, 'spear', { stage: c < W ? 'aim' : 'rest', st: c < W ? W - c : W + 0.5 - c, T: 9, a: aim({ x: e.x + 2, y: e.y - 38 }, p) }); e.wind = c < W ? c / W : 0; }
+    } },
+    spearUp: { dur: 2.6, setup(e, p) { p.x = e.x + 60; p.y = e.y - 70; }, run(c, e, p) { SCENES.poseidon.spear.run(c, e, p); } },
+    wave: { dur: 2, run(c, e, p) { const W = POSEIDON.wave.wind; if (c < W + 0.5) { act(e, 'wave', { stage: c < W ? 'wind' : 'rest', st: c < W ? W - c : W + 0.5 - c, T: 9, a: aim({ x: e.x, y: e.y - 22 }, p) }); e.wind = c < W ? c / W : 0; } } },
+    spout: { dur: 2.2, run(c, e) { const W = POSEIDON.spout.raise + 0.45; if (c < W) { act(e, 'spout', { T: W - c }); e.wind = Math.min(1, c / POSEIDON.spout.raise); } } },
+    morph: { dur: 4.4, run(c, e) { e.bs.phase = c > 0.3 ? 2 : 1; } },
+    tIdle: { dur: 4, setup(e) { e.bs.phase = 2; }, run() {} },
+    tWalk: { dur: 3, setup(e) { e.bs.phase = 2; }, run(c, e, p, dt) { e.x += e.d.speed * POSEIDON.crawl * dt; p.x = e.x + 80; } },
+    tTurn: { dur: 6, setup(e) { e.bs.phase = 2; }, run(c, e, p) { const a = c / 6 * Math.PI * 2; p.x = e.x + Math.cos(a) * 90; p.y = e.y + Math.sin(a) * 50 - 20; e.face = p.x >= e.x ? 1 : -1; } },
+    tMelee: { dur: 1.7, setup(e, p) { e.bs.phase = 2; p.x = e.x + 40; }, run(c, e, p) { const W = BOSS_MELEE.wind, T = W + BOSS_MELEE.rest; if (c < T) { act(e, 'melee', { T: T - c, a: aim(e, p), R: 60, arc: 1.15, done: c >= W }); e.wind = c < W ? c / W : 0; } } },
+    tSlam: { dur: 2.6, setup(e) { e.bs.phase = 2; }, run(c, e) { const W = POSEIDON.slam.wind; if (c < W + 0.7) { act(e, 'slam', { stage: c < W ? 'raise' : 'rest', st: c < W ? W - c : W + 0.7 - c, T: 9 }); e.wind = c < W ? c / W : 0; } } },
+    tSpear: { dur: 2.2, setup(e) { e.bs.phase = 2; }, run(c, e, p) { const W = POSEIDON.spear.aim; if (c < W + 0.5) { act(e, 'spear', { stage: c < W ? 'aim' : 'rest', st: c < W ? W - c : W + 0.5 - c, T: 9, a: aim({ x: e.x, y: e.y - 58 }, p) }); e.wind = c < W ? c / W : 0; } } },
+    tSpout: { dur: 2.2, setup(e) { e.bs.phase = 2; }, run(c, e) { SCENES.poseidon.spout.run(c, e); } },
+    tHurt: { dur: 1.6, setup(e) { e.bs.phase = 2; }, run(c, e) { COMMON.hurt.run(c, e); } },
+    tDie: { dur: 0, len: e => (e.d.dieT || 0.9) + 0.5, setup(e) { e.bs.phase = 2; }, run(c, e) { COMMON.die.run(c, e); } },
   },
   ejder: {
     breath: { dur: 3.9, run(c, e, p) {

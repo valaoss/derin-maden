@@ -1,7 +1,7 @@
 // PixelLab boss sprites: 8 static rotations + east-view animation rows (west is mirrored).
 // Sheet: public/boss/pl/<type>.png, layout: src/data/plboss.json. Glow layer is derived from the fire pixels.
 import { STEP } from '../config.js';
-import { BALROG } from '../data/balance.js';
+import { BALROG, ENEMIES } from '../data/balance.js';
 import PL from '../data/plboss.json';
 import { G } from '../game/state.js';
 import { clamp } from '../core/util.js';
@@ -20,7 +20,8 @@ function sheet(type) {
   return s.ready ? s : null;
 }
 // 3B modeli olan bossların sprite sayfası yüklenmez
-if (typeof Image !== 'undefined') for (const t in PL) if (!DEFS[t]) sheet(t);
+// yalnız oyunda doğabilen türler (reddedilen Sultan'ın sayfası açılışta çözülmesin)
+if (typeof Image !== 'undefined') for (const t in PL) if (!DEFS[t] && ENEMIES[t]) sheet(t);
 
 // parlayan pikseller (alev, kor, lav): karanlıkta görünen katman
 function glowLayer(img) {

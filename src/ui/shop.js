@@ -78,8 +78,8 @@ export function renderShop(body, tab, justKey, x) {
     `<div class="plate row" ${attr}>${iconHTML}<div class="main"><div class="name">${name}${tag}</div><div class="eff">${desc}</div>${c ? cost(c) : ''}</div>${btn}</div>`;
   const lvLine = k => {
     const l = toolLvl(k), a = TOOL_UP, c = toolUpCost(k);
-    const nx = c ? ` → <b>+%${Math.round(a.dmg * 100 * (l + 1))}</b>` : '';
-    return `<div class="plate row sub ${c ? '' : 'max'} ${justKey === 't' + k ? 'just' : ''}" data-lvup="${k}"><div class="main"><div class="name">Seviye ${bar(l, a.max)}</div><div class="eff">Hasar +%${Math.round(a.dmg * 100 * l)} · dayanıklılık +%${Math.round(a.hp * 100 * l)}${nx}</div>${c ? cost(c) : ''}</div>${c ? `<button class="btn buy" ${canAfford(c) ? '' : 'disabled'}>GELİŞTİR</button>` : ''}</div>`;
+    const nx = c ? ` → <b>+%${Math.round(a.pow * 100 * (l + 1))}</b>` : '';
+    return `<div class="plate row sub ${c ? '' : 'max'} ${justKey === 't' + k ? 'just' : ''}" data-lvup="${k}"><div class="main"><div class="name">Seviye ${bar(l, a.max)}</div><div class="eff">Güç +%${Math.round(a.pow * 100 * l)} · dayanıklılık +%${Math.round(a.hp * 100 * l)}${nx}</div>${c ? cost(c) : ''}</div>${c ? `<button class="btn buy" ${canAfford(c) ? '' : 'disabled'}>GELİŞTİR</button>` : ''}</div>`;
   };
   // silah seviyesi: öldürdükçe dolan çubuk + alınan kartlar
   const levelCard = () => {

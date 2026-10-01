@@ -12,10 +12,13 @@ import { debris, dust, shake, particle, ring, sparks, flashLight } from './fx.js
 import { sfx } from '../audio/audio.js';
 import { updateBiomes } from './biomes.js';
 
+// ses ve sarsıntı yalnız yerel madencinin yakınında (partnerin uzaktaki göçüğü ekranı sallamasın)
+const nearLocal = (x, y, d = 170) => G.player && Math.hypot(G.player.x - x, G.player.y - y) < d;
+
 function queueFall(c, r) {
   if (G.falls.some(f => f.c === c && f.r === r)) return;
   G.falls.push({ c, r, t: HAZARD.fallDelay });
-  sfx.creak();
+  if (nearLocal(c * TILE + 8, r * TILE + 8)) sfx.creak();
 }
 function checkAbove(c, r) {
   if (tileAt(c, r) === T.AIR && tileAt(c, r - 1) === T.LOOSE) queueFall(c, r - 1);
@@ -23,7 +26,7 @@ function checkAbove(c, r) {
 
 export function spawnGas(x, y) {
   G.gas.push({ x, y, t: HAZARD.gasTime, T: HAZARD.gasTime, rad: 8, tick: 0 });
-  sfx.gas();
+  if (nearLocal(x, y)) sfx.gas();
   for (let i = 0; i < 6; i++) particle(x + (rnd() - 0.5) * 10, y + (rnd() - 0.5) * 10, (rnd() - 0.5) * 30, -10 - rnd() * 20, 0.8, 'rgba(150,210,80,0.45)', 3, 2, -8);
 }
 
@@ -36,7 +39,7 @@ export function igniteGas(x, y, rad) {
     const R = g.rad + 10;
     for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - g.x, e.y - g.y) < R + e.r) damageEnemy(e, HAZARD.gasBoom, 0, -1, 1);
     for (const p of G.players) if (!p.dead && Math.hypot(p.x - g.x, p.y - g.y) < R) damagePlayer(p, HAZARD.gasBoom * 0.5, g.x, g.y);
-    sfx.explode(); shake(0.35);
+    if (nearLocal(g.x, g.y)) { sfx.explode(); shake(0.35); }
     ring(g.x, g.y, '#ffb050', R); sparks(g.x, g.y, '#ffd48a', 18, 140); sparks(g.x, g.y, '#9af060', 8, 90);
     flashLight(g.x, g.y, 7, 0.4);
     igniteGas(g.x, g.y, R);
@@ -45,7 +48,7 @@ export function igniteGas(x, y, rad) {
 
 function shatter(k) {
   debris(k.x, k.y, k.mat, 10); dust(k.x, k.y, 3);
-  sfx.breakBlock('stone'); shake(0.15);
+  if (nearLocal(k.x, k.y)) { sfx.breakBlock('stone'); shake(0.15); }
 }
 
 export function updateHazards(dt) {
@@ -76,7 +79,7 @@ export function updateHazards(dt) {
       const mat = matOf(f.c, f.r);
       setTile(f.c, f.r, T.AIR);
       G.rocks.push({ x: f.c * TILE + 8, y: f.r * TILE + 8, vy: 20, mat });
-      sfx.rockfall();
+      if (nearLocal(x, y)) sfx.rockfall();
       continue;
     }
     fs[j++] = f;
@@ -124,7 +127,7 @@ export function updateHazards(dt) {
       for (const p of G.players) if (!p.dead && Math.hypot(p.x - g.x, p.y - g.y) < g.rad) poisonPlayer(p, HAZARD.gasDps * 0.5, true);
     }
     for (const e of G.enemies) {
-      if (e.dead || e.emergeT > 0 || Math.hypot(e.x - g.x, e.y - g.y) > g.rad) continue;
+      if (e.dead || e.emergeT > 0 || e.under || e.intro > 0 || Math.hypot(e.x - g.x, e.y - g.y) > g.rad) continue;
       e.hp -= HAZARD.gasDps * 1.5 * dt; e.gasT = 0.2;
       if (e.hp <= 0) killEnemy(e);
     }

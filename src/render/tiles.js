@@ -21,6 +21,7 @@ ramp('grass', [P.ink, P.grass0, P.grass1, P.grass2]);
 const MAT_SEED = { dirt: 11, stone: 23, hard: 37, dense: 53, bedrock: 71, found: 83, vault: 97, moss: 101, ice: 113, bone: 127, magma: 131, obsidian: 139, void: 149,
   quick: 151, storm: 157, gilt: 163, gate: 167, fungus: 173, glass: 179, titan: 181, chrono: 191, blood: 193, echo: 197, genesis: 199,
   mute: 211, tide: 223, flesh: 227, mirror: 229, amber: 233, magnet: 239, hunger: 241, rootwood: 251, sea: 257, zero: 263, falls: 269 };
+const CLEAR = [0, 0, 0], EMBER = [[120, 30, 10], [220, 90, 30], [255, 170, 60], [255, 240, 180]];
 const gemCache = new Map();
 function gemRamp(gem) { let r = gemCache.get(gem); if (!r) { r = gem.map(hexToRgb); gemCache.set(gem, r); } return r; }
 
@@ -351,7 +352,7 @@ function paintTile(img, c, r, oy) {
           const wx = x0 + px, bh = Math.floor(hash2(wx, 5, 3) * 4) - (hash2(wx, 9, 3) < 0.35 ? 3 : 0);
           if (py >= TILE - bh) col = rgb.grass[py === TILE - bh ? 3 : 2];
         }
-        if (col) put(px, py, col); else put(px, py, [0, 0, 0], 0);
+        if (col) put(px, py, col); else put(px, py, CLEAR, 0);
       }
       return;
     }
@@ -390,6 +391,7 @@ function paintTile(img, c, r, oy) {
   const ember = TD[t].ember, gem = TD[t].gem ? gemRamp(TD[t].gem) : null;
   const ore = TD[t].ore;
   const OR = ore && !(G.buried && G.buried[r * COLS + c]) ? rgb['o_' + ore] : null;
+  const R0 = rgb['m_' + mat0], s0 = MAT_SEED[mat0], wall0 = rgb['w_' + hostMat(r)][0];
   for (let py = 0; py < TILE; py++) for (let px = 0; px < TILE; px++) {
     // dışbükey köşe yuvarlama
     const cut = (eN && eW && px + py < 2) || (eN && eE && (15 - px) + py < 2) ||
@@ -397,8 +399,8 @@ function paintTile(img, c, r, oy) {
     const wx = x0 + px, wy = y0 + py;
     if (cut) {
       // arkası: boşluk rengi
-      if (r < GROUND_ROW + 1 && eN) put(px, py, [0, 0, 0], 0);
-      else put(px, py, rgb['w_' + hostMat(r)][0]);
+      if (r < GROUND_ROW + 1 && eN) put(px, py, CLEAR, 0);
+      else put(px, py, wall0);
       continue;
     }
     const corner = (eN && eW && px + py === 2) || (eN && eE && (15 - px) + py === 2) ||
@@ -410,7 +412,7 @@ function paintTile(img, c, r, oy) {
       if (dN) { const b = y0 + (vnoise(wx / 5, r * 5.1, 4) - 0.5) * 9; if (wy < b) mat = mN; if (Math.abs(wy - b) < 0.8) seam = true; }
       if (dS) { const b = y0 + TILE + (vnoise(wx / 5, (r + 1) * 5.1, 4) - 0.5) * 9; if (wy >= b) mat = mS; if (Math.abs(wy - b) < 0.8) seam = true; }
     }
-    const R = rgb['m_' + mat], s = MAT_SEED[mat];
+    const R = mat === mat0 ? R0 : rgb['m_' + mat], s = mat === mat0 ? s0 : MAT_SEED[mat];
     let i = seam ? 1 : baseShade(mat, wx, wy, s);
     if (OR) {
       const g = gemAt(c, r, px, py);
@@ -422,7 +424,7 @@ function paintTile(img, c, r, oy) {
     }
     if (ember) {
       const g = gemAt(c, r, px, py);
-      if (g) { put(px, py, [[120, 30, 10], [220, 90, 30], [255, 170, 60], [255, 240, 180]][g - 1]); continue; }
+      if (g) { put(px, py, EMBER[g - 1]); continue; }
     }
     // kenar ışığı: yukarıdan gelir
     if (eN) { if (py === 0) i = 0; else if (py === 1) i = 4; else if (py === 2) i = Math.max(i, 3); }
@@ -450,11 +452,33 @@ function makeChunk(ci) {
   return { cv, cx, img, oy, r0, built: true };
 }
 
+// Parçalar tembel üretilir: sefer başında yalnız yüzey, kalanı boşta kalan zamanda kameraya yakın olandan başlayarak.
+// Kameradan çok uzaklaşan parça bırakılır (bellek); gerekince haritadan yeniden boyanır.
+const NEAR = 4, KEEP = 10;
+let camC = 0, idleQ = false;
 export function resetTiles() {
   chunks = new Array(Math.ceil(ROWS / CH_ROWS)).fill(null);
+  camC = 0;
 }
-export function prebuildTiles() {
-  for (let i = 0; i < chunks.length; i++) if (!chunks[i]) chunks[i] = makeChunk(i);
+export function prebuildTiles(camY = 0) {
+  camC = Math.max(0, Math.floor(camY / CH_H));
+  for (let i = Math.max(0, camC - 1); i <= Math.min(chunks.length - 1, camC + 2); i++) if (!chunks[i]) chunks[i] = makeChunk(i);
+  queueIdle();
+}
+function nextMissing() {
+  for (let d = 0; d <= NEAR; d++) for (const i of [camC + d, camC - d]) if (i >= 0 && i < chunks.length && !chunks[i]) return i;
+  return -1;
+}
+function idleWork(dl) {
+  idleQ = false;
+  for (let i = 0; i < chunks.length; i++) if (chunks[i] && Math.abs(i - camC) > KEEP) chunks[i] = null;
+  do { const i = nextMissing(); if (i < 0) return; chunks[i] = makeChunk(i); } while (dl && dl.timeRemaining && dl.timeRemaining() > 12);
+  queueIdle();
+}
+function queueIdle() {
+  if (idleQ || typeof window === 'undefined' || nextMissing() < 0) return;
+  idleQ = true;
+  if (window.requestIdleCallback) window.requestIdleCallback(idleWork, { timeout: 400 }); else setTimeout(idleWork, 40);
 }
 
 // Değişen tile'lar: 3x3 komşuluk yeniden boyanır
@@ -484,6 +508,7 @@ export function flushDirty() {
 
 export function drawTiles(ctx, camX, camY, vw, vh) {
   const c0 = Math.max(0, Math.floor(camY / CH_H)), c1 = Math.min(chunks.length - 1, Math.floor((camY + vh) / CH_H));
+  if (c0 !== camC) { camC = c0; queueIdle(); }
   for (let i = c0; i <= c1; i++) {
     if (!chunks[i]) chunks[i] = makeChunk(i);
     ctx.drawImage(chunks[i].cv, -camX, i * CH_H - camY);

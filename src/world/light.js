@@ -81,7 +81,7 @@ export function lightSourcesFor(g, lampTiles) {
   for (const s of g.satchels) L.push({ x: s.x, y: s.y, s: 2.5 });
   for (const e of g.enemies) { if (e.dead) continue; if (e.type === 'glarer') L.push({ x: e.x, y: e.y, s: e.flashT > 0 ? 9 : 2.6 }); else if (e.d.boom) L.push({ x: e.x, y: e.y, s: 1.6 }); }
   L.push({ x: g.base.x, y: g.base.y, s: 7 });
-  for (const s of g.structures) L.push({ x: s.x, y: s.y - 4, s: s.type === 'flame' && s.firing ? 4.2 : 3 });
+  for (const s of g.structures) L.push({ x: s.x, y: s.y - 4, s: s.type === 'direk' ? 3.6 : 3 });
   // asansör istasyonu fenerleri
   for (const s of g.stations || []) L.push({ x: CENTER_COL * TILE + 8, y: (GROUND_ROW + s * STRATUM_ROWS + 1) * TILE + 4, s: 4 });
   for (const b of g.bombs) L.push({ x: b.x, y: b.y - 6, s: 1.8 });

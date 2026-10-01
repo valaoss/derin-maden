@@ -4,7 +4,7 @@ import { critterURL } from '../render/critters.js';
 import { nearWell, wellCost } from '../game/well.js';
 import { lakeAt } from '../game/wonders.js';
 import { TILE, GROUND_Y, stratumOfRow, STRATUM_ROWS } from '../config.js';
-import { UPGRADES, UPGRADE_KEYS, PICK_KEYS, MODS, MOD_KEYS, BUILDS, BUILD_KEYS, PERKS, META, META_KEYS, RES_KEYS, ENEMIES, ITEMS, ITEM_KEYS, CONTRACTS, RES, BASE_RES, MASTER_KEYS, KADEME, DEPLOY_MAX, ROLES, ROLE_KEYS, EVENTS, RELICS, RELIC_KEYS, WEAPONS, WEAPON_KEYS, PICK_TYPES, PICK_TYPE_KEYS } from '../data/balance.js';
+import { UPGRADES, UPGRADE_KEYS, PICK_KEYS, MODS, MOD_KEYS, BUILDS, BUILD_KEYS, PERKS, META, META_KEYS, RES_KEYS, ENEMIES, ITEMS, ITEM_KEYS, CONTRACTS, RES, BASE_RES, MASTER_KEYS, KADEME, DEPLOY_MAX, EVENTS, RELICS, RELIC_KEYS, WEAPONS, WEAPON_KEYS, PICK_TYPES, PICK_TYPE_KEYS } from '../data/balance.js';
 import { STRATA } from '../data/palette.js';
 import { G, App, biomeOf } from '../game/state.js';
 import { iconURL, HELMETS } from '../render/sprites.js';
@@ -167,6 +167,7 @@ export function initUI(root, h) {
   on('bossCalm', k => banner((ENEMIES[k] ? up(ENEMIES[k].name) : 'DERİNLİK') + ' YENİDEN UYUDU', 'MADEN SUSTU'));
   on('bossSpawn', k => { const B = ENEMIES[k]; if (B && once(k)) setTimeout(() => toast(B.lore, 'skull', true), 2600); });
   on('balrog', k => { if (k === 'dark') toast('Derinden davul sesleri geliyor… ışık sönüyor', 'skull', true); else if (k === 'eyes') toast('Gölgede bir şey sana bakıyor', 'skull', true); });
+  on('poseidon', k => { if (k === 'omen') toast('Salonun ortasında su kabarıyor… denizin sahibi geliyor', 'skull', true); });
   on('serpent', k => { if (k === 'omen') toast('Deniz sustu… duvarların ardında dev bir şey kıpırdıyor', 'skull', true); else if (k === 'crack') toast('Duvar çatlıyor!', 'skull', true); });
   on('hoard', k => {
     if (k === 'seen') toast('Altın yığınının altında bir şey nefes alıyor… Ona saldırırsan uyanır', 'skull', true);
@@ -489,7 +490,7 @@ export function handleTap(fx, fy) {
 function showPop(i) {
   const s = G.structures[i], b = BUILDS[s.type], pop = $('#pop');
   pop.classList.remove('elev');
-  pop.innerHTML = `<div class="plate row">${ic(b.icon, 'l')}<div class="main"><div class="name">${b.name}</div><div class="eff">${Math.ceil(s.hp)}/${s.maxHp} · ${b.desc}</div></div></div><button class="btn" data-pick="1">GERİ AL</button>`;
+  pop.innerHTML = `<div class="plate row">${ic(b.icon, 'l')}<div class="main"><div class="name">${b.name}</div><div class="eff">${Math.ceil(s.hp)}/${s.maxHp} · ${b.once ? 'Kalan ' + s.left + ' blok. Geri alınmaz.' : b.desc}</div></div></div>${b.once ? '' : '<button class="btn" data-pick="1">GERİ AL</button>'}`;
   const v = worldToView(s.x, s.y - 12);
   const R = ui.getBoundingClientRect();
   pop.style.left = '0px'; pop.style.top = '0px'; pop.classList.add('on');
@@ -497,7 +498,7 @@ function showPop(i) {
   let left = v.x * R.width - 110, top = v.y * R.height - ph - 20;
   left = Math.max(8, Math.min(R.width - 228, left)); top = Math.max(110, top);
   pop.style.left = left + 'px'; pop.style.top = top + 'px';
-  tap(pop.querySelector('[data-pick]'), () => { dispatch({ t: CMD.PICKUP, i }); hidePop(); refreshHUD(true); });
+  if (!b.once) tap(pop.querySelector('[data-pick]'), () => { dispatch({ t: CMD.PICKUP, i }); hidePop(); refreshHUD(true); });
 }
 export function hidePop() { $('#pop').classList.remove('on', 'elev'); }
 // asansör hedefleri
@@ -558,7 +559,7 @@ export function showCoop(back) {
   const s = $('#room'), S = App.settings;
   s.innerHTML = `<div class="lobby">
     <div class="lhead"><div class="k">BİRLİKTE KAZ</div><div class="n">İki madenci · aynı maden · Öz ×1.5</div></div>
-    <button class="plate lcard me" id="rMe">${helmDot(S.helm, true)}<div class="main"><div class="name">${esc(S.name)}</div><div class="eff">${ROLES[S.role] ? ROLES[S.role].name + ' · ' : ''}Ad, kask ve rolünü değiştir</div></div><span class="chev">›</span></button>
+    <button class="plate lcard me" id="rMe">${helmDot(S.helm, true)}<div class="main"><div class="name">${esc(S.name)}</div><div class="eff">Adını ve kaskını değiştir</div></div><span class="chev">›</span></button>
     <button class="plate lcard primary" id="rQuick">${ic('hand', 'xl')}<div class="main"><div class="name">HIZLI EŞLEŞ</div><div class="eff">Bekleyen bir madenci bul. Yoksa sen bekle, biri gelir.</div></div></button>
     <button class="plate lcard" id="rHost">${ic('base', 'xl')}<div class="main"><div class="name">ODA KUR</div><div class="eff">Arkadaşına davet linki gönder. Tıklayan doğrudan odaya düşer.</div></div></button>
     <details class="lmore"><summary>Kodla katıl</summary>
@@ -585,9 +586,6 @@ export function showProfile(back) {
     <div class="plate lcard me">${helmDot(S.helm, true)}<div class="main"><input class="namein" id="pName" maxlength="14" value="${esc(S.name)}" placeholder="Adın" autocomplete="off" spellcheck="false"><div class="eff">En fazla 14 karakter</div></div></div>
     <div class="sec">KASK RENGİ</div>
     <div class="helms" id="pHelms">${HELMETS.map((h, i) => `<button class="hb ${i === (S.helm | 0) ? 'on' : ''}" data-i="${i}" aria-label="${h.name}"><span class="helm big" style="background:${h.c}"><i></i></span><small>${h.name}</small></button>`).join('')}</div>
-    <div class="sec">ROL</div>
-    <div class="helms" id="pRoles">${ROLE_KEYS.map(k => `<button class="hb ${k === S.role ? 'on' : ''}" data-r="${k}">${ic(ROLES[k].icon, 'l')}<small>${ROLES[k].name}</small></button>`).join('')}</div>
-    <div class="eff" id="pRoleDesc">${ROLES[S.role] ? ROLES[S.role].desc : 'Bir rol seç.'}</div>
     <button class="btn big" id="pOk">TAMAM</button></div>`;
   hideScreens(); s.classList.add('on');
   const inp = $('#pName');
@@ -596,12 +594,11 @@ export function showProfile(back) {
   const commit = () => { const v = inp.value.trim().slice(0, 14); if (v) S.name = v; saveSettings(S); };
   inp.addEventListener('change', commit);
   s.querySelectorAll('.hb[data-i]').forEach(b => tap(b, () => { S.helm = +b.dataset.i; saveSettings(S); s.querySelectorAll('.hb[data-i]').forEach(x => x.classList.toggle('on', x === b)); $('.lcard.me .helm').style.background = HELMETS[S.helm].c; }));
-  s.querySelectorAll('[data-r]').forEach(b => tap(b, () => { S.role = b.dataset.r; saveSettings(S); s.querySelectorAll('[data-r]').forEach(x => x.classList.toggle('on', x === b)); $('#pRoleDesc').textContent = ROLES[S.role].desc; sfx.click(); }));
   tap($('#pOk'), () => { commit(); s.classList.remove('on'); back(); });
 }
 
 const seat = (p, label) => p
-  ? `<div class="plate seat ${p.ready ? 'ready' : ''}">${helmDot(p.helm, true)}<div class="sname">${esc(p.name)}</div>${ROLES[p.role] ? `<div class="srole">${ic(ROLES[p.role].icon, 's')}${ROLES[p.role].name}</div>` : ''}<div class="sstate">${p.ready ? 'HAZIR' : label}</div></div>`
+  ? `<div class="plate seat ${p.ready ? 'ready' : ''}">${helmDot(p.helm, true)}<div class="sname">${esc(p.name)}</div><div class="sstate">${p.ready ? 'HAZIR' : label}</div></div>`
   : `<div class="plate seat empty"><span class="helm big ghost"><i></i></span><div class="sname">—</div><div class="sstate waitdots">${label}</div></div>`;
 
 export function showRoom(L) {
@@ -646,11 +643,10 @@ export function showMenu(hasSave) {
   const m = App.meta, S = App.settings;
   const s = $('#menu');
   let k = Math.min(m.maxKademe | 0, m.lastKademe | 0);
-  const role = ROLES[S.role];
   s.innerHTML = `<div class="top"><img class="logo" src="./logo.webp" alt="FALL"><div class="subtitle">KAZ · SESSİZ KAL · DERİNE İN</div></div>
     <div class="stack">
       <div class="mrow">
-        <button class="plate mchip" id="mMe">${helmDot(S.helm)}<span class="nm">${esc(S.name)}</span>${role ? ic(role.icon, 's') : ''}<span class="chev">›</span></button>
+        <button class="plate mchip" id="mMe">${helmDot(S.helm)}<span class="nm">${esc(S.name)}</span><span class="chev">›</span></button>
         <button class="plate mchip sq" id="mSet" aria-label="Ayarlar">${ic('gear')}</button>
       </div>
       ${hasSave ? `<button class="btn big" id="mCont">DEVAM ET</button><button class="btn dark" id="mNew">YENİ SEFER</button>` : `<button class="btn big" id="mNew">KAZMAYA BAŞLA</button>`}

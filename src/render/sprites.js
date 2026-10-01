@@ -1245,9 +1245,6 @@ const ICONS = {
   lamp: [
     '....kk....', '..kkwwkk..', '.kwwwwwwk.', '.kwwWwwwk.', '.kwwwwwwk.',
     '..kwwwwk..', '...kmmk...', '...kMMk...', '...kmmk...', '....kk....'],
-  turret: [
-    '..........', '...kkkk...', '..kmmmmkkk', '..kmMMmmmk', '..kmmmmkkk',
-    '...kkkk...', '...kMMk...', '..kMkkMk..', '.kMk..kMk.', '.kk....kk.'],
   heal: [
     '...kkkk...', '...kGGk...', '...kGGk...', 'kkkkGGkkkk', 'kGGGGGGGGk',
     'kGGGGGGGGk', 'kkkkGGkkkk', '...kGGk...', '...kGGk...', '...kkkk...'],
@@ -1326,9 +1323,12 @@ const ICONS = {
   frost: [
     '....I.....', '.I..I..I..', '..I.I.I...', '...III....', 'IIIIWIIII.',
     '...III....', '..I.I.I...', '.I..I..I..', '....I.....', '..........'],
-  mortar: [
-    '......kkk.', '.....kmmmk', '....kmMMk.', '...kmMMk..', '..kmMMk...',
-    '.kkMMkk...', 'kMMMMMMk..', 'kMmmmmMk..', 'kkkkkkkk..', '..........'],
+  rig: [
+    '...kkkk...', '..kYYYYk..', '..kYooYk..', '..kYYYYk..', '.kkkmmkkk.',
+    '.kMkmMkMk.', 'kMk.kmk.kM', 'kk..kMk.kk', '....kmk...', '.....k....'],
+  bell: [
+    '....kk....', '...kYYk...', '..kYWYYk..', '..kYYYYk..', '..kYYYYk..',
+    '.kYYYYYYk.', 'kYYYYYYYYk', 'kkkkkkkkkk', '...kOOk...', '....kk....'],
   schematic: [
     'kkkkkkkk..', 'kDDDDDDk..', 'kDIDDIDkk.', 'kDIIIIDkDk', 'kDDIDDDkDk',
     'kDIIIIDkDk', 'kDDDDDDkDk', 'kkkkkkkkDk', '.kDDDDDDDk', '.kkkkkkkkk'],

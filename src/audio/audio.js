@@ -118,9 +118,11 @@ export const sfx = {
     tone(t, 0.07, { type: 'square', f: vary(900), f2: 260, gain: 0.05 });
     noise(t, 0.04, { type: 'highpass', f: 2500, gain: 0.05 });
   },
-  turret() {
-    if (!ok('turret', 0.07)) return;
-    tone(ctx.currentTime, 0.06, { type: 'square', f: vary(1300), f2: 500, gain: 0.03 });
+  // Yem Zili: iki tınlama
+  bell() {
+    if (!ok('bell', 0.2)) return;
+    const t = ctx.currentTime;
+    tone(t, 0.3, { type: 'sine', f: 1568, gain: 0.07 }); tone(t, 0.22, { type: 'triangle', f: 2349, gain: 0.035 }); tone(t + 0.12, 0.3, { type: 'sine', f: 1319, gain: 0.06 });
   },
   hit() { if (!ok('hit', 0.04)) return; noise(ctx.currentTime, 0.05, { type: 'bandpass', f: vary(2400), q: 2, gain: 0.14 }); },
   enemyDie(big) {
@@ -260,6 +262,7 @@ export const sfx = {
   },
   spit() { if (!ok('spit', 0.15)) return; const t = ctx.currentTime; noise(t, 0.09, { type: 'bandpass', f: vary(1100), q: 1.5, gain: 0.1 }); tone(t, 0.08, { type: 'triangle', f: 500, f2: 900, gain: 0.05 }); },
   // iniş: kısa tok darbe
+  splash() { if (!ok('splash', 0.14)) return; const t = ctx.currentTime; noise(t, 0.3, { type: 'bandpass', f: vary(1100), f2: 500, q: 0.7, gain: 0.2, a: 0.01 }); noise(t + 0.04, 0.42, { type: 'lowpass', f: 480, f2: 200, gain: 0.16, a: 0.02 }); },
   land() { if (!ok('land', 0.15)) return; const t = ctx.currentTime; noise(t, 0.06, { type: 'lowpass', f: 500, gain: 0.16 }); tone(t, 0.06, { type: 'sine', f: 140, f2: 70, gain: 0.12 }); },
   // Gölge belirdiğinde: soğuk fısıltı
   shade() { if (!ok('shade', 0.6)) return; noise(ctx.currentTime, 0.4, { type: 'bandpass', f: 2600, f2: 900, q: 4, gain: 0.07, a: 0.08 }); },

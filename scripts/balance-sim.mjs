@@ -4,7 +4,7 @@ import { App, G } from '../src/game/state.js';
 import { newRun, recompute } from '../src/game/run.js';
 import { updatePlayer, updateOrbs, updateDeposit, bindEnemyDamage } from '../src/game/player.js';
 import { updateEnemies, damageEnemy } from '../src/game/enemies.js';
-import { updatePlayerGun, updateBullets, updateStructures, updateShells } from '../src/game/combat.js';
+import { updatePlayerGun, updateBullets, updateStructures } from '../src/game/combat.js';
 import { updateItems } from '../src/game/items.js';
 import { updateHazards } from '../src/game/hazards.js';
 import { updateThreat } from '../src/game/threat.js';
@@ -35,7 +35,7 @@ for (let run = 0; run < RUNS; run++) {
       G.time += STEP; t += STEP;
       if (G.hitstop > 0) { G.hitstop -= STEP; continue; }
       updateFlow(STEP); updatePlayer(STEP); updatePlayerGun(STEP); updateEnemies(STEP); updateBullets(STEP);
-      updateStructures(STEP); updateShells(STEP); updateItems(STEP); updateHazards(STEP); updateThreat(STEP); updateOrbs(STEP); updateDeposit(STEP); updateParticles(STEP); updateFlashes(STEP);
+      updateStructures(STEP); updateItems(STEP); updateHazards(STEP); updateThreat(STEP); updateOrbs(STEP); updateDeposit(STEP); updateParticles(STEP); updateFlashes(STEP);
       if (G.enemies.length > last) spawned += G.enemies.length - last; last = G.enemies.length;
       if (G.threat.level >= 2 && tLv2 < 0) tLv2 = t; if (G.threat.level >= 3 && tLv3 < 0) tLv3 = t; if (G.threat.level >= 4 && tLv4 < 0) tLv4 = t;
       if (p.dead) { downs++; p.dead = false; p.gone = false; p.hp = p.maxHp; G.allDownT = 0; }

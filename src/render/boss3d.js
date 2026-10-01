@@ -123,14 +123,5 @@ export function boss3DPoint(e, alpha, name, override = {}) {
 }
 export function boss3DStats(e) { return states.get(e)?.stats || null; }
 
-// Warm construction and shader compilation during idle time, before an encounter.
-if (typeof window !== 'undefined') {
-  const warm = () => {
-    if (!init()) return;
-    const queue = Object.keys(BOSS_ART);
-    const next = () => { const type = queue.shift(); if (!type) return; const r = rig(type); r.root.visible = true; renderer.compile(scene, camera); r.root.visible = false; if (queue.length) schedule(next); };
-    const schedule = fn => window.requestIdleCallback ? window.requestIdleCallback(fn, { timeout: 1500 }) : window.setTimeout(fn, 50);
-    schedule(next);
-  };
-  window.setTimeout(warm, 200);
-}
+// Not: açılışta WebGL ısınması kaldırıldı — bütün spawnlanan bosslar yazılımsal 3B (boss/actor.js) ya da PL sayfasıyla çizilir;
+// bu yol yalnız yedek olarak kaldı, gerekirse ilk çizimde kendi kendine kurulur.

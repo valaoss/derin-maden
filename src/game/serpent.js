@@ -9,7 +9,7 @@ import { G } from './state.js';
 import { tileAt, solidAt } from '../world/map.js';
 import { breakTile, damagePlayer, pullPlayer } from './player.js';
 import { spawnEnemy } from './enemies.js';
-import { KITS, live, breakable, bullet, mark } from './bosses.js';
+import { KITS, live, breakable, bullet, mark, bossBusy } from './bosses.js';
 import { shake, flashLight, debris, dust, ring, hitstop } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
 import { emit } from '../core/events.js';
@@ -129,7 +129,7 @@ export function updateSerpent(dt) {
   const s = G.order.indexOf(SEA_BIOME); if (s < 0) return;
   const r0 = GROUND_ROW + s * STRATUM_ROWS;
   if (S.st === 'wait') {
-    if ((S.cd = (S.cd || 0) - dt) > 0 || G.enemies.some(e => e.d.boss && !e.dead)) return;
+    if ((S.cd = (S.cd || 0) - dt) > 0 || bossBusy(S)) return;
     const p = G.players.find(q => !q.dead && !q.ride && Math.floor(q.y / TILE) >= r0 + SERPENT.depth && Math.floor(q.y / TILE) < r0 + STRATUM_ROWS);
     if (!p) return;
     Object.assign(S, { st: 'omen', t: 0, y: p.y, dir: rnd() < 0.5 ? 1 : -1, pi: p.i, beat: 0, groan: 0 });

@@ -34,6 +34,12 @@ export function updateWeaponOffers() {
   const o = g.pend.shift(), live = G.players.filter(p => !p.gone);
   if (!live.length) return;
   let p, keys, kind = o.kind;
+  // ertelenmiş sandık teklifi: sahibi ayrıldıysa ayaktaki madenciye geçer
+  if (kind === 'offer') {
+    p = G.players[o.pi] && !G.players[o.pi].gone ? G.players[o.pi] : live[0];
+    G.perkOffer = { pi: p.i, keys: o.keys, chest: o.chest }; emit('perkOffer', p.i);
+    return;
+  }
   if (kind === 'start') {
     p = G.players[o.pi]; if (!p || p.gone) return;
     keys = START_MODS.filter(k => !g.owned.includes(k)).map(k => 'm:' + k);

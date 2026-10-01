@@ -63,7 +63,7 @@ export const PERKS = {
   kanAvcisi:  { duo: ['kan', 'golge'], name: 'Kan Avcısı', icon: 'skull', desc: 'Tek vuruşta öldürdüğün her düşman azami canının %4’ünü yeniler.' },
   // ---- EFSANEVİ: soysuz, nadir
   dorduncuYuva:{ leg: true, name: 'Usta Tüfekçi', icon: 'blaster', desc: 'Silah seviyen iki kat hızlı dolar.' },
-  aletUstasi: { leg: true, name: 'Alet Ustası', icon: 'turret', desc: 'Aynı anda bir alet daha kurarsın; aletler %50 daha hızlı ve güçlü.' },
+  aletUstasi: { leg: true, name: 'Alet Ustası', icon: 'gear', desc: 'Aynı anda bir alet daha kurarsın; aletler %50 daha güçlü.' },
   devAvcisi:  { leg: true, name: 'Dev Avcısı', icon: 'elite', v: [0.35, 0.6, 0.9], f: 'p', desc: 'Elitlere ve bosslara %{v} fazla hasar verirsin.' },
   bolKemer:   { leg: true, name: 'Bol Kemer', icon: 'gear', desc: 'Her eşyadan 2 fazla taşırsın ve açık her eşyadan birer tane kazanırsın.' },
   altinDokunus:{ leg: true, name: 'Altın Dokunuş', icon: 'crown', desc: 'Her öldürme 1 altın düşürür; elitler 6.' },

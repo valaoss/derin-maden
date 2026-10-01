@@ -98,6 +98,8 @@ export const EVOLVED = Object.fromEntries(WEAPON_KEYS.map(k => [k, WEAPONS[k].ev
 // xp: düşmanın yönetmen bedeli (elit ×3, boss sabit). Sonraki seviye için gereken: base + step × seviye
 export const WXP = { base: 6, step: 4, elite: 3, boss: 20, evoAt: 3 };
 export const CRIT = { base: 0.1, mul: 2 };
+// atış hızı sınırı: iki atış arası bundan kısa olmaz; kartların ve eklentilerin fazlası mermi hasarına eklenir (güç aynı kalır)
+export const FIRE = { minCd: 0.08 };
 // savrulma: vuruş başına itme; üst üste gelen vuruşlar giderek daha az iter (tire), ara verince düşman toparlanır (rest /sn)
 export const KNOCK = { imp: 55, tire: 0.5, rest: 3 };
 // kartlar: en çok max kez alınır. shot: yalnız mermi atan silah elindeyken, noFlame: alev püskürtücü dışında sunulur
@@ -109,8 +111,8 @@ export const CARDS = {
   del:  { name: 'Sert Çekirdek', icon: 'pierce', max: 2, shot: true, desc: 'Mermiler bir düşmanı daha deler.' },
 };
 export const CARD_KEYS = Object.keys(CARDS);
-// Alet seviyesi: Nöbetçi, Alev Kulesi, Havan; seviye başına hasar +%50, dayanıklılık +%40
-export const TOOL_UP = { max: 5, dmg: 0.5, hp: 0.4, costs: [{ iron: 24, cobalt: 6 }, { cobalt: 40, gold: 16 }, { crystal: 60, gold: 40, opal: 3 }, { crystal: 120, gold: 90, akik: 4 }, { crystal: 220, gold: 170, elmas: 5 }] };
+// Alet seviyesi: Şifa Direği, Sondaj Matkabı; seviye başına güç +%30 (şifa hızı, delinen blok), dayanıklılık +%40
+export const TOOL_UP = { max: 5, pow: 0.3, hp: 0.4, costs: [{ iron: 24, cobalt: 6 }, { cobalt: 40, gold: 16 }, { crystal: 60, gold: 40, opal: 3 }, { crystal: 120, gold: 90, akik: 4 }, { crystal: 220, gold: 170, elmas: 5 }] };
 
 // Seviye 0..max. effect[lvl] mevcut seviyedeki değer.
 const BLASTER_DMG = [10, 13, 16, 20, 24, 30, 38, 48, 60, 75, 92, 112, 136, 165, 200, 240];
@@ -206,12 +208,13 @@ export const BURN = { dps: 4, t: 3 };
 
 // schematic: true => Kalıntı sandığından çıkan şema ile açılır (kalıcı)
 // Taşınabilir aletler: durduğun yere kurulur (tünel içi dahil), dokunup geri alınır. Aynı anda en fazla DEPLOY_MAX tane.
+// once: tek kullanımlık (geri alınmaz, kurulum sınırına sayılmaz, aynı anda bir tane). scale: fiyatın biyom başına artışı (yoksa ITEM_SCALE)
 export const BUILDS = {
-  turret: { name: 'Nöbetçi', icon: 'turret', cost: { iron: 10 }, hp: 80, range: 112, dmg: 12, cd: 0.6, desc: 'Yakındaki düşmanlara ateş eder.' },
-  flame:  { name: 'Alev Kulesi', icon: 'flame', cost: { iron: 8, cobalt: 3 }, hp: 110, range: 46, dps: 30, schematic: true, desc: 'Kısa menzil, sürekli alan hasarı.' },
-  mortar: { name: 'Havan', icon: 'mortar', cost: { iron: 12, cobalt: 4 }, hp: 90, range: 160, minRange: 30, dmg: 30, splash: 26, cd: 2.6, schematic: true, desc: 'Uzak menzil, alan hasarı.' },
+  direk:  { name: 'Şifa Direği', icon: 'heal', cost: { iron: 8, water: 6 }, max: 2, hp: 90, range: 44, heal: 0.02, desc: 'Yakınındaki madencilerin canını yavaşça yeniler (saniyede azami canın %2’si).' },
+  sondaj: { name: 'Sondaj Matkabı', icon: 'rig', cost: { iron: 60, cobalt: 30, gold: 20 }, scale: 0.2, max: 1, once: true, hp: 120, blocks: 20, rate: 1.6, noise: 0.5,
+    desc: 'Kurduğun yerden aşağı kendi kendine deler, cevheri düşürür; 20 blok açınca durur ve tükenir. Gürültülüdür, geri alınmaz.' },
 };
-export const BUILD_KEYS = ['turret', 'flame', 'mortar'];
+export const BUILD_KEYS = ['direk', 'sondaj'];
 export const DEPLOY_MAX = 2;
 export const BARRICADE = { hp: 70 };
 
@@ -222,15 +225,18 @@ export const ITEMS = {
   recall:    { name: 'Dönüş Fişeği', icon: 'recall', cost: { water: 2, cobalt: 1 }, max: 2, schematic: true, desc: '1.5 sn sonra seni yüzeye ışınlar. Kalp Kristali ile çalışmaz.' },
   sonar:     { name: 'Sonar', icon: 'sonar', cost: { iron: 4, cobalt: 2 }, max: 3, desc: '12 blok içindeki gömülü cevher, yuva ve sandıkları açığa çıkarır.' },
   can:       { name: 'Sessizlik Çanı', icon: 'hush', cost: { water: 4, crystal: 1 }, max: 3, desc: 'Gürültüyü 35 düşürür; 10 sn boyunca gürültü yarı hızda birikir.' },
+  zil:       { name: 'Yem Zili', icon: 'bell', cost: { iron: 5, water: 2 }, max: 3, desc: 'Fırlatırsın; düştüğü yerde 5 sn çalar, sesini duyan düşmanlar seni bırakıp ona koşar. Sonunda patlar.' },
   kalkan:    { name: 'Kalkan Hücresi', icon: 'shield', cost: { cobalt: 3, water: 3 }, max: 3, desc: '12 sn boyunca gelen 80 hasarı emer.' },
   burgu:     { name: 'Burgu Şarjı', icon: 'auger', cost: { iron: 6, gold: 1 }, max: 3, desc: 'Altındaki 8 bloğu anında deler; sandığa, kalbe ve kapıya dokunmaz.' },
   adren:     { name: 'Adrenalin', icon: 'adren', cost: { crystal: 2, gold: 2 }, max: 2, schematic: true, desc: '8 sn: %40 hızlı koşarsın, kazman ve silahın iki kat vurur.' },
 };
 // aletler de kemer eşyasıdır: üret, durduğun yere kur
-for (const k of BUILD_KEYS) ITEMS[k] = { name: BUILDS[k].name, icon: BUILDS[k].icon, cost: BUILDS[k].cost, max: 2, build: true, schematic: !!BUILDS[k].schematic, desc: BUILDS[k].desc + ' Kemerden kur, dokunup geri al.' };
-export const ITEM_KEYS = ['dynamite', 'medkit', 'kalkan', 'sonar', 'can', 'burgu', 'recall', 'adren', ...BUILD_KEYS];
+for (const k of BUILD_KEYS) ITEMS[k] = { name: BUILDS[k].name, icon: BUILDS[k].icon, cost: BUILDS[k].cost, scale: BUILDS[k].scale, max: BUILDS[k].max, build: true, schematic: !!BUILDS[k].schematic, desc: BUILDS[k].desc + (BUILDS[k].once ? ' Kemerden kur.' : ' Kemerden kur, dokunup geri al.') };
+export const ITEM_KEYS = ['dynamite', 'medkit', 'kalkan', 'sonar', 'can', 'zil', 'burgu', 'recall', 'adren', ...BUILD_KEYS];
 // üretim fiyatı ulaşılan derinlikle artar (biyom başına +%8): derinde de değerli kalır
 export const ITEM_SCALE = 0.08;
+// Yem Zili: range kadar uçar (ya da duvara çarpar), ring sn çalar; lure içindeki ve zili gören düşmanlar ona koşar. Patlama: dmg ya da azami canın frac'i (boss: dmg)
+export const BELL = { range: 90, v: 190, ring: 5, lure: 200, noise: 2, boom: 30, dmg: 40, frac: 0.25 };
 export const DYNAMITE = { fuse: 2, radius: 2.2, dmg: 60, selfDmg: 14 };
 export const MEDKIT = { heal: 50, frac: 0.4 };
 export const RECALL = { channel: 1.5 };
@@ -242,7 +248,7 @@ export const ADREN = { t: 8, speed: 1.4, dmg: 2 };
 
 // Sandıklardan sırayla çıkan şemalar (bir kez bulunan kalıcıdır)
 export const SCHEMATICS = [
-  { key: 'recall', kind: 'item' }, { key: 'flame', kind: 'build' }, { key: 'adren', kind: 'item' }, { key: 'mortar', kind: 'build' },
+  { key: 'recall', kind: 'item' }, { key: 'adren', kind: 'item' },
 ];
 
 // Tehlikeler: gevşek kaya (göçük) ve gaz cepleri
@@ -326,8 +332,20 @@ export const ENEMIES = {
     loot: [['crystal', 10], ['gold', 10], ['cobalt', 6]], lore: 'Kor Katmanının dibinde uyuyan kadim gölge. Kamçısı uzağa uzanır, kılıcı yeri yarar; gölgeye karışıp arkanda belirir.' },
   dunyaYilani: { name: 'Dünya Yılanı', title: 'Denizin Kuşağı', col: '#5ae0ff', hp: 950, speed: 0, dmg: 28, r: 12, armor: 0.3, fly: true, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 2.5, hpMul: 1.5,
     loot: [['crystal', 14], ['gold', 10], ['cobalt', 6]], lore: 'Denizin altında uyuyan kuşak. Duvardan duvara geçer, gövdesi kayayı yarar; yalnız başı vurulur. Geçeceği yol duvarda parlar.' },
+  poseidon: { name: 'Poseidon', title: 'Denizlerin Efendisi', col: '#6fd8ff', hp: 950, speed: 24, dmg: 30, r: 11, armor: 0.3, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 2.6, hpMul: 1.5,
+    loot: [['crystal', 12], ['gold', 10], ['water', 20]], lore: 'Mızrağın nişan çizgisinden ve yerdeki girdaptan çık; mızrağını fırlatınca silahsız kalır. Öfkelenince deve dönüşür: yeri dövdüğünde dalganın üstünden uç.' },
   ejder: { name: 'Hazine Ejderi', title: 'Altın Yığınının Uykusu', col: '#ff8a2a', hp: 950, speed: 21, dmg: 30, r: 12, armor: 0.45, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 2.5, hpMul: 1.5,
     loot: [['gold', 30], ['crystal', 8], ['cobalt', 4]], lore: 'Altın yığınına gömülü uyur, ona saldırana kadar uyanmaz. Nefesinden önce göğsü içeriden parlar: o an göğsüne vur, zırhı orada incedir.' },
+  // basit biyom canlıları (STRATA.mobs; pirana yalnız sudan çıkar): her birinin tek bir numarası var
+  sarkan:      { name: 'Tavan Yarasası', hp: 26, speed: 78, dmg: 9, r: 4, fly: true, hang: 70, cost: 1.5 },                          // tavanda asılı bekler; yaklaşınca ya da gürültüde dalar
+  kabuklu:     { name: 'Kaya Kabuklusu', hp: 60, speed: 24, dmg: 12, r: 6, armor: 0.2, shell: 1.2, shellOpen: 2.5, shellCut: 0.8, knockResist: 0.5, cost: 3, dieT: 0.7 }, // vurulunca kabuğuna çekilir
+  salyangoz:   { name: 'Salyangoz', hp: 45, speed: 14, dmg: 8, r: 6, armor: 0.3, slime: 6, knockResist: 0.6, cost: 2, dieT: 0.7 },    // yavaş; ardında yavaşlatan salya bırakır
+  sinek:       { name: 'Kıvılcım Sineği', hp: 8, speed: 74, dmg: 3, r: 2.5, fly: true, small: true, pack: 8, cost: 0.5 },            // sekizli sürü
+  kirpi:       { name: 'Kristal Kirpi', hp: 55, speed: 30, dmg: 10, r: 5, quill: 6, quillCd: 2.5, cost: 3, dieT: 0.6 },              // vurulunca çevresine diken fırlatır
+  kemikYigini: { name: 'Kemik Yığını', hp: 60, speed: 32, dmg: 13, r: 6, armor: 0.15, rise: 2, riseT: 2.5, cost: 3, dieT: 0.6 },      // ölünce kafatası kalır; kırılmazsa yeniden toplanır
+  kafatasi:    { name: 'Kafatası', hp: 16, speed: 0, dmg: 0, r: 3, small: true, skull: true, cost: 0, dieT: 0.3 },
+  altinBocek:  { name: 'Altın Böceği', hp: 45, speed: 60, dmg: 0, r: 4, armor: 0.3, timid: 12, loot: [['gold', 3]], cost: 2 },         // saldırmaz, kaçar; yakalarsan altın
+  pirana:      { name: 'Pirana', hp: 30, speed: 34, dmg: 9, r: 4, fish: true, cost: 1.2 },                                           // suda çok hızlı, karada çırpınır
   mimic:      { name: 'Taklitçi', hp: 110, speed: 50, dmg: 22, r: 6, armor: 0.2, knockResist: 0.5, cost: 4 },                         // sandık kılığında; ölünce gerçek sandık teklifi
   seraph:     { name: 'Işık Bekçisi', hp: 120, speed: 42, dmg: 16, r: 5, fly: true, blind: true, blindRange: 52, blindCd: 4, judge: 5, judgeRange: 120, loot: [['crystal', 1]], cost: 5 }, // yargı ışını: nişan alır, kaçmazsan çarpar
 };
@@ -352,7 +370,7 @@ export function enemyHpMul(st, lv, boss) { return Math.pow(boss ? SCALE.bossHp :
 export function enemyDmgMul(st) { return 1 + SCALE.dmg * Math.max(0, st); }
 // Güç yönetmeni (power.js): ilk 'from' biyomda karışmaz; sonra ekibin hasar/sn'si beklenenin 'free' katını aşarsa düşman canı (oran^exp) katına çıkar, en çok max.
 // Elit ve boss canı en az 'ekip hasar/sn × ttk' olur. lvPerBiome: beklenen Silah Gücü ilerleyişi; cardPerBiome/cardMax: silah kartlarının beklenen katkısı
-export const POWER = { exp: 0.6, max: 4, from: 2, free: 1.5, eliteTtk: 3.05, bossTtk: 17.4, tool: 0.5, lvPerBiome: 0.5, cardPerBiome: 0.12, cardMax: 2.5 };
+export const POWER = { exp: 0.5, max: 3, from: 2, free: 1.5, eliteTtk: 2.6, bossTtk: 14.5, lvPerBiome: 0.5, cardPerBiome: 0.12, cardMax: 2.5 };
 
 // Yönetmen: tek ortak bütçe, karışık gruplar, duyurulan dalgalar ve sonrasında nefes arası
 export const DIRECTOR = {
@@ -436,17 +454,6 @@ export const ELEVATOR = { speed: 230, snap: 7, noise: 3, far: 3, farRows: 4 / 3,
 export const WELL = { cost: 5, step: 2, delay: 1.1, near: 16 };
 export const MERCHANT = { first: 240, every: 360, jitter: 180, stay: 60, relic: 14, relicStep: 3, item: 6, mod: 20, leg: 45, legChance: 0.3 };
 
-// Roller: madenci kartında seçilir, ekipte birbirini tamamlar
-export const ROLES = {
-  kazici:   { name: 'Kazıcı', icon: 'drill', desc: 'Kazma %20 daha hızlı, kazı gürültüsü %25 daha az.', dig: 0.8, digNoise: 0.75 },
-  nisanci:  { name: 'Nişancı', icon: 'blaster', desc: 'Blaster hasarı +%25, menzil +12.', dmg: 1.25, range: 12 },
-  muhendis: { name: 'Mühendis', icon: 'turret', desc: 'Kurulu alet sınırı +1, aletler %40 daha dayanıklı.', deploy: 1, buildHp: 1.4 },
-  sihhiyeci:{ name: 'Sıhhiyeci', icon: 'medkit', desc: 'Yeraltında yavaşça iyileşirsin; partnerini iki kat hızlı ve tam canla kaldırırsın.', regen: 0.6 },
-  yikici:   { name: 'Yıkıcı', icon: 'dynamite', desc: 'Sefere 3 dinamitle başlarsın; dinamitin daha geniş patlar ve sana zarar vermez.', blast: 1.4 },
-  kuyumcu:  { name: 'Kuyumcu', icon: 'gem', desc: 'Kobalt, kristal ve altın damarları +1 düşürür; blaster hasarı %20 az.', rare: 1, dmg: 0.8 },
-};
-export const ROLE_KEYS = Object.keys(ROLES);
-
 // Dinamik maden olayları: yeraltındayken ve ölçer sessiz değilken, uyarıdan birkaç saniye sonra vurur. w: seçilme ağırlığı, good: ödül
 export const EVENTS = {
   first: 40, cd: [55, 95], minLevel: 1, warn: 2.5,
@@ -468,7 +475,7 @@ export const META = {
   keskinUc:  { name: 'Keskin Uç', icon: 'drill', max: 2, costs: [40, 100], desc: 'Kazma bir kademe yukarıda başlar.' },
   tahkimat:  { name: 'Tahkimat', icon: 'base', max: 3, costs: [30, 60, 110], desc: 'Aletlerin dayanıklılığı +%30 (seviye başına).' },
   ayarliBl:  { name: 'Ayarlı Blaster', icon: 'blaster', max: 2, costs: [40, 100], desc: 'Blaster bir seviye yukarıda başlar.' },
-  hazirTaret:{ name: 'Hazır Nöbetçi', icon: 'turret', max: 1, costs: [70], desc: 'Sefere kemerinde bir Nöbetçi ile başla.' },
+  hazirTaret:{ name: 'Hazır Direk', icon: 'heal', max: 1, costs: [70], desc: 'Sefere kemerinde bir Şifa Direği ile başla.' },
   sigorta:   { name: 'Sağlık Sigortası', icon: 'medkit', max: 1, costs: [90], desc: 'Her seferde bir kez bayıldığında kendin kalkarsın.' },
   kanarya:   { name: 'Maden Kanaryası', icon: 'wave', max: 1, costs: [50], desc: 'Kanarya seninle iner: yakındaki gizli yuvayı sezer, gürültü eşiğe yaklaşınca öter.' },
   kalintiBil:{ name: 'Kalıntı Bilgisi', icon: 'chest', max: 1, costs: [120], desc: 'Kalıntı sandıkları 4 seçenek sunar.' },
@@ -517,6 +524,17 @@ export const SHROOM = { chance: 0.6, per: 2, reach: 10, eat: 0.5, dur: 18, haste
 // sıvılar: her 'every' karede bir akış adımı; lav 'lavaSlow' adımda bir akar; kaynak başına toplam sınır ve adım başı akış
 export const LIQUID = { every: 3, lavaSlow: 2, dry: 40, cap: [170, 120], emit: [4, 2], drain: [2, 1], lavaDmg: 7, wetSpd: 0.72 };
 
+// Poseidon: Şelale Mağarası'nın dibindeki su tapınağı (top: biyomun kaçıncı satırı, rows: salon yüksekliği). omen: suyun kabarması, intro: sudan çıkış,
+// morph: dönüşüm süresi (morphAt'ta dev kozadan çıkar), r2: devin yarıçapı, crawl: devin yürüme hızı çarpanı
+export const POSEIDON = {
+  top: 36, rows: 7, omen: 2.4, intro: 3.2, morph: 3.2, morphAt: 1.7, r2: 16, crawl: 0.8,
+  spear: { aim: 0.8, v: 380, len: 200, dmg: 28, dmg2: 20, stick: 0.5, reform: 0.45 },
+  wave: { wind: 0.7, v: 125, len: 150, hw: 15, dmg: 20, push: 240 },
+  slam: { wind: 0.95, v: 150, len: 200, hw: 17, dmg: 22, hit: 28 },
+  spout: { raise: 0.8, warn: 0.95, life: 2.6, r: 10, h: 96, dmg: 9, tick: 0.3, pull: 3.4, lift: 5, reach: 48, drift: 20 },
+  thrust: { range: 20, reach: 36, arc: 0.3, dmg: 1.2 },
+  claw: { range: 26, reach: 44, arc: 1.15, dmg: 1.15 },
+};
 // Boss düz vuruşu: madenci dibine girince (range) gerilir (wind), önündeki yaya (reach, arc) vurur, toparlanır (rest). Gövdeye değmek hasar vermez
 // Vampir Mermi: saniyede en çok azami canın bu kadarı emilir (sürünün içinde ölümsüzlük olmasın)
 export const VAMP_CAP = 0.01;

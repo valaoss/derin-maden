@@ -1,14 +1,14 @@
 // Otomatik nişan alan omuz silahı (türe göre mermi, alev ya da şimşek), mermiler, aletler.
 import { rnd } from '../core/rng.js';
-import { TILE, GROUND_Y } from '../config.js';
-import { T, TD } from '../data/tiles.js';
-import { UPGRADES, BUILDS, MODS, BURN, THREAT, CRIT, VAMP_CAP } from '../data/balance.js';
+import { TILE, GROUND_Y, ROWS } from '../config.js';
+import { T, TD, isMineable } from '../data/tiles.js';
+import { UPGRADES, BUILDS, MODS, BURN, THREAT, CRIT, VAMP_CAP, FIRE } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, damageTile } from '../world/map.js';
 import { damageEnemy, losClear, damageStructure, burnEnemy } from './enemies.js';
 import { damagePlayer, webPlayer, chillPlayer, breakTile, nearestPlayer } from './player.js';
 import { addNoise } from './threat.js';
-import { hasPerk, hear, hasMod, roleOf, lastStand, weaponOf, cardLv, toolDmgMul, pv, resonance } from './run.js';
+import { hasPerk, hear, hasMod, lastStand, weaponOf, cardLv, toolPow, pv, resonance } from './run.js';
 import { gunDmg, gunCd, critChance } from './power.js';
 import { updateWeaponOffers } from './weaponlevel.js';
 import { inWater } from './biomes.js';
@@ -95,7 +95,7 @@ function updateGun(p, dt) {
   p.fireCd -= dt;
   if (p.aimT > 0) p.aimT -= dt;
   if (p.flameT > 0) p.flameT -= dt;
-  const W = weaponOf(p), lv = G.lvl.blaster, range = (UPGRADES.blaster.range[lv] + (roleOf(p).range || 0)) * W.range * (hasPerk('deliciIsin') ? 1.3 : 1);
+  const W = weaponOf(p), lv = G.lvl.blaster, range = UPGRADES.blaster.range[lv] * W.range * (hasPerk('deliciIsin') ? 1.3 : 1);
   // Nova Kalbi: düşman yakındayken 8 sn'de bir otomatik halka
   if (hasPerk('statik') && (p.novaT = (p.novaT || 0) - dt) <= 0 && nearestTarget(p.x, p.y - 4, 70)) {
     p.novaT = pv('statik'); const nd = UPGRADES.blaster.dmg[lv] * 0.8;
@@ -121,8 +121,10 @@ function updateGun(p, dt) {
   if (hasPerk('adrenPompa') && p.hp < p.maxHp * 0.5) cd /= 1.5;
   if (G.rageT > 0) cd /= 1 + pv('ofke') * (G.rage | 0);
   if ((g.active.overdrive || 0) > 0) cd /= 3;
+  // sınırın altına inen atış aralığı hasara çevrilir (kare başına bir atıştan hızlısı zaten boşa giderdi)
+  let over = 1; if (cd < FIRE.minCd) { over = FIRE.minCd / cd; cd = FIRE.minCd; }
   p.fireCd = cd;
-  const dmg = gunDmg(p) * lastStand(p), cc = critChance(p), cok = cardLv('cok');
+  const dmg = gunDmg(p) * lastStand(p) * over, cc = critChance(p), cok = cardLv('cok');
   if ((g.active.overdrive || 0) > 0) sparks(sp.x, sp.y, '#ffe79a', 1, 30);
   if (W.flame) { flameCone(p, sp, ang, range, dmg, W, rnd() < cc); return; }
   if (W.zap) { zapChain(p, sp, tgt, dmg, W.zap + cok, W, rnd() < cc); return; }
@@ -320,100 +322,42 @@ export function updateBullets(dt) {
   eb.length = j;
 }
 
-// havan: menzildeki, havana en yakın düşman (min menzil dışı)
-function mortarTarget(s, b) {
-  let best = null, bd = 1e9;
-  for (const e of G.enemies) {
-    if (e.dead || e.emergeT > 0.2 || e.under) continue;
-    const d = Math.hypot(e.x - s.x, e.y - s.y);
-    if (d < b.minRange || d > b.range) continue;
-    if (d < bd) { bd = d; best = e; }
-  }
-  return best;
-}
-
-export function updateShells(dt) {
-  const ss = G.shells; let j = 0;
-  for (const sh of ss) {
-    sh.t += dt;
-    if (sh.t < sh.T) { ss[j++] = sh; continue; }
-    const b = BUILDS.mortar;
-    for (const e of G.enemies) {
-      if (e.dead) continue;
-      const d = Math.hypot(e.x - sh.tx, e.y - sh.ty);
-      if (d < b.splash + e.r) damageEnemy(e, b.dmg * (sh.mul || 1) * (d < 10 ? 1 : 0.7), (e.x - sh.tx) / (d || 1), (e.y - sh.ty) / (d || 1), 1.5);
-    }
-    sfx.mortarHit(); shake(0.12);
-    ring(sh.tx, sh.ty, '#ffb050', b.splash); sparks(sh.tx, sh.ty, '#ffd48a', 12, 110); debris(sh.tx, sh.ty, 'dirt', 5);
-    flashLight(sh.tx, sh.ty, 4, 0.25);
-    igniteGas(sh.tx, sh.ty, b.splash);
-  }
-  ss.length = j;
-}
-
+// Şifa Direği: menzildeki madencileri yavaşça iyileştirir (iki direk üst üste binmez).
+// Sondaj Matkabı: altındaki bloğu deler, açtığı kuyuya iner; hakkı bitince ya da delinmez kayaya gelince tükenir.
 export function updateStructures(dt) {
   for (const s of G.structures) {
-    if (s.buildT > 0) s.buildT -= dt;
     if (s.hurtT > 0) s.hurtT -= dt;
-    if (s.recoil > 0) s.recoil -= dt * 6;
+    if (s.buildT > 0) { s.buildT -= dt; continue; }
     const b = BUILDS[s.type];
-    const rate = hasPerk('aletUstasi') ? 1.5 : 1;
-    s.cd -= dt;
-    if (s.type === 'turret') {
-      const tgt = nearestTarget(s.x, s.y - 4, b.range);
-      if (tgt) {
-        const ang = Math.atan2(tgt.y - (s.y - 4), tgt.x - s.x);
-        s.aim += Math.atan2(Math.sin(ang - s.aim), Math.cos(ang - s.aim)) * Math.min(1, dt * 14);
-        if (s.cd <= 0 && s.buildT <= 0) {
-          s.cd = b.cd / rate;
-          fire(s.x + Math.cos(s.aim) * 7, s.y - 4 + Math.sin(s.aim) * 7, s.aim, 230, b.dmg * toolDmgMul('turret'), 't', 0);
-          s.recoil = 1; flashLight(s.x, s.y, 2, 0.06);
-          sfx.turret();
-        }
+    s.on = 0;
+    if (s.type === 'direk') {
+      for (const p of G.players) {
+        if (p.dead || p.hp >= p.maxHp || p.healF === G.frame || Math.hypot(p.x - s.x, p.y - (s.y - 6)) > b.range) continue;
+        p.healF = G.frame; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * b.heal * toolPow('direk') * dt); s.on = 1;
+        if (rnd() < dt * 5) particle(p.x + (rnd() - 0.5) * 8, p.y + 4, 0, -18 - rnd() * 10, 0.5, '#5fe0b8', 1, 1, 0);
       }
-    } else if (s.type === 'flame') {
-      const tgt = nearestTarget(s.x, s.y - 4, b.range);
-      s.firing = !!tgt && s.buildT <= 0;
-      if (tgt) {
-        const ang = Math.atan2(tgt.y - (s.y - 4), tgt.x - s.x);
-        s.aim += Math.atan2(Math.sin(ang - s.aim), Math.cos(ang - s.aim)) * Math.min(1, dt * 10);
-      }
-      if (s.firing) {
-        if (rnd() < dt * 40) {
-          const a = s.aim + (rnd() - 0.5) * 0.5, sp = 90 + rnd() * 60;
-          particle(s.x + Math.cos(s.aim) * 7, s.y - 5 + Math.sin(s.aim) * 7, Math.cos(a) * sp, Math.sin(a) * sp, 0.28, rnd() < 0.4 ? '#ffe79a' : rnd() < 0.6 ? '#ff9a4a' : '#e0502a', 2, 1, -40);
-        }
-        if (s.cd <= 0) {
-          s.cd = 0.1 / rate;
-          for (const e of G.enemies) {
-            if (e.dead || e.emergeT > 0.2 || e.under) continue;
-            const d = Math.hypot(e.x - s.x, e.y - (s.y - 4));
-            if (d > b.range + e.r) continue;
-            const ea = Math.atan2(e.y - (s.y - 4), e.x - s.x);
-            if (Math.abs(Math.atan2(Math.sin(ea - s.aim), Math.cos(ea - s.aim))) > 0.55 || !losClear(s.x, s.y - 4, e.x, e.y, true)) continue;
-            damageEnemy(e, b.dps * 0.1 * toolDmgMul('flame'), Math.cos(ea), Math.sin(ea), 0.1, true);
-          }
-          sfx.flame(); flashLight(s.x + Math.cos(s.aim) * 14, s.y - 4 + Math.sin(s.aim) * 14, 3, 0.1);
-        }
-      }
-    } else if (s.type === 'mortar') {
-      const tgt = mortarTarget(s, b);
-      if (tgt) {
-        const ang = Math.atan2(tgt.y - s.y, tgt.x - s.x);
-        s.aim = ang;
-        if (s.cd <= 0 && s.buildT <= 0) {
-          s.cd = b.cd / rate; s.recoil = 1;
-          const d = Math.hypot(tgt.x - s.x, tgt.y - s.y);
-          // hedefin yürüdüğü yöne kabaca öncül
-          const lead = 0.55 + d / 400;
-          const tx = tgt.x + (tgt.x - tgt.px) * 60 * lead, ty = tgt.y + (tgt.y - tgt.py) * 60 * lead;
-          G.shells.push({ sx: s.x, sy: s.y - 8, tx, ty, t: 0, T: lead, mul: toolDmgMul('mortar') });
-          sfx.mortar(); sparks(s.x, s.y - 10, '#ffd48a', 5, 60); flashLight(s.x, s.y - 8, 3, 0.1);
-        }
-      }
-    }
+    } else if (s.type === 'sondaj') drillStep(s, b, dt);
   }
   let j = 0;
   for (const s of G.structures) if (!s.dead) G.structures[j++] = s;
   G.structures.length = j;
+}
+function drillDone(s) {
+  s.dead = true; sparks(s.x, s.y - 6, '#ffd48a', 10, 90); debris(s.x, s.y, 'stone', 6);
+  if (hear(G.player, s.x, s.y)) sfx.creak();
+  emit('toast', { text: BUILDS.sondaj.name + ' durdu', icon: BUILDS.sondaj.icon });
+}
+function drillStep(s, b, dt) {
+  const ty = s.r * TILE + 14;
+  if (s.y < ty) { s.y = Math.min(ty, s.y + 70 * dt); return; }
+  if (s.left <= 0) return drillDone(s);
+  const c = s.c, r = s.r + 1, t = tileAt(c, r), d = TD[t];
+  if (!d.solid) { if (r >= ROWS - 1) return drillDone(s); s.r = r; return; }
+  if (!isMineable(t) || d.chest || d.heart || d.relic || d.gate) return drillDone(s);
+  s.on = 1; s.prog += b.rate * dt;
+  if (rnd() < dt * 18) { debris(s.x + (rnd() - 0.5) * 8, s.y + 2, 'stone', 1, 0.5); sparks(s.x, s.y + 2, '#ffe79a', 1, 50); }
+  if (s.prog < 1) return;
+  s.prog = 0; s.left--;
+  breakTile(c, r, G.players[s.owner] || G.players[0]);
+  addNoise(b.noise, s.x, s.y); sparks(s.x, s.y + 6, '#ffd48a', 4, 70);
 }

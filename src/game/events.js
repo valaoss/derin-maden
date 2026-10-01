@@ -2,7 +2,7 @@
 // Uyarı afişinden birkaç saniye sonra vurur; oyuncuya tepki verme şansı bırakır.
 import { rnd } from '../core/rng.js';
 import { TILE, COLS, GROUND_Y, GROUND_ROW, ROWS, PLAY_MIN_COL, PLAY_MAX_COL, stratumOfRow } from '../config.js';
-import { T, TD, isPlain, CHEST_TILE } from '../data/tiles.js';
+import { T, isPlain, CHEST_TILE } from '../data/tiles.js';
 import { EVENTS, EVENT_KEYS, chestWeights } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, setTile } from '../world/map.js';
@@ -99,7 +99,7 @@ function vein(p) {
 
 // kayıp kese: kayaya gömülü, derinliğe göre dolu bir çanta
 function satchel(p) {
-  const at = spotNear(p, 5, 9, (c, r) => { const d = TD[tileAt(c, r)]; return d.solid && !d.unbreakable && !d.chest && !d.heart && !d.relic && !d.nest; });
+  const at = spotNear(p, 5, 9, (c, r) => isPlain(tileAt(c, r)));
   if (!at) return;
   const s = Math.max(0, stratumOfRow(at.r));
   setTile(at.c, at.r, T.AIR);
@@ -127,8 +127,8 @@ function tremor(p) {
   for (let tries = 0; tries < 60 && n < EVENTS.sarsinti.rocks; tries++) {
     const c = pc + Math.round((rnd() - 0.5) * 10), r = pr - 1 - Math.floor(rnd() * 5);
     if (c < PLAY_MIN_COL || c > PLAY_MAX_COL || r <= GROUND_ROW || r >= ROWS - 2) continue;
-    const d = TD[tileAt(c, r)];
-    if (!d.solid || d.unbreakable || d.chest || d.heart || d.relic || d.nest || tileAt(c, r + 1) !== T.AIR) continue;
+    // yalnız sıradan kaya gevşer: cevher, kapı, barikat, özel taş ve yuva yerinde kalır
+    if (!isPlain(tileAt(c, r)) || tileAt(c, r + 1) !== T.AIR) continue;
     if (G.falls.some(f => f.c === c && f.r === r)) continue;
     setTile(c, r, T.LOOSE); G.falls.push({ c, r, t: 0.4 + rnd() * 0.8 }); n++;
   }

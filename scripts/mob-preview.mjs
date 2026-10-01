@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import { encode } from './png-strip.mjs';
 import { ENEMIES } from '../src/data/balance.js';
 import { rasterBoss } from '../src/render/boss/state.js';
-import { MOBS } from '../src/render/mob/defs.js';
+import { MOBS, mobOf } from '../src/render/mob/defs.js';
 
 const SCENES = {
   idle: { dur: 3, run() {} },
@@ -21,14 +21,20 @@ const SCENES = {
   tongue: { dur: 1.3, run(c, e, p) { if (c > 0.2 && c < 0.9) { e.st = 'pull'; e.tongue = 0.9 - c; e.tx = p.x; e.ty = p.y; } } },
   brood: { dur: 1, run(c, e) { if (c > 0.2 && c < 0.2 + 1 / 60) e.lunge = 1; } },
   hurt: { dur: 1.2, run(c, e) { const k = c % 0.6; e.hitT = k < 0.09 ? 0.09 - k : 0; e.hitDx = -1; e.hitDy = 0; } },
+  hang: { dur: 2, run(c, e) { e.hang = 2; e.st = 'hang'; } },
+  dive: { dur: 1, run(c, e, p, dt) { e.st = 'dive'; e.x += 90 * dt; e.y += 40 * dt; } },
+  shell: { dur: 2.4, run(c, e) { e.shellT = c > 0.4 && c < 1.6 ? 1 : 0; e.st = e.shellT ? 'shell' : 'flow'; } },
+  quill: { dur: 3, run(c, e) { e.quillCd = c > 0.3 ? Math.max(0, 2.5 - (c - 0.3)) : 0; } },
+  dry: { dur: 1.2, run(c, e) { e.wet = false; } },
+  rise: { dur: 2.5, run(c, e) { e.riseT = 2.5 - c; } },
   die: { dur: 1.1, run(c, e) { const T = e.d.dieT || 0.42; if (c > 0.15) { e.dead = true; e.dieT = Math.max(0.001, T - (c - 0.15)); } } },
 };
 
 const [type, name, out = 'mob-preview.png', K0 = 6, N0 = 12, C0 = 6] = process.argv.slice(2);
-const D = MOBS[type], scene = D && SCENES[name];
+const bio = process.env.BIO ? +process.env.BIO : undefined, D = MOBS[type] && mobOf({ type, bio }), scene = D && SCENES[name];
 if (!scene) { console.log('tür:', Object.keys(MOBS).join(' '), '\nsahne:', Object.keys(SCENES).join(' ')); process.exit(1); }
 const K = +K0, N = +N0, p = { x: 200 + +(process.env.PX || 60), y: 200 + +(process.env.PY || 0), dead: false };
-const e = { type, d: ENEMIES[type], x: 200, y: 200, px: 200, py: 200, face: 1, anim: 0, hitT: 0, hitDx: 0, hitDy: 0, wind: 0, lunge: 0, dieT: 0, dead: false, wob: 0.5, emergeT: 0, sink: 0, tongue: 0, tx: 0, ty: 0, st: 'flow', scale: process.env.ELITE ? 1.25 : 1, trail: [] };
+const e = { type, d: ENEMIES[type], x: 200, y: 200, px: 200, py: 200, face: 1, anim: 0, hitT: 0, hitDx: 0, hitDy: 0, wind: 0, lunge: 0, dieT: 0, dead: false, wob: 0.5, emergeT: 0, sink: 0, tongue: 0, tx: 0, ty: 0, st: 'flow', scale: process.env.ELITE ? 1.25 : 1, trail: [], bio, wet: true };
 const t0 = +(process.env.T0 || 0), t1 = +(process.env.T1 || scene.dur), dt = 1 / 60, frames = [];
 let t = 10, next = 0, ms = 0, n = 0;
 for (let c = -1; c <= t1 + 1e-6; c += dt, t += dt) {

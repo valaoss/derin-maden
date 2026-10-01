@@ -3,7 +3,7 @@
 import { STEP } from '../../config.js';
 import { G } from '../../game/state.js';
 import { rasterBoss } from '../boss/state.js';
-import { MOBS } from './defs.js';
+import { MOBS, mobOf } from './defs.js';
 
 export const hasMob = e => !!MOBS[e.type];
 // varlık -> son çizim: tuval, yer, bağlantı noktaları, parlayan pikseller (ışık katmanı bunları kullanır)
@@ -11,7 +11,7 @@ const seen = new WeakMap(), FPS = 1 / 31;
 
 // ana katman. Dönen: { x, y (köken), feet, top, pts } (taç, can çubuğu, dil buna göre yerleşir)
 export function drawMob(ctx, e, alpha) {
-  const D = MOBS[e.type], t = Math.max(0, G.time + (alpha - 1) * STEP), sc = e.scale || 1, a0 = ctx.globalAlpha;
+  const D = mobOf(e), t = Math.max(0, G.time + (alpha - 1) * STEP), sc = e.scale || 1, a0 = ctx.globalAlpha;
   let s = seen.get(e);
   if (!s) { s = { glow: [], rt: -9, white: false, cv: document.createElement('canvas') }; s.cv.width = D.w; s.cv.height = D.h; s.cx = s.cv.getContext('2d'); seen.set(e, s); }
   const white = (e.hitT > 0 && !e.dead) || (e.dead && e.dieT > (e.d.dieT || 0.42) * 0.86);

@@ -9,7 +9,7 @@ import { G } from './state.js';
 import { tileAt } from '../world/map.js';
 import { breakTile, damagePlayer, pullPlayer } from './player.js';
 import { spawnEnemy, losClear, damageStructure } from './enemies.js';
-import { KITS, live, breakable, bullet, mark, hitPlayers, angDiff, spotNear } from './bosses.js';
+import { KITS, live, breakable, bullet, mark, hitPlayers, angDiff, spotNear, bossBusy } from './bosses.js';
 import { shake, flashLight, debris, dust, ring, sparks, hitstop, particle } from './fx.js';
 import { igniteGas } from './hazards.js';
 import { sfx, haptic } from '../audio/audio.js';
@@ -53,7 +53,7 @@ function attacked(H, dt) {
   for (const b of G.bullets) if (b.from === 'p' && inBox(B, b.x, b.y)) return 'shot';
   for (const b of G.bombs) if (b.t <= dt * 2 && inBox(B, b.x, b.y, 30)) return 'boom';
   for (const p of G.players) if (!p.dead && p.dig && p.digDir && inBox(B, p.x + p.digDir[0] * 14, p.y + p.digDir[1] * 14)) return 'pick';
-  for (const e of G.enemies) if (!e.dead && e.type !== 'ejder' && inBox(B, e.x, e.y)) return 'bump';
+  for (const e of G.enemies) if (!e.dead && !e.d.boss && inBox(B, e.x, e.y)) return 'bump';
   return null;
 }
 
@@ -77,7 +77,8 @@ export function updateHoard(dt) {
     const lv = H.wake >= 70 ? 2 : H.wake >= 40 ? 1 : 0;
     if (lv > H.lv) { emit('hoard', lv === 2 ? 'eye' : 'stir'); if (lv === 2) sfx.growl(); shake(0.15); }
     H.lv = lv;
-    const why = attacked(H, dt);
+    // başka bir boss uyanıkken ejder uyanmaz (iki boss aynı anda olmasın); saldırı sonra yine uyandırır
+    const why = !bossBusy(H) && attacked(H, dt);
     if (why) {
       H.st = 'wake'; H.t = 0; H.why = why; G.threat.bossCd = Math.max(G.threat.bossCd || 0, HOARD.intro + 5);
       emit('hoard', 'wake'); sfx.growl(); shake(0.5); haptic([40, 30, 80]);

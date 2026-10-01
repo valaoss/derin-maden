@@ -54,7 +54,7 @@ function input(s, e, t, players, D) {
     wind: e.wind || 0, lunge: e.lunge || 0, aim: A && Number.isFinite(A.a) ? A.a : null,
     hurt: clamp(1 - (t - s.hurtAt) / 0.38, 0, 1), hx: s.hx, hy: s.hy,
     dying: e.dead ? clamp(1 - e.dieT / (e.d.dieT || (e.d.boss ? 0.9 : 0.42)), 0, 1) : 0,
-    intro: e.intro > 0 ? 1 - e.intro / BALROG.intro : -1,
+    intro: e.intro > 0 ? 1 - e.intro / (e.introT || BALROG.intro) : -1,
     rage: phase === 2, rageT: t - s.rageAt, blink: e.blinkT > 0 ? e.blinkT / 0.3 : 0, fade: e.fade || 0, flash: e.flashT || 0,
     tx: p ? p.x - e.x : (e.face || 1) * 60, ty: p ? p.y - e.y : 0, wob: e.wob || 0,
   };

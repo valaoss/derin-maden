@@ -7,7 +7,7 @@ import { PLAYER, UPGRADES, PERKS, RES_KEYS, PICK_TIERS, RELIC_OF_BIOME, DEEP_ORE
 import { RES_COL } from '../data/palette.js';
 import { G, App, biomeOf } from './state.js';
 import { tileAt, solidAt, setTile, damageTile, matOf } from '../world/map.js';
-import { hasPerk, hasRelic, bagCount, recompute, unlockSchematic, hear, isLocal, pickDmg, pickInterval, roleOf, lastStand, pickType, pv, resonance, perkNoise } from './run.js';
+import { hasPerk, hasRelic, bagCount, recompute, unlockSchematic, hear, isLocal, pickDmg, pickInterval, lastStand, pickType, pv, resonance, perkNoise } from './run.js';
 import { gunDmg } from './power.js';
 import { burnEnemy } from './enemies.js';
 import { HAZARD } from '../data/balance.js';
@@ -130,8 +130,7 @@ function updateOne(p, dt) {
     p.downT -= dt;
     // partner yanında durursa kaldırır
     const mate = G.players.find(q => q !== p && !q.dead && Math.hypot(q.x - p.x, q.y - p.y) < 16);
-    const medic = mate && mate.role === 'sihhiyeci';
-    if (mate) { p.reviveP += dt / PLAYER.reviveTime * (medic ? 2 : 1); if (p.reviveP >= 1) { revive(p, medic ? 1 : 0.5); return; } }
+    if (mate) { p.reviveP += dt / PLAYER.reviveTime; if (p.reviveP >= 1) { revive(p, 0.5); return; } }
     else p.reviveP = Math.max(0, p.reviveP - dt * 0.6);
     if (p.autoUp && p.downT <= 0) { revive(p, 0.6); return; }
     // süre doldu: partner kampa dönerse orada uyanır
@@ -188,7 +187,7 @@ function updateOne(p, dt) {
     p.digDir = [target.dx, target.dy];
     if (target.dx) p.face = target.dx;
     p.digT -= dt;
-    p.digInt = pickInterval(p) * (roleOf(p).dig || 1);
+    p.digInt = pickInterval(p);
     if (p.digT <= 0) { digHit(p, target); p.digT = p.digInt; }
   } else {
     p.dig = null;
@@ -217,7 +216,7 @@ function updateOne(p, dt) {
     if (bagCount(p) > 0) startDeposit(p);
     if (p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + PLAYER.surfaceRegen * (G.mods.slowRegen ? 0.5 : 1) * dt);
     if (p.carrying) { emit('victory'); return; }
-  } else if (!p.dead && roleOf(p).regen && p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + roleOf(p).regen * dt);
+  }
   // ---- kese geri alma (herhangi bir oyuncu alabilir) ----
   for (let i = 0; i < G.satchels.length; i++) {
     const s = G.satchels[i];
@@ -240,7 +239,7 @@ function digHit(p, t) {
   p.hitTile = { c: t.c, r: t.r, t: 0.12 };
   const hx = t.c * TILE + 8 - t.dx * 7, hy = t.r * TILE + 8 - t.dy * 7;
   if (hear(p)) sfx.dig(mat, G.lvl.drill);
-  addNoise(THREAT.noise.dig * (d.hp >= 6 ? 1.4 : 1) * (roleOf(p).digNoise || 1) * (pt.noise || 1) * perkNoise(), hx, hy);
+  addNoise(THREAT.noise.dig * (d.hp >= 6 ? 1.4 : 1) * (pt.noise || 1) * perkNoise(), hx, hy);
   debris(hx, hy, mat, 3, 0.6);
   // kazma ucu kıvılcımı: kademe rengi
   const tier = PICK_TIERS[Math.min(PICK_TIERS.length - 1, G.lvl.drill)];
@@ -294,10 +293,10 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
   if (d.gas) spawnGas(x, y);
   if (d.ember) { sparks(x, y, '#ff9a4a', 10, 90); flashLight(x, y, 4, 0.3); if (byPlayer && Math.hypot(byPlayer.x - x, byPlayer.y - y) < 22) { byPlayer.burnT = 2; damagePlayer(byPlayer, HAZARD.emberBurn, x, y); } }
   if (!byPlayer) { debris(x, y, mat, 5, 0.7); return; }
-  const p = byPlayer, near = hear(p, x, y), local = isLocal(p);
+  const p = byPlayer, near = hear(p, x, y), local = isLocal(p), feel = local && Math.hypot(p.x - x, p.y - y) < 170; // uzaktaki sondaj sarsmasın
   G.stats.dug++;
   if (pickType(p).leech && p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + pickType(p).leech);
-  addNoise((THREAT.noise.brk + (d.ore ? THREAT.noise.ore : 0)) * (roleOf(p).digNoise || 1) * perkNoise(), x, y);
+  addNoise((THREAT.noise.brk + (d.ore ? THREAT.noise.ore : 0)) * perkNoise(), x, y);
   // Barut Ustası: her N blokta bir dinamit
   if (hasPerk('barut') && (p.mineN = (p.mineN | 0) + 1) >= pv('barut')) { p.mineN = 0; if ((G.items.dynamite | 0) < itemMax('dynamite')) { G.items.dynamite = (G.items.dynamite | 0) + 1; if (local) emit('toast', { text: 'Barut Ustası: +1 dinamit', icon: 'dynamite' }); } }
   // Kristal Kabuk: her 15 blokta kalkan
@@ -309,9 +308,9 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
   debris(x, y, mat, 9);
   dust(x, y, 3);
   if (near) sfx.breakBlock(mat);
-  if (local) haptic(d.hp >= 6 ? 14 : 7);
+  if (feel) haptic(d.hp >= 6 ? 14 : 7);
   // hitstop simülasyonu durdurur: deterministik kalması için iki tarafta da uygulanır
-  if (d.hp >= 6 || d.ore) { hitstop(0.035); if (local) shake(0.12); } else if (local) shake(d.hp >= 3 ? 0.07 : 0.04);
+  if (d.hp >= 6 || d.ore) { hitstop(0.035); if (feel) shake(0.12); } else if (feel) shake(d.hp >= 3 ? 0.07 : 0.04);
   // derin biyom taşları
   if (d.toxic && Math.hypot(p.x - x, p.y - y) < 26) { poisonPlayer(p, 12, true); dust(x, y, 3, 'rgba(200,210,220,0.6)'); }
   if (d.shock) {
@@ -372,7 +371,7 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
     if (DEEP_ORES.includes(d.ore)) markJourney('gem', x, y, p.i, d.ore);
     const rare = d.ore === 'cobalt' || d.ore === 'crystal' || d.ore === 'gold';
     const dv = (d.iceDrop ? 0 : pv('damar')) + (resonance('toprak') ? 0.3 : 0);
-    const n = d.amt + Math.floor(dv) + (rnd() < dv % 1 ? 1 : 0) + (rare && roleOf(p).rare ? 1 : 0) + (pickType(p).ore && !d.plain ? pickType(p).ore : 0);
+    const n = d.amt + Math.floor(dv) + (rnd() < dv % 1 ? 1 : 0) + (pickType(p).ore && !d.plain ? pickType(p).ore : 0);
     const res = !rare || d.ore === 'cobalt' ? (hasPerk('simya') && rnd() < pv('simya') ? 'gold' : d.ore) : d.ore;
     for (let i = 0; i < n; i++) spawnOrb(x, y, res);
     sparks(x, y, RES_COL[d.ore], 6, 70);

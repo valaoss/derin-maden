@@ -22,7 +22,8 @@ export function openStation(s) {
   const r1 = stationRow(s);
   for (let r = GROUND_ROW; r <= r1; r++) {
     const t = tileAt(CENTER_COL, r), d = TD[t];
-    if (t === T.AIR || t === T.FOUNDATION || t === T.BEDROCK || d.chest || d.heart || d.nest || d.relic) continue;
+    // su tapınağının kırılmaz zemini ve giderleri delinmez (boss salonu açılmasın; kabin içinden geçer)
+    if (t === T.AIR || t === T.FOUNDATION || t === T.BEDROCK || d.chest || d.heart || d.nest || d.relic || d.sink || (G.temple && r === G.temple.r1 + 1)) continue;
     setTile(CENTER_COL, r, T.AIR);
   }
   emit('station', s);

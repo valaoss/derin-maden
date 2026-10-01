@@ -1,7 +1,7 @@
 // Bosses share articulated sprites, eight authored body directions and eased turns.
 // Painted action silhouettes, emissive layers and attached effects follow the same pose.
 import { STEP } from '../config.js';
-import { BALROG } from '../data/balance.js';
+import { BALROG, ENEMIES } from '../data/balance.js';
 import { BOSS_ART } from '../data/bossart.js';
 import { G } from '../game/state.js';
 import { clamp } from '../core/util.js';
@@ -36,7 +36,7 @@ function tint(s, A, sx, sy, col) {
 }
 
 // oyun açılırken yüklenir: boss ortaya çıktığında hazır olsun
-if (typeof Image !== 'undefined') for (const t in BOSS_ART) if (!has3D({ type: t }) && t !== 'dunyaYilani') { sheet(t); if (BOSS_ART[t].turns) sheet(t + '-turn'); }
+if (typeof Image !== 'undefined') for (const t in BOSS_ART) if (!has3D({ type: t }) && t !== 'dunyaYilani' && ENEMIES[t]) { sheet(t); if (BOSS_ART[t].turns) sheet(t + '-turn'); }
 
 // eylemin ilerleyişi -> [satır, kare]; null: yürüme/durma
 const k01 = k => clamp(k, 0, 1), fi = (k, n) => Math.min(n - 1, Math.floor(k01(k) * n));

@@ -9,7 +9,7 @@ import { G, biomeOf } from './state.js';
 import { tileAt, setTile } from '../world/map.js';
 import { hasRelic, isLocal } from './run.js';
 import { spawnOrb } from './player.js';
-import { spawnEnemy, makeElite } from './enemies.js';
+import { spawnEnemy, makeElite, wetAt } from './enemies.js';
 import { addNoise } from './threat.js';
 import { sparks, ring, dust, debris, flashLight } from './fx.js';
 import { sfx } from '../audio/audio.js';
@@ -99,6 +99,24 @@ export function updateBiomes(dt) {
       sparks(x, y, '#d8f0a0', 12, 90); debris(x, y, 'moss', 6); sfx.brood();
     }
     G.eggs.length = j;
+  }
+  // Pirana: suya giren madencinin çevresindeki sudan üçlü sürü çıkar (yakında en çok dört pirana)
+  if ((G.fishT -= dt) <= 0) {
+    G.fishT = 4;
+    for (const p of G.players) {
+      if (p.dead || p.y < GROUND_Y || !wetAt(p.x, p.y)) continue;
+      const have = G.enemies.filter(e => !e.dead && e.d.fish && Math.hypot(e.x - p.x, e.y - p.y) < 220).length;
+      if (have >= 4) continue;
+      const pc = Math.floor(p.x / TILE), pr = Math.floor(p.y / TILE);
+      for (let tries = 0; tries < 16; tries++) {
+        const c = pc + Math.round((rnd() - 0.5) * 12), r = pr + Math.round((rnd() - 0.5) * 8), x = c * TILE + 8, y = r * TILE + 8;
+        if (c < PLAY_MIN_COL || c > PLAY_MAX_COL || r <= GROUND_ROW || TD[tileAt(c, r)].solid || !wetAt(x, y) || Math.hypot(x - p.x, y - p.y) < 40) continue;
+        for (let k = 0; k < Math.min(3, 4 - have); k++) spawnEnemy('pirana', x + (k - 1) * 4, y, G.wave.num).emergeT = 0.25 + k * 0.1;
+        sparks(x, y, '#bff4ff', 8, 60);
+        if (isLocal(p) && !G.fishWarn) { G.fishWarn = true; emit('toast', { text: 'Piranalar: sudan çık, karada çırpınırlar', icon: 'skull', bad: true }); }
+        break;
+      }
+    }
   }
   // tuzak taşı çağrısı söner
   const th = G.threat;

@@ -6,7 +6,7 @@ import { applyOffer, itemMax } from './chests.js';
 import { UPGRADES, BUILDS, PERKS, ITEMS, MODS, DEPLOY_MAX, WEAPONS, PICK_TYPES, RES_KEYS, SCHEMATICS, TOOL_UP, ITEM_SCALE, beaconReq, ITEM_KEYS } from '../data/balance.js';
 import { G, App } from './state.js';
 import { tileAt } from '../world/map.js';
-import { makeStructure, recompute, hasPerk, isUnlocked, isLocal, teamHas, toolLvl, perkLv, resonance } from './run.js';
+import { makeStructure, recompute, hasPerk, isUnlocked, isLocal, toolLvl, perkLv, resonance } from './run.js';
 import { maxLv } from '../data/relics.js';
 import { sparks, ring, dust } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
@@ -82,20 +82,22 @@ export function testFunds(p = G.player) {
   return true;
 }
 
-export function deployLimit() { return DEPLOY_MAX + (hasPerk('aletUstasi') ? 1 : 0) + (teamHas('muhendis') ? 1 : 0); }
-// aleti durduğun hücreye kur; sınır doluysa en eski alet kemere geri döner
+export function deployLimit() { return DEPLOY_MAX + (hasPerk('aletUstasi') ? 1 : 0); }
+// aleti durduğun hücreye kur; sınır doluysa en eski alet kemere geri döner. Tek kullanımlık alet (Sondaj Matkabı) sınıra sayılmaz, aynı anda bir tane çalışır
 export function placeBuild(type, p = G.player) {
-  if (!BUILDS[type] || p.dead || (G.items[type] | 0) <= 0) return false;
+  const b = BUILDS[type];
+  if (!b || p.dead || (G.items[type] | 0) <= 0) return false;
   const c = Math.floor(p.x / TILE), r = Math.floor(p.y / TILE);
   if (tileAt(c, r) !== T.AIR) { if (isLocal(p)) sfx.deny(); return false; }
   if (G.structures.some(s => s.c === c && s.r === r)) { if (isLocal(p)) sfx.deny(); return false; }
-  while (G.structures.length >= deployLimit()) {
-    const old = G.structures.shift();
-    if ((G.items[old.type] | 0) < itemMax(old.type)) G.items[old.type]++;
+  if (b.once && G.structures.some(s => s.type === type)) { if (isLocal(p)) sfx.deny(); return false; }
+  G.items[type]--;
+  for (const kept = G.structures.filter(s => !BUILDS[s.type].once); !b.once && kept.length >= deployLimit();) {
+    const old = kept.shift(); G.structures.splice(G.structures.indexOf(old), 1);
+    G.items[old.type] = Math.min(itemMax(old.type), (G.items[old.type] | 0) + 1);
     dust(old.x, old.y, 3); emit('toast', { text: old.type === type ? 'Eski alet kemere döndü' : BUILDS[old.type].name + ' kemere döndü', icon: BUILDS[old.type].icon });
   }
-  G.items[type]--;
-  const s = makeStructure(type, c, r);
+  const s = makeStructure(type, c, r, p.i);
   G.structures.push(s);
   sfx.build(); if (isLocal(p)) haptic(20);
   dust(s.x, s.y, 5); sparks(s.x, s.y, '#ffe79a', 8, 60);
@@ -105,7 +107,8 @@ export function placeBuild(type, p = G.player) {
 // aleti geri al (dokunarak): kemere döner
 export function pickupBuild(i, p = G.player) {
   const s = G.structures[i];
-  if (!s || p.dead || Math.hypot(s.x - p.x, s.y - p.y) > 40) return false;
+  if (!s || BUILDS[s.type].once || p.dead || Math.hypot(s.x - p.x, s.y - p.y) > 40) return false;
+  if ((G.items[s.type] | 0) >= itemMax(s.type)) { if (isLocal(p)) { sfx.deny(); emit('toast', { text: 'Kemer dolu: alet yerinde kaldı', icon: BUILDS[s.type].icon, bad: true }); } return false; }
   G.structures.splice(i, 1);
   if ((G.items[s.type] | 0) < itemMax(s.type)) G.items[s.type]++;
   sfx.click(); if (isLocal(p)) haptic(10);
@@ -117,7 +120,7 @@ export function pickupBuild(i, p = G.player) {
 // Üretim: kaynak -> kemerdeki eşya
 // üretim fiyatı ulaşılan en derin biyomla artar
 export function itemCost(key) {
-  const c = ITEMS[key].cost, m = 1 + ITEM_SCALE * (G.maxStratum | 0), out = {};
+  const c = ITEMS[key].cost, m = 1 + (ITEMS[key].scale ?? ITEM_SCALE) * (G.maxStratum | 0), out = {};
   for (const k in c) out[k] = Math.ceil(c[k] * m);
   return out;
 }

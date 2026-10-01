@@ -1,14 +1,14 @@
-// Kemer eşyaları: dinamit, tamir kiti, kalkan, sonar, sessizlik çanı, burgu şarjı, dönüş fişeği, adrenalin.
+// Kemer eşyaları: dinamit, tamir kiti, kalkan, sonar, sessizlik çanı, yem zili, burgu şarjı, dönüş fişeği, adrenalin.
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y, GROUND_ROW, BASE_X, COLS } from '../config.js';
 import { T, TD, isMineable } from '../data/tiles.js';
-import { DYNAMITE, MEDKIT, RECALL, ITEMS, THREAT, ROLES, SONAR, HUSH, SHIELD, AUGER, ADREN } from '../data/balance.js';
+import { DYNAMITE, MEDKIT, RECALL, ITEMS, BUILDS, THREAT, SONAR, HUSH, SHIELD, AUGER, ADREN, BELL } from '../data/balance.js';
 import { addNoise } from './threat.js';
 import { G } from './state.js';
 import { tileAt } from '../world/map.js';
 import { placeBuild } from './economy.js';
 import { breakTile, damagePlayer, unbury } from './player.js';
-import { damageEnemy, hurtBarricade } from './enemies.js';
+import { damageEnemy, hurtBarricade, losClear } from './enemies.js';
 import { isLocal, hear, hasPerk } from './run.js';
 import { igniteGas } from './hazards.js';
 import { sparks, ring, shake, hitstop, flashLight, dust, particle } from './fx.js';
@@ -24,13 +24,18 @@ function augerOk(p) {
 export function itemUsable(k, p = G.player) {
   if (p.dead || !G.items[k]) return false;
   const under = p.y >= GROUND_Y;
-  if (ITEMS[k].build) { const c = Math.floor(p.x / TILE), r = Math.floor(p.y / TILE); return tileAt(c, r) === T.AIR && !G.structures.some(s => s.c === c && s.r === r); }
+  if (ITEMS[k].build) {
+    const c = Math.floor(p.x / TILE), r = Math.floor(p.y / TILE);
+    if (tileAt(c, r) !== T.AIR || G.structures.some(s => s.c === c && s.r === r)) return false;
+    return !BUILDS[k].once || (augerOk(p) && !G.structures.some(s => s.type === k));
+  }
   switch (k) {
     case 'dynamite': return under && G.bombs.length < 3;
     case 'medkit': return p.hp < p.maxHp;
     case 'recall': return under && !p.carrying && p.recallT <= 0;
     case 'sonar': return under;
     case 'can': return under;
+    case 'zil': return under && G.bells.length < 2;
     case 'kalkan': return !(p.barrierT > 0);
     case 'burgu': return augerOk(p);
     case 'adren': return !(p.adrenT > 0);
@@ -71,6 +76,13 @@ export function useItem(k, p = G.player) {
     G.threat.noise = Math.max(0, G.threat.noise - HUSH.drop); G.evt.hushT = Math.max(G.evt.hushT, HUSH.t);
     ring(p.x, p.y, '#d8d8e8', 40); ring(p.x, p.y, '#ffffff', 24); dust(p.x, p.y, 3, 'rgba(220,220,235,0.5)');
     if (hear(p)) sfx.chirp();
+  } else if (k === 'zil') {
+    // en yakın görünen düşmana, yoksa yürüdüğün/baktığın yöne fırlatılır
+    let dx = p.moving ? p.dx : p.face, dy = p.moving ? p.dy : 0, bd = 160;
+    for (const e of G.enemies) { if (e.dead || e.emergeT > 0.2) continue; const d = Math.hypot(e.x - p.x, e.y - p.y); if (d < bd && losClear(p.x, p.y, e.x, e.y)) { bd = d; dx = e.x - p.x; dy = e.y - p.y; } }
+    const l = Math.hypot(dx, dy) || 1;
+    G.bells.push({ x: p.x, y: p.y - 3, ux: dx / l, uy: dy / l, left: BELL.range, t: BELL.ring, tick: 0 });
+    if (hear(p)) sfx.bell(); if (local) haptic(10);
   } else if (k === 'kalkan') {
     p.barrier = SHIELD.hp; p.barrierT = SHIELD.t;
     ring(p.x, p.y, '#6fd0ff', 18); sparks(p.x, p.y, '#bff4ff', 12, 70);
@@ -98,8 +110,8 @@ export function useItem(k, p = G.player) {
 
 // dinamit patlaması: kaya kırar, düşmanları savurur, sana da dokunur
 function detonate(b) {
-  const owner = G.players[b.owner | 0] || G.players[0], blast = owner.role === 'yikici' ? ROLES.yikici.blast : 1;
-  const c0 = Math.floor(b.x / TILE), r0 = Math.floor((b.y - 4) / TILE), R = DYNAMITE.radius * blast;
+  const owner = G.players[b.owner | 0] || G.players[0];
+  const c0 = Math.floor(b.x / TILE), r0 = Math.floor((b.y - 4) / TILE), R = DYNAMITE.radius;
   const cx = c0 * TILE + 8, cy = r0 * TILE + 8;
   for (let dr = -3; dr <= 3; dr++) for (let dc = -3; dc <= 3; dc++) {
     if (Math.hypot(dc, dr) > R) continue;
@@ -114,7 +126,7 @@ function detonate(b) {
     const d = Math.hypot(e.x - cx, e.y - cy);
     if (d < rad + e.r) damageEnemy(e, DYNAMITE.dmg * (hasPerk('barut') ? 2 : 1), (e.x - cx) / (d || 1), (e.y - cy) / (d || 1), 2.5);
   }
-  for (const p of G.players) if (!p.dead && p.role !== 'yikici' && Math.hypot(p.x - cx, p.y - cy) < 26 * blast) damagePlayer(p, DYNAMITE.selfDmg, cx, cy);
+  for (const p of G.players) if (!p.dead && Math.hypot(p.x - cx, p.y - cy) < 26) damagePlayer(p, DYNAMITE.selfDmg, cx, cy);
   sfx.explode(); shake(0.5); hitstop(0.06); haptic(50);
   addNoise(THREAT.noise.boom, cx, cy);
   ring(cx, cy, '#ffb050', rad); sparks(cx, cy, '#ffd48a', 22, 160); sparks(cx, cy, '#ff7a3a', 10, 110);
@@ -122,7 +134,43 @@ function detonate(b) {
   igniteGas(cx, cy, rad);
 }
 
+// Yem Zili: uçar, düştüğü yerde çalar (sesi düşmanları çeker, ölçeri biraz yükseltir), süresi dolunca patlar
+function updateBells(dt) {
+  const bl = G.bells; let j = 0;
+  for (const b of bl) {
+    if (b.left > 0) {
+      const st = Math.min(b.left, BELL.v * dt), nx = b.x + b.ux * st, ny = b.y + b.uy * st;
+      if (TD[tileAt(Math.floor(nx / TILE), Math.floor(ny / TILE))].solid || ny < GROUND_Y + 2) b.left = 0; else { b.x = nx; b.y = ny; b.left -= st; }
+      bl[j++] = b; continue;
+    }
+    b.t -= dt; b.tick -= dt;
+    if (b.t <= 0) {
+      for (const e of G.enemies) {
+        if (e.dead) continue;
+        const d = Math.hypot(e.x - b.x, e.y - b.y);
+        if (d < BELL.boom + e.r) damageEnemy(e, e.d.boss ? BELL.dmg : Math.max(BELL.dmg, e.maxHp * BELL.frac), (e.x - b.x) / (d || 1), (e.y - b.y) / (d || 1), 2);
+      }
+      const L = G.threat.lure; if (L && L.all && L.x === b.x && L.y === b.y) G.threat.lure = null;
+      sfx.explode(); if (hear(G.player, b.x, b.y)) shake(0.3);
+      addNoise(THREAT.noise.boom * 0.5, b.x, b.y);
+      ring(b.x, b.y, '#ffd24a', BELL.boom); sparks(b.x, b.y, '#ffe79a', 16, 140); sparks(b.x, b.y, '#ff9a4a', 8, 100); flashLight(b.x, b.y, 6, 0.3);
+      igniteGas(b.x, b.y, BELL.boom);
+      continue;
+    }
+    if (b.tick <= 0) {
+      b.tick = 0.5;
+      G.threat.lure = { x: b.x, y: b.y, t: b.t, all: true, r: BELL.lure };
+      addNoise(BELL.noise * 0.5 / BELL.ring, b.x, b.y);
+      ring(b.x, b.y, '#ffd24a', 22); ring(b.x, b.y, '#fff4c0', 12);
+      if (hear(G.player, b.x, b.y)) sfx.bell();
+    }
+    bl[j++] = b;
+  }
+  bl.length = j;
+}
+
 export function updateItems(dt) {
+  updateBells(dt);
   // dinamitler
   const bs = G.bombs; let j = 0;
   for (const b of bs) {

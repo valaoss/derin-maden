@@ -19,6 +19,12 @@ export function bossForY(y) {
 }
 
 export const live = () => G.players.filter(q => !q.dead);
+// başka bir boss uyanıksa ya da bir karşılaşma başlamışsa (karanlık / su kabarması / uyanış) yenisi beklesin: aynı anda iki boss olmaz
+export function bossBusy(self) {
+  if (G.enemies.some(e => e.d.boss && !e.dead)) return true;
+  for (const S of [G.balrog, G.serpent, G.temple, G.hoard]) if (S && S !== self && (S.st === 'dark' || S.st === 'omen' || S.st === 'wake')) return true;
+  return false;
+}
 export const TAU = Math.PI * 2;
 // kazılabilir mi (boss dalışı / hücumu için): özel taşlar kırılmaz
 export function breakable(c, r) {
@@ -29,7 +35,10 @@ export function breakable(c, r) {
 export function hitPlayers(x, y, R, dmg, fn) {
   for (const q of live()) if (Math.hypot(q.x - x, q.y - y) < R) { damagePlayer(q, dmg, x, y); if (fn) fn(q); }
 }
-// yerde gecikmeli vuruş: önce yanıp söner, sonra patlar
+// yerde gecikmeli vuruş: önce yanıp söner, sonra patlar. İsabet çizilen uyarıyla aynı: (x, y+4) merkezli, dikeyde 0.8 basık elips
+const inMark = (q, m) => Math.hypot((q.x - m.x) / (m.r + 3), (q.y - m.y - 4) / ((m.r + 3) * 0.8)) < 1;
+// yayılan halka da dikeyde 0.8 basık çizilir
+const ringDist = (q, R) => Math.hypot(q.x - R.x, (q.y - R.y) / 0.8);
 export function mark(e, x, y, R, T, dmg, kind) { e.bs.marks.push({ x, y, r: R, t: T, T, dmg, kind, post: 0 }); }
 export function openSpot(x, y) { return !solidAt(Math.floor(x / TILE), Math.floor(y / TILE)) && y > GROUND_Y + 6; }
 export function spotNear(x, y, R) {
@@ -570,6 +579,9 @@ KITS.balrog = {
       if (A.st <= 0) A.T = 0;
     },
   },
+  // önce gerilir, sonra kükremeyle alev alır
+  rage(e, B) { B.rageT = 2; B.roared = false; },
+  roar(e) { sfx.roar(); sfx.flame(); shake(0.8); ring(e.x, e.y - 8, '#ff6a1a', 60); sparks(e.x, e.y - 12, '#ffd060', 26, 160); sparks(e.x, e.y - 12, '#ff5a1a', 20, 110); flashLight(e.x, e.y - 10, 9, 0.6); haptic([80, 40, 160]); },
   // her kare: yürürken kayayı parçalar; öfkede yakın madencileri kavurur
   tick(e, dt, B) {
     B.carve = (B.carve || 0) - dt;
@@ -579,7 +591,7 @@ KITS.balrog = {
       for (let r = r0 - 3; r <= r0; r++) for (let c = c0 - 1; c <= c0 + 1; c++) { const d = TD[tileAt(c, r)]; if (d.solid && d.plain && breakable(c, r)) { breakTile(c, r, null); n++; } }
       if (n) shake(0.12);
     }
-    if (B.phase === 2) {
+    if (B.phase === 2 && !(B.rageT > 0)) {
       B.aura = (B.aura || 0) - dt;
       if (B.aura <= 0) { B.aura = 0.6; for (const q of live()) if (Math.hypot(q.x - e.x, q.y - e.y + 10) < BALROG.aura) { damagePlayer(q, BALROG.auraDmg * e.dmgMul, e.x, e.y); q.burnT = Math.max(q.burnT || 0, 1); } }
     }
@@ -587,13 +599,17 @@ KITS.balrog = {
 };
 
 // düz vuruş (her bossta ortak): gerilirken hedefi izler, son anda kilitlenir; yayın dışına çıkan kurtulur
-function startMelee(e, p, B) {
-  const M = BOSS_MELEE;
-  B.cd.melee = M.cd; B.act = { k: 'melee', T: M.wind + M.rest, a: Math.atan2(p.y - e.y, p.x - e.x), R: e.r + M.reach, arc: M.arc, done: false };
+// kit.melee: false (vurmaz) | { range, reach, arc, dmg } | (e, B) => bunlardan biri
+function meleeOf(e, B) {
+  const m = KITS[e.type].melee, v = typeof m === 'function' ? m(e, B) : m;
+  return v === false ? null : v ? Object.assign({}, BOSS_MELEE, v) : BOSS_MELEE;
+}
+function startMelee(e, p, B, M) {
+  B.cd.melee = M.cd; B.act = { k: 'melee', T: M.wind + M.rest, wind: M.wind, rest: M.rest, push: M.push, a: Math.atan2(p.y - e.y, p.x - e.x), R: e.r + M.reach, arc: M.arc, dmg: M.dmg || 1, done: false };
   e.face = p.x >= e.x ? 1 : -1;
 }
 function runMelee(e, dt, p, B) {
-  const A = B.act, M = BOSS_MELEE, t = M.wind + M.rest - A.T;
+  const A = B.act, M = A, t = M.wind + M.rest - A.T; // kitin kendi gerilme/toparlanma süresi
   if (t < M.wind) {
     e.wind = t / M.wind;
     if (p && t < M.wind * 0.6) A.a += Math.max(-3 * dt, Math.min(3 * dt, angDiff(Math.atan2(p.y - e.y, p.x - e.x), A.a)));
@@ -605,8 +621,8 @@ function runMelee(e, dt, p, B) {
   let hit = false;
   for (const q of live()) {
     const dx = q.x - e.x, dy = q.y - e.y, d = Math.hypot(dx, dy) || 1;
-    if (d > A.R || (d > e.r && Math.abs(angDiff(Math.atan2(dy, dx), A.a)) > A.arc)) continue;
-    damagePlayer(q, e.d.dmg * e.dmgMul, e.x, e.y); pullPlayer(q, dx / d * M.push, dy / d * M.push * 0.6 - 40); sparks(q.x, q.y - 2, e.d.col, 8, 90); hit = true;
+    if (d > A.R || Math.abs(angDiff(Math.atan2(dy, dx), A.a)) > A.arc) continue;
+    damagePlayer(q, e.d.dmg * e.dmgMul * (A.dmg || 1), e.x, e.y); pullPlayer(q, dx / d * M.push, dy / d * M.push * 0.6 - 40); sparks(q.x, q.y - 2, e.d.col, 8, 90); hit = true;
   }
   if (hit) { shake(0.35); hitstop(0.05); haptic(40); }
 }
@@ -614,6 +630,7 @@ function runMelee(e, dt, p, B) {
 function initBoss(e) {
   const K = KITS[e.type];
   e.bs = { phase: 1, act: null, cd: Object.assign({ melee: 0.5 }, K.cd), marks: [], rings: [], hinted: false };
+  if (K.init) K.init(e, e.bs);
 }
 
 function enrage(e) {
@@ -623,8 +640,8 @@ function enrage(e) {
   if (e.type === 'ezeli') for (let k = 0; k < 2; k++) { const s = spawnEnemy('seraph', e.x + (k ? 18 : -18), e.y - 6, G.wave.num); s.emergeT = 0.3; }
   const call = { balrog: ['magmite', 'magmite', 'magmite'], dunyaYilani: ['isikYiyen', 'isikYiyen'], ejder: ['gilded'], aynasiz: ['kalkanli', 'kalkanli'], kehribarAna: ['yumurtaci', 'diriltici'], madenKalbi: ['korAvci', 'kalkanli', 'isikYiyen'] }[e.type];
   if (call) call.forEach((t, k) => { const s = spawnEnemy(t, e.x + (k - (call.length - 1) / 2) * 20, e.y - 4, G.wave.num); s.emergeT = 0.4; });
-  // Balrog: önce gerilir, sonra kükremeyle alev alır; o sırada yürümez ve saldırmaz
-  if (e.type === 'balrog') { B.rageT = 2; B.roared = false; }
+  // öfke gösterisi (Balrog alev alır, Poseidon dönüşür): o sırada yürümez ve saldırmaz
+  if (KITS[e.type].rage) KITS[e.type].rage(e, B);
   emit('bossPhase', e.type);
 }
 
@@ -636,13 +653,13 @@ function tickMarks(e, dt) {
       m.t -= dt;
       if (m.t <= 0) {
         m.post = 0.4;
-        if (m.dmg) hitPlayers(m.x, m.y, m.r + 3, m.dmg * e.dmgMul, m.kind === 'light' ? q => blindPlayer(q, 0.6) : m.kind === 'root' ? q => { q.slowT = Math.max(q.slowT, 0.7); } : null);
+        if (m.dmg) for (const q of live()) if (inMark(q, m)) { damagePlayer(q, m.dmg * e.dmgMul, m.x, m.y); if (m.kind === 'light') blindPlayer(q, 0.6); else if (m.kind === 'root') q.slowT = Math.max(q.slowT, 0.7); }
         if (m.kind === 'root') { debris(m.x, m.y, 'dirt', 6); sparks(m.x, m.y, '#78b43c', 6, 70); sfx.creak(); }
         else if (m.kind === 'ember') { sparks(m.x, m.y, '#ff6a1a', 12, 100); sparks(m.x, m.y, '#ffd060', 6, 60); flashLight(m.x, m.y, 3, 0.2); igniteGas(m.x, m.y, 16); sfx.mortarHit(); }
-        else if (m.kind === 'venom') { for (const q of live()) if (Math.hypot(q.x - m.x, q.y - m.y) < m.r + 3) { q.slowT = Math.max(q.slowT, 1.2); q.burnT = 0; } sparks(m.x, m.y, '#5ae0c8', 12, 90); dust(m.x, m.y, 4, 'rgba(60,200,170,0.5)'); sfx.spit(); }
+        else if (m.kind === 'venom') { for (const q of live()) if (inMark(q, m)) { q.slowT = Math.max(q.slowT, 1.2); q.burnT = 0; } sparks(m.x, m.y, '#5ae0c8', 12, 90); dust(m.x, m.y, 4, 'rgba(60,200,170,0.5)'); sfx.spit(); }
         else if (m.kind === 'light') { sparks(m.x, m.y, '#fff4c0', 12, 110); flashLight(m.x, m.y, 5, 0.25); sfx.zap(); }
         else if (m.kind === 'egg') { for (let k = 0; k < 2; k++) spawnEnemy('tozbocek', m.x + (k ? 3 : -3), m.y, G.wave.num).emergeT = 0.15; sparks(m.x, m.y, '#ffd890', 10, 80); sfx.brood(); }
-        else if (m.kind === 'amber') { for (const q of live()) if (Math.hypot(q.x - m.x, q.y - m.y) < m.r + 3) webPlayer(q, 2.2); sparks(m.x, m.y, '#ffb040', 14, 90); ring(m.x, m.y, '#ffb040', 18); sfx.web(); }
+        else if (m.kind === 'amber') { for (const q of live()) if (inMark(q, m)) webPlayer(q, 2.2); sparks(m.x, m.y, '#ffb040', 14, 90); ring(m.x, m.y, '#ffb040', 18); sfx.web(); }
         else if (m.kind === 'spike') { sparks(m.x, m.y, '#ff3a6a', 10, 110); debris(m.x, m.y, 'stone', 4); sfx.creak(); }
         else if (m.kind === 'rock') {
           // tavan çöker: işaretin üstündeki desteksiz kayalar düşer
@@ -663,7 +680,7 @@ function tickMarks(e, dt) {
     R.r += R.v * dt;
     for (const q of live()) {
       if (R.hit.includes(q.i)) continue;
-      const d = Math.hypot(q.x - R.x, q.y - R.y);
+      const d = ringDist(q, R);
       if (Math.abs(d - R.r) < 6 && (!R.los || losClear(R.x, R.y, q.x, q.y))) { R.hit.push(q.i); damagePlayer(q, R.dmg, R.x, R.y); sparks(q.x, q.y, R.col, 8, 80); if (R.los) blindPlayer(q, 0.5); }
     }
     if (R.r < R.R) B.rings[j++] = R;
@@ -681,9 +698,7 @@ export function updateBoss(e, dt, p, dp) {
   if (B.phase === 1 && e.hp < e.maxHp * 0.5) enrage(e);
   if (B.rageT > 0) {
     B.rageT -= dt;
-    if (!B.roared && B.rageT <= 1.3) {
-      B.roared = true; sfx.roar(); sfx.flame(); shake(0.8); ring(e.x, e.y - 8, '#ff6a1a', 60); sparks(e.x, e.y - 12, '#ffd060', 26, 160); sparks(e.x, e.y - 12, '#ff5a1a', 20, 110); flashLight(e.x, e.y - 10, 9, 0.6); haptic([80, 40, 160]);
-    }
+    if (!B.roared && B.rageT <= (K.roarAt || 1.3)) { B.roared = true; K.roar(e, B); }
     return true;
   }
   if (B.phase === 2) { e.slowT = Math.min(e.slowT, -0.1); if (rnd() < dt * 10) particle(e.x + (rnd() - 0.5) * 20, e.y + (rnd() - 0.5) * 14, 0, -20, 0.5, e.d.col, 1, 1, 0); }
@@ -697,9 +712,10 @@ export function updateBoss(e, dt, p, dp) {
   const rate = B.phase === 2 ? 1.35 : 1;
   for (const k in B.cd) B.cd[k] -= dt * rate;
   if (!p || p.dead) return false;
-  if (K.melee !== false && !(B.cd.melee > 0) && !e.under && dp < e.r + BOSS_MELEE.range && (dp < e.r + 4 || losClear(e.x, e.y, p.x, p.y))) { startMelee(e, p, B); return true; }
+  if (!(B.cd.melee > 0) && !e.under) { const M = meleeOf(e, B); if (M && dp < e.r + M.range && (dp < e.r + 4 || losClear(e.x, e.y, p.x, p.y))) { startMelee(e, p, B, M); return true; } }
   const k = K.choose(e, p, dp, B);
-  if (!k) return false;
+  // kendi yürüyüşü olan kit (yere basan dev) hareketi üstlenir
+  if (!k) return K.move ? K.move(e, dt, p, dp, B) : false;
   B.act = { k, T: 1 };
   K.start[k](e, p, B, dt);
   return true;

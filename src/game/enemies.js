@@ -31,7 +31,10 @@ const ENEMY_COL = { rodent: '#b07a4a', bug: '#5a9a5a', spitter: '#9a5ac0', flyer
   spider: '#6a4a8a', spiderling: '#8a6aaa', broodmother: '#5a2a6a', frostbat: '#9ad8ff', skitter: '#d0c0a0', magmite: '#ff7a3a', voidling: '#7a6aff', ogolem: '#4a3e68',
   quickling: '#c8d8e4', droplet: '#c8d8e4', voltbat: '#3a8aff', gilded: '#ffd870', sporeling: '#a8f070', mirrorling: '#d8f8ff', titanling: '#7a9a78', chronoling: '#ffd890', leech: '#c02a30', echoer: '#8a86b0', seraph: '#fff4e8', mimic: '#b07a42',
   korAvci: '#8a90a0', yilan: '#2a8ab0', orucu: '#d06070', kalkanli: '#c8d0ff', diriltici: '#ffb040', kene: '#a8604e', fare: '#9a9a50', tozbocek: '#c8c080', yumurtaci: '#7e9a50', isikYiyen: '#3a6aa8',
-  aynasiz: '#c8d0ff', kehribarAna: '#ffb040', madenKalbi: '#ff3a6a', balrog: '#ff5a1a', dunyaYilani: '#5ae0ff', ejder: '#ff8a2a' };
+  aynasiz: '#c8d0ff', kehribarAna: '#ffb040', madenKalbi: '#ff3a6a', balrog: '#ff5a1a', dunyaYilani: '#5ae0ff', ejder: '#ff8a2a', poseidon: '#6fd8ff',
+  sarkan: '#6a5a8a', kabuklu: '#8a8478', salyangoz: '#9ab060', sinek: '#ffb050', kirpi: '#b090ff', kemikYigini: '#e0d0b0', kafatasi: '#e0d0b0', altinBocek: '#ffd24a', pirana: '#5ab0c8' };
+// Kristal Kirpi dikeninin rengi: doğduğu biyomun kristali
+const QUILL_COL = { 3: '#5a86ff', 4: '#bff4ff', 7: '#e070ff', 14: '#d8f8ff', 28: '#7ab0e0', 29: '#ffffff' };
 export { ENEMY_COL };
 
 // lv: uyanış seviyesi (0..4); can ve hasar doğduğu biyomun derinliğiyle ölçeklenir
@@ -40,7 +43,7 @@ export function spawnEnemy(type, x, y, lv = 0) {
   let hp = d.hp * enemyHpMul(st, lv, d.boss) * (G.mods ? G.mods.hp : 1);
   hp = d.boss ? Math.max(hp, ttkFloor(true)) * (d.hpMul || 1) : hp * directorHp(st);
   const e = {
-    type, d, x, y, px: x, py: y, hp, maxHp: hp, r: d.r, face: 1, anim: rnd() * 4,
+    type, d, bio: biomeOf(st), x, y, px: x, py: y, hp, maxHp: hp, r: d.r, face: 1, anim: rnd() * 4,
     hitT: 0, kx: 0, ky: 0, kn: 0, atkCd: 0.6, fireCd: 1 + rnd(), emergeT: 0.9, wob: rnd() * 6,
     stuckT: 0, lastC: -1, lastR: -1, slowT: 0, trail: d.burrow ? [] : null,
     wind: 0, lunge: 0, dieT: 0, lastF: 0, vx: 0, vy: 0,
@@ -101,7 +104,13 @@ export function damageEnemy(e, dmg, dx = 0, dy = 0, knock = 1, silent = false, c
   if (full && hasPerk('suikast') && !silent) real *= pv('suikast');
   e.sinceHit = 0;
   // Kalkanlı Muhafız: önünden gelen doğrudan vuruşu keser (patlama, sekme, yanma geçer)
-  if (e.d.front && !silent && dx * e.face < -0.3) { real *= 1 - e.d.front; if (rnd() < 0.6) sparks(e.x + e.face * 6, e.y - 2, '#e0e8ff', 3, 70); if (nearLocal(e) && rnd() < 0.3) sfx.ping(); }
+  if (e.d.front && !silent && dx * e.face < -0.3) { real *= 1 - e.d.front; if (rnd() < 0.6) sparks(e.x + e.face * 6, e.y - 2, '#e0e8ff', 3, 70); if (nearLocal(e) && Math.random() < 0.3) sfx.ping(); }
+  // Kaya Kabuklusu: ilk vuruşta kabuğuna çekilir; kabuktayken vuruşların çoğu seker (yalnız yanma geçer). Açılınca bir süre savunmasız
+  const struck = !silent || knock > 0; // silah vuruşu (alev, sıçrama, patlama dahil); yanma ve kalıntı hasarı değil
+  if (e.d.shell && struck) {
+    if (e.shellT > 0) { real *= 1 - e.d.shellCut; if (rnd() < 0.5) sparks(e.x, e.y - 2, '#e0e0d0', 2, 60); if (nearLocal(e) && Math.random() < 0.3) sfx.ping(); }
+    else if (!(e.openT > 0)) e.shellT = e.d.shell;
+  }
   if (e.shield > 0) { const a = Math.min(e.shield, real); e.shield -= a; real -= a; if (rnd() < 0.5) sparks(e.x, e.y, AFFIX.kalkan.col, 2, 50); }
   e.hp -= real; e.hitT = 0.09; e.hitDx = dx; e.hitDy = dy;
   if (real > 0 && nearLocal(e)) dmgNum(e, real, crit);
@@ -115,6 +124,13 @@ export function damageEnemy(e, dmg, dx = 0, dy = 0, knock = 1, silent = false, c
     // Kan Avcısı: tek vuruşta ölen düşman can verir
     if (full && hasPerk('kanAvcisi')) for (const p of G.players) if (!p.dead && Math.hypot(p.x - e.x, p.y - e.y) < 200) p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.04);
     killEnemy(e); return;
+  }
+  // Kristal Kirpi: vurulunca çevresine diken fırlatır
+  if (e.d.quill && struck && !(e.quillCd > 0)) {
+    e.quillCd = e.d.quillCd; e.flashT = 0.3; e.lunge = 1;
+    const a0 = rnd() * Math.PI * 2, col = QUILL_COL[e.bio] || '#e070ff';
+    for (let k = 0; k < e.d.quill; k++) { const a = a0 + k / e.d.quill * Math.PI * 2; G.ebullets.push({ x: e.x + Math.cos(a) * 4, y: e.y + Math.sin(a) * 4, vx: Math.cos(a) * 110, vy: Math.sin(a) * 110, life: 0.7, dmg: e.d.dmg * 0.6 * e.dmgMul, col }); }
+    if (nearLocal(e)) sfx.ping();
   }
   // Cıva Damlası: yarı canda ikiye bölünür
   if (e.d.split && !e.splitDone && e.hp < e.maxHp * 0.5) {
@@ -178,6 +194,8 @@ export function killEnemy(e) {
   if (e.d.spawnOnDeath && rnd() < e.d.spawnOnDeath[2]) {
     for (let i = 0; i < e.d.spawnOnDeath[1]; i++) spawnEnemy(e.d.spawnOnDeath[0], e.x + (i ? 4 : -4), e.y, G.wave.num).emergeT = 0.25;
   }
+  // Kemik Yığını: kafatası kalır; kırılmazsa yığın yeniden toplanır
+  if (e.d.rise && (e.risen | 0) < e.d.rise) { const s = spawnEnemy('kafatasi', e.x, e.y, 0); s.emergeT = 0; s.riseT = e.d.riseT; s.risen = (e.risen | 0) + 1; }
   if (e.d.boom) explode(e.x, e.y, e.d.boom, e.d.dmg * e.dmgMul);
   if (e.d.boss) { for (const [res, n] of e.d.loot) for (let i = 0; i < n; i++) spawnOrb(e.x, e.y, res, true);
     shake(0.7); hitstop(0.2); ring(e.x, e.y, e.d.col, 50); ring(e.x, e.y, '#ffffff', 30); sparks(e.x, e.y, e.d.col, 30, 170); flashLight(e.x, e.y, 9, 0.8); haptic([40, 60, 120]); }
@@ -240,7 +258,8 @@ export function aliveEnemies() { let n = 0; for (const e of G.enemies) if (!e.de
 
 // ---------- güncelleme ----------
 export function updateEnemies(dt) {
-  const arken = hasRelic('arken');
+  const arken = hasRelic('arken'), bell = G.threat.lure && G.threat.lure.all && G.threat.lure.t > 0 ? G.threat.lure : null;
+  updateSlimes(dt);
   for (const e of G.enemies) {
     if (e.dead) { e.dieT -= dt; continue; }
     // Arkentaş: taşıyanın ışığına giren düşman yarı hıza düşer
@@ -286,14 +305,28 @@ export function updateEnemies(dt) {
     e.atkCd -= dt;
     e.wind = 0;
     if (e.slowT > 0) e.slowT -= dt; else if (e.slowT < 0) e.slowT = Math.min(0, e.slowT + dt);
+    if (e.quillCd > 0) e.quillCd -= dt;
+    if (e.openT > 0) e.openT -= dt;
+    if (e.d.fish) e.wet = wetAt(e.x, e.y);
     const deaf = !e.d.boss && (e.d.deaf || isDeafAt(e.y)), quiet = G.threat.quietT > 1.2;
-    const sp = e.d.speed * e.spMul * (e.slowT > 0 ? 0.5 : e.slowT < 0 ? 1.35 : 1) * (e.d.swim ? (inWater(e.x, e.y) ? 2 : 0.45) : 1) * (e.d.dash && !quiet ? e.d.dash : 1);
+    const sp = e.d.speed * e.spMul * (e.slowT > 0 ? 0.5 : e.slowT < 0 ? 1.35 : 1) * (e.d.swim ? (inWater(e.x, e.y) ? 2 : 0.45) : 1) * (e.d.fish ? (e.wet ? 2.4 : 0.4) : 1) * (e.d.dash && !quiet ? e.d.dash : 1);
     const p = nearestPlayer(e.x, e.y);
     const dp = p ? Math.hypot(p.x - e.x, p.y - e.y) : 1e9;
     // yeraltında oyuncu yok ya da çok uzak: izi kaybeder, geri çekilir
     const anyUnder = G.players.some(q => !q.dead && q.y >= GROUND_Y);
     if (!anyUnder || (dp > 420 && !e.d.boss)) { e.lostT += dt; if (e.lostT > (e.d.boss ? 12 : 5)) { retreat(e); continue; } } else e.lostT = 0;
     if (e.d.boss && updateBoss(e, dt, p, dp)) continue;
+    if (e.shellT > 0) { e.shellT -= dt; if (e.shellT <= 0) e.openT = e.d.shellOpen; e.st = 'shell'; continue; }
+    // Yem Zili: zili gören düşman madenciyi bırakıp sese koşar, başında oyalanır (tavandaki yarasa da uyanır)
+    if (bell && !e.d.boss && e.d.dmg > 0) {
+      const db = Math.hypot(bell.x - e.x, bell.y - e.y);
+      if (db < bell.r && losClear(e.x, e.y, bell.x, bell.y)) {
+        if (e.hang) e.hang = 0;
+        if (db > 8 + e.r) { moveE(e, (bell.x - e.x) / db * sp * dt, (bell.y - e.y) / db * sp * dt); e.face = bell.x >= e.x ? 1 : -1; }
+        else { e.wind = windup(e); if (e.atkCd <= 0) { e.atkCd = 1; e.lunge = 1; } }
+        e.st = 'lure'; continue;
+      }
+    }
     // sağır: sessizken oyuncuyu göremez, son sese (ya da tuzak taşına) gider
     if (deaf && p && dp > 22) {
       const th = G.threat, lure = th.lure && th.lure.t > 0 ? th.lure : null;
@@ -313,7 +346,7 @@ export function updateEnemies(dt) {
 
     // --- yol üstündeki alet ---
     let hitStruct = false;
-    for (const s of G.structures) if (!s.dead && Math.hypot(s.x - e.x, s.y - e.y) < 9 + e.r) {
+    if (e.d.dmg > 0 && !e.hang) for (const s of G.structures) if (!s.dead && Math.hypot(s.x - e.x, s.y - e.y) < 9 + e.r) {
       e.wind = windup(e); if (e.atkCd <= 0) { attack(e, s); } hitStruct = true; break;
     }
     if (hitStruct) { e.st = 'struct'; continue; }
@@ -500,6 +533,42 @@ export function updateEnemies(dt) {
   es.length = j;
 }
 
+// su: Gelgit'in yükselen suyu ya da sıvı hücresi (şelale havuzu, su basmış tünel)
+export function wetAt(x, y) {
+  if (inWater(x, y)) return true;
+  if (!G.lq) return false;
+  const i = idx(Math.floor(x / TILE), Math.floor(y / TILE));
+  return G.lq[i] > 2 && G.lk[i] === 0;
+}
+// Salyangoz salyası: üstüne basan madenci yavaşlar
+function updateSlimes(dt) {
+  const S = G.slimes; let j = 0;
+  for (const s of S) {
+    if ((s.t -= dt) <= 0) continue;
+    S[j++] = s;
+    for (const p of G.players) if (!p.dead && Math.abs(p.x - s.x) < 9 && Math.abs(p.y + 4 - s.y) < 9) {
+      p.slowT = Math.max(p.slowT, 0.25);
+      if (p === G.player && !G.slimeWarn) { G.slimeWarn = true; emit('toast', { text: 'Salyaya bastın: yavaşladın', icon: 'wave', bad: true }); }
+    }
+  }
+  S.length = j;
+}
+// kaçış: madenciden uzaklaşan açık yönü seçer (duvara saplanmaz, sağa sola titremez)
+function fleeFrom(e, p, sp, dt) {
+  const ax = e.x - p.x, ay = e.y - p.y, al = Math.hypot(ax, ay) || 1;
+  let best = -9, bi = -1;
+  for (let i = 0; i < 8; i++) {
+    const cx = Math.cos(i * Math.PI / 4), cy = Math.sin(i * Math.PI / 4);
+    if (blocked(e, e.x + cx * 7, e.y + cy * 7)) continue;
+    const sc = (cx * ax + cy * ay) / al + (i === e.fleeDir ? 0.35 : 0);
+    if (sc > best) { best = sc; bi = i; }
+  }
+  if (bi < 0) return;
+  e.fleeDir = bi;
+  const cx = Math.cos(bi * Math.PI / 4), cy = Math.sin(bi * Math.PI / 4);
+  moveE(e, cx * sp * dt, cy * sp * dt);
+  if (Math.abs(cx) > 0.3) e.face = cx > 0 ? 1 : -1;
+}
 // saldırıdan hemen önce geri çekilme miktarı (0..1)
 function windup(e) { return e.atkCd > 0 && e.atkCd < 0.3 ? 1 - e.atkCd / 0.3 : 0; }
 // izini kaybetti: kayaya gömülür (listeden düşer)
@@ -599,6 +668,49 @@ function updateSignature(e, dt, p, dp) {
     if (e.fleeT <= 0) { emit('toast', { text: 'Fare çaldıklarıyla kaçtı', icon: 'bag', bad: true }); e.loot2 = null; retreat(e); return true; }
     if (p) { const dd = dp || 1; moveE(e, (e.x - p.x) / dd * d.speed * 1.1 * dt, (e.y - p.y) / dd * d.speed * 1.1 * dt); e.face = e.x >= p.x ? 1 : -1; }
     return true;
+  }
+  // Kafatası: kıpırdamaz; süre dolunca Kemik Yığını yeniden toplanır
+  if (d.skull) {
+    e.st = 'skull';
+    if ((e.riseT = (e.riseT ?? 2.5) - dt) <= 0) {
+      const o = spawnEnemy('kemikYigini', e.x, e.y, G.wave.num); o.emergeT = 0.35; o.risen = e.risen | 0; o.hp = o.maxHp * 0.7;
+      ring(e.x, e.y, '#e0d0b0', 18); sparks(e.x, e.y, '#fff4e0', 8, 70); if (nearLocal(e)) sfx.brood();
+      e.dead = true; e.hp = 0; e.dieT = 0.01;
+    }
+    return true;
+  }
+  // Altın Böceği: saldırmaz; görülünce kaçar, bir süre sonra kayaya gömülür
+  if (d.timid) {
+    e.st = 'flee';
+    if (p && dp < 150) e.seen = true;
+    if (e.seen && (e.timidT = (e.timidT ?? d.timid) - dt) <= 0) { retreat(e); return true; }
+    if (p && dp < 110) fleeFrom(e, p, d.speed * (e.slowT > 0 ? 0.5 : 1), dt);
+    return true;
+  }
+  // Tavan Yarasası: hang 1 tavan arıyor, 2 asılı, 0 avda. Madenci yaklaşınca, vurulunca ya da maden uyanınca dalar
+  if (d.hang) {
+    if (e.hang === undefined) e.hang = 1;
+    if (e.hang && p && ((dp < d.hang && losClear(e.x, e.y, p.x, p.y)) || e.sinceHit < 0.2 || (G.threat.level >= 2 && dp < d.hang * 2.2))) {
+      e.hang = 0; e.diveT = 0.6; e.lunge = 1; if (nearLocal(e)) sfx.shade();
+    }
+    if (e.hang) {
+      if (e.hang === 1) { if (blocked(e, e.x, e.y - 2)) e.hang = 2; else moveE(e, 0, -d.speed * 0.5 * dt); }
+      else if (!blocked(e, e.x, e.y - 2)) e.hang = 1;
+      e.st = 'hang'; return true;
+    }
+    if (e.diveT > 0 && p) {
+      e.diveT -= dt; e.st = 'dive';
+      const dd = dp || 1, v = d.speed * 1.7 * (e.slowT > 0 ? 0.5 : 1);
+      moveE(e, (p.x - e.x) / dd * v * dt, (p.y - e.y) / dd * v * dt); e.face = p.x >= e.x ? 1 : -1;
+      if (dp < e.r + 7) { if (e.atkCd <= 0) attack(e, p); e.diveT = 0; }
+      return true;
+    }
+    // izini kaybedince yeniden tavana döner
+    if (!p || dp > 200) { if ((e.calmT = (e.calmT || 0) + dt) > 3) { e.hang = 1; e.calmT = 0; } } else e.calmT = 0;
+  }
+  // Salyangoz: yürüdükçe ardında salya bırakır (yalnız zemine)
+  if (d.slime && (e.slimeCd = (e.slimeCd ?? 0.4) - dt) <= 0 && Math.abs(e.vx) + Math.abs(e.vy) > 2 && solidAt(Math.floor(e.x / TILE), Math.floor((e.y + e.r + 4) / TILE))) {
+    e.slimeCd = 0.45; G.slimes.push({ x: e.x, y: e.y + e.r - 1, t: d.slime }); if (G.slimes.length > 48) G.slimes.shift();
   }
   // Diriltici: oyuncudan uzak durur, yakında ölen dostunu geri getirir
   if (d.revive) {

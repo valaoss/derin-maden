@@ -9,7 +9,7 @@ import { isNative, nativeShareImage } from './core/native.js';
 import { newRun, serialize, deserialize, bagCount, contractProgress, metaSnapshot, stratumGroup } from './game/run.js';
 import { updatePlayer, updateOrbs, updateDeposit, bindEnemyDamage } from './game/player.js';
 import { updateEnemies, damageEnemy, spawnEnemy } from './game/enemies.js';
-import { updatePlayerGun, updateBullets, updateStructures, updateShells } from './game/combat.js';
+import { updatePlayerGun, updateBullets, updateStructures } from './game/combat.js';
 import { updateItems } from './game/items.js';
 import { updateHazards } from './game/hazards.js';
 import { updateThreat, LEVEL_NAMES } from './game/threat.js';
@@ -23,6 +23,7 @@ import { updateLiquids } from './game/liquids.js';
 import { updateBalrog } from './game/balrog.js';
 import { updateSerpent } from './game/serpent.js';
 import { updateHoard } from './game/dragon.js';
+import { updatePoseidon } from './game/poseidon.js';
 import { updateCanary } from './game/canary.js';
 import { snapshotJourney } from './ui/journey.js';
 import { updatePrediction, pred } from './net/predict.js';
@@ -34,7 +35,7 @@ import { initRenderer, resize, render, updateCamera, view, viewToWorld } from '.
 import { initInput, input, cancelStick, keyPressed, setStickVisible, setStickMode, readMove } from './input/input.js';
 import { initAudio, sfx, setAmbience, stopAmbience, suspendAudio, haptic } from './audio/audio.js';
 import { on, emit } from './core/events.js';
-import { ozForRun, CONTRACTS, ITEM_KEYS, PERKS, ROLES } from './data/balance.js';
+import { ozForRun, CONTRACTS, ITEM_KEYS, PERKS } from './data/balance.js';
 import { STRATA } from './data/palette.js';
 import { todayKey } from './core/util.js';
 import { dispatch, CMD } from './game/commands.js';
@@ -116,7 +117,7 @@ const hooks = {
 const lobby = { host: false, quick: false, status: 'idle', code: '', error: '', me: null, mate: null, starting: false };
 function lobbyReset(o) {
   Object.assign(lobby, { host: false, quick: false, status: 'idle', code: '', error: '', mate: null, starting: false }, o);
-  lobby.me = { name: App.settings.name, helm: App.settings.helm | 0, role: ROLES[App.settings.role] ? App.settings.role : '', ready: false };
+  lobby.me = { name: App.settings.name, helm: App.settings.helm | 0, ready: false };
 }
 function bindLobbyLink() {
   link.onOpen = onLobbyOpen;
@@ -126,21 +127,21 @@ function bindLobbyLink() {
 function onLobbyOpen() {
   sfx.connect();
   lobby.status = 'open'; lobby.code = link.code; lobby.host = link.host;
-  send({ t: 'hello', name: lobby.me.name, helm: lobby.me.helm, role: lobby.me.role });
+  send({ t: 'hello', name: lobby.me.name, helm: lobby.me.helm });
   UI.showRoom(lobby);
 }
 function maybeStart() {
   if (!lobby.host || !lobby.mate || !lobby.me.ready || !lobby.mate.ready || lobby.starting) return;
   const seed = (Math.random() * 1e9) | 0;
   const meta = metaSnapshot();
-  const names = [lobby.me.name, lobby.mate.name], helms = [lobby.me.helm, lobby.mate.helm], roles = [lobby.me.role, lobby.mate.role];
+  const names = [lobby.me.name, lobby.mate.name], helms = [lobby.me.helm, lobby.mate.helm];
   const startStratum = elevatorStratum(App.meta);
-  send({ t: 'start', seed, meta, names, helms, roles, startStratum });
-  beginCoop({ seed, meta, names, helms, roles, localIdx: 0, startStratum });
+  send({ t: 'start', seed, meta, names, helms, startStratum });
+  beginCoop({ seed, meta, names, helms, localIdx: 0, startStratum });
 }
 function beginCoop(o) {
   lobby.starting = true; UI.showRoom(lobby);
-  setTimeout(() => startRun(false, { mp: true, seed: o.seed, meta: o.meta, localIdx: o.localIdx, names: o.names, helms: o.helms, roles: o.roles, startStratum: o.startStratum | 0 }), 900);
+  setTimeout(() => startRun(false, { mp: true, seed: o.seed, meta: o.meta, localIdx: o.localIdx, names: o.names, helms: o.helms, startStratum: o.startStratum | 0 }), 900);
 }
 // her sefer yüzeyden başlar (kaldığın biyomdan devam şimdilik kapalı; fenerler yalnız ilerleme sayacı)
 function elevatorStratum() { return 0; }
@@ -151,9 +152,9 @@ link.onMessage = defaultOnMessage;
 
 on('netMsg', d => {
   if (App.scene === 'room') {
-    if (d.t === 'hello') { lobby.mate = { name: String(d.name || 'Madenci').slice(0, 14), helm: d.helm | 0, role: ROLES[d.role] ? d.role : '', ready: false }; UI.showRoom(lobby); }
+    if (d.t === 'hello') { lobby.mate = { name: String(d.name || 'Madenci').slice(0, 14), helm: d.helm | 0, ready: false }; UI.showRoom(lobby); }
     else if (d.t === 'ready' && lobby.mate) { lobby.mate.ready = !!d.v; UI.showRoom(lobby); maybeStart(); }
-    else if (d.t === 'start' && !link.host) beginCoop({ seed: d.seed, meta: d.meta, names: d.names, helms: d.helms, roles: Array.isArray(d.roles) ? d.roles : null, localIdx: 1, startStratum: d.startStratum | 0 });
+    else if (d.t === 'start' && !link.host) beginCoop({ seed: d.seed, meta: d.meta, names: d.names, helms: d.helms, localIdx: 1, startStratum: d.startStratum | 0 });
   }
 });
 function onPeerGone() {
@@ -213,7 +214,7 @@ function toMenu() {
   App.scene = 'menu';
   // menü arka planı: gerçek bir dünya, yavaşça kayan kamera
   newRun({ seed: 1337 });
-  resetTiles(); prebuildTiles();
+  resetTiles(); prebuildTiles(0);
   for (let i = 0; i < G.rev.length; i++) G.rev[i] = 1;
   G.player.dead = true; G.player.gone = true; G.player.downT = 1e9;
   G.cam.y = G.cam.py = -150; menuT = 0;
@@ -231,18 +232,19 @@ function startRun(cont, opts = {}) {
   transition(() => {
     UI.hideScreens();
     const saved = cont ? loadRun() : null;
-    if (saved) { try { deserialize(saved); } catch (e) { console.warn('Kayıt okunamadı', e); newRun({ tutorial: !App.meta.tutorialDone }); } }
+    if (saved) { try { deserialize(saved); } catch (e) { console.warn('Kayıt okunamadı', e); clearRun(); newRun({ tutorial: !App.meta.tutorialDone }); } }
     else {
       clearRun();
       const daily = opts.daily ? todayKey() : null;
       newRun({ tutorial: !App.meta.tutorialDone && !daily && !opts.mp, kademe: opts.kademe | 0, daily, seed: daily ? seedOf('derin' + daily) : opts.seed,
-        mp: !!opts.mp, meta: opts.meta || null, localIdx: opts.localIdx | 0, names: opts.names || null, helms: opts.helms || null, roles: opts.roles || null, startStratum: daily ? 0 : opts.startStratum | 0 });
+        mp: !!opts.mp, meta: opts.meta || null, localIdx: opts.localIdx | 0, names: opts.names || null, helms: opts.helms || null, startStratum: daily ? 0 : opts.startStratum | 0 });
       // ölüm yankısı tek kullanımlık
       if (App.meta.echo && !G.mp && !daily) { delete App.meta.echo; saveMeta(App.meta); }
     }
     if (G.mp) { startLockstep(G.localIdx); mateAway = false; if (document.hidden) startBgTick(); } else if (net.on) stopLockstep();
-    resetTiles(); prebuildTiles(); forceFlow();
+    resetTiles(); forceFlow();
     G.cam.snap = true; updateCamera(0, true);
+    prebuildTiles(G.cam.y);
     App.scene = 'play';
     UI.showHUD(true); UI.refreshHUD(true);
     last = performance.now(); acc = 0;
@@ -263,6 +265,8 @@ function endRun(reason) {
   s.victory = victory;
   const collected = {};
   for (const k in G.collected) collected[k] = G.collected[k] + (victory ? G.player.bag[k] : 0);
+  // kampa doğru uçan cevherler (zafer anında çanta boşaltılmış olur) de sayılır
+  for (const o of G.deposit) collected[o.res] = (collected[o.res] | 0) + (o.n || 1);
   const contractOz = G.contracts.filter(c => c.done).reduce((a, c) => a + CONTRACTS[c.k].oz, 0);
   const oz = Math.round((ozForRun({ ...s, collected }) + contractOz) * G.mods.oz * ((G.meta.relics || []).includes('sifirTasi') ? 1.5 : 1));
   const newDepth = s.maxDepth > m.bestDepth;
@@ -340,14 +344,13 @@ function step(dt) {
   updateEnemies(dt);
   updateBullets(dt);
   updateStructures(dt);
-  updateShells(dt);
   updateItems(dt);
   updateHazards(dt);
   updateThreat(dt);
   updateEvents(dt);
   updateMerchant(dt);
   updateWell(dt);
-  updateCritters(); updateWonders(dt); updateLiquids(dt); updateBalrog(dt); updateSerpent(dt); updateHoard(dt);
+  updateCritters(); updateWonders(dt); updateLiquids(dt); updateBalrog(dt); updateSerpent(dt); updateHoard(dt); updatePoseidon(dt);
   updatePings(dt);
   updateOrbs(dt);
   updateDeposit(dt);

@@ -86,7 +86,7 @@ export function offerInfo(k) {
   if (a === 'x' && CARDS[b]) { const l = cardLv(b); return { name: CARDS[b].name, desc: CARDS[b].desc, icon: CARDS[b].icon, t: 1, tag: 'KART', col: '#ffd24a', lv: l + 1, max: CARDS[b].max }; }
   if (a === 'e' && WEAPONS[b]) { const E = WEAPONS[b].evo[+k.split(':')[2]]; return { name: E.name, desc: E.desc, icon: WEAPONS[b].icon, t: 3, tag: 'EVRİM · ' + WEAPONS[b].name.toLocaleUpperCase('tr'), col: '#ff9a3a', kind: 'leg' }; }
   if (a === 'm') return { name: MODS[b].name, desc: MODS[b].desc, icon: MODS[b].icon, t: 1, tag: 'BEDAVA EKLENTİ', col: '#9fe8ff' };
-  if (a === 'tl') return { name: BUILDS[b].name + ' +2', desc: `Alet iki seviye artar (hasar +%${TOOL_UP.dmg * 200}, dayanıklılık +%${TOOL_UP.hp * 200}).`, icon: BUILDS[b].icon, t: 2, tag: 'ALET', col: '#9fe8ff' };
+  if (a === 'tl') return { name: BUILDS[b].name + ' +2', desc: `Alet iki seviye artar (güç +%${TOOL_UP.pow * 200}, dayanıklılık +%${TOOL_UP.hp * 200}).`, icon: BUILDS[b].icon, t: 2, tag: 'ALET', col: '#9fe8ff' };
   return { name: k, desc: '', icon: 'chest', t: 1, tag: '' };
 }
 
@@ -105,9 +105,9 @@ export function applyOffer(k, p) {
 }
 
 export function offer(p, type, keys) {
-  // yarıda kalan silah teklifi kaybolmaz: sıraya geri döner
+  // yarıda kalan teklif kaybolmaz: sıraya geri döner (silah teklifi yeniden çekilir, sandık teklifi aynen geri gelir)
   const cur = G.perkOffer;
-  if (keys.length && cur && WOFFER[cur.chest]) G.gear.pend.unshift({ kind: cur.chest === 'start' ? 'start' : 'lvl', pi: cur.pi });
+  if (keys.length && cur) G.gear.pend.unshift(WOFFER[cur.chest] ? { kind: cur.chest === 'start' ? 'start' : 'lvl', pi: cur.pi } : { kind: 'offer', pi: cur.pi, keys: cur.keys, chest: cur.chest });
   if (keys.length) { G.perkOffer = { pi: p.i, keys, chest: type }; emit('perkOffer', p.i); }
   else if (isLocal(p)) emit('toast', { text: CHESTS[type].name + ' boş çıktı', icon: 'chest' });
 }

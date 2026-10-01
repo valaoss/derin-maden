@@ -10,8 +10,9 @@ import { MADENKALBI } from './madenkalbi.js';
 import { EZELI } from './ezeli.js';
 import { KAVURGAN } from './kavurgan.js';
 import { KEHRIBAR } from './kehribar.js';
+import { POSEIDON3D } from './poseidon.js';
 
 // ?balrog=1: önceki Balrog modeli (karşılaştırma için şimdilik duruyor)
 const OLD_BALROG = typeof location !== 'undefined' && /[?&]balrog=1/.test(location.search) || typeof process !== 'undefined' && process.env && process.env.BALROG === '1';
 
-export const DEFS = { ejder: EJDER, balrog: OLD_BALROG ? BALROG3D : BALROG2, kordesen: KORDESEN, aynasiz: AYNASIZ, karakok: KARAKOK, otegoz: OTEGOZ, madenKalbi: MADENKALBI, ezeli: EZELI, kavurgan: KAVURGAN, kehribarAna: KEHRIBAR };
+export const DEFS = { ejder: EJDER, balrog: OLD_BALROG ? BALROG3D : BALROG2, kordesen: KORDESEN, aynasiz: AYNASIZ, karakok: KARAKOK, otegoz: OTEGOZ, madenKalbi: MADENKALBI, ezeli: EZELI, kavurgan: KAVURGAN, kehribarAna: KEHRIBAR, poseidon: POSEIDON3D };

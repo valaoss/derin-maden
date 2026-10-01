@@ -158,3 +158,12 @@ export const STRATA = [
   { name: 'Sıfır Noktası',     short: 'SIFIR',    dark: [10, 10, 10], decor: 'halo',   fx: 'halo',  tint: 'rgba(255,255,255,0.04)', sig: ['korAvci', 'kalkanli', 'diriltici', 'kene', 'yumurtaci', 'isikYiyen'], legend: true, desc: 'Her şeyin başladığı yer. Kalp burada.' },
   { name: 'Şelale Mağarası',   short: 'ŞELALE',   dark: [3, 9, 10],   decor: 'fern',   fx: 'mist',  tint: 'rgba(90,210,220,0.05)', sig: 'frostbat', falls: true, desc: 'Yeraltı şelaleleri çağlar. Su kazdığın tünellere akar; lavla buluşunca obsidyene döner.' },
 ];
+// basit canlılar: her biyomun kendi sıradan yaratığı (biyom sırasıyla). Yuvalardan imza düşmanın yanında çıkar, kabuk/diken/ışık renkleri biyoma uyar.
+// Pirana listede yok: yalnız suya giren madencinin çevresindeki sudan çıkar (Gelgit, Şelale)
+const MOBS_OF = [
+  ['salyangoz'], ['kabuklu', 'sarkan'], ['salyangoz'], ['kirpi', 'kabuklu'], ['kirpi', 'sarkan'], ['kemikYigini'], ['sinek'], ['kirpi'], ['kabuklu', 'sarkan'], ['sinek'],
+  ['kabuklu'], ['sinek'], ['altinBocek'], ['salyangoz'], ['kirpi'], ['kabuklu'], ['kemikYigini'], ['sarkan'], ['sarkan'], ['sinek'],
+  ['kabuklu'], ['salyangoz'], ['salyangoz'], ['altinBocek', 'sarkan'], ['sinek', 'altinBocek'], ['kabuklu'], ['kemikYigini'], ['salyangoz'], ['kirpi'], ['kemikYigini', 'kirpi'],
+  ['salyangoz'],
+];
+STRATA.forEach((s, i) => { s.mobs = MOBS_OF[i]; });
