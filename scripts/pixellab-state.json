@@ -258,5 +258,55 @@
         }
       }
     }
+  },
+  "ezeli": {
+    "characterId": "997d8a7e-ecb2-4947-baf7-6132252315a1",
+    "createJob": "f0669d83-b62c-48e7-af41-3bc214073841",
+    "key": 6,
+    "anims": {},
+    "sa": {
+      "idle": {
+        "east": {
+          "job": "dc464e2e-0f1b-4ffa-8cc4-71f3c939193c",
+          "key": 6
+        }
+      },
+      "pillars": {
+        "east": {
+          "job": "2c511ae9-cdcc-4d9b-8f61-8272d4294129",
+          "key": 6
+        }
+      },
+      "doom": {
+        "east": {
+          "job": "04b9a647-afd5-4e8e-8d72-d7e8f1af7488",
+          "key": 6
+        }
+      },
+      "hurt": {
+        "east": {
+          "job": "96dbae3b-105d-442f-a799-536a7fdda5c0",
+          "key": 6
+        }
+      },
+      "die": {
+        "east": {
+          "job": "dcbbb6bd-10d7-44bb-8d3f-acd50cda963c",
+          "key": 6
+        }
+      },
+      "summon": {
+        "east": {
+          "job": "9d6a653b-92cd-4c14-b574-4d1cde92f655",
+          "key": 6
+        }
+      },
+      "move": {
+        "east": {
+          "job": "91e9f782-5c2a-4d1a-a51e-a0d6d19d8643",
+          "key": 6
+        }
+      }
+    }
   }
 }

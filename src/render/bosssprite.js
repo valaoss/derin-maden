@@ -43,7 +43,7 @@ function tint(s, key, col) {
 }
 
 // yaklaşık bağlantı noktaları (doğu karesi, hücre koordinatı)
-const POINTS = { balrog: { eyes: [77, 27], mouth: [80, 32], chests: [73, 50], hand: [49, 66] }, karakok: { eyes: [72, 40], mouth: [76, 50], chests: [64, 70] }, kavurgan: { eyes: [92, 40], mouth: [100, 48], chests: [64, 70] }, otegoz: { eyes: [70, 50], mouth: [70, 50], chests: [64, 64] }, sultan: { eyes: [72, 30], mouth: [74, 38], chests: [64, 60], hand: [84, 70] } };
+const POINTS = { balrog: { eyes: [77, 27], mouth: [80, 32], chests: [73, 50], hand: [49, 66] }, karakok: { eyes: [72, 40], mouth: [76, 50], chests: [64, 70] }, kavurgan: { eyes: [92, 40], mouth: [100, 48], chests: [64, 70] }, otegoz: { eyes: [70, 50], mouth: [70, 50], chests: [64, 64] }, sultan: { eyes: [72, 30], mouth: [74, 38], chests: [64, 60], hand: [84, 70] }, ezeli: { eyes: [66, 26], mouth: [66, 34], chests: [64, 56] } };
 
 const k01 = k => clamp(k, 0, 1);
 // eylem -> [animasyon adı, ilerleme 0..1 | null (döngü)]
@@ -66,6 +66,11 @@ const ACT = {
     if (act.k === 'orbs') return ['orbs', k01(1 - act.T / 0.5)];
     if (act.k === 'pull') return ['pull', k01(1 - act.T / 2)];
     if (act.k === 'gaze') return ['gaze', k01(1 - act.T / 2.1)];
+    return null;
+  },
+  ezeli(e, act) {
+    if (act.k === 'pillars') return ['pillars', k01(1 - act.T / 0.4)];
+    if (act.k === 'doom') return ['doom', k01(1 - act.T / 1.2)];
     return null;
   },
   sultan(e, act) {
@@ -103,6 +108,7 @@ function pose(e, alpha, upd) {
       s.yaw += clamp(delta, -dt * 5.5, dt * 5.5);
     }
   }
+  if (upd && e.bs?.phase === 2 && s.phase !== 2) { if (s.phase === 1) s.rageAt = t; s.phase = 2; } else if (upd && s.phase == null) s.phase = e.bs?.phase || 1;
   const act = e.bs?.act, dying = e.dead ? k01(1 - e.dieT / (e.d.dieT || 0.9)) : 0, fly0 = !!e.d.fly;
   let name = 'idle', fr = 0, F = e.face || 1, rot = false;
   const pick = a => L.anims[a] ? a : null;
@@ -113,12 +119,14 @@ function pose(e, alpha, upd) {
   if (e.dead && pick('die')) at('die', dying / 0.7);
   else if (e.blinkT > 0 && pick('blink')) at('blink', e.blinkT / 0.3);   // ışınlanma: belirme = kaybolmanın tersi
   else if (e.intro > 0) { if (pick('intro')) at('intro', 1 - e.intro / BALROG.intro); else at('idle', 0); }
+  else if (t - (s.rageAt ?? -9) < 1.1 && pick('summon')) at('summon', (t - s.rageAt) / 1.1);
   else if (act && ACT[e.type]) {
     const r = ACT[e.type](e, act, L);
     if (r && pick(r[0])) { if (r[1] == null) loop(r[0], 10); else at(r[0], r[1]); }
     else loop('idle', 8);
   } else if (t - (s.hurtAt ?? -9) < 0.45 && pick('hurt')) at('hurt', (t - s.hurtAt) / 0.45);
   else if (!fly0 && s.walk > 0.5 && pick('walk')) { name = 'walk'; fr = Math.floor(s.ph * L.anims.walk.n) % L.anims.walk.n; }
+  else if (fly0 && s.walk > 0.5 && side && pick('move')) loop('move', 10);
   else if (!side) { rot = true; fr = dir; F = 1; }
   else loop('idle', 8);
   if (!rot) F = act || e.dead || name === 'hurt' ? (e.face || 1) : Math.cos(s.yaw) < 0 ? -1 : 1;

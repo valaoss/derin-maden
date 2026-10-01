@@ -12,7 +12,7 @@ const ORDER = ['idle', 'walk', 'fly', 'hurt', 'die'];
 const animDir = path.join(ROOT, 'tmp', 'pixellab', boss, 'anim');
 const ANIMS = fs.existsSync(animDir) ? fs.readdirSync(animDir).sort((a, b) => (ORDER.indexOf(a) + 1 || 99) - (ORDER.indexOf(b) + 1 || 99) || a.localeCompare(b)) : [];
 const CELL = 128, COLS = 16;
-const LIMIT = { balrog: { intro: 13 } };
+const LIMIT = { balrog: { intro: 13 }, ezeli: { doom: 14 } };
 
 const load = f => fs.existsSync(f) ? decode(fs.readFileSync(f)) : null;
 const rows = [ROT.map(d => load(path.join(SRC, 'rot', `${d}.png`)))];

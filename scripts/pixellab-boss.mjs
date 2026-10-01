@@ -74,7 +74,18 @@ export const BOSSES = {
   madenKalbi: { description: 'Heart of the Mine: a colossal crystalline heart of glowing red gemstone with veins of ore and stone, pulsing light, rock tendrils, floating crystal shards orbiting, dark fantasy, side view game boss', anims: {} },
   dunyaYilani: { description: 'World Serpent: a gargantuan ancient serpent with obsidian scales, glowing rune markings, massive fanged jaws, coiled body, dark fantasy, side view game boss', anims: {} },
   ejder: { description: 'Treasure Dragon: a massive golden-red dragon with gem-encrusted scales, gold coins stuck to its belly, great wings, horned head, fire in its throat, dark fantasy, side view game boss', anims: {} },
-  ezeli: { description: 'Ezeli the Eternal: a cosmic elder being of swirling void and starlight, many eyes, tattered cosmic robes, ancient and unknowable, dark fantasy, side view game boss', anims: {} },
+  ezeli: {
+    description: 'Ezeli the Eternal, Dream of the Core: a primordial angelic being older than creation, a tall veiled figure of pale golden light with no visible face, wrapped in flowing white and cream robes, surrounded by two slowly turning concentric golden halo rings covered in open watching eyes, four great wings made of pure light with feathers fading into sparks, floating in the air with no legs, trailing motes of starlight, radiant, holy and unknowable, dark fantasy, side view game boss',
+    anims: {
+      idle: 'hovering idle, the halo rings slowly rotate, wings beat gently, robes drift, the eyes on the rings blink one by one, starlight motes fall',
+      move: 'glides forward through the air, wings spread wide and sweeping, rings tilt into the motion, robes trailing behind',
+      pillars: 'raises both arms, the eyes on the rings all open and flash, beams of golden light shoot down from above like judgement pillars striking the ground',
+      doom: 'folds the wings inward and gathers light into the chest, the rings spin faster and faster, then everything bursts outward in a huge expanding ring of white-gold light',
+      summon: 'spreads the wings and lifts the arms, two small winged guardians of light form from sparks beside the figure and fly out',
+      hurt: 'flinches and flickers, the light dims for a moment, cracks of darkness appear on the halo rings and sparks scatter',
+      die: 'the rings shatter one after another, the wings burn away into sparks, the figure folds inward and collapses into a single point of light that fades out',
+    },
+  },
   otegoz: {
     description: 'Ötegöz, the Gazer at the Void: a giant floating eyeball boss, one huge violet iris with a slit black pupil looking to the right, the eyeball wrapped in dark purple void-flesh and writhing shadow tentacles hanging below, smaller glowing violet eyes on the tentacle tips, drifting wisps of void energy, no legs, hovering in the air, dark fantasy, side view game boss',
     anims: {

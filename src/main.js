@@ -538,6 +538,8 @@ Promise.race([fontsReady, new Promise(r => setTimeout(r, 1500))]).then(() => {
   toMenu();
   const invite = codeFromURL();
   if (invite) setTimeout(() => hooks.joinRoom(invite), 300);
+  const devBoss = import.meta.env.DEV && new URLSearchParams(location.search).get('boss');
+  if (devBoss) setTimeout(() => devArena(devBoss), 400);
   requestAnimationFrame(t => { last = t; frame(t); });
   const boot = document.getElementById('boot');
   boot.classList.add('done'); setTimeout(() => boot.remove(), 400);
@@ -546,6 +548,19 @@ Promise.race([fontsReady, new Promise(r => setTimeout(r, 1500))]).then(() => {
 if ('serviceWorker' in navigator && import.meta.env.PROD && !isNative) {
   const reg = () => navigator.serviceWorker.register('./sw.js').catch(() => {});
   if (document.readyState === 'complete') reg(); else window.addEventListener('load', reg);
+}
+
+// geliştirme: ?boss=<tür> → yüzeyin altında arena, boss karşıda
+function devArena(type) {
+  App.meta.tutorialDone = true; hooks.newRun({ seed: 24 });
+  setTimeout(() => {
+    const COLSN = 17, r0 = GROUND_ROW + 3, r1 = GROUND_ROW + 12;
+    for (let r = r0; r <= r1; r++) for (let c = 2; c <= 14; c++) { const i = r * COLSN + c; G.map[i] = r === r1 ? 2 : 0; G.dmg[i] = 0; G.rev[i] = 1; G.dirty.push(c, r); }
+    G.mapVersion++;
+    const p = G.player; p.x = p.px = 4 * TILE + 8; p.y = p.py = (r1 - 1) * TILE + 8; p.vx = p.vy = 0;
+    const e = spawnEnemy(type, 11 * TILE + 8, (r1 - 1) * TILE + 8, 1); e.emergeT = 0;
+    G.cam.snap = true; updateCamera(0, true);
+  }, 500);
 }
 
 // geliştirme/test erişimi

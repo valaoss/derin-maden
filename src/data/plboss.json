@@ -217,5 +217,44 @@
   "cx": 64,
   "rows": 9,
   "scale": 0.6
+ },
+ "ezeli": {
+  "cell": 128,
+  "cols": 16,
+  "rot": 0,
+  "anims": {
+   "idle": {
+    "row": 1,
+    "n": 16
+   },
+   "hurt": {
+    "row": 2,
+    "n": 16
+   },
+   "die": {
+    "row": 3,
+    "n": 16
+   },
+   "doom": {
+    "row": 4,
+    "n": 14
+   },
+   "move": {
+    "row": 5,
+    "n": 16
+   },
+   "pillars": {
+    "row": 6,
+    "n": 16
+   },
+   "summon": {
+    "row": 7,
+    "n": 16
+   }
+  },
+  "feet": 121,
+  "cx": 64,
+  "rows": 8,
+  "scale": 0.62
  }
 }
