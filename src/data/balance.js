@@ -195,7 +195,7 @@ export const MODS = {
   homing:   { name: 'Güdümlü',      icon: 'magnet',   cost: { water: 24, cobalt: 14 },  desc: 'Mermiler yakındaki düşmana kıvrılır; ıskalamak zorlaşır.' },
   chain:    { name: 'Yıldırım',     icon: 'chain',    cost: { cobalt: 20, gold: 8 },    desc: 'İsabet yakındaki bir düşmana sıçrar (yarım hasar).' },
   stun:     { name: 'Sersemletici', icon: 'shock',    cost: { iron: 40, gold: 12 },     v: 0.5, desc: 'İsabet alan düşman 0.5 sn saldıramaz (boss hariç).' },
-  leech:    { name: 'Can Çalan',    icon: 'heart',    cost: { water: 40, gold: 14 },    v: 0.02, desc: 'Silahla öldürdüğün her düşman azami canının %2’sini yeniler.' },
+  leech:    { name: 'Can Çalan',    icon: 'heart',    cost: { water: 40, gold: 14 },    v: 0.02, cd: 1, desc: 'Silahla öldürdüğün düşman azami canının %2’sini yeniler (saniyede en çok bir kez).' },
   boom:     { name: 'Patlayıcı',    icon: 'boom',     cost: { crystal: 14, gold: 16 },  desc: 'Mermiler küçük bir alanda patlar.' },
   nova:     { name: 'Saçılma',      icon: 'nova',     cost: { crystal: 20, gold: 22 },  n: 6, v: 0.5, desc: 'Silahla öldürdüğün düşmandan 6 mermi saçılır (yarım hasar).' },
   overdrive:{ name: 'Aşırı Yük',    icon: 'overdrive', cost: { crystal: 24, gold: 26 }, dur: 3, cd: 12, desc: 'Ateş ederken 12 sn’de bir kendiliğinden devreye girer: 3 sn üç kat atış hızı.' },

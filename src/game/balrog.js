@@ -28,16 +28,20 @@ export function updateBalrog(dt) {
     // karşı tarafta, madencinin hizasında bir gölge köşesi
     const pc = Math.floor(p.x / TILE), side = pc >= CENTER_COL ? -1 : 1;
     const c = Math.max(PLAY_MIN_COL + 1, Math.min(PLAY_MAX_COL - 1, pc + side * (5 + Math.floor(rnd() * 2))));
-    Object.assign(S, { st: 'dark', t: 0, beat: 0, c, r: Math.floor(p.y / TILE), pi: p.i });
+    Object.assign(S, { st: 'dark', t: 0, beat: BALROG.drum, n: 0, c, r: Math.floor(p.y / TILE), pi: p.i });
     G.threat.bossCd = Math.max(G.threat.bossCd || 0, BALROG.dark + 5);
     emit('balrog', 'dark'); sfx.drum(); shake(0.2);
     return;
   }
   if (S.st === 'dark') {
     S.t += dt;
-    // davullar: giderek sıklaşır
-    const gap = BALROG.drum * (1 - 0.45 * Math.min(1, S.t / BALROG.dark));
-    if ((S.beat -= dt) <= 0) { S.beat = gap; sfx.drum(); shake(0.12 + 0.25 * S.t / BALROG.dark); haptic(30); }
+    // derinlerin davulları: "dum... dum-dum"; giderek sıklaşır ve yükselir, kaya yarılınca kesintisiz gümbürtüye döner
+    const k = Math.min(1, S.t / BALROG.dark), gap = BALROG.drum * (1 - 0.45 * k);
+    if ((S.beat -= dt) <= 0) {
+      const roll = S.crack, i = (S.n | 0) % 3, big = roll || i === 0; S.n = (S.n | 0) + 1;
+      S.beat = roll ? 0.19 : i === 0 ? gap * 0.62 : i === 1 ? gap * 0.24 : gap * 0.5;
+      sfx.drum((big ? 0.7 : 0.42) + 0.3 * k); shake((big ? 0.12 : 0.05) + 0.25 * k); if (big) haptic(30);
+    }
     if (S.t > 3.2 && !S.eyes) { S.eyes = true; emit('balrog', 'eyes'); sfx.growl(); }
     if (S.t > BALROG.dark - 1.4 && !S.crack) {
       S.crack = true; const x = S.c * TILE + 8, y = S.r * TILE + 8;

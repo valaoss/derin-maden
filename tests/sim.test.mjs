@@ -175,6 +175,7 @@ section('Ekonomi');
   let frag = 0; for (let i = 0; i < 90 && !v.dead; i++) step(); frag = G.bullets.filter(b => b.hit === v).length;
   ok('saçılma: ölen düşmandan mermi çıkar', v.dead && frag >= MODS.nova.n, `${frag}`);
   ok('can çalan: öldürme can verir', q.hp > q.maxHp * 0.5, `${q.hp}`);
+  ok('can çalan: saniyede en çok bir kez', G.gear.cd['leech' + q.i] > 0 && q.hp <= q.maxHp * (0.5 + MODS.leech.v) + 0.01, `${q.hp}`);
 }
 
 // ---------- 4. uyanış ve yuvalar ----------

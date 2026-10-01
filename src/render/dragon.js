@@ -330,7 +330,7 @@ function glowPass(ctx, P, hx, glow) {
   if (P.rage && !P.dying) { const [nx, ny] = hx(16.5, -0.5); for (let i = 0; i < 3; i++) { const k = (t * 1.3 + i / 3) % 1; X.globalAlpha = 1 - k; X.fillStyle = i % 2 ? '#ffb040' : '#ff5a1a'; X.fillRect(Math.round(nx + V.F * k * 8), Math.round(ny - k * 14 + Math.sin(t * 5 + i) * 2), 1, 1); } X.globalAlpha = 1; }
 }
 // alev nefesi: ağızdan genişleyen, dalgalanan akış; kayaya çarpınca yayılır
-function fireStream(X, mx, my, la, F, t, glow) {
+export function fireStream(X, mx, my, la, F, t, glow) {
   const ca = Math.cos(la) * F, sa = Math.sin(la), nx = -sa, ny = ca;
   let length = 115, blocked = false;
   for (let d = 3; d <= length; d += 3) {

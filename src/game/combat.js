@@ -77,7 +77,8 @@ function tagBullet(b, W) {
 function gunKill(e, p) {
   if (!e.dead || e.fragged) return;
   e.fragged = true;
-  if (p && !p.dead && hasMod('leech')) p.hp = Math.min(p.maxHp, p.hp + p.maxHp * MODS.leech.v);
+  // Can Çalan: madenci başına bekleme süresi var (sürü öldürürken ölümsüzlük olmasın)
+  if (p && !p.dead && hasMod('leech') && !(G.gear.cd['leech' + p.i] > 0)) { p.hp = Math.min(p.maxHp, p.hp + p.maxHp * MODS.leech.v); G.gear.cd['leech' + p.i] = MODS.leech.cd; }
   if (p && hasMod('nova')) {
     const M = MODS.nova, a0 = rnd() * Math.PI * 2, dmg = gunDmg(p) * M.v;
     for (let i = 0; i < M.n; i++) { const b = tagBullet(fire(e.x, e.y, a0 + i / M.n * Math.PI * 2, 210, dmg, 'p', 0, p.i)); b.life = 0.32; b.hit = e; }

@@ -83,7 +83,12 @@ const SCENES = {
     sword: { dur: 2.2, setup(e, p) { p.x = e.x + 30; }, run(c, e) { const L = [['raise', 0.8], ['fall', 0.7]]; if (c >= total(L)) return; const s = staged(c, L); act(e, 'sword', { stage: s.stage, st: s.st, T: 9, fire: s.stage === 'fall' }); e.wind = s.stage === 'raise' ? s.k : 0; } },
     whip: { dur: 2, run(c, e, p) { const L = [['wind', 0.6], ['lash', 0.36], ['rest', 0.35]]; if (c >= total(L)) return; const s = staged(c, L); act(e, 'whip', { stage: s.stage, st: s.st, T: 9, a: aim({ x: e.x + e.face * 24, y: e.y - 22 }, { x: p.x, y: p.y - 3 }), len: 90, fire: s.stage === 'lash' }); e.wind = s.stage === 'wind' ? s.k : 0; } },
     wings: { dur: 2.8, run(c, e) { if (c < 2.2) { act(e, 'wings', { T: 2.2 - c, done: c > 0.9, fire: c > 0.9 }); e.wind = c < 0.9 ? c / 0.9 : 0; } } },
-    shadow: { dur: 3, run(c, e) { const L = [['fade', 0.7], ['glide', 0.9], ['form', 0.55]]; if (c >= total(L)) return; const s = staged(c, L); act(e, 'shadow', { stage: s.stage, st: s.st, T: 9 }); e.fade = s.stage === 'fade' ? s.k : s.stage === 'form' ? 1 - s.k : 1; e.under = s.stage === 'glide'; } },
+    breath: { dur: 3.3, run(c, e, p) { const L = [['inhale', 0.8], ['fire', 1.5], ['rest', 0.45]]; if (c >= total(L)) return; const s = staged(c, L); act(e, 'breath', { stage: s.stage, st: s.st, T: 9, a: aim({ x: e.x + e.face * 15, y: e.y - 37 }, { x: p.x, y: p.y - 3 }), fire: s.stage === 'fire' }); e.wind = s.stage === 'inhale' ? s.k : 0; } },
+    swoop: { dur: 3.4, run(c, e, p, dt) {
+      const L = [['flap', 1], ['fly', 1], ['land', 0.7]]; if (c >= total(L)) return; const s = staged(c, L);
+      act(e, 'swoop', { stage: s.stage, st: s.st, T: 9, dur: 1, a: s.stage === 'flap' ? undefined : 0, fire: s.stage === 'fly' }); e.wind = s.stage === 'flap' ? s.k : 0;
+      if (s.stage === 'fly') { const k = s.k * s.k * (3 - 2 * s.k); e.x = e.x0 + 90 * k; e.y = e.y0 - Math.sin(s.k * Math.PI) * 40; e.lunge = 1; } else if (s.stage === 'land') { e.x = e.x0 + 90; e.y = e.y0; }
+    } },
   },
   ejder: {
     breath: { dur: 3.9, run(c, e, p) {

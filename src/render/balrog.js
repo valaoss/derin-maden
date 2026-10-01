@@ -7,6 +7,7 @@ import { G } from '../game/state.js';
 import { hash2, clamp, lerp } from '../core/util.js';
 import { drawBossArt, drawBossArtGlow, artAttachment } from './bossart.js';
 import { flame, origin as flameOrigin } from './beast.js';
+import { fireStream } from './dragon.js';
 import { has3D } from './boss/actor.js';
 
 let X, OX, OY, F;
@@ -88,6 +89,14 @@ function smoke(P, amt) {
   X.globalAlpha = 1;
 }
 
+// kamçı elde sarılı durur; yalnız saldırırken (gerilme + şaklama) açılır, sonra yeniden toplanır. Dönen: açıklık 0..1
+const coils = new WeakMap();
+function whipOpen(P) {
+  let s = coils.get(P.e); if (!s || P.t < s.t) coils.set(P.e, s = { v: 0, t: P.t });
+  const dt = Math.min(0.1, P.t - s.t), W = P.whip; s.t = P.t;
+  if (W.mode === 'lash') s.v = 1; else if (W.mode === 'wind') s.v = Math.max(s.v, Math.min(1, W.k * 1.6)); else s.v = Math.max(0, s.v - dt * 2.4);
+  return s.v * s.v * (3 - 2 * s.v);
+}
 // kamçı noktaları (dünya koordinatı)
 function whipPoints(P, hand) {
   const attached = artAttachment(P.e, P.alpha, 'hand');
@@ -105,6 +114,15 @@ function whipPoints(P, hand) {
       const d = i * seg;
       if (d < drop) pts.push([hx + Math.sin(t * 1.8 + i * 0.5) * i * 0.2, hy + d]);
       else { const u = d - drop; pts.push([hx + F * u * 0.95 + Math.sin(t * 2.4 - i * 0.7) * 2, floor - Math.abs(Math.sin(t * 2.4 - i * 0.7)) * 1.5]); }
+    }
+  }
+  // sarılı hâl: elin altında sallanan iki buçuk halka; açıklık arttıkça halkalar çözülür
+  const open = whipOpen(P);
+  if (open < 0.999) {
+    const sw = Math.sin(t * 2.1) * 0.8, cx = hx + sw, cy = hy + 4.6 * SC;
+    for (let i = 1; i <= N; i++) {
+      const a = -Math.PI / 2 + F * i / N * Math.PI * 5, r = (2.6 + i / N * 1.2) * SC, q = pts[i];
+      q[0] = lerp(cx + Math.cos(a) * r * 0.8 + sw * i / N, q[0], open); q[1] = lerp(cy + Math.sin(a) * r + i / N * 2, q[1], open);
     }
   }
   return pts;
@@ -137,6 +155,13 @@ export function drawBalrogGlow(ctx, e, alpha, glow) {
     }
     if (eye[3] !== false) glow(eye[0], eye[1], 'rgba(255,196,82,0.75)', 7, Math.min(1, fire));
     if (chest) glow(chest[0], chest[1], 'rgba(255,83,20,0.32)', 22, Math.min(1, fire) * (0.65 + Math.sin(t * 4) * 0.15));
+  }
+  // ateş nefesi: ağızdan nişan yönüne genişleyen alev akışı
+  const act = e.bs && e.bs.act;
+  if (act && act.k === 'breath' && !e.dead) {
+    const q = artAttachment(e, alpha, 'mouth');
+    if (q && act.stage === 'fire') { glow(q[0], q[1], 'rgba(255,170,60,0.85)', 13, 1); fireStream(ctx, q[0], q[1], act.a, 1, t, glow); }
+    else if (q && act.stage === 'inhale') glow(q[0], q[1], 'rgba(255,140,40,0.7)', Math.round(4 + (e.wind || 0) * 8), e.wind || 0);
   }
   if (P.roar > 0.05 && fade > 0) { const q = artAttachment(e, alpha, 'mouth'), m = up(P, [12, -40]); glow(q ? q[0] : wx(m[0]), q ? q[1] : wy(m[1]), 'rgba(255,140,40,0.8)', Math.round(6 + P.roar * 10), P.roar); }
   if (fire <= 0.01) return;
@@ -231,5 +256,7 @@ export function balrogLights(out) {
     const intro = e.intro > 0 ? 1 - e.intro / BALROG.intro : 1, dying = e.dead ? clamp(1 - e.dieT / (e.d.dieT || 1), 0, 1) : 0;
     const s = 3.4 * clamp((intro - 0.12) / 0.4, 0, 1) * (1 - dying) * (e.bs && e.bs.phase === 2 ? 1.25 : 1) * (1 - (e.fade || 0));
     if (s > 0.2) out.push({ x: e.x, y: e.y - 18, s });
+    const A = e.bs && e.bs.act;
+    if (A && A.k === 'breath' && A.stage === 'fire' && !e.dead) out.push({ x: e.x + Math.cos(A.a) * 50, y: e.y - 34 + Math.sin(A.a) * 50, s: 3.4 });
   }
 }

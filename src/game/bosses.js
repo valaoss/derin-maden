@@ -404,15 +404,17 @@ Object.assign(KITS, {
   },
 });
 
-// BALROG: alev kamçısı (uzak, öfkede çeker), alev kılıcı (yeri yarar), gölge kanatları (korku + kor yağmuru),
-// gölgeye karışıp arkanda belirme. Yürürken kayayı parçalar; öfkede çevresini kavurur.
+// BALROG: alev kamçısı (uzak, öfkede çeker), alev kılıcı (yeri yarar), gölge kanatları (korku + kor yağmuru), ateş nefesi,
+// alev alan kanatlarla havalanıp madencinin üstüne konma. Yürürken kayayı parçalar; öfkede çevresini kavurur.
 const ARM = e => [e.x + e.face * 24, e.y - 22]; // 3B modelin kamçı eli
+const MAW = e => [e.x + e.face * 15, e.y - 37]; // 3B modelin nefes duruşundaki ağzı
 KITS.balrog = {
-  cd: { whip: 1.2, sword: 0.8, wings: 7, shadow: 9 },
+  cd: { whip: 1.2, sword: 0.8, wings: 7, breath: 4, swoop: 9 },
   choose(e, p, dp, B) {
     const los = losClear(e.x, e.y - 6, p.x, p.y);
     if (B.cd.sword <= 0 && dp < 52) return 'sword';
-    if (B.cd.shadow <= 0 && (dp > 125 || (!los && dp > 50)) && dp < 280) return 'shadow';
+    if (B.cd.swoop <= 0 && (dp > 125 || (!los && dp > 50)) && dp < 280) return 'swoop';
+    if (B.cd.breath <= 0 && dp > 34 && dp < 115 && los) return 'breath';
     if (B.cd.wings <= 0 && dp < 150) return 'wings';
     if (B.cd.whip <= 0 && dp > 28 && dp < 120 && los) return 'whip';
     return null;
@@ -427,7 +429,14 @@ KITS.balrog = {
       const A = B.act; B.cd.wings = B.phase === 2 ? 8 : 11; A.T = 2.2; A.done = false; sfx.rumble();
       if (!B.hinted) { B.hinted = true; emit('toast', { text: 'Kanatlarını açıyor: kor yağmuru geliyor!', icon: 'flame', bad: true }); }
     },
-    shadow(e, p, B) { const A = B.act; B.cd.shadow = B.phase === 2 ? 7 : 10; A.T = 9; A.stage = 'fade'; A.st = 0.7; A.tgt = p.i; sfx.shade(); },
+    breath(e, p, B) {
+      const A = B.act; B.cd.breath = B.phase === 2 ? 5.5 : 7; A.T = 9; A.stage = 'inhale'; A.st = 0.8; A.tick = 0;
+      e.face = p.x >= e.x ? 1 : -1; const [mx, my] = MAW(e); A.a = Math.atan2(p.y - 3 - my, p.x - mx); sfx.growl();
+    },
+    swoop(e, p, B) {
+      const A = B.act; B.cd.swoop = B.phase === 2 ? 7 : 10; A.T = 9; A.stage = 'flap'; A.st = 1; A.tgt = p.i; e.face = p.x >= e.x ? 1 : -1; sfx.rumble(); sfx.flame();
+      if (!B.hint2) { B.hint2 = true; emit('toast', { text: 'Kanatları tutuştu: üstüne uçacak, işaretten kaç!', icon: 'flame', bad: true }); }
+    },
   },
   run: {
     whip(e, dt, p, B) {
@@ -499,39 +508,66 @@ KITS.balrog = {
       }
       if (rnd() < dt * 40) { const a = rnd() * TAU, d = 20 + rnd() * 40; particle(e.x + Math.cos(a) * d, e.y - 14 + Math.sin(a) * d, Math.cos(a) * 50, Math.sin(a) * 50 - 30, 0.6, rnd() < 0.5 ? '#ff7a2a' : '#ffd060', 1, 1, -20); }
     },
-    shadow(e, dt, p, B) {
-      const A = B.act; A.st -= dt;
-      if (A.stage === 'fade') {
-        e.fade = 1 - Math.max(0, A.st) / 0.7;
-        if (rnd() < dt * 30) dust(e.x + (rnd() - 0.5) * 20, e.y - rnd() * 30, 1, 'rgba(20,10,12,0.7)');
-        if (A.st <= 0) { A.stage = 'glide'; A.st = 0.9; e.under = true; }
+    // ateş nefesi: geriye yaslanıp soluk alır, sonra ağzından alev püskürtür; alev madenciyi ağır ağır izler
+    breath(e, dt, p, B) {
+      const A = B.act; A.st -= dt; const [mx, my] = MAW(e);
+      if (A.stage === 'inhale') {
+        e.wind = 1 - Math.max(0, A.st) / 0.8;
+        if (p) A.a += Math.max(-1.6 * dt, Math.min(1.6 * dt, angDiff(Math.atan2(p.y - 3 - my, p.x - mx), A.a)));
+        e.face = Math.cos(A.a) >= 0 ? 1 : -1;
+        if (A.st <= 0) { A.stage = 'fire'; A.st = B.phase === 2 ? 1.9 : 1.5; A.fire = true; sfx.roar(); sfx.flame(); shake(0.35); }
         return;
       }
-      if (A.stage === 'glide') {
+      if (A.stage === 'fire') {
+        if (p) A.a += Math.max(-0.7 * dt, Math.min(0.7 * dt, angDiff(Math.atan2(p.y - 3 - my, p.x - mx), A.a)));
+        e.face = Math.cos(A.a) >= 0 ? 1 : -1;
+        for (let i = 0; i < 4; i++) { const a = A.a + (rnd() - 0.5) * 0.5, s = 90 + rnd() * 90; particle(mx, my, Math.cos(a) * s, Math.sin(a) * s, 0.5, ['#fff0b0', '#ffd060', '#ff8a2a', '#e0401a'][Math.floor(rnd() * 4)], rnd() < 0.4 ? 2 : 1, 1, -40); }
+        A.tick -= dt;
+        if (A.tick <= 0) {
+          A.tick = 0.15; sfx.flame();
+          for (const q of live()) { const dx = q.x - mx, dy = q.y - 3 - my; if (Math.hypot(dx, dy) < 112 && Math.abs(angDiff(Math.atan2(dy, dx), A.a)) < 0.3 && losClear(mx, my, q.x, q.y)) { damagePlayer(q, 7 * e.dmgMul, mx, my); q.burnT = Math.max(q.burnT || 0, 2.5); } }
+          for (const s of G.structures) if (!s.dead && Math.hypot(s.x - mx, s.y - my) < 112 && Math.abs(angDiff(Math.atan2(s.y - my, s.x - mx), A.a)) < 0.3) damageStructure(s, 6);
+          igniteGas(mx + Math.cos(A.a) * 60, my + Math.sin(A.a) * 60, 30);
+        }
+        if (A.st <= 0) { A.fire = false; A.stage = 'rest'; A.st = 0.45; }
+        return;
+      }
+      if (A.st <= 0) A.T = 0;
+    },
+    // kanat çırpışı: kanatlar tutuşur, havalanır, işaretlediği yere yay çizerek uçar ve konduğu yeri ezer
+    swoop(e, dt, p, B) {
+      const A = B.act; A.st -= dt;
+      const carve = () => { const c0 = Math.floor(e.x / TILE), r0 = Math.floor(e.y / TILE); for (let r = r0 - 3; r <= r0; r++) for (let c = c0 - 1; c <= c0 + 1; c++) if (TD[tileAt(c, r)].solid && breakable(c, r)) breakTile(c, r, null); };
+      const ember = n => { for (let i = 0; i < n; i++) particle(e.x + (rnd() - 0.5) * 60, e.y - 20 - rnd() * 36, (rnd() - 0.5) * 50, 10 + rnd() * 50, 0.7, rnd() < 0.5 ? '#ff7a2a' : '#ffd060', 1, 1, 60); };
+      if (A.stage === 'flap') {
+        e.wind = 1 - Math.max(0, A.st) / 1;
+        if (rnd() < dt * 26 * e.wind) ember(1);
+        if (rnd() < dt * 5) dust(e.x + (rnd() - 0.5) * 40, e.y + 6, 1, 'rgba(60,30,20,0.5)');
         if (A.st <= 0) {
           const q0 = G.players[A.tgt], q = q0 && !q0.dead ? q0 : p;
-          if (q) {
-            const side = q.face ? -q.face : 1;
-            let x = q.x + side * 34, y = q.y;
-            if (!openSpot(x, y)) [x, y] = spotNear(q.x - side * 20, q.y, 36);
-            if (openSpot(x, y)) { e.x = e.px = x; e.y = e.py = y; }
-            e.face = q.x >= e.x ? 1 : -1;
-          }
-          A.stage = 'form'; A.st = 0.55; e.under = false;
-          const c0 = Math.floor(e.x / TILE), r0 = Math.floor(e.y / TILE);
-          for (let r = r0 - 2; r <= r0; r++) for (let c = c0 - 1; c <= c0 + 1; c++) if (TD[tileAt(c, r)].solid && breakable(c, r)) breakTile(c, r, null);
-          dust(e.x, e.y - 10, 10, 'rgba(20,10,12,0.8)'); sfx.shade();
+          let tx = e.x, ty = e.y; if (q) [tx, ty] = openSpot(q.x, q.y) ? [q.x, q.y] : spotNear(q.x, q.y, 30);
+          const d = Math.hypot(tx - e.x, ty - e.y);
+          Object.assign(A, { stage: 'fly', x0: e.x, y0: e.y, tx, ty, dur: Math.max(0.75, Math.min(1.25, d / 180)), h: Math.min(54, 24 + d * 0.2), fire: true });
+          A.st = A.dur; e.face = tx >= e.x ? 1 : -1; mark(e, tx, ty, 26, A.dur, 0, 'ember');
+          dust(e.x, e.y + 6, 8, 'rgba(60,30,20,0.6)'); shake(0.4); sfx.roar();
         }
         return;
       }
-      if (A.stage === 'form') {
-        e.fade = Math.max(0, A.st) / 0.55;
+      if (A.stage === 'fly') {
+        const k = 1 - Math.max(0, A.st) / A.dur, s = k * k * (3 - 2 * k);
+        e.x = A.x0 + (A.tx - A.x0) * s; e.y = Math.max(GROUND_Y + 30, A.y0 + (A.ty - A.y0) * s - Math.sin(k * Math.PI) * A.h);
+        e.lunge = 1; carve(); ember(1);
         if (A.st <= 0) {
-          e.fade = 0; A.T = 0;
-          hitPlayers(e.x, e.y - 6, 28, 22 * e.dmgMul, q => { q.burnT = Math.max(q.burnT || 0, 2); });
-          ring(e.x, e.y - 8, '#ff5a1a', 34); sparks(e.x, e.y - 8, '#ffd060', 18, 130); flashLight(e.x, e.y - 8, 7, 0.35); shake(0.5); sfx.flame(); sfx.roar();
+          e.x = A.tx; e.y = A.ty; A.stage = 'land'; A.st = 0.7; A.fire = false; carve();
+          hitPlayers(e.x, e.y - 2, 30, 26 * e.dmgMul, q => { q.burnT = Math.max(q.burnT || 0, 2); const d = Math.hypot(q.x - e.x, q.y - e.y) || 1; pullPlayer(q, (q.x - e.x) / d * 170, -60); });
+          B.rings.push({ x: e.x, y: e.y + 4, r: 8, R: B.phase === 2 ? 100 : 80, v: 150, dmg: 14 * e.dmgMul, hit: [], col: '#ff6a1a', los: false });
+          for (const st of G.structures) if (!st.dead && Math.hypot(st.x - e.x, st.y - e.y) < 60) damageStructure(st, 14);
+          debris(e.x, e.y + 4, 'stone', 16); sparks(e.x, e.y, '#ffd060', 22, 150); sparks(e.x, e.y, '#ff5a1a', 16, 100); dust(e.x, e.y + 6, 10, 'rgba(60,30,20,0.6)');
+          ring(e.x, e.y, '#ff5a1a', 40); flashLight(e.x, e.y - 8, 8, 0.45); shake(0.9); hitstop(0.1); sfx.explode(); haptic([60, 30, 120]);
         }
+        return;
       }
+      if (A.st <= 0) A.T = 0;
     },
   },
   // her kare: yürürken kayayı parçalar; öfkede yakın madencileri kavurur

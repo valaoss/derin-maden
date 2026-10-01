@@ -1,7 +1,7 @@
 // Balrog: obsidyen gövde, çatlaklarından lav sızar; alev yelesi, gölge kanatları, sağ elde alev kılıcı, sol elde kamçı.
 // Kamçının kendisi, duman ve korlar balrog.js'te (2B) çizilir; burada gövde ve duruşlar var.
 import { line, dot, vert, tri } from '../soft3d.js';
-import { TAU, D, lerp, clamp, ss, bump, mad, norm, at, turn, frame, bone, ball, tube, skin, loft, flame, spike, batWing, aimLocal } from './rig.js';
+import { TAU, D, lerp, clamp, ss, bump, mad, mix, norm, at, turn, frame, bone, ball, tube, skin, loft, flame, spike, batWing, aimLocal } from './rig.js';
 import { biped, stride } from './biped.js';
 
 const M = { SKIN: 1, LAVA: 2, HORN: 3, WING: 4, WING_OUT: 5, EDGE: 6, FLAME: 7, BLADE: 8, EYE: 9, MOUTH: 10, IRON: 11, FORE: 12 };
@@ -60,7 +60,14 @@ function build(g, P, o) {
   fire = P.fire;
   const K = biped(P, S), A = {}, { pel, waist, chest, head } = K, t = o.t, br = 1 + P.br;
   const W = P.wing;
-  for (const s of [-1, 1]) batWing(g, chest, at(chest, -3.6, -1, s * 3.6), at(pel, -3, 3, s * 3), s, W, WING);
+  for (const s of [-1, 1]) {
+    const w = batWing(g, chest, at(chest, -3.6, -1, s * 3.6), at(pel, -3, 3, s * 3), s, W, WING);
+    // tutuşan kanat: kol ve parmak kemikleri boyunca, rüzgârla geriye yatan alev dilleri
+    if (P.burn > 0.05 && fire > 0.05) [w.E, w.Wr, ...w.tips, ...w.tips.map(q => mix(w.Wr, q, 0.5))].forEach((b, i) => {
+      const h = (5.5 + Math.sin(t * (9 + i * 0.7) + i * 2.1 + s) * 2.4) * P.burn;
+      flame(g, b, mad(mad(b, [0, 1, 0], h), pel.f, -h * (0.3 + P.drag)), 1.6, M.FLAME, [0, 0, Math.sin(t * 6 + i) * 0.8]);
+    });
+  }
   // gövde: dar bel, geniş göğüs ve omuz
   skin(g, [
     { p: at(pel, 0, -3.6, 0), u: pel.f, rx: 4.4, ry: 4 }, { p: pel.p, u: pel.f, rx: 6.4, ry: 5.2 }, { p: waist.p, u: waist.f, rx: 5.6, ry: 4.6 },
@@ -105,7 +112,7 @@ const DIE_T = 2.6;
 function pose(o) {
   const t = o.t, A = o.A, rage = o.rage ? 1 : 0, dead = o.dying > 0, w = dead ? 0 : o.walk, near = Math.cos(o.view) >= 0 ? 1 : -1;
   const br = Math.sin(t * 2.2 + o.wob);
-  let x = 0, y = br * 0.3, lean = 6, twist = 0, roll = 0, jaw = 0.05, fr0 = rage ? 1.3 : 1, sword = 58, sink = 0, rate = 20, lookW = 0.8, eye = 1, c = 0, r = 0, shadow = 1, spin = 0;
+  let x = 0, y = br * 0.3, lean = 6, twist = 0, roll = 0, jaw = 0.05, fr0 = rage ? 1.3 : 1, sword = 58, sink = 0, rate = 20, lookW = 0.8, eye = 1, c = 0, r = 0, shadow = 1, spin = 0, burn = 0, drag = 0, swell = 0;
   const bend = [8, 0, 0], head = [-4, 0, 0], R = { sw: 4, ab: 22, tw: 0, el: 30 }, L = { sw: -8, ab: 24, tw: 0, el: 26 }, fR = [2.5, 0, 6.2], fL = [-3, 0, -6.2];
   const wing = { open: 0.14 + rage * 0.2, fan: 0.2 + rage * 0.2, flap: Math.sin(t * 1.4) * 0.05, lean: 0.12 * near, sweep: 0, wave: Math.sin(t * 3) * 0.2, span: 0.3 };
 
@@ -141,11 +148,44 @@ function pose(o) {
   } else if (o.act === 'wings' && A) {
     const tt = 2.2 - A.T;
     c = ss(0, 0.85, tt) * (1 - ss(0.88, 0.97, tt)); r = ss(0.88, 0.98, tt) * (1 - 0.85 * ss(0.5, 1.3, tt - 0.9)); rate = 30;
-  } else if (o.act === 'shadow' && A) {
-    // gölgeye karışır: büzülür, kanatlarına sarınır; belirirken patlayarak açılır
-    c = o.stage === 'form' ? clamp(A.st / 0.55, 0, 1) : 1 - 0.2 * (1 - o.fade);
-    r = o.stage === 'form' ? clamp(1 - A.st / 0.22, 0, 1) : 0;
-  } else if (o.prev === 'shadow' && !o.act && o.since < 0.6) r = 1 - ss(0, 0.6, o.since);
+  } else if (o.act === 'breath' && A) {
+    const ap = clamp(aimLocal(Math.cos(o.aim || 0), Math.sin(o.aim || 0), o.view)[1], -0.7, 0.8) / D;
+    lookW = 0;
+    if (o.stage === 'inhale') {
+      // soluk alır: geriye yaslanır, göğsü şişer ve korlaşır, kollar ve kanatlar geriye açılır
+      const k = ss(0, 1, o.wind);
+      lean -= 13 * k; bend[0] -= 16 * k; head[0] += 16 * k; y += 1.6 * k; x -= 1.6 * k; swell = k; jaw = 0.12 * k; fr0 *= 1 + 0.45 * k;
+      R.sw -= 22 * k; R.ab += 14 * k; L.sw -= 28 * k; L.ab += 18 * k; wing.open += 0.45 * k; wing.fan += 0.35 * k; wing.flap += 0.16 * k; rate = 26;
+    } else if (o.stage === 'fire') {
+      // öne atılır, çene ardına kadar açılır; gövde püskürmenin gücüyle titrer, kanatlar geride gerilir
+      const k = ss(0, 0.16, o.sinceStage), sh = Math.sin(t * 40) * 0.35;
+      lean += 15 * k; bend[0] += 12 * k; head[0] += (10 + ap * 0.7) * k; jaw = k; x += 2.2 * k + sh; y -= 1.2 * k; fL[0] += 3.5 * k; swell = 0.6 * k; fr0 *= 1.45;
+      R.sw -= 34 * k; R.ab += 22 * k; R.el += 14 * k; L.sw -= 38 * k; L.ab += 26 * k; L.el += 10 * k; sword += 24 * k;
+      wing.open += 0.6 * k; wing.fan += 0.55 * k; wing.flap += -0.1 * k + Math.sin(t * 15) * 0.05; wing.wave += 0.6; rate = 38;
+    }
+  } else if (o.act === 'swoop' && A) {
+    lookW = 0.3;
+    if (o.stage === 'flap') {
+      // çömelir; kanatlar ardına kadar açılıp hızlanan vuruşlarla çırpar ve tutuşur, her vuruş gövdeyi kaldırır
+      const k = ss(0, 0.45, o.wind), up = ss(0.7, 1, o.wind), fl = Math.sin(t * (9 + 5 * o.wind));
+      y += -5 * k + (Math.max(0, -fl) * 2 + 3 * up) * k; lean += 11 * k - 6 * up; bend[0] += 9 * k; head[0] += 10 * k; jaw = 0.35 * k; fr0 *= 1 + 0.3 * k;
+      wing.open = lerp(wing.open, 1, k); wing.fan = lerp(wing.fan, 1, k); wing.span = lerp(0.3, 0.75, k); wing.flap += fl * 0.5 * k; wing.wave += k;
+      burn = ss(0.2, 0.75, o.wind); R.ab += 14 * k; L.ab += 16 * k; R.el += 34 * k; L.el += 30 * k; rate = 34;
+    } else if (o.stage === 'fly') {
+      // uçuş: gövde öne yatar, bacaklar geride toplanır, kılıç ileride; konmadan önce doğrulup ayaklarını uzatır
+      const k = clamp(o.sinceStage / (A.dur || 1), 0, 1), fl = Math.sin(t * 12), gear = ss(0.68, 1, k), go = ss(0, 0.2, k);
+      lean += (50 - 44 * gear) * go; bend[0] -= 12 * go; head[0] += (28 - 20 * gear) * go; y += 4 * go; jaw = 0.6; fr0 *= 1.35; burn = 1; drag = 0.9 * (1 - gear); shadow = 0;
+      fR[0] = lerp(fR[0], lerp(-9, 5, gear), go); fR[1] = lerp(0, lerp(11, 3, gear), go); fL[0] = lerp(fL[0], lerp(-13, 1, gear), go); fL[1] = lerp(0, lerp(8, 2, gear), go);
+      wing.open = 1; wing.fan = 1; wing.span = lerp(0.9, 0.6, gear); wing.flap += fl * 0.55 - 0.25 * gear; wing.wave += 1; wing.sweep = -0.25 * go * (1 - gear);
+      R.sw += (62 - 30 * gear) * go; R.el += 16 * go; sword += -34 * go; L.sw -= 30 * go; L.ab += 20 * go; L.el += 20 * go; rate = 40;
+    } else {
+      // konuş: dizler çöker, kılıç yere saplanır, kanatlar yanlara çarpar; sonra ağır ağır doğrulur
+      const imp = 1 - ss(0.05, 0.6, o.sinceStage), hit = 1 - ss(0, 0.2, o.sinceStage);
+      y -= 9 * imp; lean += 20 * imp; bend[0] += 14 * imp; head[0] -= 6 * imp; jaw = 0.5 * imp; x += Math.sin(t * 50) * 0.4 * hit; burn = imp; fr0 *= 1 + 0.3 * imp;
+      wing.open = lerp(wing.open, 1, imp); wing.fan = lerp(wing.fan, 0.9, imp); wing.span = lerp(0.3, 0.7, imp); wing.flap -= 0.4 * imp;
+      R.sw += 34 * imp; R.el += 30 * imp; sword -= 74 * imp; L.ab += 34 * imp; L.el += 24 * imp; fR[0] += 2 * imp; fL[0] -= 2 * imp; rate = 44;
+    }
+  }
   if (rage && o.rageT < 1.3) { c = Math.max(c, bump(0, 0.15, 0.25, 0.35, o.rageT)); r = Math.max(r, bump(0.25, 0.4, 0.9, 1.3, o.rageT)); }
   if (o.intro >= 0) {
     // çömelmiş gölgeden doğrulur, alevi tutuşur, kanatlarını açıp kükrer
@@ -178,7 +218,7 @@ function pose(o) {
   const rad = a => ({ sw: a.sw * D, ab: a.ab * D, tw: a.tw * D, el: Math.max(0, a.el) * D });
   return {
     rate, spin, x, y, lean: lean * D, twist: twist * D, roll: roll * D, bend: [bend[0] * D, bend[1] * D + ly * 0.3, bend[2] * D], head: [head[0] * D + lp, head[1] * D + ly * 0.7, head[2] * D],
-    armR: rad(R), armL: rad(L), footR: fR, footL: fL, wing, jaw, eye, near, fire: fr0, sword: sword * D, sink, shadow, br: 0.03 * br,
+    armR: rad(R), armL: rad(L), footR: fR, footL: fL, wing, jaw, eye, near, fire: fr0, sword: sword * D, sink, shadow, br: 0.03 * br + 0.13 * swell, burn, drag,
   };
 }
 
