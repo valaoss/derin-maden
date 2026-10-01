@@ -43,7 +43,7 @@ function tint(s, key, col) {
 }
 
 // yaklaşık bağlantı noktaları (doğu karesi, hücre koordinatı)
-const POINTS = { balrog: { eyes: [77, 27], mouth: [80, 32], chests: [73, 50], hand: [49, 66] }, karakok: { eyes: [72, 40], mouth: [76, 50], chests: [64, 70] }, kavurgan: { eyes: [92, 40], mouth: [100, 48], chests: [64, 70] }, otegoz: { eyes: [70, 50], mouth: [70, 50], chests: [64, 64] } };
+const POINTS = { balrog: { eyes: [77, 27], mouth: [80, 32], chests: [73, 50], hand: [49, 66] }, karakok: { eyes: [72, 40], mouth: [76, 50], chests: [64, 70] }, kavurgan: { eyes: [92, 40], mouth: [100, 48], chests: [64, 70] }, otegoz: { eyes: [70, 50], mouth: [70, 50], chests: [64, 64] }, sultan: { eyes: [72, 30], mouth: [74, 38], chests: [64, 60], hand: [84, 70] } };
 
 const k01 = k => clamp(k, 0, 1);
 // eylem -> [animasyon adı, ilerleme 0..1 | null (döngü)]
@@ -66,6 +66,12 @@ const ACT = {
     if (act.k === 'orbs') return ['orbs', k01(1 - act.T / 0.5)];
     if (act.k === 'pull') return ['pull', k01(1 - act.T / 2)];
     if (act.k === 'gaze') return ['gaze', k01(1 - act.T / 2.1)];
+    return null;
+  },
+  sultan(e, act) {
+    if (act.k === 'charge') return act.stage === 'aim' ? ['charge', k01(e.wind || 0) * 0.8] : act.stage === 'dash' ? ['charge', 0.88 + k01(1 - act.st / 0.8) * 0.12] : ['daze', k01(1 - act.st / 1.1)];
+    if (act.k === 'slam') return ['slam', k01(1 - act.T / 0.6)];
+    if (act.k === 'coins') return ['coins', k01(1 - act.T / 0.35)];
     return null;
   },
   kavurgan(e, act) {

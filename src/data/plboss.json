@@ -174,5 +174,48 @@
   "cx": 64,
   "rows": 8,
   "scale": 0.6
+ },
+ "sultan": {
+  "cell": 128,
+  "cols": 16,
+  "rot": 0,
+  "anims": {
+   "idle": {
+    "row": 1,
+    "n": 16
+   },
+   "walk": {
+    "row": 2,
+    "n": 16
+   },
+   "hurt": {
+    "row": 3,
+    "n": 16
+   },
+   "die": {
+    "row": 4,
+    "n": 16
+   },
+   "charge": {
+    "row": 5,
+    "n": 16
+   },
+   "coins": {
+    "row": 6,
+    "n": 16
+   },
+   "daze": {
+    "row": 7,
+    "n": 16
+   },
+   "slam": {
+    "row": 8,
+    "n": 16
+   }
+  },
+  "feet": 125,
+  "cx": 64,
+  "rows": 9,
+  "scale": 0.6
  }
 }

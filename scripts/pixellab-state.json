@@ -202,5 +202,61 @@
         }
       }
     }
+  },
+  "sultan": {
+    "characterId": "42094f7c-2d2c-4e25-b663-0a424d2affc1",
+    "createJob": "428f96bf-02e9-45a0-857a-ddc336f14cf6",
+    "key": 5,
+    "anims": {},
+    "sa": {
+      "idle": {
+        "east": {
+          "job": "6ea37065-81e6-47f9-ac9f-27320cb958f5",
+          "key": 5
+        }
+      },
+      "walk": {
+        "east": {
+          "job": "ca61e7a1-adb1-4580-8c86-9d244f1dfb23",
+          "key": 5
+        }
+      },
+      "charge": {
+        "east": {
+          "job": "88a983e2-acd2-4e1a-b6f5-55c3763e6a9d",
+          "key": 5
+        }
+      },
+      "slam": {
+        "east": {
+          "job": "c1994f42-063d-4a1e-9fc6-77a90f59520b",
+          "key": 5
+        }
+      },
+      "coins": {
+        "east": {
+          "job": "bdfa170a-42b1-46a5-a22a-c241aad3e131",
+          "key": 5
+        }
+      },
+      "hurt": {
+        "east": {
+          "job": "6736a6ff-6bb5-4beb-99c5-73e9086e78b9",
+          "key": 5
+        }
+      },
+      "die": {
+        "east": {
+          "job": "5a8d570a-1010-4610-80c4-edbfa0f7da8f",
+          "key": 5
+        }
+      },
+      "daze": {
+        "east": {
+          "job": "a35dae22-9853-4259-909a-5aa70b8311bd",
+          "key": 5
+        }
+      }
+    }
   }
 }
