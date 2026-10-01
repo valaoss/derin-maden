@@ -653,6 +653,7 @@ export function showMenu(hasSave) {
       </div>
       ${hasSave ? `<button class="btn big" id="mCont">DEVAM ET</button><button class="btn dark" id="mNew">YENİ SEFER</button>` : `<button class="btn big" id="mNew">KAZMAYA BAŞLA</button>`}
       ${m.maxKademe ? `<button class="plate mline" id="mK"><span>${ic('kademe', 's')}<b id="kName"></b><small id="kDesc"></small></span><span class="chev">›</span></button>` : ''}
+      ${(m.pets || []).some(q => CRITTERS[q]) ? `<div class="mpets"><span class="lb">YOLDAŞ<b id="petName"></b></span>${CRITTER_KEYS.filter(q => m.pets.includes(q)).map(q => `<button class="mpet" data-pet="${q}" aria-label="${CRITTERS[q].name}"><img src="${critterURL(q)}" alt=""></button>`).join('')}</div>` : ''}
       ${m.tutorialDone ? `<div class="mrow three">
         <button class="plate mtile" id="mCoop">${ic('hand', 'l')}<span>BİRLİKTE</span>${m.coopWins ? `<small class="dline">${m.coopWins} ZAFER</small>` : ''}</button>
         <button class="plate mtile" id="mDaily">${ic('daily', 'l')}<span>GÜNÜN MADENİ</span>${dailyLine()}</button>
@@ -663,6 +664,9 @@ export function showMenu(hasSave) {
   s.classList.add('on');
   const showK = () => { if (!$('#kName')) return; $('#kName').textContent = KADEME[k].name.toUpperCase(); $('#kDesc').textContent = k ? KADEME[k].desc.replace(/^\+ /, '') : 'Standart sefer'; };
   if (m.maxKademe) { showK(); tap($('#mK'), () => { k = (k + 1) % (m.maxKademe + 1); showK(); }); }
+  // yoldaş: bulunanlardan biri seçilir (yeniden dokununca bırakılır); seferde yanında gezer
+  const showPet = () => { s.querySelectorAll('.mpet').forEach(b => b.classList.toggle('on', b.dataset.pet === m.pet)); if ($('#petName')) $('#petName').textContent = CRITTERS[m.pet] ? CRITTERS[m.pet].name : 'Yok'; };
+  showPet(); s.querySelectorAll('.mpet').forEach(b => tap(b, () => { m.pet = m.pet === b.dataset.pet ? null : b.dataset.pet; saveMeta(m); sfx.click(); showPet(); }));
   tap($('#mMe'), () => { s.classList.remove('on'); showProfile(() => showMenu(hasSave)); });
   if (hasSave) tap($('#mCont'), () => hooks.continueRun());
   tap($('#mNew'), () => { m.lastKademe = k; saveMeta(m); hooks.newRun({ kademe: k }); });

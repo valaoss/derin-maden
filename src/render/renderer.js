@@ -15,6 +15,7 @@ import { drawAmbient } from './ambient.js';
 import { drawBalrog, drawBalrogGlow, drawBalrogDark, drawBalrogOmen, balrogLights } from './balrog.js';
 import { drawSerpent, drawSerpentGlow, drawSerpentOmen, drawSerpentOmenGlow, drawSerpentDark } from './serpent.js';
 import { hasBossArt, drawBossArt, drawBossArtGlow } from './bossart.js';
+import { hasMob, drawMob, drawMobGlow } from './mob/actor.js';
 import { drawDragon, drawDragonGlow, drawHoardDragon, drawHoardGlow, dragonLights } from './dragon.js';
 import { drawHall, drawHallGlow, hallLights, hallCenter } from './hoard.js';
 import { inHall } from '../game/dragon.js';
@@ -1045,7 +1046,9 @@ function drawEnemy(e, alpha, camY, vh) {
   if (e.type === 'balrog') { drawBalrog(ctx, e, alpha); return; }
   if (e.type === 'ejder') { drawDragon(ctx, e, alpha); return; }
   if (hasBossArt(e)) { if (e.under) { drawMound(x, y); return; } if (drawBossArt(ctx, e, alpha)) return; }
-  const frames = SPR[e.type];
+  const frames = SPR[e.type], mob = hasMob(e);
+  // 3B düşmanlar ölümü ve yerden çıkışı kendi modeliyle oynar
+  if (mob && (e.dead || e.emergeT > 0 || e.sink > 0)) { drawMob(ctx, e, alpha); return; }
   if (e.dead) {
     // ölüm: beyaz flaş, sonra yana yatıp yere yayılır ve solar
     const T0 = DIE_T(e), k = clamp(1 - e.dieT / T0, 0, 1);
@@ -1068,9 +1071,9 @@ function drawEnemy(e, alpha, camY, vh) {
     return;
   }
   // gölge (yere basanlar; uçanlarınki soluk ve aşağıda)
-  if (!e.d.fly) shadow(ox, feet, f.w * 0.7, 0.32);
+  if (mob) ; else if (!e.d.fly) shadow(ox, feet, f.w * 0.7, 0.32);
   else shadow(ox, oy + f.h / 2 + 6, f.w * 0.4, 0.15);
-  if (e.trail) {
+  if (e.trail && !mob) {
     // solucan gövdesi: kuyruktan başa, baştan gecikmeli dalga ve nabız
     const seg = SPR[e.type + 'Seg'] || SPR.wormSeg;
     for (let i = e.trail.length - 1; i >= 1; i--) {
@@ -1079,13 +1082,7 @@ function drawEnemy(e, alpha, camY, vh) {
       sprScaled(seg, q.x + (i === 1 ? 0 : wig), q.y + seg.h / 2 + (i === 1 ? wig : 0), ps, ps, false, e.hitT > 0);
     }
   }
-  // Çekici dili: ağızdan hedefe kalın kontur + pembe iç, ucunda topak
-  if (e.tongue > 0) {
-    const mx = ox + e.face * 6, my = oy + 1;
-    pline3(mx, my, e.tx, e.ty, P.ink); pline(mx, my, e.tx, e.ty, '#e070a0');
-    ctx.fillStyle = P.ink; ctx.fillRect(Math.round(e.tx) - 2, Math.round(e.ty) - 2, 5, 5);
-    ctx.fillStyle = '#ff8ac0'; ctx.fillRect(Math.round(e.tx) - 1, Math.round(e.ty) - 1, 3, 3);
-  }
+  if (e.tongue > 0 && !mob) drawTongue(ox + e.face * 6, oy + 1, e);
   // Gölge: ışık yoksa görünmez (gözleri emissive katmanda yine parlar)
   if (e.type === 'shade') {
     const L = lightAtTile(Math.floor(x / TILE), Math.floor(y / TILE));
@@ -1093,8 +1090,10 @@ function drawEnemy(e, alpha, camY, vh) {
   }
   // cam kopya: yarı saydam, ara sıra titrer
   if (e.illusion) ctx.globalAlpha = 0.62 + (Math.floor(G.time * 9 + e.wob) % 3 === 0 ? 0.2 : 0);
-  sprScaled(f, ox, feet, sx, sy, flip, e.hitT > 0);
+  const M3 = mob ? drawMob(ctx, e, alpha) : null, top = M3 ? M3.top : feet - f.h * sy;
+  if (!M3) sprScaled(f, ox, feet, sx, sy, flip, e.hitT > 0);
   ctx.globalAlpha = 1;
+  if (M3 && e.tongue > 0 && M3.pts.mouth) drawTongue(M3.x + M3.pts.mouth[0], M3.y + M3.pts.mouth[1], e);
   // Işık Bekçisi nişanı: oyuncuya kesik çizgi, süre dolarken sıklaşır
   if (e.beamT > 0) {
     const q = G.players[e.beamP];
@@ -1115,7 +1114,7 @@ function drawEnemy(e, alpha, camY, vh) {
   }
   if (e.elite) {
     // elit tacı: baş üstünde altın üç diş
-    const cx = Math.round(ox), cy = Math.round(feet - f.h * sy) - 5 + (Math.floor(G.time * 3) % 2);
+    const cx = Math.round(ox), cy = Math.round(top) - 5 + (Math.floor(G.time * 3) % 2);
     ctx.fillStyle = P.ink; ctx.fillRect(cx - 4, cy - 3, 9, 5);
     ctx.fillStyle = '#ffd24a'; ctx.fillRect(cx - 3, cy, 7, 1); ctx.fillRect(cx - 3, cy - 2, 1, 2); ctx.fillRect(cx, cy - 2, 1, 2); ctx.fillRect(cx + 3, cy - 2, 1, 2);
     ctx.fillStyle = '#fff4c0'; ctx.fillRect(cx, cy - 2, 1, 1);
@@ -1125,10 +1124,17 @@ function drawEnemy(e, alpha, camY, vh) {
   }
   if (e.hp < e.maxHp && !e.d.boss) {
     const w = Math.max(8, f.w - 4), fr = Math.max(0, e.hp / e.maxHp);
-    const bx = Math.round(ox - w / 2), by = Math.round(feet - f.h * sy - 4);
+    const bx = Math.round(ox - w / 2), by = Math.round(top - 4);
     ctx.fillStyle = P.ink; ctx.fillRect(bx - 1, by - 1, w + 2, 3);
     ctx.fillStyle = e.elite ? '#ffd24a' : '#ec4a4a'; ctx.fillRect(bx, by, Math.max(1, Math.round(w * fr)), 1);
   }
+}
+
+// Çekici dili: ağızdan hedefe kalın kontur + pembe iç, ucunda topak
+function drawTongue(mx, my, e) {
+  pline3(mx, my, e.tx, e.ty, P.ink); pline(mx, my, e.tx, e.ty, '#e070a0');
+  ctx.fillStyle = P.ink; ctx.fillRect(Math.round(e.tx) - 2, Math.round(e.ty) - 2, 5, 5);
+  ctx.fillStyle = '#ff8ac0'; ctx.fillRect(Math.round(e.tx) - 1, Math.round(e.ty) - 1, 3, 3);
 }
 
 // Karakök toprak altında: kayanın içinde kıpırdayan tümsek
@@ -1634,8 +1640,8 @@ function drawEmissive(r0, r1, alpha, opts) {
       if (e.flashT > 0) glow(x, y, rgba(e.d.col, 0.8), 26, Math.min(1, e.flashT));
     }
     const blink = ((t * 1.3 + e.wob) % 3.7) < 0.12 && !e.d.boss;
-    const Q = enemyPose(e, alpha);
-    if (!blink) sprEScaled(Q.f, Q.ox, Q.feet, Q.sx, Q.sy, Q.flip);
+    if (hasMob(e)) drawMobGlow(ctx, e);
+    else if (!blink) { const Q = enemyPose(e, alpha); sprEScaled(Q.f, Q.ox, Q.feet, Q.sx, Q.sy, Q.flip); }
     if (e.d.boom) { const p = G.player, d = Math.hypot(p.x - x, p.y - y); glow(x, y, 'rgba(224,112,255,0.3)', 10, 0.6 + Math.sin(t * (d < 40 ? 18 : 6)) * 0.4); }
     if (e.type === 'glarer') {
       glow(x, y, 'rgba(255,231,154,0.3)', 12, 0.7 + Math.sin(t * 4 + e.wob) * 0.3);

@@ -6,7 +6,7 @@ import { TILE, GROUND_Y, GROUND_ROW, stratumOfRow } from '../config.js';
 import { T, TD } from '../data/tiles.js';
 import { directorHp, ttkFloor } from './power.js';
 import { gainXp } from './weaponlevel.js';
-import { ENEMIES, BARRICADE, BUILDS, ELITE, BURN, AFFIX, AFFIX_KEYS, enemyHpMul, enemyDmgMul } from '../data/balance.js';
+import { ENEMIES, BARRICADE, BUILDS, ELITE, BURN, AFFIX, AFFIX_KEYS, KNOCK, enemyHpMul, enemyDmgMul } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, solidAt, damageTile, idx, matOf } from '../world/map.js';
 import { FIELD, flowAt, nextStep, FLOW_INF } from '../world/flow.js';
@@ -41,7 +41,7 @@ export function spawnEnemy(type, x, y, lv = 0) {
   hp = d.boss ? Math.max(hp, ttkFloor(true)) * (d.hpMul || 1) : hp * directorHp(st);
   const e = {
     type, d, x, y, px: x, py: y, hp, maxHp: hp, r: d.r, face: 1, anim: rnd() * 4,
-    hitT: 0, kx: 0, ky: 0, atkCd: 0.6, fireCd: 1 + rnd(), emergeT: 0.9, wob: rnd() * 6,
+    hitT: 0, kx: 0, ky: 0, kn: 0, atkCd: 0.6, fireCd: 1 + rnd(), emergeT: 0.9, wob: rnd() * 6,
     stuckT: 0, lastC: -1, lastR: -1, slowT: 0, trail: d.burrow ? [] : null,
     wind: 0, lunge: 0, dieT: 0, lastF: 0, vx: 0, vy: 0,
     blindCd: 2 + rnd() * 2, flashT: 0, tongue: 0, tongueCd: 1.5, tx: 0, ty: 0, howlCd: 2 + rnd() * 2, howlT: 0,
@@ -105,8 +105,8 @@ export function damageEnemy(e, dmg, dx = 0, dy = 0, knock = 1, silent = false, c
   if (e.shield > 0) { const a = Math.min(e.shield, real); e.shield -= a; real -= a; if (rnd() < 0.5) sparks(e.x, e.y, AFFIX.kalkan.col, 2, 50); }
   e.hp -= real; e.hitT = 0.09; e.hitDx = dx; e.hitDy = dy;
   if (real > 0 && nearLocal(e)) dmgNum(e, real, crit);
-  const kr = 1 - (e.d.knockResist || 0);
-  e.kx += dx * 55 * knock * kr; e.ky += dy * 55 * knock * kr;
+  // seri atış düşmanı yerine çivilemesin: kısa sürede yenen her itme bir sonrakini zayıflatır
+  if (knock && (dx || dy)) { const k = KNOCK.imp * knock * (1 - (e.d.knockResist || 0)) / (1 + (e.kn || 0) * KNOCK.tire); e.kx += dx * k; e.ky += dy * k; e.kn = (e.kn || 0) + knock; }
   if (!silent && nearLocal(e)) sfx.hit();
   // Cellat: eşiğin altına düşen düşman ölür; Buz rezonansı: yavaşlamış düşman %25 altında parçalanır (boss hariç)
   if (e.hp > 0 && !e.d.boss && !e.illusion && hasPerk('cellat') && e.hp < e.maxHp * pv('cellat')) { e.hp = 0; sparks(e.x, e.y, '#ec4a4a', 8, 90); }
@@ -282,6 +282,7 @@ export function updateEnemies(dt) {
       e.kx *= Math.exp(-10 * dt); e.ky *= Math.exp(-10 * dt);
       if (Math.abs(e.kx) + Math.abs(e.ky) < 2) e.kx = e.ky = 0;
     }
+    if (e.kn) e.kn = e.kn < 0.02 ? 0 : e.kn * Math.exp(-KNOCK.rest * dt);
     e.atkCd -= dt;
     e.wind = 0;
     if (e.slowT > 0) e.slowT -= dt; else if (e.slowT < 0) e.slowT = Math.min(0, e.slowT + dt);

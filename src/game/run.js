@@ -70,7 +70,7 @@ export function makePlayer(i, helm = i, name = '', role = '') {
 
 // meta: sefer boyunca sabit meta anlık görüntüsü (çok oyunculuda ev sahibininki)
 export function metaSnapshot(m = App.meta) {
-  return { lv: Object.assign({}, m.lv || {}), schem: (m.schem || []).slice(), relics: (m.relics || []).slice(), maxStratum: m.maxStratum | 0, beacons: (m.beacons || []).slice(), echo: m.echo ? Object.assign({}, m.echo) : null };
+  return { lv: Object.assign({}, m.lv || {}), schem: (m.schem || []).slice(), relics: (m.relics || []).slice(), maxStratum: m.maxStratum | 0, beacons: (m.beacons || []).slice(), pets: (m.pets || []).slice(), echo: m.echo ? Object.assign({}, m.echo) : null };
 }
 
 export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kademe = 0, daily = null, mp = false, meta = null, localIdx = 0, helms = null, names = null, roles = null, startStratum = 0, start = true } = {}) {
@@ -124,7 +124,7 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
   if (!tutorial && start) for (const p of g.players) g.gear.pend.push({ pi: p.i, kind: 'start' });
   Object.assign(g, tutorial ? { lq: null, lk: null, springs: [], lqT: 0 } : placeLiquids(g, seed));
   g.hoard = tutorial ? null : placeHoard(g);
-  g.critters = tutorial ? [] : placeCritters(g, seed);
+  g.critters = tutorial ? [] : placeCritters(g, seed, gm.pets || []);
   Object.assign(g, tutorial ? { lakes: [], portals: [], shrooms: [] } : placeWonders(g, seed));
   if (!tutorial && App.meta && CRITTERS[App.meta.pet]) g.player.pet = App.meta.pet;
   g.nests = scanNests();

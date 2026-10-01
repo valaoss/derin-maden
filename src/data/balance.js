@@ -98,6 +98,8 @@ export const EVOLVED = Object.fromEntries(WEAPON_KEYS.map(k => [k, WEAPONS[k].ev
 // xp: düşmanın yönetmen bedeli (elit ×3, boss sabit). Sonraki seviye için gereken: base + step × seviye
 export const WXP = { base: 6, step: 4, elite: 3, boss: 20, evoAt: 3 };
 export const CRIT = { base: 0.1, mul: 2 };
+// savrulma: vuruş başına itme; üst üste gelen vuruşlar giderek daha az iter (tire), ara verince düşman toparlanır (rest /sn)
+export const KNOCK = { imp: 55, tire: 0.5, rest: 3 };
 // kartlar: en çok max kez alınır. shot: yalnız mermi atan silah elindeyken, noFlame: alev püskürtücü dışında sunulur
 export const CARDS = {
   dmg:  { name: 'Ağır Mermi', icon: 'blaster', max: 6, v: 0.1, desc: 'Silah hasarı +%10.' },
@@ -263,8 +265,8 @@ export const ENEMIES = {
   spitter: { name: 'Tükürgen', hp: 28, speed: 30, dmg: 9, r: 5, ranged: true, range: 72, fireCd: 1.7, cost: 2 },
   flyer:   { name: 'Yarasa', hp: 22, speed: 62, dmg: 7, r: 4, fly: true, cost: 1.5 },
   boomer:  { name: 'Kristalböcek', hp: 24, speed: 40, dmg: 26, r: 5, boom: 26, cost: 2 },
-  brute:   { name: 'Kaya Devi', hp: 140, speed: 20, dmg: 22, r: 8, armor: 0.4, dig: 99, digRate: 5, knockResist: 0.85, cost: 5 },
-  worm:    { name: 'Maden Solucanı', hp: 60, speed: 24, dmg: 10, r: 6, armor: 0.2, burrow: true, dig: 99, digRate: 7, knockResist: 0.7, cost: 3 },
+  brute:   { name: 'Kaya Devi', hp: 140, speed: 20, dmg: 22, r: 8, armor: 0.4, dig: 99, digRate: 5, knockResist: 0.85, cost: 5, dieT: 0.9 },
+  worm:    { name: 'Maden Solucanı', hp: 60, speed: 24, dmg: 10, r: 6, armor: 0.2, burrow: true, dig: 99, digRate: 7, knockResist: 0.7, cost: 3, dieT: 0.8 },
   // bosslar (bosses.js): ölçer tepede kalınca derinliğe göre biri uyanır; %50 canda öfkelenir
   karakok:  { name: 'Karakök', title: 'Toprağın Düğümü', col: '#78b43c', hp: 480, speed: 22, dmg: 24, r: 11, armor: 0.3, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 1.8,
     loot: [['cobalt', 4], ['iron', 4], ['crystal', 2]], lore: 'Madenin ilk kökü. Toprağa dalar, altından çıkar; yerde kök çatlarsa kaç.' },
@@ -278,18 +280,18 @@ export const ENEMIES = {
     loot: [['gold', 6], ['crystal', 6]], lore: 'Yaratılıştan önce vardı. Işık sütunları iner; halkası geldiğinde kayanın ardına saklan.' },
   // derin katman yaratıkları: her biri farklı bir "sürpriz"
   glarer:  { name: 'Parıldak', hp: 34, speed: 34, dmg: 5, r: 5, fly: true, blind: true, blindRange: 48, blindCd: 4.5, cost: 2.5 },
-  lurker:  { name: 'Çekici', hp: 70, speed: 18, dmg: 14, r: 7, armor: 0.25, pull: true, pullRange: 80, cost: 3 },
+  lurker:  { name: 'Çekici', hp: 70, speed: 18, dmg: 14, r: 7, armor: 0.25, pull: true, pullRange: 80, cost: 3, dieT: 0.8 },
   howler:  { name: 'Uluyan', hp: 46, speed: 30, dmg: 8, r: 6, howl: true, howlRange: 90, howlCd: 6, cost: 2.5 },
   shade:   { name: 'Gölge', hp: 26, speed: 44, dmg: 12, r: 4, phase: true, cost: 2 },
   // v4 biyom yaratıkları
-  spider:      { name: 'Örümcek', hp: 32, speed: 42, dmg: 8, r: 5, ranged: true, web: true, range: 64, fireCd: 2.6, spawnOnDeath: ['spiderling', 2, 0.4], cost: 2.2 },
+  spider:      { name: 'Örümcek', hp: 32, speed: 42, dmg: 8, r: 5, ranged: true, web: true, range: 64, fireCd: 2.6, spawnOnDeath: ['spiderling', 2, 0.4], cost: 2.2, dieT: 0.7 },
   spiderling:  { name: 'Örümcekçik', hp: 8, speed: 66, dmg: 3, r: 3, small: true, cost: 0.5 },
-  broodmother: { name: 'Örümcek Ana', hp: 240, speed: 16, dmg: 18, r: 9, armor: 0.3, ranged: true, web: true, range: 80, fireCd: 3, brood: 4.5, knockResist: 0.8, cost: 7 },
+  broodmother: { name: 'Örümcek Ana', hp: 240, speed: 16, dmg: 18, r: 9, armor: 0.3, ranged: true, web: true, range: 80, fireCd: 3, brood: 4.5, knockResist: 0.8, cost: 7, dieT: 0.9 },
   frostbat:    { name: 'Kırağı', hp: 26, speed: 58, dmg: 6, r: 4, fly: true, chill: true, cost: 2 },
   skitter:     { name: 'Kemikçi', hp: 44, speed: 54, dmg: 9, r: 5, armor: 0.3, cost: 2.5 },
   magmite:     { name: 'Kor Böceği', hp: 40, speed: 36, dmg: 12, r: 5, boom: 22, burnTrail: true, cost: 2.5 },
   voidling:    { name: 'Boşluk Gözü', hp: 52, speed: 30, dmg: 15, r: 5, fly: true, blink: true, blinkCd: 3.6, cost: 3.5 },
-  ogolem:      { name: 'Obsidyen Devi', hp: 280, speed: 18, dmg: 30, r: 9, armor: 0.55, dig: 99, digRate: 6, knockResist: 0.9, cost: 8 },
+  ogolem:      { name: 'Obsidyen Devi', hp: 280, speed: 18, dmg: 30, r: 9, armor: 0.55, dig: 99, digRate: 6, knockResist: 0.9, cost: 8, dieT: 0.9 },
   // v5 derin biyom imza düşmanları (yalnız kendi biyomunun yuvalarından çıkar; loot: ölünce düşen cevher)
   // derin biyom imzaları: her birinin kendine özgü davranışı var (enemies.js)
   quickling:  { name: 'Cıva Damlası', hp: 70, speed: 50, dmg: 22, r: 5, boom: 24, split: 'droplet', cost: 3 },                       // yarı canda ikiye bölünür

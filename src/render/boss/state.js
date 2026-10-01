@@ -53,7 +53,7 @@ function input(s, e, t, players, D) {
     yaw: s.yaw, face: e.face || 1, walk: s.walk, ph: s.ph, speed: sp, vx: s.vx, vy: s.vy,
     wind: e.wind || 0, lunge: e.lunge || 0, aim: A && Number.isFinite(A.a) ? A.a : null,
     hurt: clamp(1 - (t - s.hurtAt) / 0.38, 0, 1), hx: s.hx, hy: s.hy,
-    dying: e.dead ? clamp(1 - e.dieT / (e.d.dieT || 0.9), 0, 1) : 0,
+    dying: e.dead ? clamp(1 - e.dieT / (e.d.dieT || (e.d.boss ? 0.9 : 0.42)), 0, 1) : 0,
     intro: e.intro > 0 ? 1 - e.intro / BALROG.intro : -1,
     rage: phase === 2, rageT: t - s.rageAt, blink: e.blinkT > 0 ? e.blinkT / 0.3 : 0, fade: e.fade || 0, flash: e.flashT || 0,
     tx: p ? p.x - e.x : (e.face || 1) * 60, ty: p ? p.y - e.y : 0, wob: e.wob || 0,
@@ -69,9 +69,9 @@ function fresh(e, t, P = null, view = null) {
   return { t, walk: 0, ph: 0, vx: 0, vy: 0, yaw: e.face < 0 ? Math.PI : 0, view, hurtAt: -9, hx: 0, hy: 0, phase: e.bs ? e.bs.phase : 1, rageAt: -9, act: null, prev: null, actAt: -9, stage: '', stageAt: -9, P, rt: P ? t - 0.001 : -9, R: null };
 }
 
-// dönen: { S, P, pts, o, D, cam } ; aynı kare içinde (ana + ışık katmanı) önbellekten gelir
-export function rasterBoss(e, t, players) {
-  const D = DEFS[e.type]; if (!D) return null;
+// dönen: { S, P, pts, o, D, cam } ; aynı kare içinde (ana + ışık katmanı) önbellekten gelir. D: tanım (küçük düşmanlar kendi tanımını verir)
+export function rasterBoss(e, t, players, D = DEFS[e.type]) {
+  if (!D) return null;
   let s = states.get(e);
   if (!s || t < s.t - 0.05) {
     const sd = D.seed && D.seed(e, t), p = nearest(e, players);
@@ -86,7 +86,7 @@ export function rasterBoss(e, t, players) {
   const P = s.P;
   D.S ||= createSurface(D.w, D.h); geo ||= createGeo(16384, 32768);
   resetGeo(geo);
-  const A = D.build(geo, P, o), cam = camera(o.view + (P.spin || 0), P.tilt ?? D.tilt ?? 0.2, D.scale || 1, D.ox, D.oy, 1), pts = {};
+  const A = D.build(geo, P, o), cam = camera(o.view + (P.spin || 0), P.tilt ?? D.tilt ?? 0.2, (D.scale || 1) * (P.zoom || 1), D.ox, D.oy, 1), pts = {};
   render(D.S, geo, cam, D.mats, D);
   for (const k in A) { const q = project(cam, A[k]); pts[k] = [q[0] - D.ox, q[1] - D.oy, q[2]]; }
   D.owner = s; s.rt = t;

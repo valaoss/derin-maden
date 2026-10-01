@@ -1,5 +1,6 @@
 // Garip yaratıklar: her biyomda şansa bağlı bir gizli oyukta bir yaratık uyur. Kazıp yanına varan onu bulur,
 // yaratık o oyuncunun yoldaşı olur (yanında gezer) ve kalıcı koleksiyona girer. Yerleşim tohumdan, bulma simülasyonda.
+// Her tür bir kez bulunur: koleksiyondaki (owned) türler ve o seferde zaten yerleşmiş olanlar bir daha çıkmaz.
 import { COLS, TILE, GROUND_ROW, STRATUM_ROWS, STRATA_COUNT, PLAY_MIN_COL, PLAY_MAX_COL } from '../config.js';
 import { T, isPlain } from '../data/tiles.js';
 import { CRITTERS, CRITTER_KEYS, CRITTER } from '../data/critters.js';
@@ -7,12 +8,13 @@ import { mulberry32 } from '../core/util.js';
 import { G } from './state.js';
 import { emit } from '../core/events.js';
 
-export function placeCritters(g, seed) {
+export function placeCritters(g, seed, owned = []) {
   const rnd = mulberry32((seed | 0) ^ 0x7a11c0de), out = [];
   const plain = (c, r) => c >= PLAY_MIN_COL && c <= PLAY_MAX_COL && isPlain(g.map[r * COLS + c]);
   for (let s = 0; s < STRATA_COUNT; s++) {
     if (rnd() >= CRITTER.chance) continue;
-    const pool = CRITTER_KEYS.filter(k => CRITTERS[k].min <= s);
+    const pool = CRITTER_KEYS.filter(k => CRITTERS[k].min <= s && !owned.includes(k) && !out.some(o => o.k === k));
+    if (!pool.length) continue;
     let w = 0; for (const k of pool) w += CRITTERS[k].w;
     let x = rnd() * w, k = pool[0];
     for (const q of pool) { x -= CRITTERS[q].w; if (x < 0) { k = q; break; } }

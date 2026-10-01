@@ -873,6 +873,18 @@ section('Gezgin tüccar ve asansör durakları');
   p.x = WELL_X + 60; G.store.gold = 99; ok('kuyudan uzakta atılmaz', !wish(p));
 }
 
+section('Savrulma');
+{
+  fresh(31);
+  const mk = () => { const e = spawnEnemy('rodent', 8 * TILE + 8, (GROUND_ROW + 6) * TILE + 8, 0); e.emergeT = 0; e.hp = e.maxHp = 1e6; return e; };
+  const a = mk(); damageEnemy(a, 1, 1, 0, 1);
+  ok('tek vuruş tam iter', Math.abs(a.kx - 55) < 0.01, `${a.kx}`);
+  const b = mk(); for (let i = 0; i < 10; i++) damageEnemy(b, 1, 1, 0, 1);
+  ok('üst üste vuruşlar giderek az iter', b.kx < 55 * 10 * 0.45 && b.kx > 55, `${b.kx.toFixed(0)}`);
+  for (let i = 0; i < 120; i++) step();
+  ok('ara verince toparlanır', b.kn < 0.1 && b.kx === 0, `${b.kn}`);
+}
+
 section('Garip yaratıklar');
 {
   fresh(970); const p = G.player, cs = G.critters;
@@ -881,6 +893,9 @@ section('Garip yaratıklar');
   const c0 = cs[0]; p.x = c0.c * TILE + 8; p.y = c0.r * TILE + 8; p.px = p.x; p.py = p.y; step();
   ok('yanına varınca bulunur, yoldaş olur', c0.found && p.pet === c0.k && (events.critter | 0) >= 1);
   fresh(970); ok('yerleşim tohumla aynı', JSON.stringify(G.critters.map(c => [c.k, c.c, c.r])) === JSON.stringify(cs.map(c => [c.k, c.c, c.r])));
+  ok('bir seferde her tür en çok bir kez', new Set(cs.map(c => c.k)).size === cs.length);
+  const had = cs.map(c => c.k), g2 = newRun({ seed: 970, start: false, meta: { ...metaSnapshot(), pets: had } });
+  ok('koleksiyondaki türler bir daha çıkmaz', g2.critters.every(c => !had.includes(c.k)), g2.critters.map(c => c.k).join(' '));
 }
 
 section('Harita sürprizleri');
