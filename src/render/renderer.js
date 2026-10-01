@@ -16,6 +16,7 @@ import { drawBalrog, drawBalrogGlow, drawBalrogDark, drawBalrogOmen, balrogLight
 import { drawSerpent, drawSerpentGlow, drawSerpentOmen, drawSerpentOmenGlow, drawSerpentDark } from './serpent.js';
 import { hasBossArt, drawBossArt, drawBossArtGlow } from './bossart.js';
 import { drawPoseidonFx } from './poseidonfx.js';
+import { drawKitFx, drawKitMark } from './bossfx.js';
 import { hasMob, drawMob, drawMobGlow } from './mob/actor.js';
 import { drawDragon, drawDragonGlow, drawHoardDragon, drawHoardGlow, dragonLights } from './dragon.js';
 import { drawHall, drawHallGlow, hallLights, hallCenter } from './hoard.js';
@@ -190,7 +191,7 @@ function shadow(x, y, w, a = 0.35) { ctx.fillStyle = `rgba(0,0,0,${a})`; ctx.fil
 export function render(alpha, opts = {}) {
   flushDirty();
   const cam = G.cam;
-  const dtR = Math.max(0, Math.min(0.1, G.time - lastT)); lastT = G.time;
+  const dtR = Math.max(0, Math.min(0.1, G.time - lastT)); lastT = G.time; frameDt = dtR;
   const sh = cam.trauma * cam.trauma * 5;
   const camX = Math.round(lerp(cam.px, cam.x, alpha) + (Math.random() - 0.5) * sh + cam.kx);
   const camY = Math.round(lerp(cam.py, cam.y, alpha) + (Math.random() - 0.5) * sh + cam.ky);
@@ -1155,7 +1156,7 @@ function drawMound(x, y) {
   ctx.fillStyle = '#78b43c'; ctx.fillRect(cx + 2, fy - 6 - w, 1, 2); ctx.fillRect(cx - 4, fy - 6 + w, 1, 2);
 }
 // boss uyarıları ve saldırı görselleri: ışık katmanında çizilir, karanlıkta da okunur
-const FX_COL = { root: '#b8f060', ember: '#ff7a2a', light: '#fff4c0', rise: '#b8f060', egg: '#d8f0a0', amber: '#ffb040', spike: '#ff3a6a', rock: '#c8b8a0', venom: '#5ae0c8' };
+const FX_COL = { root: '#b8f060', ember: '#ff7a2a', light: '#fff4c0', rise: '#b8f060', egg: '#d8f0a0', amber: '#ffb040', spike: '#ff3a6a', rock: '#c8b8a0', venom: '#5ae0c8', seed: '#78b43c', bone: '#e8dcc0', boulder: '#c8b8a0', clot: '#ff3a6a', grow: '#ff3a6a' };
 const rgbaCache = new Map();
 function rgba(hex, a) { const k = hex + a; let s = rgbaCache.get(k); if (!s) { s = 'rgba(' + hexToRgb(hex).join(',') + ',' + a + ')'; rgbaCache.set(k, s); } return s; }
 function ringPx(x, y, r, col, dash = 0) {
@@ -1172,6 +1173,7 @@ function drawBossFx(e, alpha) {
   const B = e.bs, t = G.time, x = lerp(e.px, e.x, alpha), y = lerp(e.py, e.y, alpha);
   for (const m of B.marks) {
     const c = FX_COL[m.kind];
+    if (drawKitMark(ctx, m, t, glow)) continue;
     if (m.t > 0) {
       const k = 1 - m.t / m.T, on = Math.floor(t * (6 + k * 20)) % 2 === 0;
       ctx.globalAlpha = 0.14 + k * 0.22; ctx.fillStyle = c;
@@ -1201,6 +1203,7 @@ function drawBossFx(e, alpha) {
     ctx.globalAlpha = 1;
   }
   if (e.type === 'poseidon') drawPoseidonFx(ctx, e, x, y, t, glow);
+  drawKitFx(ctx, e, x, y, t, glow, alpha);
   const A = B.act;
   if (!A) return;
   const on = Math.floor(t * 14) % 2 === 0;
@@ -1221,7 +1224,7 @@ function drawBossFx(e, alpha) {
   } else if (A.k === 'slam') { if (on) ringPx(x, y + 4, 76, '#ffd870', 2); }
   else if (A.k === 'melee') {
     // düz vuruş: önündeki yay yanıp söner (son anda kızarır); darbe anında beyaz bir savruluş
-    const hit = A.done, n = Math.round(A.R * A.arc * 1.4), c = hit ? '#ffffff' : e.wind > 0.7 ? '#ff5a3a' : e.d.col;
+    const hit = A.done, n = Math.round(A.R * A.arc * 1.4), c = hit ? '#ffffff' : e.wind >= 0.6 ? '#ff5a3a' : e.d.col;
     if (!hit || A.T > BOSS_MELEE.rest - 0.14) {
       ctx.globalAlpha = hit ? 1 : 0.4 + e.wind * 0.6; ctx.fillStyle = c;
       for (let i = 0; i <= n; i++) { if (!hit && !on && i % 2) continue; const a = A.a - A.arc + i / n * 2 * A.arc, s = hit ? 2 : 1; ctx.fillRect(Math.round(x + Math.cos(a) * A.R), Math.round(y + Math.sin(a) * A.R), s, s); }
@@ -1312,10 +1315,11 @@ function drawPlayer(p, alpha) {
 }
 // mantar ölçeği: hedef değere yumuşakça yaklaşır, geçişte hafif esner
 const scaleOf = new Map();
+let frameDt = 1 / 60; // son çizimden bu yana geçen oyun süresi: geçiş hızı ekran yenileme hızından bağımsız
 function shroomScale(p) {
   const tg = p.shroom ? p.shroom.k === 'mini' ? SHROOM.mini : p.shroom.k === 'dev' ? SHROOM.big : 1 : 1;
   let c = scaleOf.get(p.i) ?? 1;
-  c += (tg - c) * 0.12; if (Math.abs(tg - c) < 0.01) c = tg;
+  c += (tg - c) * (1 - Math.exp(-frameDt * 7.7)); if (Math.abs(tg - c) < 0.01) c = tg;
   scaleOf.set(p.i, c);
   return c;
 }
@@ -1512,7 +1516,7 @@ function drawEmissive(r0, r1, alpha, opts) {
     if (p.dead) continue;
     const x = lerp(p.px, p.x, alpha), y = lerp(p.py, p.y, alpha);
     const flick = 0.2 + Math.sin(t * 17 + p.i * 3) * 0.015 + Math.sin(t * 5.3) * 0.01;
-    glow(x + p.face * 5, y - 5, `rgba(255,236,170,${flick.toFixed(3)})`, 22);
+    glow(x + p.face * 5, y - 5, 'rgba(255,236,170,0.2)', 22, flick / 0.2); // tek önbellekli sprite; titreme alfa ile
     const fx = p.dig ? p.digDir[0] : p.dx, fy = p.dig ? p.digDir[1] : p.dy;
     glow(x + fx * 18, y + fy * 18, 'rgba(255,230,160,0.07)', 34);
     const S = playerSprites(p.helm);
@@ -1648,8 +1652,10 @@ function drawEmissive(r0, r1, alpha, opts) {
   // düşman gözleri: karanlıkta görünür; ara sıra göz kırpar
   for (const e of G.enemies) {
     if (e.bs && !e.dead) drawBossFx(e, alpha);
-    if (e.type === 'balrog') { drawBalrogGlow(ctx, e, alpha, glow); continue; }
     if (e.type === 'dunyaYilani') { drawSerpentGlow(ctx, e, alpha, glow); continue; }
+    // ekran dışındaki düşmanın ışıması çizilmez (bossların 3B modeli her kare boşuna yeniden rasterlenmesin); drawEnemy ile aynı pay
+    { const ey = lerp(e.py, e.y, alpha), m = hasBossArt(e) ? 240 : 90; if (ey < r0 * TILE - m || ey > (r1 + 1) * TILE + m) continue; }
+    if (e.type === 'balrog') { drawBalrogGlow(ctx, e, alpha, glow); continue; }
     if (e.type === 'ejder') { drawDragonGlow(ctx, e, alpha, glow); continue; }
     if (hasBossArt(e) && !e.under && drawBossArtGlow(ctx, e, alpha, glow)) continue;
     if (e.emergeT > 0 || e.dead || e.under || e.sink > 0) continue;

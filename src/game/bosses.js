@@ -12,6 +12,7 @@ import { sparks, debris, shake, ring, flashLight, dust, hitstop, particle } from
 import { sfx, haptic } from '../audio/audio.js';
 import { emit } from '../core/events.js';
 import { igniteGas } from './hazards.js';
+import { EXTRA, POP, tickExtras } from './bosskits.js';
 
 export function bossForY(y) {
   const st = Math.max(0, stratumOfRow(Math.floor(y / TILE)));
@@ -36,7 +37,7 @@ export function hitPlayers(x, y, R, dmg, fn) {
   for (const q of live()) if (Math.hypot(q.x - x, q.y - y) < R) { damagePlayer(q, dmg, x, y); if (fn) fn(q); }
 }
 // yerde gecikmeli vuruş: önce yanıp söner, sonra patlar. İsabet çizilen uyarıyla aynı: (x, y+4) merkezli, dikeyde 0.8 basık elips
-const inMark = (q, m) => Math.hypot((q.x - m.x) / (m.r + 3), (q.y - m.y - 4) / ((m.r + 3) * 0.8)) < 1;
+export const inMark = (q, m) => Math.hypot((q.x - m.x) / (m.r + 3), (q.y - m.y - 4) / ((m.r + 3) * 0.8)) < 1;
 // yayılan halka da dikeyde 0.8 basık çizilir
 const ringDist = (q, R) => Math.hypot(q.x - R.x, (q.y - R.y) / 0.8);
 export function mark(e, x, y, R, T, dmg, kind) { e.bs.marks.push({ x, y, r: R, t: T, T, dmg, kind, post: 0 }); }
@@ -64,16 +65,9 @@ export function angDiff(a, b) { let d = (a - b) % TAU; if (d > Math.PI) d -= TAU
 export const KITS = {
   // KARAKÖK: kök mızrakları, toprağa dalıp altından çıkma; öfkede kökçük çağırır
   karakok: {
-    cd: { spikes: 2, burrow: 7, summon: 4 },
-    choose(e, p, dp, B) {
-      if (B.cd.burrow <= 0 && dp < 200) return 'burrow';
-      if (B.cd.spikes <= 0 && dp < 150) return 'spikes';
-      if (B.phase === 2 && B.cd.summon <= 0) return 'summon';
-      return null;
-    },
     start: {
       spikes(e, p, B, dt) {
-        B.cd.spikes = 4.2; B.act.T = 0.5; e.lunge = 1; sfx.rumble();
+        B.act.T = 0.5; e.lunge = 1; sfx.rumble();
         for (const q of live()) {
           if (Math.hypot(q.x - e.x, q.y - e.y) > 170) continue;
           mark(e, q.x, q.y, 10, 0.85, 18, 'root');
@@ -86,12 +80,12 @@ export const KITS = {
         }
       },
       burrow(e, p, B) {
-        B.cd.burrow = 9; B.act.T = 4; B.act.stage = 'sink'; B.act.st = 0.5; B.act.tgt = p.i;
+        B.act.T = 4; B.act.stage = 'sink'; B.act.st = 0.5; B.act.tgt = p.i;
         dust(e.x, e.y + 6, 6, 'rgba(120,90,60,0.6)'); debris(e.x, e.y, 'dirt', 10); sfx.burrow(); shake(0.2);
       },
       summon(e, p, B) {
-        B.cd.summon = 7; B.act.T = 0.3;
-        for (let k = 0; k < 2; k++) spawnEnemy('rodent', Math.floor(e.x / TILE) * TILE + 8 + (k ? 3 : -3), Math.floor(e.y / TILE) * TILE + 8, G.wave.num).emergeT = 0.4;
+        B.act.T = 0.3;
+        for (let k = 0; k < (B.phase === 2 ? 3 : 2); k++) spawnEnemy('rodent', Math.floor(e.x / TILE) * TILE + 8 + (k - 1) * 4, Math.floor(e.y / TILE) * TILE + 8, G.wave.num).emergeT = 0.4;
         ring(e.x, e.y, '#78b43c', 26); sfx.brood();
       },
     },
@@ -123,22 +117,15 @@ export const KITS = {
 
   // KAVURGAN: kor nefesi (koni), kül yağmuru; öfkede kemik halkası
   kavurgan: {
-    cd: { breath: 2.5, embers: 4, bones: 3 },
-    choose(e, p, dp, B) {
-      if (B.cd.breath <= 0 && dp < 80 && losClear(e.x, e.y, p.x, p.y)) return 'breath';
-      if (B.cd.embers <= 0 && dp < 170) return 'embers';
-      if (B.phase === 2 && B.cd.bones <= 0 && dp < 160) return 'bones';
-      return null;
-    },
     start: {
-      breath(e, p, B) { B.cd.breath = 5.5; B.act.T = 1.9; B.act.a = Math.atan2(p.y - e.y, p.x - e.x); B.act.tick = 0; e.face = p.x >= e.x ? 1 : -1; sfx.arm(); },
+      breath(e, p, B) { B.act.T = 1.9; B.act.a = Math.atan2(p.y - e.y, p.x - e.x); B.act.tick = 0; e.face = p.x >= e.x ? 1 : -1; sfx.arm(); },
       embers(e, p, B) {
-        B.cd.embers = 6.5; B.act.T = 0.45; e.lunge = 1; sfx.flame();
+        B.act.T = 0.45; e.lunge = 1; sfx.flame();
         const n = B.phase === 2 ? 6 : 4;
         for (let i = 0; i < n; i++) { const [x, y] = i === 0 ? [p.x, p.y] : spotNear(p.x, p.y, 40); mark(e, x, y, 11, 0.95 + i * 0.12, 14, 'ember'); }
       },
       bones(e, p, B) {
-        B.cd.bones = 5; B.act.T = 0.4; e.lunge = 1; ring(e.x, e.y, '#e8dcc0', 20); sfx.spit();
+        B.act.T = 0.4; e.lunge = 1; ring(e.x, e.y, '#e8dcc0', 20); sfx.spit();
         const a0 = rnd() * TAU;
         for (let i = 0; i < 10; i++) bullet(e, a0 + i * TAU / 10, 78, 10, '#e8dcc0', { life: 2.2 });
       },
@@ -168,23 +155,15 @@ export const KITS = {
 
   // ÖTEGÖZ: güdümlü boşluk küreleri, çekim; öfkede tarayan göz ışını. Işınlanır.
   otegoz: {
-    cd: { orbs: 1.5, pull: 5, gaze: 2 },
-    choose(e, p, dp, B) {
-      const los = losClear(e.x, e.y, p.x, p.y);
-      if (B.phase === 2 && B.cd.gaze <= 0 && dp < 130 && los) return 'gaze';
-      if (B.cd.pull <= 0 && dp < 115 && los) return 'pull';
-      if (B.cd.orbs <= 0 && dp < 170) return 'orbs';
-      return null;
-    },
     start: {
       orbs(e, p, B) {
-        B.cd.orbs = 4; B.act.T = 0.5; e.flashT = 0.5; sfx.blink();
+        B.act.T = 0.5; e.flashT = 0.5; sfx.blink();
         const n = B.phase === 2 ? 5 : 3, a0 = Math.atan2(p.y - e.y, p.x - e.x);
         for (let i = 0; i < n; i++) bullet(e, a0 + (i - (n - 1) / 2) * 0.55, 55, 12, '#b080ff', { life: 3.4, home: 2.4, slow: 1.2, orb: true });
       },
-      pull(e, p, B) { B.cd.pull = 7.5; B.act.T = 2; sfx.tongue(); },
+      pull(e, p, B) { B.act.T = 2; sfx.tongue(); },
       gaze(e, p, B) {
-        B.cd.gaze = 7; B.act.T = 2.1; B.act.tick = 0;
+        B.act.T = 2.1; B.act.tick = 0;
         const a = Math.atan2(p.y - e.y, p.x - e.x); B.act.dir = rnd() < 0.5 ? 1 : -1; B.act.a = a - 0.75 * B.act.dir; sfx.arm();
       },
     },
@@ -213,21 +192,14 @@ export const KITS = {
 
   // KÖRDEŞEN (dev köstebek): kayayı yararak hücum, pençe darbesi (şok halkası), cevher yelpazesi
   kordesen: {
-    cd: { charge: 3, slam: 2, coins: 2 },
-    choose(e, p, dp, B) {
-      if (B.cd.slam <= 0 && dp < 50) return 'slam';
-      if (B.cd.charge <= 0 && dp > 36 && dp < 160) return 'charge';
-      if (B.cd.coins <= 0 && dp < 150 && losClear(e.x, e.y, p.x, p.y)) return 'coins';
-      return null;
-    },
     start: {
       charge(e, p, B) {
-        B.cd.charge = 6; B.act.T = 3; B.act.stage = 'aim'; B.act.st = B.phase === 2 ? 0.6 : 0.8;
+        B.act.T = 3; B.act.stage = 'aim'; B.act.st = B.phase === 2 ? 0.6 : 0.8;
         B.act.a = Math.atan2(p.y - e.y, p.x - e.x); B.act.hit = []; B.act.chain = B.phase === 2 ? 1 : 0; e.face = p.x >= e.x ? 1 : -1; sfx.arm();
       },
-      slam(e, p, B) { B.cd.slam = 4.5; B.act.T = 0.6; sfx.arm(); },
+      slam(e, p, B) { B.act.T = 0.6; sfx.arm(); },
       coins(e, p, B) {
-        B.cd.coins = 3.5; B.act.T = 0.35; e.lunge = 1; sfx.buy();
+        B.act.T = 0.35; e.lunge = 1; sfx.buy();
         const n = B.phase === 2 ? 7 : 5, a0 = Math.atan2(p.y - e.y, p.x - e.x);
         for (let i = 0; i < n; i++) bullet(e, a0 + (i - (n - 1) / 2) * 0.16, 118, 9, '#ffd870', { life: 1.6, coin: true });
       },
@@ -274,15 +246,9 @@ export const KITS = {
 
   // EZELÎ: yargı sütunları, kıyamet halkası (kayanın arkasına saklan); öfkede Işık Bekçileri çağırır
   ezeli: {
-    cd: { pillars: 1.5, doom: 5 },
-    choose(e, p, dp, B) {
-      if (B.cd.doom <= 0 && dp < 140) return 'doom';
-      if (B.cd.pillars <= 0 && dp < 170) return 'pillars';
-      return null;
-    },
     start: {
       pillars(e, p, B, dt) {
-        B.cd.pillars = B.phase === 2 ? 3.4 : 4.5; B.act.T = 0.4; e.flashT = 0.4; sfx.glare();
+        B.act.T = 0.4; e.flashT = 0.4; sfx.glare();
         for (const q of live()) {
           if (Math.hypot(q.x - e.x, q.y - e.y) > 190) continue;
           mark(e, q.x, q.y, 9, 1.0, 20, 'light');
@@ -292,7 +258,7 @@ export const KITS = {
         }
       },
       doom(e, p, B) {
-        B.cd.doom = B.phase === 2 ? 7 : 9.5; B.act.T = 1.2; sfx.arm();
+        B.act.T = 1.2; sfx.arm();
         if (!B.hinted) { B.hinted = true; emit('toast', { text: 'Kıyamet Halkası: kayanın arkasına saklan!', icon: 'skull', bad: true }); }
       },
     },
@@ -313,24 +279,18 @@ export const KITS = {
 Object.assign(KITS, {
   // AYNASIZ HÜKÜMDAR: hedefinin taktığı silahı kopyalar; ışınlanır; öfkede ayna kırıkları
   aynasiz: {
-    cd: { mirror: 1.5, step: 5, shards: 3 },
-    choose(e, p, dp, B) {
-      if (B.cd.step <= 0 && dp < 210) return 'step';
-      if (B.cd.mirror <= 0 && dp < 150 && losClear(e.x, e.y, p.x, p.y)) return 'mirror';
-      if (B.phase === 2 && B.cd.shards <= 0 && dp < 170) return 'shards';
-      return null;
-    },
     start: {
-      mirror(e, p, B) { B.cd.mirror = B.phase === 2 ? 2.4 : 3.2; B.act.T = 1.4; B.act.w = p.wpn || 'blaster'; B.act.tgt = p.i; B.act.n = 0; B.act.tick = 0; e.flashT = 0.6; sfx.arm(); },
+      mirror(e, p, B) { B.act.T = 1.4; B.act.w = p.wpn || 'blaster'; B.act.tgt = p.i; B.act.n = 0; B.act.tick = 0; e.flashT = 0.6; sfx.arm(); },
       step(e, p, B) {
-        B.cd.step = 6.5; B.act.T = 0.5;
-        const [x, y] = spotNear(p.x - p.face * 40, p.y, 30);
+        B.act.T = 0.5;
+        const [x, y] = spotNear(p.x - p.face * 30, p.y, 16);
         ring(e.x, e.y, '#c8d0ff', 24); sparks(e.x, e.y, '#ffffff', 12, 90);
         if (openSpot(x, y)) { e.x = e.px = x; e.y = e.py = y; }
         ring(e.x, e.y, '#c8d0ff', 30); flashLight(e.x, e.y, 5, 0.3); sfx.blink(); e.face = p.x >= e.x ? 1 : -1;
+        B.cd.melee = 0; // arkasında belirir belirmez asasını kaldırır
       },
       shards(e, p, B) {
-        B.cd.shards = 5.5; B.act.T = 0.4; e.lunge = 1; ring(e.x, e.y, '#e0e8ff', 26); sfx.shade();
+        B.act.T = 0.4; e.lunge = 1; ring(e.x, e.y, '#e0e8ff', 26); sfx.shade();
         const a0 = rnd() * TAU; for (let i = 0; i < 14; i++) bullet(e, a0 + i * TAU / 14, 90, 12, '#e0e8ff', { life: 2.4 });
       },
     },
@@ -356,38 +316,24 @@ Object.assign(KITS, {
   },
   // KEHRİBAR ANA: yumurta yağmuru (çatlayınca tozböcek), reçine yelpazesi; öfkede kehribara hapseder
   kehribarAna: {
-    cd: { eggs: 2, resin: 3, amber: 5 },
-    choose(e, p, dp, B) {
-      if (B.phase === 2 && B.cd.amber <= 0 && dp < 130) return 'amber';
-      if (B.cd.eggs <= 0 && dp < 180) return 'eggs';
-      if (B.cd.resin <= 0 && dp < 140 && losClear(e.x, e.y, p.x, p.y)) return 'resin';
-      return null;
-    },
     start: {
       eggs(e, p, B) {
-        B.cd.eggs = 5.5; B.act.T = 0.4; e.lunge = 1; sfx.brood();
+        B.act.T = 0.4; e.lunge = 1; sfx.brood();
         for (const q of live()) { if (Math.hypot(q.x - e.x, q.y - e.y) > 190) continue; for (let i = 0; i < (B.phase === 2 ? 4 : 3); i++) { const [x, y] = i ? spotNear(q.x, q.y, 40) : [q.x, q.y]; mark(e, x, y, 9, 1.1 + i * 0.15, 10, 'egg'); } }
       },
       resin(e, p, B) {
-        B.cd.resin = 4; B.act.T = 0.4; e.lunge = 1; sfx.spit();
+        B.act.T = 0.4; e.lunge = 1; sfx.spit();
         const a0 = Math.atan2(p.y - e.y, p.x - e.x); for (let i = 0; i < 5; i++) bullet(e, a0 + (i - 2) * 0.22, 110, 8, '#ffb040', { life: 1.6, web: true });
       },
-      amber(e, p, B) { B.cd.amber = 7.5; B.act.T = 0.3; sfx.arm(); for (const q of live()) if (Math.hypot(q.x - e.x, q.y - e.y) < 190) mark(e, q.x, q.y, 12, 1.1, 14, 'amber'); },
+      amber(e, p, B) { B.act.T = 0.3; sfx.arm(); for (const q of live()) if (Math.hypot(q.x - e.x, q.y - e.y) < 190) mark(e, q.x, q.y, 12, 1.1, 14, 'amber'); },
     },
     run: {},
   },
   // MADENİN KALBİ: duvarlardan dikenler, tavan çöküşü, nabız halkası (kayanın ardına saklan)
   madenKalbi: {
-    cd: { spikes: 1.5, fall: 4, beat: 5 },
-    choose(e, p, dp, B) {
-      if (B.cd.beat <= 0 && dp < 150) return 'beat';
-      if (B.cd.spikes <= 0 && dp < 210) return 'spikes';
-      if (B.cd.fall <= 0 && dp < 210) return 'fall';
-      return null;
-    },
     start: {
       spikes(e, p, B) {
-        B.cd.spikes = B.phase === 2 ? 2.4 : 3.2; B.act.T = 0.4; e.flashT = 0.4; sfx.creak();
+        B.act.T = 0.4; e.flashT = 0.4; sfx.creak();
         for (const q of live()) {
           if (Math.hypot(q.x - e.x, q.y - e.y) > 220) continue;
           const pc = Math.floor(q.x / TILE), pr = Math.floor(q.y / TILE); let n = 0;
@@ -399,8 +345,8 @@ Object.assign(KITS, {
           if (!n) mark(e, q.x, q.y, 9, 0.9, 20, 'spike');
         }
       },
-      fall(e, p, B) { B.cd.fall = 6; B.act.T = 0.3; sfx.rumble(); shake(0.3); for (const q of live()) if (Math.hypot(q.x - e.x, q.y - e.y) < 220) mark(e, q.x, q.y, 14, 1.0, 0, 'rock'); },
-      beat(e, p, B) { B.cd.beat = B.phase === 2 ? 5 : 7; B.act.T = 1; B.act.n = 0; sfx.arm(); },
+      fall(e, p, B) { B.act.T = 0.3; sfx.rumble(); shake(0.3); for (const q of live()) if (Math.hypot(q.x - e.x, q.y - e.y) < 220) mark(e, q.x, q.y, 14, 1.0, 0, 'rock'); },
+      beat(e, p, B) { B.act.T = 1; B.act.n = 0; sfx.arm(); },
     },
     run: {
       beat(e, dt, p, B) {
@@ -412,6 +358,9 @@ Object.assign(KITS, {
     },
   },
 });
+
+// döngü ve ek yetenekler (bosskits.js): her bossta beş yetenek, sabit sırayla döner
+for (const k in EXTRA) { const K = KITS[k], X = EXTRA[k]; Object.assign(K.start, X.start); Object.assign(K.run, X.run); K.rot = X.rot; K.can = X.can; K.gap = X.gap; }
 
 // BALROG: alev kamçısı (uzak, öfkede çeker), alev kılıcı (yeri yarar), gölge kanatları (korku + kor yağmuru), ateş nefesi,
 // alev alan kanatlarla havalanıp madencinin üstüne konma. Yürürken kayayı parçalar; öfkede çevresini kavurur.
@@ -629,7 +578,7 @@ function runMelee(e, dt, p, B) {
 
 function initBoss(e) {
   const K = KITS[e.type];
-  e.bs = { phase: 1, act: null, cd: Object.assign({ melee: 0.5 }, K.cd), marks: [], rings: [], hinted: false };
+  e.bs = { phase: 1, act: null, cd: Object.assign({ melee: 0.5, gap: 1 }, K.cd), q: K.rot ? K.rot.slice() : [], marks: [], rings: [], zones: [], lines: [], shots: [], images: [], hinted: false };
   if (K.init) K.init(e, e.bs);
 }
 
@@ -669,7 +618,7 @@ function tickMarks(e, dt) {
             if (d.plain && !solidAt(c, r + 1)) { const mat = matOf(c, r); setTile(c, r, T.AIR); G.rocks.push({ x: c * TILE + 8, y: r * TILE + 8, vy: 30, mat }); n++; }
           }
           shake(0.3); sfx.rockfall();
-        }
+        } else if (POP[m.kind]) POP[m.kind](e, m, B);
       }
     } else m.post -= dt;
     if (m.t > 0 || m.post > 0) B.marks[j++] = m;
@@ -686,6 +635,33 @@ function tickMarks(e, dt) {
     if (R.r < R.R) B.rings[j++] = R;
   }
   B.rings.length = j;
+  tickExtras(e, dt, B);
+}
+
+// sıradaki yetenek: döngüde kalanlardan ilk yapılabilir olan; hiçbiri olmuyorsa döngü baştan
+function nextSkill(e, p, dp, B, K) {
+  if (B.cd.gap > 0) return null;
+  const ok = k => K.can[k](e, p, dp, B);
+  let i = B.q.findIndex(ok);
+  if (i < 0 && B.q.length < K.rot.length) { B.q = K.rot.slice(); i = B.q.findIndex(ok); }
+  if (i < 0) return null;
+  B.cd.gap = K.gap;
+  return B.q.splice(i, 1)[0];
+}
+
+// Aynasız Hükümdar aynasını kaldırmışken silah vuruşu işlemez: cam kırığı olup en yakın madenciye döner
+export function mirrored(e) {
+  const B = e.bs, A = B && B.act;
+  if (!A || A.k !== 'reflect' || !A.fire) return false;
+  e.flashT = 0.25;
+  if (!(B.refCd > 0)) {
+    B.refCd = 0.22;
+    let q = null, bd = Infinity;
+    for (const o of live()) { const d = Math.hypot(o.x - e.x, o.y - e.y); if (d < bd) { bd = d; q = o; } }
+    if (q) bullet(e, Math.atan2(q.y - 3 - e.y, q.x - e.x), 160, 9, '#e0e8ff', { life: 1.3 });
+    sparks(e.x + e.face * 8, e.y - 4, '#ffffff', 5, 90);
+  }
+  return true;
 }
 
 // true dönerse bu karede yürümez/saldırmaz
@@ -713,7 +689,7 @@ export function updateBoss(e, dt, p, dp) {
   for (const k in B.cd) B.cd[k] -= dt * rate;
   if (!p || p.dead) return false;
   if (!(B.cd.melee > 0) && !e.under) { const M = meleeOf(e, B); if (M && dp < e.r + M.range && (dp < e.r + 4 || losClear(e.x, e.y, p.x, p.y))) { startMelee(e, p, B, M); return true; } }
-  const k = K.choose(e, p, dp, B);
+  const k = K.rot ? nextSkill(e, p, dp, B, K) : K.choose(e, p, dp, B);
   // kendi yürüyüşü olan kit (yere basan dev) hareketi üstlenir
   if (!k) return K.move ? K.move(e, dt, p, dp, B) : false;
   B.act = { k, T: 1 };

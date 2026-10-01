@@ -79,9 +79,10 @@ function pose(o) {
     py += Math.sin(o.ph * 2 * TAU) * 0.4 * w; roll += Math.sin(o.ph * TAU) * 2 * w; sway += Math.sin(o.ph * TAU + 1) * 0.16 * w; sacP -= 4 * w; wing.buzz = Math.max(wing.buzz, 0.5 * w);
   }
   let rear = 0;
-  if (o.act === 'eggs' || (o.prev === 'eggs' && !o.act && o.since < 0.5)) {
-    // şaha kalkar, kese sıkışır ve yumurtaları havaya fırlatır
-    const c = o.act === 'eggs' ? o.since : 0.4 + o.since, k = bump(0, 0.14, 0.45, 0.85, c), sq = bump(0.08, 0.2, 0.26, 0.5, c);
+  const LAY = ['eggs', 'swarm', 'comb'];
+  if (LAY.includes(o.act) || (LAY.includes(o.prev) && !o.act && o.since < 0.5)) {
+    // şaha kalkar, kese sıkışır ve yumurtaları (sürüyü, petekleri) havaya fırlatır
+    const c = o.act ? o.since : 0.4 + o.since, k = bump(0, 0.14, 0.45, 0.85, c), sq = bump(0.08, 0.2, 0.26, 0.5, c);
     rear = k; sac -= 0.2 * sq; sacL -= 0.12 * sq; sacP += 26 * sq; lit = 1; wing.spread += 0.5 * k; wing.buzz = k; mand = 0.5 * k; rate = 36;
   } else if (o.act === 'resin' || (o.prev === 'resin' && !o.act && o.since < 0.4)) {
     // baş öne atılır, çeneler ardına kadar açılır: reçine püskürür

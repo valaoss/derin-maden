@@ -89,6 +89,15 @@ function pose(o) {
     const k = ss(0, 0.8, 2.1 - A.T), f = A.fire ? 1 : 0;
     lid = 1 - 0.55 * k * (1 - f) - 0.15 * f; pupil = 0.45 - 0.35 * k; hot = 0.5 * k + 0.5 * f; reach = [-gx * 0.8 * f, -gy * 0.8 * f]; x -= gx * 1.2 * f; y -= gy * 1.2 * f; splay = 0.3 + 0.5 * f; zc = 0.62; rate = 34;
   }
+  if (o.act === 'spiral') {
+    // iris hızla döner, dokunaçlar açılır: küre kolları saçılır
+    const k = ss(0, 0.45, o.since), f = A && A.fire ? 1 : 0;
+    pupil = 0.45 + 0.4 * k; swirl = t * (1 + 7 * k); hot = 0.5 * k + 0.4 * f; splay = 0.2 + 0.7 * k; tsway = 2.2; zc = 0.6; rate = 30;
+  } else if (o.act === 'stare') {
+    // dosdoğru bakar: önce kısılır, sonra ardına kadar açılıp kızarır
+    const k = ss(0, 1, o.since), f = A && A.fire ? 1 : 0;
+    gx *= 1 - 0.7 * k; gy *= 1 - 0.7 * k; zc = 0.75 + 0.2 * k; lid = 1 - 0.5 * k * (1 - f); pupil = 0.45 - 0.35 * k * (1 - f) + 0.5 * f; hot = 0.3 * k + 0.7 * f; size = 1 + 0.12 * f; splay = 0.2 + 0.6 * f; tsway = 1 - 0.8 * k; rate = 34;
+  }
   if (o.act === 'melee') {
     // dokunaçlarını geriye toplar, sonra hepsini birden madenciye kamçılar
     const [up, dn] = meleeK(o), k = -0.7 * up + 1.5 * dn;

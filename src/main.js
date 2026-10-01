@@ -64,6 +64,10 @@ function fit() {
   resize(vw, vh);
   canvas.style.width = (vw * s / dpr) + 'px';
   canvas.style.height = (vh * s / dpr) + 'px';
+  // tam cihaz pikseline hizalı ortalama (yarım piksel kayması büyütülmüş pikselleri bulanıklaştırmasın)
+  canvas.style.left = (Math.round((dw - vw * s) / 2) / dpr) + 'px';
+  canvas.style.top = (Math.round((dh - vh * s) / 2) / dpr) + 'px';
+  canvas.style.transform = 'none';
   view.scale = s;
 }
 window.addEventListener('resize', fit);
@@ -232,7 +236,8 @@ function startRun(cont, opts = {}) {
   transition(() => {
     UI.hideScreens();
     const saved = cont ? loadRun() : null;
-    if (saved) { try { deserialize(saved); } catch (e) { console.warn('Kayıt okunamadı', e); clearRun(); newRun({ tutorial: !App.meta.tutorialDone }); } }
+    // yüklenen kayıt hemen yeniden yazılır: eski kayıttan yapılan tek seferlik dönüşümler (alet iadesi) ikinci kez uygulanmasın
+    if (saved) { try { deserialize(saved); saveRun(serialize()); } catch (e) { console.warn('Kayıt okunamadı', e); clearRun(); newRun({ tutorial: !App.meta.tutorialDone }); } }
     else {
       clearRun();
       const daily = opts.daily ? todayKey() : null;
@@ -311,9 +316,10 @@ function endRun(reason) {
   App.scene = 'results';
   const mp = G.mp;
   setTimeout(() => {
-    UI.showHUD(false); UI.closeSheet(); UI.coach('');
+    // açık kalan teklif/duraklatma ekranı sonucun üstünde kalmasın (co-op'ta kart seçerken sefer bitebilir)
+    UI.showHUD(false); UI.closeSheet(); UI.coach(''); UI.hideScreens();
     UI.showResults({ victory, reason, maxDepth: s.maxDepth, newDepth, nests: s.nests, beacons: s.beacons, chests: s.chests, kills: s.kills, ores, oz, goal, names: G.players.map(p => p.name),
-      contracts: G.contracts, kademe: G.kademe, daily: G.daily, dailyBest, mp, journey,
+      contracts: G.contracts, kademe: G.kademe, daily: G.daily, dailyBest, mp, journey, ozMul: G.mods.oz * ((G.meta.relics || []).includes('sifirTasi') ? 1.5 : 1),
       unlockedKademe: victory && !mp && G.kademe + 1 <= 5 && m.maxKademe === G.kademe + 1 ? G.kademe + 1 : 0 });
     if (mp) closeLink();
   }, victory ? 400 : 900);
@@ -408,7 +414,7 @@ function checkContracts() {
   for (const c of G.contracts) {
     if (c.done || contractProgress(c) < c.n) continue;
     c.done = true;
-    sfx.chest(); UI.toast('Kontrat tamam: +' + Math.round(CONTRACTS[c.k].oz * G.mods.oz) + ' Öz', 'contract');
+    sfx.chest(); UI.toast('Kontrat tamam: +' + Math.round(CONTRACTS[c.k].oz * G.mods.oz * ((G.meta.relics || []).includes('sifirTasi') ? 1.5 : 1)) + ' Öz', 'contract');
   }
 }
 
@@ -442,7 +448,7 @@ function tick(now, bg) {
   if (App.scene === 'menu' || App.scene === 'room') {
     acc += dt; let n = 0;
     while (acc >= STEP && n++ < 5) { menuStep(STEP); acc -= STEP; }
-    if (!bg) render(1, { hidePlayer: true });
+    if (!bg) render(Math.min(1, acc / STEP), { hidePlayer: true });
     return;
   }
   if (App.scene === 'play' && !G.paused && !G.over) {
@@ -465,8 +471,8 @@ function tick(now, bg) {
       if (recon) reconnectTick(dt);
       else UI.setNetStall(net.stallT > 0.4 ? (mateAway ? 'PARTNER UZAKLAŞTI' : 'PARTNER BEKLENİYOR · ' + Math.round(net.rtt) + 'ms') : '');
     } else {
-      while (acc >= STEP && n++ < 6) { feedLocalInput(); step(STEP); acc -= STEP; }
-      if (n >= 6) acc = 0;
+      while (acc >= STEP && n < 6) { feedLocalInput(); step(STEP); acc -= STEP; n++; }
+      if (acc >= STEP) acc = 0; // hâlâ gerideyse yetişmeye çalışma (spiral olmasın); değilse ara değer kesri korunur
     }
     updatePrediction(dt);
     updateCanary(dt);

@@ -22,7 +22,7 @@ import { mimicDown } from './chests.js';
 import { isDeafAt, inWater } from './biomes.js';
 import { HOST_TILE } from '../data/tiles.js';
 import { biomeOf } from './state.js';
-import { updateBoss } from './bosses.js';
+import { updateBoss, mirrored } from './bosses.js';
 import { markJourney } from './journey.js';
 
 const ENEMY_COL = { rodent: '#b07a4a', bug: '#5a9a5a', spitter: '#9a5ac0', flyer: '#7a64a0', boomer: '#e070ff', brute: '#8a7c78', worm: '#c07890',
@@ -107,6 +107,7 @@ export function damageEnemy(e, dmg, dx = 0, dy = 0, knock = 1, silent = false, c
   if (e.d.front && !silent && dx * e.face < -0.3) { real *= 1 - e.d.front; if (rnd() < 0.6) sparks(e.x + e.face * 6, e.y - 2, '#e0e8ff', 3, 70); if (nearLocal(e) && Math.random() < 0.3) sfx.ping(); }
   // Kaya Kabuklusu: ilk vuruşta kabuğuna çekilir; kabuktayken vuruşların çoğu seker (yalnız yanma geçer). Açılınca bir süre savunmasız
   const struck = !silent || knock > 0; // silah vuruşu (alev, sıçrama, patlama dahil); yanma ve kalıntı hasarı değil
+  if (e.type === 'aynasiz' && struck && mirrored(e)) return;
   if (e.d.shell && struck) {
     if (e.shellT > 0) { real *= 1 - e.d.shellCut; if (rnd() < 0.5) sparks(e.x, e.y - 2, '#e0e0d0', 2, 60); if (nearLocal(e) && Math.random() < 0.3) sfx.ping(); }
     else if (!(e.openT > 0)) e.shellT = e.d.shell;
@@ -229,7 +230,7 @@ export function explode(x, y, rad, dmg) {
   sfx.explode(); shake(0.35); haptic(40);
   ring(x, y, '#e070ff', rad); sparks(x, y, '#e070ff', 16, 140); sparks(x, y, '#ffd8ff', 6, 90); flashLight(x, y, 5, 0.3);
   for (const p of G.players) if (!p.dead && Math.hypot(p.x - x, p.y - y) < rad + 4) damagePlayer(p, dmg, x, y);
-  for (const s of G.structures) if (Math.hypot(s.x - x, s.y - y) < rad + 6) damageStructure(s, dmg);
+  for (const s of G.structures) if (!s.dead && Math.hypot(s.x - x, s.y - y) < rad + 6) damageStructure(s, dmg);
   for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - x, e.y - y) < rad) damageEnemy(e, 18, 0, 0, 0);
   igniteGas(x, y, rad);
   // barikatları da sarsar
@@ -289,11 +290,20 @@ export function updateEnemies(dt) {
       if (rnd() < 0.4) debris(e.x, e.y + 4, 'dirt', 1, 0.4);
       continue;
     }
-    // sıkışma kurtarma: kutusu kayaya taşmışsa hücre merkezine kay (doğuş/savrulma kenar durumları)
-    if (!e.d.fly && !e.under && blocked(e, e.x, e.y)) {
-      const cx = Math.floor(e.x / TILE) * TILE + 8, cy = Math.floor(e.y / TILE) * TILE + 8;
-      e.x += Math.sign(cx - e.x) * Math.min(Math.abs(cx - e.x), 40 * dt);
-      e.y += Math.sign(cy - e.y) * Math.min(Math.abs(cy - e.y), 40 * dt);
+    // sıkışma kurtarma: kutusu kayaya taşmışsa hücre merkezine kay (doğuş/savrulma kenar durumları).
+    // Kendi hücresi tümüyle kaya olduysa (örülen tünel, obsidyene dönen lav, komşu hücrede doğuş) boş komşuya çık, yoksa hücreyi kır
+    if (!e.under && !e.d.burrow && !e.d.boss && blocked(e, e.x, e.y)) {
+      const c = Math.floor(e.x / TILE), r = Math.floor(e.y / TILE);
+      if (solidAt(c, r)) {
+        let to = null;
+        for (const [dc, dr] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) if (r + dr > GROUND_ROW && !solidAt(c + dc, r + dr)) { to = [c + dc, r + dr]; break; }
+        if (to) { e.x = e.px = to[0] * TILE + 8; e.y = e.py = to[1] * TILE + 8; }
+        else { const td = TD[tileAt(c, r)]; if (!(td.unbreakable || td.chest || td.heart || td.nest || td.relic)) breakTile(c, r, null); }
+      } else if (!e.d.fly) {
+        const cx = c * TILE + 8, cy = r * TILE + 8;
+        e.x += Math.sign(cx - e.x) * Math.min(Math.abs(cx - e.x), 40 * dt);
+        e.y += Math.sign(cy - e.y) * Math.min(Math.abs(cy - e.y), 40 * dt);
+      }
     }
     // savrulma
     if ((e.kx || e.ky) && !e.under) {
@@ -574,6 +584,7 @@ function windup(e) { return e.atkCd > 0 && e.atkCd < 0.3 ? 1 - e.atkCd / 0.3 : 0
 // izini kaybetti: kayaya gömülür (listeden düşer)
 function retreat(e) {
   e.dead = true; e.hp = 0; e.dieT = 0.01;
+  if (e.d.boss) G.threat.bossFled = true; // kaçan boss öldürülmüş sayılmaz
   dust(e.x, e.y, 3, 'rgba(120,90,110,0.5)'); debris(e.x, e.y, 'dirt', 4, 0.5);
   if (nearLocal(e)) sfx.burrow();
 }
@@ -732,7 +743,8 @@ function updateSignature(e, dt, p, dp) {
       e.sealT -= dt;
       if (e.sealT <= 0) {
         const c = e.sealC, r = e.sealR, cx = c * TILE + 8, cy = r * TILE + 8;
-        if (tileAt(c, r) === T.AIR && !G.players.some(q => !q.dead && Math.abs(q.x - cx) < 13 && Math.abs(q.y - cy) < 13)) {
+        // içinde madenci ya da düşman (Örücü'nün kendisi dahil) varsa örülmez: kimse kayaya gömülmesin
+        if (tileAt(c, r) === T.AIR && !G.players.some(q => !q.dead && Math.abs(q.x - cx) < 13 && Math.abs(q.y - cy) < 13) && !G.enemies.some(o => !o.dead && Math.abs(o.x - cx) < 8 + o.r && Math.abs(o.y - cy) < 8 + o.r)) {
           setTile(c, r, HOST_TILE[biomeOf(Math.max(0, stratumOfRow(r)))]); debris(cx, cy, 'dirt', 8); if (nearLocal(e)) sfx.creak();
           if (p === G.player && Math.hypot(p.x - cx, p.y - cy) < 80) emit('toast', { text: 'Örücü yolunu kapattı', icon: 'skull', bad: true });
         }
@@ -784,12 +796,21 @@ function updateSignature(e, dt, p, dp) {
     }
   }
   // Dev Parçası: yere vurur; sarsıntı hasar verir, tavandan kaya düşer
+  // önce 0.6 sn gerilir (yanıp söner, yer titrer): menzilden çıkan ya da arada kaya olan uzak madenci kurtulur
   if (d.quake && p && !p.dead) {
-    e.quakeCd -= dt;
-    if (e.quakeCd <= 0 && dp < d.quakeRange && p.y > GROUND_Y + 8) {
-      e.quakeCd = d.quake; e.lunge = 1; e.atkCd = Math.max(e.atkCd, 0.6);
-      ring(e.x, e.y + e.r, '#7a9a78', 60); dust(e.x, e.y + e.r, 8, 'rgba(160,140,130,0.55)'); shake(0.5); hitstop(0.05); sfx.rumble();
-      for (const q of G.players) if (!q.dead && Math.hypot(q.x - e.x, q.y - e.y) < d.quakeRange) {
+    let fire = false;
+    if (e.quakeT > 0) {
+      e.quakeT -= dt; e.atkCd = Math.max(e.atkCd, 0.2);
+      if (rnd() < dt * 20) debris(e.x + (rnd() - 0.5) * 30, e.y + e.r, 'stone', 1, 0.4);
+      fire = e.quakeT <= 0;
+    } else if ((e.quakeCd -= dt) <= 0 && dp < d.quakeRange && p.y > GROUND_Y + 8) {
+      e.quakeCd = d.quake; e.quakeT = 0.6; e.flashT = 0.6; e.atkCd = Math.max(e.atkCd, 0.6);
+      ring(e.x, e.y + e.r, '#ffd870', 24); if (nearLocal(e)) sfx.creak();
+    }
+    if (fire) {
+      e.quakeT = 0; e.lunge = 1;
+      ring(e.x, e.y + e.r, '#7a9a78', 60); dust(e.x, e.y + e.r, 8, 'rgba(160,140,130,0.55)'); if (nearLocal(e)) { shake(0.5); sfx.rumble(); } hitstop(0.05);
+      for (const q of G.players) if (!q.dead && Math.hypot(q.x - e.x, q.y - e.y) < d.quakeRange && (Math.hypot(q.x - e.x, q.y - e.y) < 40 || losClear(e.x, e.y, q.x, q.y))) {
         damagePlayer(q, 10 * e.dmgMul, e.x, e.y + 20); q.slowT = Math.max(q.slowT, 0.8);
         // üstündeki kayalar sarsılır: bir iki taş düşer
         const pc = Math.floor(q.x / TILE), pr = Math.floor(q.y / TILE);

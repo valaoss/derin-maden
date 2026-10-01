@@ -67,6 +67,14 @@ export function draw3D(ctx, e, alpha, a0 = 1) {
   return true;
 }
 
+// aynı karenin soluk kopyası başka bir yerde (ayna yansıması)
+export function ghost3D(ctx, e, alpha, x, y, a, flip) {
+  const R = place(e, alpha); if (!R) return;
+  const D = R.D; upload(D, R);
+  ctx.save(); ctx.globalAlpha = a; ctx.translate(Math.round(x), Math.round(D.fly ? y : y + 8)); if (flip) ctx.scale(-1, 1);
+  ctx.drawImage(D.cv, -D.ox, -D.oy); ctx.restore(); ctx.globalAlpha = 1;
+}
+
 export function draw3DGlow(ctx, e, alpha, glow, a0 = 1) {
   const R = place(e, alpha); if (!R) return false;
   const { D, P, o, x, y } = R;

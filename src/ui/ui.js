@@ -189,13 +189,12 @@ export function initUI(root, h) {
     setTimeout(() => toast(who + R.desc, R.icon), 2600);
     refreshHUD(true);
   });
-  on('perkOffer', pi => { if (pi === G.localIdx) showPerks(); else if (!WOFFER[G.perkOffer.chest]) toast('Partnerin bir kalıntı buldu', 'chest'); else if (G.perkOffer.chest !== 'start') toast('Silah seviye atladı · kartı partnerin seçiyor', 'blaster'); });
+  on('perkOffer', pi => { if (pi !== G.localIdx && $('#perk').classList.contains('on')) { $('#perk').classList.remove('on'); hooks.resume(); } if (pi === G.localIdx) showPerks(); else if (!WOFFER[G.perkOffer.chest]) toast('Partnerin bir kalıntı buldu', 'chest'); else if (G.perkOffer.chest !== 'start') toast('Silah seviye atladı · kartı partnerin seçiyor', 'blaster'); });
   on('weaponLevel', () => { sfx.chest(); refreshHUD(true); });
   on('resonance', d => { const S = SOY[d.soy]; banner('REZONANS', S.name, 'gold'); setTimeout(() => toast(S.res, S.icon), 2400); });
   on('perkTaken', d => { if (d.pi !== G.localIdx) { const o = offerInfo(d.k); toast('Partner seçti: ' + o.name, o.icon); } });
   on('blind', () => { const f = $('#flash'); f.classList.remove('on'); void f.offsetWidth; f.classList.add('on'); });
   on('fear', () => { const v = $('#vignette'); v.classList.add('fear'); setTimeout(() => v.classList.remove('fear'), 2400); });
-  on('cmdDone', d => { if (!d.ok && (d.cmd.t === CMD.BUILD)) toast('Yetersiz kaynak', 'bag', true); });
   on('heart', () => banner('KALP KRİSTALİ', 'YÜZEYE TAŞI!', true));
   on('playerDown', d => toast(d.autoUp ? 'Bayıldın — ikinci nefes!' : G.mp ? 'Bayıldın — partnerin seni kaldırabilir' : 'Bayıldın', 'skull', true));
   on('respawn', () => {});
@@ -224,7 +223,13 @@ function tap(el, fn) {
 // ---------------- HUD ----------------
 let cache = {};
 function set(id, key, val, fn) { if (cache[key] === val) return; cache[key] = val; fn(val); }
-export function showHUD(v) { coach(''); $('#hud').classList.toggle('hidden', !v); $('#chatBtn').classList.toggle('on', v && !!(G && G.mp)); $('#chat').classList.remove('on'); if (!v) { $('#workshopBtn').classList.add('hide'); $('#belt').innerHTML = ''; $('#mods').innerHTML = ''; } cache = {}; }
+export function showHUD(v) { coach(''); $('#hud').classList.toggle('hidden', !v); $('#chatBtn').classList.toggle('on', v && !!(G && G.mp)); $('#chat').classList.remove('on'); if (!v) {
+    $('#workshopBtn').classList.add('hide'); $('#workshopBtn').classList.remove('pulse'); $('#belt').innerHTML = ''; $('#mods').innerHTML = '';
+    // HUD dışındaki sefer kaplamaları da kapanır (menüde kırmızı kenar, "partner baygın", kuyu/asansör/olta düğmesi kalmasın)
+    $('#vignette').classList.remove('low'); $('#indicator').classList.remove('on');
+    for (const id of ['#wellBtn', '#elevBtn', '#fishBtn']) $(id).classList.add('hide');
+    hidePop();
+  } cache = {}; }
 // hızlı mesaj çipleri (co-op): simülasyon dışı, anında iletilir
 export const CHAT = { here: 'Buraya gel!', help: 'Yardım!', camp: 'Kampa dönelim', gj: 'İyi iş!', nest: 'Yuva buldum', quiet: 'Sessiz ol' };
 function toggleChat() {
@@ -247,7 +252,9 @@ function renderMods() {
 function renderBelt() {
   const b = $('#belt'), p = G.player;
   if (p.dead) { b.innerHTML = ''; return; }
-  b.innerHTML = ITEM_KEYS.filter(k => G.items[k] > 0).map(k =>
+  const ks = ITEM_KEYS.filter(k => G.items[k] > 0);
+  b.classList.toggle('many', ks.length > 6); // 6'dan fazla eşya: küçük yuvalar, 3 sütun (kemer joystick alanına taşmasın)
+  b.innerHTML = ks.map(k =>
     `<button class="btn dark slot ${itemUsable(k) ? '' : 'off'} ${k === 'recall' && p.recallT > 0 ? 'busy' : ''}" data-k="${k}" aria-label="${ITEMS[k].name}">${ic(ITEMS[k].icon, 'l')}<span class="n">${G.items[k]}</span></button>`).join('');
   b.querySelectorAll('.slot').forEach(el => tap(el, () => { dispatch({ t: CMD.USE, k: el.dataset.k }); refreshHUD(true); }));
 }
@@ -402,7 +409,7 @@ export function tutorialTick(dt) {
   const T = G.tutorial; if (!T || T.done) return;
   T.t += dt;
   if (T.step === 0) {
-    if (!T.shown && T.t > 0.6) { T.shown = true; coach('Ekranın alt yarısına bas, aşağı sürükle: kaz!', '', 0); document.getElementById('stick').classList.add('hint'); }
+    if (!T.shown && T.t > 0.6) { T.shown = true; coach(App.settings.stickFixed ? 'Alttaki joystick’i aşağı sürükle: kaz!' : 'Ekranın alt yarısına bas, aşağı sürükle: kaz!', '', 0); document.getElementById('stick').classList.add('hint'); }
     if (G.stats.dug >= 1 && T.t > 1) { coach('Harika! Kazmaya devam et.', '', 2.5); document.getElementById('stick').classList.remove('hint'); T.step = 0.5; }
   }
   if (T.step === 0.5 && G.stats.dug >= 4) { T.step = 0; tutStep(1); }
@@ -496,10 +503,12 @@ function showPop(i) {
   pop.style.left = '0px'; pop.style.top = '0px'; pop.classList.add('on');
   const ph = pop.offsetHeight;
   let left = v.x * R.width - 110, top = v.y * R.height - ph - 20;
-  left = Math.max(8, Math.min(R.width - 228, left)); top = Math.max(110, top);
+  left = Math.max(8, Math.min(R.width - 228, left)); top = Math.max(hudBottom(R), top);
   pop.style.left = left + 'px'; pop.style.top = top + 'px';
   if (!b.once) tap(pop.querySelector('[data-pick]'), () => { dispatch({ t: CMD.PICKUP, i }); hidePop(); refreshHUD(true); });
 }
+// açılır pencere üst şeridin (çentik dahil) altında kalır
+const hudBottom = R => Math.max(110, $('#hud').getBoundingClientRect().bottom - R.top + 6);
 export function hidePop() { $('#pop').classList.remove('on', 'elev'); }
 // asansör hedefleri
 // asansör paneli: düğmenin hemen üstünde kat listesi; tekrar basınca kapanır
@@ -517,7 +526,7 @@ function showElevPop() {
   pop.style.left = '0px'; pop.style.top = '0px'; pop.classList.add('on', 'elev');
   const w = pop.offsetWidth, lefty = B.left - R.left < R.width / 2;
   pop.style.left = Math.max(8, Math.min(R.width - w - 8, lefty ? B.left - R.left : B.right - R.left - w)) + 'px';
-  pop.style.top = Math.max(110, B.top - R.top - pop.offsetHeight - 10) + 'px';
+  pop.style.top = Math.max(hudBottom(R), B.top - R.top - pop.offsetHeight - 10) + 'px';
   pop.querySelectorAll('[data-to]:not([disabled])').forEach(b => tap(b, () => { dispatch({ t: CMD.ELEV, to: +b.dataset.to }); hidePop(); }));
 }
 
@@ -801,7 +810,7 @@ export function showResults(r) {
     <h2 style="font-size:30px;color:${win ? 'var(--helm)' : 'var(--bad)'}">${title}</h2>
     <div class="sub">${win ? 'Kalp Kristali yüzeye ulaştı.' : r.mp && r.names ? esc(r.names.join(' & ')) + ' · madenin derinlikleri sizi bekliyor.' : 'Madenin derinlikleri seni bekliyor.'}</div>
     <div class="stats">${rows.map(([n, v, nw]) => `<div class="stat"><span>${n}</span><b data-v="${parseInt(v) || 0}" data-s="${String(v).replace(/[\d]/g, '')}">0</b>${nw ? '<span class="new">YENİ REKOR</span>' : ''}</div>`).join('')}</div>
-    ${r.contracts && r.contracts.length ? '<div class="clist">' + r.contracts.map(c => `<div class="cline ${c.done ? 'done' : ''}">${ic(c.done ? 'check' : 'contract', 's')}<span>${CONTRACTS[c.k].text(c.n)}</span>${c.done ? `<b>+${Math.round(CONTRACTS[c.k].oz * (1 + 0.25 * r.kademe))}</b>` : ''}</div>`).join('') + '</div>' : ''}
+    ${r.contracts && r.contracts.length ? '<div class="clist">' + r.contracts.map(c => `<div class="cline ${c.done ? 'done' : ''}">${ic(c.done ? 'check' : 'contract', 's')}<span>${CONTRACTS[c.k].text(c.n)}</span>${c.done ? `<b>+${Math.round(CONTRACTS[c.k].oz * (r.ozMul || 1))}</b>` : ''}</div>`).join('') + '</div>' : ''}
     <div class="ozgain">${ic('oz', 'l')}<span id="ozN">+0</span>${r.kademe ? `<small>×${(1 + 0.25 * r.kademe).toFixed(2)}</small>` : ''}</div>
     ${r.unlockedKademe ? `<div class="goal" style="color:var(--bad)">${ic('kademe', 's')} KADEME ${r.unlockedKademe} AÇILDI</div>` : ''}
     ${r.mp ? `<div class="goal">${ic('hand', 's')} Birlikte Kaz · Öz ×1.5</div>` : ''}

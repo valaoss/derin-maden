@@ -32,7 +32,7 @@ export function itemUsable(k, p = G.player) {
   switch (k) {
     case 'dynamite': return under && G.bombs.length < 3;
     case 'medkit': return p.hp < p.maxHp;
-    case 'recall': return under && !p.carrying && p.recallT <= 0;
+    case 'recall': return under && !p.carrying && !p.ride && p.recallT <= 0;
     case 'sonar': return under;
     case 'can': return under;
     case 'zil': return under && G.bells.length < 2;

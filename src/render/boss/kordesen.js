@@ -70,7 +70,7 @@ const STEP = 4.2, PH = [0, 0.5, 0.25, 0.75], DIE_T = 1.8;
 function step(ph, lift) { const c = ph - Math.floor(ph); if (c < 0.64) return [STEP * (1 - 2 * c / 0.64), 0]; const k = (c - 0.64) / 0.36, e = k * k * (3 - 2 * k); return [STEP * (2 * e - 1), Math.sin(k * Math.PI) * lift]; }
 function pose(o) {
   const t = o.t, A = o.A, dead = o.dying > 0, w = dead ? 0 : o.walk, near = Math.cos(o.view) >= 0 ? 1 : -1, side = clamp(Math.cos(o.view) * 4, -1, 1), br = Math.sin(t * 2.4 + o.wob);
-  let px = -7, py = 9.2 + br * 0.2, pitch = 3, roll = 0, arch = 2, headP = -4, headY = 0, headR = 0, jaw = 0, eye = 1, sniff = 1, wag = 0.3, air = 0, spread = 0, props = 1, rate = 22, lookW = 0.7, shadow = 1, rear = 0;
+  let px = -7, py = 9.2 + br * 0.2, pitch = 3, roll = 0, arch = 2, headP = -4, headY = 0, headR = 0, jaw = 0, eye = 1, sniff = 1, wag = 0.3, air = 0, spread = 0, props = 1, spin = 0, rate = 22, lookW = 0.7, shadow = 1, rear = 0;
   const paw = [0, 0], feet = [[-9 - side, 0, 7.4], [-9 + side, 0, -7.4], [9 - 1.2 * side, 0, 9.4], [9 + 1.2 * side, 0, -9.4]];
   if (w > 0.01) {
     // paytak sürünüş: ön pençeler kürek çeker gibi, gövde iki yana yalpalar
@@ -87,15 +87,15 @@ function pose(o) {
     } else if (o.stage === 'dash') {
       // matkap: gövde nişan yönünde uzanır, kendi ekseninde döner; pençeler önde birleşip kayayı deler
       air = 1; pitch = el; roll = o.sinceStage * 1100; py += 2; px += 3; arch = 0; headP = 0; paw[0] = paw[1] = 1; spread = -0.6; eye = 0; lookW = 0; shadow = 0.3; rate = 40; wag = 3;
-    } else {
-      // sersem: kıçının üstüne oturur, başı daireler çizer, pençeler sarkar
-      const k = bump(0, 0.15, 0.85, 1.1, o.sinceStage), c = t * 5.4;
-      pitch += 26 * k; py -= 1 * k; px -= 3 * k; headP += (-16 + Math.sin(c) * 14) * k; headY = Math.cos(c) * 0.5 * k; headR = Math.sin(c - 0.5) * 22 * k; roll += Math.cos(c) * 5 * k;
-      feet[2] = [px + 15, 5 + Math.sin(c) * 1.2, 7]; feet[3] = [px + 15, 5 + Math.cos(c) * 1.2, -7]; paw[0] = paw[1] = 0.3 * k; jaw = 0.4 * k; eye = 0; sniff = 0.2; lookW = 0;
-    }
-  } else if (o.act === 'slam' || (o.prev === 'slam' && !o.act && o.since < 0.5)) {
-    // arka ayakları üstünde doğrulur, iki pençeyi başının üstünden yere indirir
-    const hit = o.act === 'slam' ? 0 : 1, k = hit ? 1 : ss(0, 0.85, o.wind), down = o.act === 'slam' ? ss(0.86, 1, o.wind) : 1, up = k * (1 - down), dn = down * (hit ? 1 - ss(0.2, 0.5, o.since) : 1);
+    } else daze();
+  } else if (o.act === 'drill') {
+    // şaha kalkar, pençeleri açık kendi çevresinde döner: çevresini oyar; bitince sersemler
+    if (o.stage === 'wind') { const k = ss(0, 1, o.wind); rear = k; spread = k; paw[0] = paw[1] = k; jaw = 0.5 * k; lookW = 0.2; }
+    else if (o.stage === 'spin') { rear = 1; spin = o.sinceStage * 15; paw[0] = paw[1] = 1; spread = 1; feet[2] = [px + 16, 16, 13]; feet[3] = [px + 16, 16, -13]; eye = 0; lookW = 0; rate = 40; wag = 3; }
+    else daze();
+  } else if (o.act === 'slam' || o.act === 'boulder' || (o.prev === 'slam' && !o.act && o.since < 0.5)) {
+    // arka ayakları üstünde doğrulur, iki pençeyi başının üstünden yere indirir (kaya fırlatırken de aynı kalkış)
+    const hit = o.act ? 0 : 1, k = hit ? 1 : ss(0, 0.85, o.wind), down = o.act ? ss(0.86, 1, o.wind) : 1, up = k * (1 - down), dn = down * (hit ? 1 - ss(0.2, 0.5, o.since) : 1);
     rear = up; pitch += 8 * dn; py -= 1.8 * dn; px += 2 * dn; headP += 14 * up - 10 * dn; jaw = 0.6 * up; spread = k;
     feet[2] = [mix1(feet[2][0], px + 20, up) + 5 * dn, 30 * up, mix1(feet[2][2], 6.5, up)]; feet[3] = [mix1(feet[3][0], px + 20, up) + 5 * dn, 30 * up, mix1(feet[3][2], -6.5, up)]; paw[0] = paw[1] = up;
     rate = 40; lookW = 0.2;
@@ -109,6 +109,12 @@ function pose(o) {
     const c = o.act === 'coins' ? o.since : 0.35 + o.since, back = bump(0, 0.06, 0.1, 0.16, c), sw = bump(0.1, 0.2, 0.4, 0.7, c), i = near > 0 ? 2 : 3;
     feet[i] = [feet[i][0] - 6 * back + 9 * sw, 1 * back + 13 * sw, feet[i][2] * (1 - 0.4 * sw)]; paw[i - 2] = sw; spread = 1; roll += near * (-5 * back + 7 * sw); px += 2 * sw; headP += 6 * sw; jaw = 0.3 * sw; rate = 40;
   }
+  function daze() {
+    // sersem: kıçının üstüne oturur, başı daireler çizer, pençeler sarkar
+    const k = bump(0, 0.15, 0.85, 1.1, o.sinceStage), c = t * 5.4;
+    pitch += 26 * k; py -= 1 * k; px -= 3 * k; headP += (-16 + Math.sin(c) * 14) * k; headY = Math.cos(c) * 0.5 * k; headR = Math.sin(c - 0.5) * 22 * k; roll += Math.cos(c) * 5 * k;
+    feet[2] = [px + 15, 5 + Math.sin(c) * 1.2, 7]; feet[3] = [px + 15, 5 + Math.cos(c) * 1.2, -7]; paw[0] = paw[1] = 0.3 * k; jaw = 0.4 * k; eye = 0; sniff = 0.2; lookW = 0;
+  }
   if (o.rage && o.rageT < 1.1) { const k = bump(0, 0.18, 0.75, 1.1, o.rageT); rear = Math.max(rear, k); feet[2] = [px + 19, 22 * k + Math.sin(t * 30) * 1.5, 12]; feet[3] = [px + 19, 22 * k + Math.cos(t * 30) * 1.5, -12]; paw[0] = paw[1] = k; spread = 1; jaw = 0.9 * k; headP += 16 * k; lookW *= 1 - k; }
   if (rear > 0.001) { pitch += 50 * rear; py += 5 * rear; px -= 5 * rear; arch -= 8 * rear; feet[0][0] += 3 * rear; feet[1][0] += 3 * rear; }
   if (o.hurt > 0 && !dead) { const h = o.hurt * o.hurt; px += clamp(o.hx * Math.cos(o.view), -1, 1) * 1.8 * h; py -= 0.8 * h; headP += 14 * h; headR += near * 12 * h; jaw = Math.max(jaw, 0.5 * h); eye = 1 - h; roll += near * 5 * h; sniff = 0; }
@@ -120,8 +126,8 @@ function pose(o) {
     paw[0] = paw[1] = 0.4 * k; lookW = 0; shadow = 1; rate = 30;
   }
   const [ly0, lp0] = aimLocal(o.tx - Math.cos(o.view) * 14, o.ty + 4, o.view), ly = clamp(ly0, -0.9, 0.9) * lookW, lp = clamp(lp0, -0.4, 0.6) * lookW;
-  return { rate, px, py, pitch: pitch * D, roll: roll * D, arch: arch * D, headP: headP * D + lp, headY: headY + ly, headR: headR * D, jaw, eye, sniff, wag, air, spread, props, paw, feet, near, shadow, br: 0.035 * br };
+  return { rate, px, py, pitch: pitch * D, roll: roll * D, arch: arch * D, spin, headP: headP * D + lp, headY: headY + ly, headR: headR * D, jaw, eye, sniff, wag, air, spread, props, paw, feet, near, shadow, br: 0.035 * br };
 }
 const mix1 = (a, b, k) => a + (b - a) * k;
 
-export const KORDESEN = { w: 136, h: 104, ox: 68, oy: 84, scale: 1.2, tilt: 0.22, mats: MATS, stride: 13, shadow: 20, body: 26, bias: 0.34, turn: 0.5, outline: [8, 6, 12], wrap: ['roll'], pose, build };
+export const KORDESEN = { w: 136, h: 104, ox: 68, oy: 84, scale: 1.2, tilt: 0.22, mats: MATS, stride: 13, shadow: 20, body: 26, bias: 0.34, turn: 0.5, outline: [8, 6, 12], wrap: ['roll', 'spin'], pose, build };

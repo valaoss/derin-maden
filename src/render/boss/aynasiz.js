@@ -112,6 +112,14 @@ function pose(o) {
     // serbest elini kaldırır: önünde ayna belirir, hedefin silahını yansıtıp ateşler
     const tt = 1.4 - A.T, k = ss(0, 0.5, tt), ap = clamp(aimLocal(o.tx, o.ty, o.view)[1], -1, 1) / D, shot = tt > 0.55 ? Math.max(0, Math.sin(tt * 20)) : 0;
     L.sw += (92 + ap) * k; L.el -= 6 * k; L.ab -= 6 * k; bend[1] += 14 * k; lean -= 5 * k + 3 * shot; pane = ss(0.1, 0.5, tt) * (1 - ss(1.25, 1.4, tt)); flash = shot; glow = 0.5 + 0.5 * shot; x -= shot * 0.8; cape += 0.2 * shot; lookW = 0.5;
+  } else if (o.act === 'reflect' && A) {
+    // aynayı önünde kalkan gibi tutar: yediği her vuruşta cam çakar
+    const tt = 2.9 - A.T, k = ss(0, 0.5, tt) * (1 - ss(2.6, 2.9, tt)), ap = clamp(aimLocal(o.tx, o.ty, o.view)[1], -1, 1) / D, hit = Math.min(1, o.flash * 4);
+    L.sw += (92 + ap) * k; L.el -= 6 * k; L.ab -= 6 * k; bend[1] += 14 * k; lean -= 5 * k + 3 * hit; pane = k * 1.25; flash = 0.35 + 0.65 * hit; glow = 0.6 + 0.4 * hit; x -= hit * 0.8; cape += 0.2 * hit; lookW = 0.5;
+  } else if (o.act === 'images' || (o.prev === 'images' && !o.act && o.since < 0.3)) {
+    // asasını kaldırır: ayna kristali parlar, çevrede yansımaları belirir
+    const c = o.act ? o.since : 0.6 + o.since, k = bump(0, 0.18, 0.55, 0.9, c);
+    R.sw += 110 * k; R.el -= 30 * k; head[0] += 10 * k; lean -= 5 * k; cape += 0.6 * k; glow = 0.4 + 0.6 * k; y += 0.8 * k; shatter = 0.06 * k; lookW *= 1 - 0.6 * k; rate = 34;
   } else if (o.act === 'step') {
     // ışınlanma: kırıklar yeni yerde toplanıp kralı yeniden kurar
     shatter = 1 - ss(0, 0.42, o.since); glow = 1; rate = 60;

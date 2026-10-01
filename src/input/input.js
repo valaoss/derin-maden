@@ -4,10 +4,11 @@
 // Joystick bölgesi dışındaki kısa ve hareketsiz dokunuş "tap" olarak iletilir (yuvalara inşa vb).
 export const input = { x: 0, y: 0, mag: 0, active: false, taps: [], keyboard: false };
 const HOLD_MS = 480; // basılı tutma: partner işareti
-let holdTO = 0;
+// çubuk ve dokunuş parmaklarının zamanlayıcıları ayrı: ikinci parmak çubuğun basılı tutmasını/süresini bozmasın
+let holdStick = 0, holdTap = 0;
 
 const keys = {};
-let stickId = null, ox = 0, oy = 0, sx = 0, sy = 0, t0 = 0, moved = 0;
+let stickId = null, ox = 0, oy = 0, sx = 0, sy = 0, st0 = 0, tt0 = 0, moved = 0;
 let stickEl, knobEl, surface;
 const RADIUS = 56, DEAD = 6;
 const SIDE = { sag: 'right', sol: 'left', orta: 'center' }, HEIGHT = { alcak: 180, orta: 262, yuksek: 350 };
@@ -30,7 +31,7 @@ export function initInput(el, stick, knob) {
   el.addEventListener('pointerdown', down, { passive: false });
   window.addEventListener('pointermove', move, { passive: false });
   window.addEventListener('pointerup', up);
-  window.addEventListener('pointercancel', up);
+  window.addEventListener('pointercancel', cancel);
   window.addEventListener('keydown', e => {
     const k = e.key.toLowerCase();
     if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
@@ -47,9 +48,12 @@ function down(e) {
   e.preventDefault();
   const r = surface.getBoundingClientRect();
   const fy = (e.clientY - r.top) / r.height, fx = (e.clientX - r.left) / r.width;
-  const zone = fixed ? fy >= ZONE_TOP && (side === 'center' || (fx >= 0.5) === (side === 'right')) : fy >= 0.5;
+  // sabit modda tabanın çevresine (yüksek ayarda bölge sınırının üstüne taşsa da) basmak da çubuğu tutar
+  let near = false;
+  if (fixed) { const b = stickEl.getBoundingClientRect(); near = Math.hypot(e.clientX - b.left, e.clientY - b.top) < RADIUS + 24; }
+  const zone = fixed ? near || (fy >= ZONE_TOP && (side === 'center' || (fx >= 0.5) === (side === 'right'))) : fy >= 0.5;
   if (stickId === null && zone) {
-    stickId = e.pointerId; t0 = performance.now(); moved = 0; stickTap = true;
+    stickId = e.pointerId; st0 = performance.now(); stickTap = true;
     if (fixed) { const b = stickEl.getBoundingClientRect(); ox = b.left; oy = b.top; }
     else { ox = e.clientX; oy = e.clientY; stickEl.style.left = (ox - r.left) + 'px'; stickEl.style.top = (oy - r.top) + 'px'; }
     stickEl.classList.add('on');
@@ -58,16 +62,13 @@ function down(e) {
     return;
   }
   // üst bölge: yalnızca tap adayı
-  tapId = e.pointerId; tx = e.clientX; ty = e.clientY; t0 = performance.now(); moved = 0;
+  tapId = e.pointerId; tx = e.clientX; ty = e.clientY; tt0 = performance.now(); moved = 0;
   armHold(e.pointerId, tx, ty, false);
 }
 // basılı tutma: parmak kıpırdamadıysa işaret bırak (joystick bölgesinde de çalışır: çubuk itilmediyse)
 function armHold(id, x, y, stick) {
-  clearTimeout(holdTO);
-  holdTO = setTimeout(() => {
-    if (stick) { if (stickId === id && stickTap) { pushTap(x, y, true); stickTap = false; } }
-    else if (tapId === id && moved < 12) { pushTap(x, y, true); tapId = null; }
-  }, HOLD_MS);
+  if (stick) { clearTimeout(holdStick); holdStick = setTimeout(() => { if (stickId === id && stickTap) { pushTap(x, y, true); stickTap = false; } }, HOLD_MS); }
+  else { clearTimeout(holdTap); holdTap = setTimeout(() => { if (tapId === id && moved < 12) { pushTap(x, y, true); tapId = null; } }, HOLD_MS); }
 }
 function move(e) {
   if (e.pointerId === tapId) { moved = Math.max(moved, Math.hypot(e.clientX - tx, e.clientY - ty)); return; }
@@ -86,20 +87,26 @@ function move(e) {
 function up(e) {
   if (e.pointerId === tapId) {
     tapId = null;
-    if (performance.now() - t0 < 260 && moved < 12) pushTap(tx, ty);
+    clearTimeout(holdTap);
+    if (performance.now() - tt0 < 260 && moved < 12) pushTap(tx, ty);
     return;
   }
   if (e.pointerId !== stickId) return;
   // joystick bölgesinde kısa, hareketsiz dokunuş da tap sayılır (yüzeydeki yuvalar için)
-  if (stickTap && performance.now() - t0 < 220) pushTap(ox, oy);
+  if (stickTap && performance.now() - st0 < 220) pushTap(ox, oy);
   release();
+}
+// iptal (sistem hareketi, bildirim): dokunuş sayılmaz, yalnız bırakılır
+function cancel(e) {
+  if (e.pointerId === tapId) { tapId = null; clearTimeout(holdTap); return; }
+  if (e.pointerId === stickId) release();
 }
 function pushTap(x, y, long = false) {
   const r = surface.getBoundingClientRect();
   input.taps.push({ x: (x - r.left) / r.width, y: (y - r.top) / r.height, long });
 }
 function release() {
-  clearTimeout(holdTO);
+  clearTimeout(holdStick);
   stickId = null; stickTap = false; input.x = input.y = input.mag = 0; input.active = false;
   if (stickEl) { stickEl.classList.remove('on'); knobEl.style.transform = 'translate(0px,0px)'; }
 }

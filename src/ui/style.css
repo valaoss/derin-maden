@@ -98,10 +98,10 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .depth .m { font-size: 22px; font-weight: 700; line-height: 1; }
 .depth .s { font-size: 10px; color: var(--dim); letter-spacing: 1px; margin-top: 2px; }
 .pausebtn { pointer-events: auto; width: 44px; flex: none; display: flex; align-items: center; justify-content: center; }
-.res { display: flex; gap: 4px; flex: none; padding: 5px 8px 7px; align-items: center; }
-.chip { display: flex; align-items: center; gap: 3px; font-size: 14px; font-weight: 700; min-width: 38px; }
+.res { display: flex; gap: 4px; flex: 0 1 auto; min-width: 0; overflow: hidden; padding: 5px 8px 7px; align-items: center; }
+.chip { display: flex; align-items: center; gap: 3px; font-size: 14px; font-weight: 700; min-width: 34px; }
 .chip.pop { animation: pop .25s steps(3); }
-.bagm { flex: 1; }
+.bagm { flex: 1; min-width: 92px; }
 .bagm .num.full { color: var(--bad); }
 .bagm.shake { animation: shake .35s steps(6); }
 @keyframes pop { 50% { transform: scale(1.3); } }
@@ -144,6 +144,8 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
   display: flex; flex-direction: column-reverse; flex-wrap: wrap; align-content: flex-start; gap: 6px; pointer-events: none; z-index: 2; }
 .lefty #belt { left: auto; right: calc(var(--sar) + 12px); flex-wrap: wrap; align-content: flex-end; }
 .slot { pointer-events: auto; width: 52px; height: 52px; min-height: 0; padding: 0 0 3px; animation: slotIn .16s ease-out; }
+#belt.many { width: 132px; height: 178px; gap: 5px; }
+#belt.many .slot { width: 40px; height: 40px; }
 .slot .n { position: absolute; right: 3px; bottom: 3px; font-size: 13px; line-height: 1; padding: 1px 3px 2px; background: var(--ink); color: var(--text); }
 .slot.off { filter: grayscale(.8) brightness(.6); }
 .slot.busy { animation: blink .3s steps(2) infinite; }
@@ -304,8 +306,8 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 #indicator.on { display: flex; animation: blink .5s steps(2) infinite; }
 
 /* ---------- ekranlar ---------- */
-.screen { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center;
-  padding: calc(var(--sat) + 20px) 18px calc(var(--sab) + 20px); z-index: 5; }
+.screen { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; justify-content: safe center;
+  padding: calc(var(--sat) + 20px) 18px calc(var(--sab) + 20px); z-index: 5; overflow-y: auto; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
 .screen.on { display: flex; animation: fadeIn .2s ease-out; }
 .screen.dim { background: rgba(11,7,18,.82); }
 @keyframes fadeIn { from { opacity: 0; } }

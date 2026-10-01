@@ -38,17 +38,20 @@ function raster(D, s, e, t, white) {
   for (let q = 0, o = 0; q < id.length; q++, o += 4) {
     const m = id[q]; if (!m) continue;
     if (white) { dst[o] = (src[o] + 510) / 3; dst[o + 1] = (src[o + 1] + 510) / 3; dst[o + 2] = (src[o + 2] + 510) / 3; }
-    if (D.mats[m].glow) gl.push(q % D.w - D.ox, (q / D.w | 0) - D.oy, src[o], src[o + 1], src[o + 2]);
+    if (D.mats[m].glow) gl.push(q % D.w - D.ox, (q / D.w | 0) - D.oy, rgbStr(src[o], src[o + 1], src[o + 2]));
   }
   s.cx.putImageData(D.img, 0, 0);
   s.rt = t; s.white = white; s.pts = R.pts; s.dying = R.o.dying;
 }
 
 // ışık katmanı: gözler ve çatlaklar karanlıkta da görünür
+// renk dizgeleri önbellekte: her kare her ışıyan piksel için yeni dizge üretilmesin
+const RGB = new Map();
+function rgbStr(r, g, b) { const k = (r << 16) | (g << 8) | b; let v = RGB.get(k); if (!v) { v = `rgb(${r},${g},${b})`; RGB.set(k, v); } return v; }
 export function drawMobGlow(ctx, e) {
   const s = seen.get(e); if (!s || s.t !== G.time) return;
-  const g = s.glow;
-  for (let i = 0; i < g.length; i += 5) { ctx.fillStyle = `rgb(${g[i + 2]},${g[i + 3]},${g[i + 4]})`; ctx.fillRect(s.x + g[i], s.y + g[i + 1], 1, 1); }
+  const g = s.glow; let cur = '';
+  for (let i = 0; i < g.length; i += 3) { if (g[i + 2] !== cur) ctx.fillStyle = cur = g[i + 2]; ctx.fillRect(s.x + g[i], s.y + g[i + 1], 1, 1); }
 }
 
 // bağlantı noktası (ağız, göz, baş): bu karede çizildiyse dünya pikseli

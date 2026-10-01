@@ -358,6 +358,6 @@ function drillStep(s, b, dt) {
   if (rnd() < dt * 18) { debris(s.x + (rnd() - 0.5) * 8, s.y + 2, 'stone', 1, 0.5); sparks(s.x, s.y + 2, '#ffe79a', 1, 50); }
   if (s.prog < 1) return;
   s.prog = 0; s.left--;
-  breakTile(c, r, G.players[s.owner] || G.players[0]);
+  breakTile(c, r, G.players[s.owner] || G.players[0], 0, 0, true);
   addNoise(b.noise, s.x, s.y); sparks(s.x, s.y + 6, '#ffd48a', 4, 70);
 }

@@ -7,7 +7,7 @@ import { updateEnemies, damageEnemy, spawnEnemy, killEnemy } from '../src/game/e
 import { updatePlayerGun, updateBullets, updateStructures } from '../src/game/combat.js';
 import { gunDps, gunDmg, gunCd, critChance, directorHp } from '../src/game/power.js';
 import { xpNeed, weaponMaxed, WOFFER } from '../src/game/weaponlevel.js';
-import { offerInfo, rerollOffer } from '../src/game/chests.js';
+import { offerInfo, rerollOffer, offer } from '../src/game/chests.js';
 import { buyUpgrade, buyMod, upgradeCost, applyPerk, beaconLack, levelUp, itemCost } from '../src/game/economy.js';
 import { updateItems, useItem } from '../src/game/items.js';
 import { updateHazards } from '../src/game/hazards.js';
@@ -40,7 +40,9 @@ import { playerSpeed } from '../src/game/player.js';
 import { STRATA } from '../src/data/palette.js';
 import { COLS, ROWS, GROUND_ROW, GROUND_Y, STRATUM_ROWS, STRATA_COUNT, TILE, PLAY_MIN_COL, PLAY_MAX_COL } from '../src/config.js';
 import { on } from '../src/core/events.js';
-import { bossForY } from '../src/game/bosses.js';
+import { maxLv } from '../src/data/relics.js';
+import { BOSS_BANDS } from '../src/data/balance.js';
+import { bossForY, KITS, bossBusy } from '../src/game/bosses.js';
 
 App.settings = { sfx: false, music: false, haptics: false, shake: false };
 App.meta = { lv: {}, tutorialDone: true };
@@ -573,19 +575,19 @@ section('Bosslar');
     const e = spawnEnemy(k, 8 * TILE + 8, (GROUND_ROW + 4) * TILE + 8, 3); e.emergeT = 0; e.hp = e.maxHp = 1e6; return [p, e]; };
   for (const k of ['karakok', 'kavurgan', 'otegoz', 'kordesen', 'ezeli']) {
     const [p, e] = arena(710, k); const seen = new Set();
-    for (let i = 0; i < 60 * 12; i++) { step(); if (e.bs && e.bs.act) seen.add(e.bs.act.k); p.hp = Math.max(p.hp, 5000); }
-    ok(`${ENEMIES[k].name}: saldırı döngüsü`, seen.size >= 2 && p.hp < 9999, [...seen].join(','));
+    for (let i = 0; i < 60 * 40; i++) { step(); if (e.bs && e.bs.act) seen.add(e.bs.act.k); p.hp = Math.max(p.hp, 5000); }
+    ok(`${ENEMIES[k].name}: beş yetenekli döngü`, KITS[k].rot.length === 5 && KITS[k].rot.every(s => seen.has(s)) && p.hp < 9999, [...seen].join(','));
     for (let i = 0; i < 600 && e.under; i++) step(); // toprağın altındayken vurulamaz
     const ev = events.bossPhase | 0; damageEnemy(e, e.maxHp * 0.6 / (1 - ENEMIES[k].armor), 0, 0, 0); run(0.3);
     ok(`${ENEMIES[k].name}: %50 canda öfkelenir`, e.bs.phase === 2 && (events.bossPhase | 0) === ev + 1, `faz ${e.bs.phase} ölü ${e.dead} can ${Math.round(e.hp)} emerge ${e.emergeT}`);
   }
   // Karakök toprağa dalar: altındayken vurulamaz, altından çıkınca vurur
-  { const [p, e] = arena(720, 'karakok'); e.bs = null; step(); e.bs.cd.spikes = 99; e.bs.cd.burrow = 0; p.y = (GROUND_ROW + 11) * TILE + 8; p.py = p.y;
+  { const [p, e] = arena(720, 'karakok'); e.bs = null; step(); e.bs.q = ['burrow']; e.bs.cd.gap = 0; p.y = (GROUND_ROW + 11) * TILE + 8; p.py = p.y;
     let under = false, hitUnder = false;
     for (let i = 0; i < 60 * 5; i++) { step(); if (e.under) { under = true; const h = e.hp; damageEnemy(e, 50, 0, 0, 0); if (e.hp !== h) hitUnder = true; } }
     ok('Karakök toprağa dalar ve çıkar', under && !e.under && !hitUnder && p.hp < 9999, `${under} ${e.under} ${hitUnder} ${p.hp}`); }
   // Ezelî halkası kayanın arkasına geçmez
-  { const [p, e] = arena(730, 'ezeli'); step(); e.bs.cd.pillars = 99; e.bs.cd.doom = 0;
+  { const [p, e] = arena(730, 'ezeli'); step(); e.bs.q = ['doom']; e.bs.cd.gap = 0;
     for (let c = 3; c <= 13; c++) setTile(c, GROUND_ROW + 7, T.BEDROCK || T.STONE);
     p.hp = 9999; e.px = e.x; for (let i = 0; i < 60 * 2.6; i++) { step(); e.x = e.px = 8 * TILE + 8; e.y = e.py = (GROUND_ROW + 4) * TILE + 8; }
     ok('Kıyamet Halkası siperde vurmaz', p.hp === 9999, `hp ${p.hp}`); }
@@ -1001,7 +1003,7 @@ section('Sandık türleri ve kalıntılar');
   { const p = setup(1312); applyPerk('buzZirh'); const h = p.hp; damagePlayerX(p, 20); ok('Buz Zırhı hasarı azaltır', Math.abs(h - p.hp - 17) < 1e-6, `${h - p.hp}`); }
   { const p = setup(1313); applyPerk('lesBombasi'); const a = spawnEnemy('rodent', p.x + 30, p.y, 0), b = spawnEnemy('rodent', p.x + 36, p.y, 0); a.emergeT = b.emergeT = 0; b.hp = b.maxHp = 5; killEnemy(a); ok('Leş Bombası çevreyi vurur', b.dead); }
   { const p = setup(1314); G.meta.schem = []; applyPerk('bolKemer'); ok('Bol Kemer eşya verir', G.items.medkit === 1 && G.items.dynamite === 1); }
-  { const p = setup(1315); applyPerk('vampir'); G.lvl.blaster = 6; p.hp = 20; const e = spawnEnemy('brute', p.x, p.y + 40, 0); e.emergeT = 0; run(2); ok('Vampir Mermi can emer', p.hp > 20, `${p.hp}`); ok('Vampir Mermi saniyede sınırlı emer', p.hp <= 20 + p.maxHp * 0.01 * 3 + 0.01, `${p.hp}`); }
+  { const p = setup(1315); applyPerk('vampir'); G.lvl.blaster = 6; p.hp = 20; p.iframes = 99; const e = spawnEnemy('brute', p.x, p.y + 40, 0); e.emergeT = 0; run(2); ok('Vampir Mermi can emer', p.hp > 20, `${p.hp}`); ok('Vampir Mermi saniyede sınırlı emer', p.hp <= 20 + p.maxHp * 0.01 * 3 + 0.01, `${p.hp}`); }
   { const p = setup(1316); applyPerk('donmusKalp'); const e = spawnEnemy('bug', p.x + 20, p.y, 0); e.emergeT = 0; p.hp = 25; damagePlayerX(p, 1); ok('Donmuş Kalp düşmanı dondurur', e.slowT > 4); }
   { const p = setup(1317); applyPerk('statik'); const e = spawnEnemy('bug', p.x, p.y + 30, 0); e.emergeT = 0; step(); ok('Statik Yük halka atar', p.novaT > 7, `${p.novaT}`); }
   ok('Kan Bağı tek başına çıkmaz', (() => { fresh(1318); for (let i = 0; i < 40; i++) if (perkChoices('gold').includes('kanBagi')) return false; return true; })());
@@ -1068,8 +1070,8 @@ section('Yeni biyomlar (20-29)');
   for (const k of ['aynasiz', 'kehribarAna', 'madenKalbi']) {
     for (const w of k === 'aynasiz' ? WEAPON_KEYS : ['blaster']) {
       const [p, e] = arena(1430, k); G.gear.wOwn = WEAPON_KEYS.slice(); p.wpn = w; const seen = new Set(); let threw = null;
-      try { for (let i = 0; i < 60 * 12; i++) { step(); if (e.bs && e.bs.act) seen.add(e.bs.act.k); p.hp = Math.max(p.hp, 5000); } } catch (err) { threw = err; }
-      ok(`${ENEMIES[k].name} (${w}): saldırı döngüsü`, !threw && seen.size >= 2 && p.hp < 9999, threw ? threw.stack.split('\n').slice(0, 2).join(' ') : [...seen].join(','));
+      try { for (let i = 0; i < 60 * (w === 'blaster' ? 40 : 12); i++) { step(); if (e.bs && e.bs.act) seen.add(e.bs.act.k); p.hp = Math.max(p.hp, 5000); } } catch (err) { threw = err; }
+      ok(`${ENEMIES[k].name} (${w}): ${w === 'blaster' ? 'beş yetenekli döngü' : 'saldırı döngüsü'}`, !threw && (w === 'blaster' ? KITS[k].rot.length === 5 && KITS[k].rot.every(s => seen.has(s)) : seen.size >= 2) && p.hp < 9999, threw ? threw.stack.split('\n').slice(0, 2).join(' ') : [...seen].join(','));
     }
     const [p, e] = arena(1431, k); const n0 = G.enemies.length; damageEnemy(e, e.maxHp * 0.6 / (1 - ENEMIES[k].armor), 0, 0, 0); run(0.3);
     ok(`${ENEMIES[k].name}: öfkede yardım çağırır`, e.bs.phase === 2 && G.enemies.length > n0);
@@ -1319,6 +1321,134 @@ section('Yeni aletler ve basit canlılar');
   ok('suya girince pirana sürüsü çıkar', wetAtT(p.x, p.y) && fs.length >= 3 && fs.every(o => o.wet), `${fs.length}`);
   e = mob('pirana', 8, R + 1); for (let r = R; r <= R + 2; r++) for (let c = 2; c <= 14; c++) G.lq[r * COLS + c] = 0;
   step(); ok('karada çırpınır', e.wet === false);
+}
+
+section('Denetim düzeltmeleri');
+{
+  // sandık teklifi: ikinci teklif birinciyi silmez, sıraya koyar
+  fresh(2001); const p = G.player; G.gear.pend.length = 0; G.perkOffer = null;
+  offer(p, 'gold', ['m:ricochet', 'm:frost']); offer(p, 'ancient', ['m:fire', 'm:split']);
+  ok('ikinci teklif gösterilir', G.perkOffer && G.perkOffer.chest === 'ancient');
+  applyPerk(G.perkOffer.keys[0], p); step();
+  ok('ilk teklif kaybolmaz, sırayla geri gelir', G.perkOffer && G.perkOffer.chest === 'gold' && G.perkOffer.keys.includes('m:ricochet'), JSON.stringify(G.perkOffer));
+  // kayıt: açık teklif, görülen biyom ve tehdit sayaçları korunur
+  G.seenStratum = 3; G.maxStratum = 3; G.threat.woke = 2; G.threat.bossCd = 40;
+  const d1 = JSON.parse(JSON.stringify(serialize())); deserialize(d1);
+  ok('açık teklif kayıtla gelir', G.perkOffer && G.perkOffer.chest === 'gold');
+  ok('görülen biyom ve boss sayaçları kayıtla gelir', G.seenStratum === 3 && G.threat.woke === 2 && Math.abs(G.threat.bossCd - 40) < 1e-6);
+  delete d1.seenStratum; deserialize(d1); ok('eski kayıtta görülen biyom ulaşılana eşit (bedava can yok)', G.seenStratum === G.maxStratum);
+  // eski kayıttaki kaldırılmış aletlerin bedeli iade edilir
+  const d2 = JSON.parse(JSON.stringify(serialize())); d2.items.turret = 2; d2.structures.push({ type: 'mortar', c: 8, r: GROUND_ROW + 2, hp: 50 }); const i0 = d2.store.iron | 0;
+  deserialize(d2); ok('eski aletlerin bedeli iade', G.store.iron === i0 + 2 * 10 + 12 && !G.structures.some(x => x.type === 'mortar'), `${G.store.iron} vs ${i0}`);
+}
+{
+  // kaçan boss öldürülmüş sayılmaz
+  fresh(2002); const p = G.player; shaft(8, GROUND_ROW + 12); p.x = p.px = 8 * TILE + 8; p.y = p.py = (GROUND_ROW + 10) * TILE + 8; p.hp = p.maxHp = 9999; forceFlow();
+  const e = spawnEnemy('kordesen', 8 * TILE + 8, (GROUND_ROW + 12) * TILE + 8, 3); e.emergeT = 0; G.threat.bossUp = true; G.threat.bossType = 'kordesen';
+  const b0 = G.stats.bosses, down0 = events.bossDown | 0, calm0 = events.bossCalm | 0;
+  p.y = p.py = GROUND_Y - 10; run(14);
+  ok('kaçan boss istatistiğe ve afişe girmez', e.dead && G.stats.bosses === b0 && (events.bossDown | 0) === down0 && (events.bossCalm | 0) > calm0, `${G.stats.bosses} ${events.bossDown}`);
+  ok('kaçıştan sonra dinlenme kısa', G.threat.bossCd > 0 && G.threat.bossCd < THREAT.bossRest / 2, `${G.threat.bossCd}`);
+}
+{
+  // aynı anda iki boss olmaz
+  fresh(2003); const e = spawnEnemy('kordesen', 100, (GROUND_ROW + 20) * TILE, 3); e.emergeT = 0;
+  ok('boss uyanıkken karşılaşma bekler', bossBusy(null)); killEnemy(e); run(3);
+  ok('boss ölünce karşılaşma serbest', !bossBusy(null));
+  if (G.temple) { G.temple.st = 'omen'; ok('başlamış karşılaşma diğerini bekletir', bossBusy({})); G.temple.st = 'wait'; }
+}
+{
+  // asansör şaftı su tapınağının zeminini delmez
+  fresh(1701); const S = G.temple, s = G.order.indexOf(FALLS_BIOME), fr = S.r1 + 1, t0 = tileAt(8, fr);
+  openStation(s + 1); ok('tapınak zemini sağlam kalır', tileAt(8, fr) === t0 && t0 !== T.AIR, `${t0} → ${tileAt(8, fr)}`);
+}
+{
+  // kayaya gömülen düşman çıkar; Örücü düşmanın üstüne örmez
+  fresh(2004); const p = G.player; shaft(8, GROUND_ROW + 14); p.x = p.px = 8 * TILE + 8; p.y = p.py = (GROUND_ROW + 13) * TILE + 8; p.hp = p.maxHp = 9999; forceFlow();
+  setTile(8, GROUND_ROW + 8, HOST_TILE[G.order[0]]); const e = spawnEnemy('rodent', 8 * TILE + 8, (GROUND_ROW + 8) * TILE + 8, 1); e.emergeT = 0;
+  run(1); ok('kayada kalan düşman boşluğa çıkar', !TD[tileAt(Math.floor(e.x / TILE), Math.floor(e.y / TILE))].solid, `${e.x} ${e.y}`);
+  const o = spawnEnemy('orucu', 8 * TILE + 8, (GROUND_ROW + 11) * TILE + 8, 1); o.emergeT = 0; o.sealC = 8; o.sealR = GROUND_ROW + 11; o.sealT = 0.01; o.sealCd = 99;
+  step(); ok('Örücü içinde düşman olan hücreyi örmez', tileAt(8, GROUND_ROW + 11) === T.AIR);
+}
+{
+  // sarsıntı yalnız sıradan kayayı gevşetir
+  fresh(2005); const q = G.player; shaft(8, GROUND_ROW + 14); q.x = q.px = 8 * TILE + 8; q.y = q.py = (GROUND_ROW + 12) * TILE + 8; q.hp = q.maxHp = 9999;
+  for (let r = GROUND_ROW + 5; r <= GROUND_ROW + 11; r++) for (let c = 3; c <= 13; c++) if (c !== 8) setTile(c, r, T.GOLD);
+  for (let c = 3; c <= 13; c++) setTile(c, GROUND_ROW + 12, T.AIR);
+  G.threat.noise = 40; G.evt.k = 'sarsinti'; G.evt.warnT = 0.02; run(0.1);
+  let lostGold = 0; for (let r = GROUND_ROW + 5; r <= GROUND_ROW + 11; r++) for (let c = 3; c <= 13; c++) if (c !== 8 && tileAt(c, r) !== T.GOLD) lostGold++;
+  ok('sarsıntı cevheri gevşetmez', lostGold === 0, `${lostGold}`);
+}
+
+section('Boss yetenek döngüsü');
+{
+  const arena = (seed, k) => { fresh(seed); const p = G.player; for (let r = GROUND_ROW + 1; r <= GROUND_ROW + 12; r++) for (let c = 3; c <= 13; c++) setTile(c, r, T.AIR);
+    p.x = p.px = 8 * TILE + 8; p.y = p.py = (GROUND_ROW + 9) * TILE + 8; p.hp = p.maxHp = 9999; forceFlow();
+    const e = spawnEnemy(k, 8 * TILE + 8, (GROUND_ROW + 4) * TILE + 8, 3); e.emergeT = 0; e.hp = e.maxHp = 1e6; step(); return [p, e, e.bs]; };
+  // tek bir yeteneği zorla başlatır; sonrasında başka yetenek ve düz vuruş gelmez
+  const cast = (seed, k, skill, dy = 0) => { const [p, e, B] = arena(seed, k); if (dy) p.y = p.py = e.y + dy; B.q = [skill]; B.cd.gap = 0; B.cd.melee = 99; p.hp = 9999; step(); step(); B.cd.gap = 99; return [p, e, B]; };
+  const still = (p, sec, fn) => { const x = p.x, y = p.y; for (let i = 0, n = Math.round(sec / STEP); i < n; i++) { p.x = p.px = x; p.y = p.py = y; p.fireCd = 9; step(); if (fn) fn(); } };
+  ok('sekiz bossun her birinde beş ayrı yetenek', BOSS_BANDS.every(k => KITS[k].rot.length === 5 && new Set(KITS[k].rot).size === 5 && KITS[k].rot.every(s => KITS[k].start[s] && KITS[k].can[s])));
+  ok('yetenekler bosslar arasında tekrar etmez', (() => { const all = BOSS_BANDS.flatMap(k => KITS[k].rot.map(s => (s === 'spikes' ? k + ':' : '') + s)); return new Set(all).size === all.length; })());
+  // döngü: sıradaki yapılamıyorsa atlanır, hepsi bitince baştan
+  { const [p, e, B] = arena(1600, 'karakok'); const seq = []; let last = null;
+    for (let i = 0; i < 60 * 45 && seq.length < 6; i++) { step(); p.hp = 9999; const k = B.act && B.act.k; if (k && k !== 'melee' && k !== last) seq.push(k); last = k; }
+    ok('döngü beş yeteneği de kullanıp başa döner', new Set(seq.slice(0, 5)).size === 5 && seq[5] === seq[0], seq.join(',')); }
+  // Karakök
+  { const [p, e, B] = cast(1601, 'karakok', 'bramble'); still(p, 2.2);
+    ok('Diken Çalısı: çalı kalır, yavaşlatır ve yaralar', B.zones.some(z => z.kind === 'bramble') && p.slowT > 0 && p.hp < 9999, `${B.zones.length} ${p.slowT} ${p.hp}`); }
+  { const [p, e, B] = cast(1602, 'karakok', 'cage'); still(p, 1.2); const mid = p.hp; still(p, 0.9);
+    ok('Kök Kafesi: halka ortayı vurmaz, sonra ortası çıkar', mid === 9999 && p.hp < 9999, `${mid} ${p.hp}`); }
+  // Kavurgan
+  { const [p, e, B] = cast(1603, 'kavurgan', 'spine'); still(p, 2); ok('Omurga Yarığı madenciye uzanır', p.hp < 9999, `${p.hp}`); }
+  { const [p, e, B] = cast(1604, 'kavurgan', 'ash'); still(p, 1.5); const z = B.zones.find(q => q.kind === 'ash');
+    if (z) { p.x = p.px = z.x; p.y = p.py = z.y + 4; } still(p, 0.8);
+    ok('Kül Bulutu feneri söndürür', !!z && p.darkT > G.time && lampTiles() === 2, `${B.zones.length} ${p.darkT}`); }
+  // Ötegöz
+  { const [p, e, B] = cast(1605, 'otegoz', 'spiral'); let most = 0; still(p, 2.4, () => { most = Math.max(most, G.ebullets.length); }); ok('Boşluk Sarmalı küre saçar', most >= 8, `${most}`); }
+  { const [p, e, B] = cast(1606, 'otegoz', 'stare'); still(p, 2.2); ok('Taşlaştıran Bakış: kıpırdamayan kurtulur', p.hp === 9999 && !(p.webT > 0), `${p.hp} ${p.webT}`); }
+  { const [p, e, B] = cast(1606, 'otegoz', 'stare'); for (let i = 0; i < 60 * 2.2; i++) { p.inp = { x: i % 40 < 20 ? 1 : -1, y: 0, mag: 1 }; p.fireCd = 9; step(); }
+    ok('Taşlaştıran Bakış: kıpırdayan taş kesilir', p.hp < 9999 && p.webT > 0, `${p.hp} ${p.webT}`); }
+  // Kördeşen
+  { const [p, e, B] = cast(1607, 'kordesen', 'boulder'); let flew = false; still(p, 2.4, () => { if (B.shots.length) flew = true; });
+    ok('Kaya Fırlatma: kaya uçar ve düştüğü yeri ezer', flew && !B.shots.length && p.hp < 9999, `${flew} ${p.hp}`); }
+  { const [p, e, B] = cast(1608, 'kordesen', 'drill', 40); const c0 = Math.floor(e.x / TILE), r0 = Math.floor(e.y / TILE); setTile(c0 + 1, r0, T.STONE); setTile(c0 - 1, r0 + 1, T.STONE); let shards = 0;
+    still(p, 2.6, () => { shards = Math.max(shards, G.ebullets.length); });
+    ok('Matkap Girdabı çevresini oyar, kıymık saçar', tileAt(c0 + 1, r0) === T.AIR && tileAt(c0 - 1, r0 + 1) === T.AIR && shards >= 3, `${tileAt(c0 + 1, r0)} ${shards}`); }
+  // Ezelî
+  { const [p, e, B] = cast(1609, 'ezeli', 'horizon'); still(p, 1.6); ok('Ufuk Çizgisi hizada kalanı vurur', p.hp < 9999, `${p.hp}`); }
+  { const [p, e, B] = cast(1609, 'ezeli', 'horizon'); still(p, 0.6); p.y = p.py = p.y - 30; still(p, 1);
+    ok('Ufuk Çizgisi: hizadan çıkan kurtulur', p.hp === 9999 && !B.lines.length, `${p.hp}`); }
+  { const [p, e, B] = cast(1610, 'ezeli', 'seeds'); const n = B.lines.filter(L => L.node).length; still(p, 2.4);
+    ok('Işık Tohumları nişan alıp vurur', n === 3 && p.hp < 9999 && !B.lines.length, `${n} ${p.hp}`); }
+  { const [p, e, B] = cast(1611, 'ezeli', 'wheel'); const A = B.act; let arms = 0;
+    for (let i = 0; i < 60 * 2.5; i++) { p.x = p.px = e.x + Math.cos(A.a) * 50; p.y = p.py = e.y + 3 + Math.sin(A.a) * 50; p.fireCd = 9; step(); arms = Math.max(arms, (A.lens || []).length); }
+    ok('Işık Çarkı: kolun üstünde kalan yanar', arms === 4 && p.hp < 9999, `${arms} ${p.hp}`); }
+  // Aynasız Hükümdar
+  { const [p, e, B] = cast(1612, 'aynasiz', 'images'); const n = B.images.length; let shots = 0; still(p, 2.2, () => { shots = Math.max(shots, G.ebullets.length); });
+    ok('Yansımalar belirir, kırık saçıp dağılır', n === 2 && !B.images.length && shots >= 3, `${n} ${shots}`); }
+  { const [p, e, B] = cast(1613, 'aynasiz', 'reflect'); still(p, 0.8); const h0 = e.hp, b0 = G.ebullets.length; damageEnemy(e, 100, 1, 0, 1);
+    const blocked = e.hp === h0 && G.ebullets.length === b0 + 1; damageEnemy(e, 10, 0, 0, 0, true); const burn = e.hp < h0; still(p, 2.4); const h1 = e.hp; damageEnemy(e, 100, 1, 0, 1);
+    ok('Ayna Kalkanı vuruşu geri yollar; yanma geçer; inince vurulur', blocked && burn && e.hp < h1, `${blocked} ${burn} ${e.hp < h1}`); }
+  { const [p, e, B] = cast(1614, 'aynasiz', 'step'); still(p, 0.6); ok('Ayna Adımı dibinde belirir ve vuruşa hazırdır', Math.hypot(e.x - p.x, e.y - p.y) < 60 && B.cd.melee <= 0, `${Math.hypot(e.x - p.x, e.y - p.y)}`); }
+  // Kehribar Ana
+  { const [p, e, B] = cast(1615, 'kehribarAna', 'swarm'); const z = B.zones.find(q => q.kind === 'swarm'), d0 = z ? Math.hypot(z.x - p.x, z.y - p.y) : 0; still(p, 3.5);
+    ok('Arı Sürüsü kovalar ve sokar', !!z && Math.hypot(z.x - p.x, z.y - p.y) < d0 && p.hp < 9999, `${d0} ${p.hp}`); still(p, 4); ok('Arı Sürüsü dağılır', !B.zones.length); }
+  { const [p, e, B] = cast(1616, 'kehribarAna', 'comb'); const z = B.zones.find(q => q.kind === 'comb'); still(p, 1); const h = p.hp;
+    if (z) { p.x = p.px = z.x; p.y = p.py = z.y + 4; } still(p, 0.2);
+    ok('Petek Tuzağı basanı yapıştırır ve tükenir', !!z && p.hp < h && p.webT > 0 && !B.zones.includes(z), `${!!z} ${p.hp} ${p.webT}`); }
+  // Madenin Kalbi
+  { const [p, e, B] = cast(1617, 'madenKalbi', 'clot'); let rings = 0; still(p, 2.4, () => { rings = Math.max(rings, B.rings.length); }); ok('Pıhtılar patlayıp halka yayar', rings >= 1 && p.hp < 9999, `${rings} ${p.hp}`); }
+  { const [p, e, B] = arena(1618, 'madenKalbi'); p.y = p.py = (GROUND_ROW + 11) * TILE + 8; B.q = ['grow']; B.cd.gap = 0; B.cd.melee = 99; step(); step(); B.cd.gap = 99;
+    const ms = B.marks.filter(m => m.kind === 'grow').map(m => [m.c, m.row]); still(p, 2.2);
+    const pc = Math.floor(p.x / TILE), pr = Math.floor(p.y / TILE), grown = ms.filter(([c, r]) => tileAt(c, r) !== T.AIR).length;
+    ok('Kapanan Duvarlar boşlukları kayayla doldurur', ms.length >= 2 && grown >= ms.length - 1 && tileAt(pc, pr) === T.AIR, `${ms.length} ${grown}`); }
+  { const [p, e, B] = cast(1619, 'madenKalbi', 'grow'); B.marks.length = 0; const c = Math.floor(p.x / TILE), r = Math.floor(p.y / TILE);
+    B.marks.push({ x: c * TILE + 8, y: r * TILE + 4, r: 9, t: 0.3, T: 0.3, dmg: 0, kind: 'grow', post: 0, c, row: r }); still(p, 0.6);
+    ok('Kapanan Duvarlar: içinde kalan ezilir ama gömülmez', p.hp < 9999 && tileAt(c, r) === T.AIR, `${p.hp}`); }
+  ok('yeni yetenekler deterministik', (() => { const h = []; for (let i = 0; i < 2; i++) { const [p] = arena(1620, 'kordesen'); spawnEnemy('aynasiz', 6 * TILE + 8, (GROUND_ROW + 3) * TILE + 8, 3).emergeT = 0; spawnEnemy('madenKalbi', 10 * TILE + 8, (GROUND_ROW + 3) * TILE + 8, 3).emergeT = 0; for (let j = 0; j < 60 * 25; j++) { step(); p.hp = 9999; } h.push(hash()); } return h[0] === h[1]; })());
+  // son seviyedeki kalıntının açıklaması (atölyenin Donanım sekmesi) çökmez
+  ok('son seviye kalıntı açıklaması çökmez', (() => { fresh(1621); try { for (const k of Object.keys(PERKS)) { G.perks = [k]; G.perkLv = { [k]: maxLv(k) }; offerInfo(k); } return true; } catch (err) { return false; } })());
 }
 
 console.log(`\n${checks - fails}/${checks} kontrol geçti${fails ? `, ${fails} HATA` : ''}`);

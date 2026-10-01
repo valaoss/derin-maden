@@ -121,14 +121,14 @@ function pose(o) {
     const [up, dn] = meleeK(o), [ay, ap] = aimLocal(Math.cos(o.aim || 0), Math.sin(o.aim || 0), o.view); aimY = clamp(ay, -1.3, 1.3); aimP = clamp(ap, -0.8, 1); lookW = 0; aimW = Math.max(0.5 * up, dn);
     for (let i = 0; i < NECK; i++) nP[i] = lerp(nP[i] + COIL[i] * up, FIRE_NECK[i], dn);
     hd[0] = lerp(STAND.head - 10 * up, -2, dn); px += -2.5 * up + 4 * dn; py -= 1 * up; pitch += 3 * up - 4 * dn; jaw = Math.max(0.75 * up, 0.12 * dn); coreK = 0.6 + 0.3 * up; flare = 0.4 * dn; wing.open += 0.25 * up; rate = 46;
-  } else if (o.act === 'embers' || (o.prev === 'embers' && !o.act && o.since < 0.6)) {
-    // arka ayakları üstünde şaha kalkar, göğe kükrer: sırtından kor sütunu yükselir
-    const c = o.act === 'embers' ? o.since : 0.45 + o.since, k = ss(0, 0.2, c) * (1 - ss(0.6, 1.05, c));
+  } else if (o.act === 'embers' || o.act === 'ash' || ((o.prev === 'embers' || o.prev === 'ash') && !o.act && o.since < 0.6)) {
+    // arka ayakları üstünde şaha kalkar, göğe kükrer: sırtından kor sütunu yükselir (kül bulutunda daha uzun kalır, kül kusar)
+    const ash = (o.act || o.prev) === 'ash', c = o.act ? o.since : (ash ? 1.3 : 0.45) + o.since, k = ash ? ss(0, 0.5, c) * (1 - ss(0.8, 1.5, c)) : ss(0, 0.2, c) * (1 - ss(0.6, 1.05, c));
     pitch += 40 * k; py += 3.5 * k; px -= 2 * k; tuck = k; nP[0] += 6 * k; nP[2] += 14 * k; nP[3] += 20 * k; hd[0] += 26 * k; jaw = 0.9 * k; coreK = 1; hot = k; flare = k;
     wing.open = Math.max(wing.open, k); wing.fan = Math.max(wing.fan, k); wing.flap += 0.3 * k; [-18, -10, -4, 0].forEach((v, i) => { tP[i] += v * k; }); lookW = 0; rate = 34;
-  } else if (o.act === 'bones' || (o.prev === 'bones' && !o.act && o.since < 0.35)) {
-    // bütün gövdesiyle silkelenir: kemik kıymıkları dört yana saçılır
-    const c = o.act === 'bones' ? o.since : 0.4 + o.since, k = bump(0, 0.06, 0.4, 0.75, c), sh = Math.sin(t * 38);
+  } else if (o.act === 'bones' || o.act === 'spine' || ((o.prev === 'bones' || o.prev === 'spine') && !o.act && o.since < 0.35)) {
+    // bütün gövdesiyle silkelenir: kemik kıymıkları dört yana saçılır (omurga yarığında yerden çıkar)
+    const c = o.act ? o.since : 0.4 + o.since, k = bump(0, 0.06, 0.4, 0.75, c), sh = Math.sin(t * 38);
     roll += sh * 13 * k; px += sh * 0.8 * k; py -= 1.5 * k; flare = k; nY.forEach((_, i) => { nY[i] += sh * 9 * k; }); hd[2] += -sh * 16 * k; jaw = 0.5 * k;
     for (let i = 0; i < TAIL; i++) tY[i] += Math.sin(t * 38 - i) * 16 * k * (i / 6); wing.open += 0.5 * k; wing.flap += sh * 0.12 * k; coreK = 1; lookW = 0.3; rate = 60;
   }
@@ -149,4 +149,4 @@ function pose(o) {
   };
 }
 
-export const KAVURGAN = { w: 170, h: 124, ox: 85, oy: 102, scale: 1.05, tilt: 0.2, mats: MATS, stride: 14, shadow: 22, body: 30, bias: 0.3, turn: 0.5, outline: [14, 6, 4], hold: ['bones', 'embers'], pose, build };
+export const KAVURGAN = { w: 170, h: 124, ox: 85, oy: 102, scale: 1.05, tilt: 0.2, mats: MATS, stride: 14, shadow: 22, body: 30, bias: 0.3, turn: 0.5, outline: [14, 6, 4], hold: ['bones', 'embers', 'ash', 'spine'], pose, build };

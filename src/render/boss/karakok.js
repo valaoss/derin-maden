@@ -97,11 +97,16 @@ function pose(o) {
     fR[0] += a[0] * w; fR[1] += a[1] * w; fL[0] += b[0] * w; fL[1] += b[1] * w;
     y -= (0.6 + 0.9 * Math.cos(ph * 2 * TAU)) * w; roll += s1 * 5 * w; twist -= c1 * 8 * w; bend[1] += c1 * 10 * w; lean += 5 * w; R.sw -= c1 * 16 * w; L.sw += c1 * 16 * w; x += Math.sin(ph * 2 * TAU) * 0.8 * w;
   }
-  if (o.act === 'spikes' || (o.prev === 'spikes' && !o.act && o.since < 0.4)) {
-    // iki kolunu kaldırıp yere indirir: kökler madencinin altından fışkırır
-    const c = o.act === 'spikes' ? o.since : 0.5 + o.since, up = bump(0, 0.14, 0.18, 0.26, c), dn = ss(0.18, 0.28, c) * (1 - ss(0.6, 0.9, c));
+  const SLAM = ['spikes', 'cage'];
+  if (SLAM.includes(o.act) || (SLAM.includes(o.prev) && !o.act && o.since < 0.4)) {
+    // iki kolunu kaldırıp yere indirir: kökler madencinin altından (kafeste çevresinden) fışkırır
+    const c = o.act ? o.since : 0.5 + o.since, up = bump(0, 0.14, 0.18, 0.26, c), dn = ss(0.18, 0.28, c) * (1 - ss(0.6, 0.9, c));
     for (const a of [R, L]) { a.sw += 150 * up + 46 * dn; a.el += 10 * up - 14 * dn; a.ab -= 8 * up; }
     lean += -22 * up + 16 * dn; bend[0] += -18 * up + 14 * dn; y += 1.5 * up - 4.5 * dn; head[0] += 14 * up - 6 * dn; jaw = 0.5 * up + 0.3 * dn; claw = 0.8; if (dn > 0.5) x += Math.sin(t * 50) * 0.3; rate = 40; lookW = 0.3;
+  } else if (o.act === 'bramble' || (o.prev === 'bramble' && !o.act && o.since < 0.3)) {
+    // göğsünden tohum kesesi koparır, başının üstünden fırlatır
+    const c = o.act ? o.since : 0.5 + o.since, up = bump(0, 0.12, 0.2, 0.3, c), th = ss(0.2, 0.32, c) * (1 - ss(0.5, 0.8, c));
+    R.sw += 150 * up + 70 * th; R.el -= 10 * up + 20 * th; R.ab -= 8 * up; lean += -10 * up + 12 * th; bend[0] += -8 * up + 10 * th; head[0] += 8 * up - 4 * th; jaw = 0.4 * th; cage = 0.5 * up; claw = 0.7; rate = 40; lookW = 0.5;
   } else if (o.act === 'burrow') {
     // burgu gibi dönerek toprağa girer
     const k = clamp(o.since / 0.5, 0, 1);

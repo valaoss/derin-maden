@@ -8,7 +8,8 @@ const MAX_PARTICLES = 260;
 export function particle(x, y, vx, vy, life, col, size = 1, type = 0, grav = 300) {
   const ps = G.particles;
   let p;
-  if (ps.length >= MAX_PARTICLES) { p = ps[G.pIdx = (G.pIdx + 1) % ps.length]; }
+  // havuz doluysa önce sönmüş bir yuva aranır; hiç yoksa en eskinin üstüne yazılır (uzun ömürlü kar/toz erken kesilmesin)
+  if (ps.length >= MAX_PARTICLES) { let i = G.pIdx, k = 0; do i = (i + 1) % ps.length; while (!ps[i].dead && ++k < ps.length); if (!ps[i].dead) i = (G.pIdx + 1) % ps.length; p = ps[G.pIdx = i]; }
   else { p = {}; ps.push(p); }
   p.x = x; p.y = y; p.vx = vx; p.vy = vy; p.life = p.t0 = life; p.col = col; p.size = size; p.type = type; p.grav = grav; p.dead = false;
   return p;

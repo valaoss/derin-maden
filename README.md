@@ -22,7 +22,7 @@ npm run build      # dist/ — statik olarak herhangi bir yerde yayınlanabilir
   - **Karakök**, Toprağın Düğümü: kök mızrakları, toprağa dalıp altından çıkar (altındayken vurulmaz); öfkede kökçük çağırır.
   - **Kavurgan**, Kül ve Kemik Ejderi: kor nefesi (koni, öfkede seni izler), kül yağmuru; öfkede kemik halkası.
   - **Ötegöz**, Boşluğa Bakan: güdümlü boşluk küreleri, çekim bakışı, ışınlanma; öfkede kayada kesilen tarayan ışın.
-  - **Taçsız Sultan**, Altın Sarayın Laneti: kayayı yararak hücum (sonra sersemler), asa şok halkası, altın yelpazesi; öfkede çift hücum.
+  - **Kördeşen**, Derinlerin Kör Kazıcısı: kayayı matkap gibi yararak hücum eder, duvara çarpınca sersemler.
   - **Ezelî**, Çekirdeğin Rüyası: yargı sütunları, Kıyamet Halkası (kayanın arkasına saklan); öfkede iki Işık Bekçisi.
 - **Yuvalar:** Her biyomda 2-3 kovan kayaya gömülüdür. Uyanık yuva yakınındaki oyuncuya düşman çıkarır (menzil seviyeyle büyür).
   Yuvayı kazma ya da mermiyle yık: ganimet düşer, ölçer düşer. Yakın yuva kalmadıysa yüksek gürültüde kayadan sızma olur.
@@ -33,9 +33,13 @@ npm run build      # dist/ — statik olarak herhangi bir yerde yayınlanabilir
 - **Düşme ve kaldırma:** Can bitince ölmezsin, bayılırsın. Partner 1.6 sn yanında durursa kaldırır (%50 can); 25 sn içinde kaldırılmazsan
   partner kampa dönene kadar beklersin. Herkes düşerse sefer biter. Tek oyunculuda düşmek seferi bitirir; **İkinci Nefes** perk'i ve
   kamptaki **Sağlık Sigortası** sefer başına bir kez kendin kalkmanı sağlar.
-- **Taşınabilir aletler:** Yüzey yuvaları kaldırıldı. Atölye > Üret'ten Nöbetçi, Alev Kulesi ve Havan
-  üretilir; kemerden durduğun yere (tünel içi dahil) kurulur, dokunup geri alınır. Aynı anda en fazla 2 (perk ile 3);
-  sınırda en eski alet kemere döner.
+- **Taşınabilir aletler:** Atölye > Üret'ten **Şifa Direği** (yakındaki madencileri saniyede azami canın %2'si kadar iyileştirir;
+  dokunup geri alınır, aynı anda en fazla 2, perk ile 3; sınırda en eski direk kemere döner) ve **Sondaj Matkabı** (tek kullanımlık;
+  kurulduğu yerden aşağı 20 blok deler, cevheri düşürür, gürültülüdür, geri alınmaz) üretilir.
+- **Yem Zili:** fırlatılır, 5 sn çalar; sesini duyan düşmanlar sana değil ona koşar, sonunda patlar.
+- **Lir bossları:** Kor Katmanı'nda **Balrog**, Sessiz Deniz'de **Dünya Yılanı**, Altın Saray'da uyuyan **Hazine Ejderi**,
+  Şelale Mağarası'nın dibindeki su tapınağında **Poseidon** (öfkede deve dönüşür). Aynı anda yalnız bir boss uyanır; herkes kampta
+  12 sn kalırsa boss geri çekilir (öldürülmüş sayılmaz).
 - **Öz:** yıkılan yuva ×6, fener ×20, derinlik, sandık, cevher. Kontratlar: `waves` yerine `nests` (yuva yık).
 - **Asansör (sefer içi):** Merkez şaft. Bir biyoma ilk ulaştığında istasyonu açılır ve şaft oraya kadar kazılır; şaftta durunca
   ASANSÖR düğmesi çıkar, Kamp ya da açılmış biyomu seç, kabin seni taşır (kabinde hasar yok, Kalp Kristali ile yavaş). Her biyomda git-gel yok.
@@ -50,8 +54,6 @@ npm run build      # dist/ — statik olarak herhangi bir yerde yayınlanabilir
 - **Sandıklar:** Ahşap, Demir, Altın, Silah, Cevher, Erzak, Lanetli (3 elit bekçi, güçlü kalıntı), Kadim ve Taklitçi (sandık kılığında saldırır).
   Kalıntılar Sıradan / Nadir / Efsanevi (50+).
 - **Test düğmesi:** adrese `?test` eklenince Atölye'de TEST ∞: her cevherden 99999, tüm şemalar, Fener kilidi açık.
-- **Roller:** Madenci kartında seçilir; Kazıcı (kazma %20 hızlı, kazı gürültüsü %25 az), Nişancı (blaster hasarı +%25, menzil +12),
-  Mühendis (alet sınırı +1, aletler %40 dayanıklı). Co-op'ta partnerin rolü koltuk kartında görünür.
 - **Maden olayları:** Yeraltında ve ölçer sessiz değilken 55-95 sn'de bir olay: **Sarsıntı** (uyarıdan 2.5 sn sonra tavan çöker),
   **Gaz sızıntısı** (yakın boşluklara bulut), **Karartma** (18 sn fener yarı menzil). Deterministik; iki tarafta da aynı anda olur.
 - **Maden kanaryası (Kamp):** yerel oyuncuyu izleyen kuş; 11 blok içindeki gizli yuvayı sezip ok gösterir, gürültü eşiğe yaklaşınca öter.
@@ -59,7 +61,7 @@ npm run build      # dist/ — statik olarak herhangi bir yerde yayınlanabilir
 - **Kontrol hissi:** Ayarlar > **Sabit joystick** (varsayılan) ya da yüzen joystick (ekranın alt yarısında dokunduğun yerde doğar, sabit kalır); sabit tabanın yeri
   (Otomatik/Sağ/Sol/Orta) ve yüksekliği (Alçak/Orta/Yüksek) ayarlardan seçilir.
   Kardinale yakın itişte eksen kilidi, köşede kaydırma (bloke olunca açık şeride hızla kayıp aynı karede ilerler), kutu 9×11.
-- **Ana menü (sade):** üstte madenci çipi (ad, kask, rol → Madenci kartı) + ayar dişlisi; büyük KAZMAYA BAŞLA / DEVAM ET; kademe tek satırda döngü;
+- **Ana menü (sade):** üstte madenci çipi (ad, kask → Madenci kartı) + ayar dişlisi; büyük KAZMAYA BAŞLA / DEVAM ET; kademe tek satırda döngü;
   BİRLİKTE · GÜNÜN MADENİ · KAMP üçlü karo; altta eser rafı ve rekor satırı.
 - **Fotoğraf modu:** Duraklat > Fotoğraf Çek; HUD'suz kare + filigran, telefonda paylaşım menüsü, masaüstünde PNG indirme.
 

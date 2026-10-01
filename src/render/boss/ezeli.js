@@ -81,10 +81,19 @@ function pose(o) {
   const bend = [-2, 0, 0], head = [-6, 0, 0], R = { sw: 10, ab: 22, tw: 0, el: 22 }, L = { sw: 10, ab: 22, tw: 0, el: 22 }, brk = [0, 0];
   const wing = { open: 1 - 0.12 * mv, flap: Math.sin(t * 1.6) * 0.12, len: 1 };
   const tail = [-clamp(o.vx * Math.cos(o.view) * 0.12, -5, 5) + Math.sin(t * 1.2) * 1.2, Math.sin(t * 0.9 + 1) * 1];
-  if (o.act === 'pillars' || (o.prev === 'pillars' && !o.act && o.since < 0.5)) {
+  const CALL = ['pillars', 'seeds'];
+  if (CALL.includes(o.act) || (CALL.includes(o.prev) && !o.act && o.since < 0.5)) {
     // iki kolunu kaldırır, halelerdeki bütün gözler açılıp parlar: yargı sütunları iner
-    const c = o.act === 'pillars' ? o.since : 0.4 + o.since, k = bump(0, 0.16, 0.5, 0.9, c);
+    const c = o.act ? o.since : 0.4 + o.since, k = bump(0, 0.16, 0.5, 0.9, c);
     for (const a of [R, L]) { a.sw += 150 * k; a.ab += 4 * k; a.el -= 10 * k; } head[0] += 22 * k; lean -= 6 * k; y += 2 * k; wing.flap += 0.3 * k; flash = k; lookW *= 1 - k; rate = 30;
+  } else if (o.act === 'horizon' || (o.prev === 'horizon' && !o.act && o.since < 0.7)) {
+    // kollarını iki yana gerer: ufuk boyunca bir ışık çizgisi çeker
+    const c = o.act ? o.since : 0.5 + o.since, k = bump(0, 0.2, 0.7, 1.2, c);
+    for (const a of [R, L]) { a.sw += 10 * k; a.ab += 68 * k; a.el -= 18 * k; } wing.open = 1 + 0.2 * k; lean -= 4 * k; head[0] += 10 * k; flash = k; lookW *= 1 - k; rate = 30;
+  } else if (o.act === 'wheel') {
+    // kollar ve kanatlar açık, haleler hızlanır: gövdesinden ışık kolları çıkar ve döner
+    const k = ss(0, 0.9, o.since);
+    for (const a of [R, L]) { a.sw += 6 * k; a.ab += 60 * k; a.el -= 14 * k; } wing.open = 1 + 0.15 * k; core = 0.7 * k; rspin += k * o.since * 3; rsc = 1 + 0.25 * k; head[0] += 8 * k; y += 1.5 * k; lookW = 0; rate = 30;
   } else if (o.act === 'doom') {
     // kanatlarını içe kapatır, ışığı göğsünde toplar; haleler daralıp hızlanır
     const k = ss(0, 1, o.wind);

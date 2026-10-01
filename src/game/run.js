@@ -204,8 +204,8 @@ export function hasMod(k) { return G.gear.owned.includes(k); }
 
 export function lampTiles() {
   const r = UPGRADES.lamp.radius[G.lvl.lamp] + (hasRelic('kivilcim') ? 1 : 0) + (hasRelic('arken') ? 3 : 0) + (G.lvl.inciFener ? 3 : 0);
-  // Işık Yiyen yakındayken fener söner
-  const lp = G.player, eaten = lp && G.enemies.some(e => !e.dead && e.d.eatLight && Math.hypot(e.x - lp.x, e.y - lp.y) < e.d.eatLight);
+  // Işık Yiyen yakındayken ya da Kavurgan'ın kül bulutunda fener söner
+  const lp = G.player, eaten = lp && G.enemies.some(e => !e.dead && e.d.eatLight && Math.hypot(e.x - lp.x, e.y - lp.y) < e.d.eatLight) || lp && lp.darkT > G.time;
   if (eaten) return 2;
   return G.evt && G.evt.darkT > 0 && !G.lvl.inciFener ? Math.max(2, Math.ceil(r / 2)) : r;
 }
@@ -254,6 +254,12 @@ export function deserialize(d) {
     for (const k in d.gear.evo || {}) if (WEAPONS[k] && (d.gear.evo[k] === 0 || d.gear.evo[k] === 1)) g.gear.evo[k] = d.gear.evo[k];
     for (const k in d.gear.tLvl || {}) if (BUILD_KEYS.includes(k)) g.gear.tLvl[k] = Math.min(TOOL_UP.max, d.gear.tLvl[k] | 0); }
   for (const k of ITEM_KEYS) if (d.items && k in d.items) g.items[k] = Math.max(0, d.items[k] | 0);
+  // kaldırılan aletler (Nöbetçi, Alev Kulesi, Havan): eski kayıttaki kemer ve kurulu olanların bedeli depoya iade edilir
+  const OLD_TOOLS = { turret: { iron: 10 }, flame: { iron: 8, cobalt: 3 }, mortar: { iron: 12, cobalt: 4 } };
+  for (const k in OLD_TOOLS) {
+    const n = Math.max(0, (d.items && d.items[k]) | 0) + (d.structures || []).filter(s => s.type === k).length;
+    for (const r in OLD_TOOLS[k]) g.store[r] += OLD_TOOLS[k][r] * n;
+  }
   if (d.contracts) g.contracts = d.contracts;
   g.structures = (d.structures || []).filter(s => BUILDS[s.type] && s.c !== undefined).map(s => { const o = Object.assign(makeStructure(s.type, s.c, s.r), { hp: s.hp, buildT: 0 }); if (o.left && s.left > 0) o.left = Math.min(o.left, s.left | 0); return o; });
   g.threat = makeThreat(); if (d.threat) { g.threat.noise = Math.min(60, d.threat.noise || 0); g.threat.woke = Math.max(0, d.threat.woke | 0); g.threat.bossCd = Math.max(0, Math.min(120, +d.threat.bossCd || 0)); }

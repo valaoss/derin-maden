@@ -56,5 +56,6 @@ export function directorHp(st) {
 }
 // elit/boss can tabanı: ekibin tam isabetle en az bu kadar saniye ateş etmesi gerekir
 export function ttkFloor(boss) {
-  return teamDps(true) * (1 + pv('devAvcisi')) * (boss ? POWER.bossTtk : POWER.eliteTtk);
+  // Dev Avcısı'nın ek hasarı tabana katılmaz: yoksa taban o hasarı birebir yutar ve perk etkisiz kalır
+  return teamDps(true) * (boss ? POWER.bossTtk : POWER.eliteTtk);
 }

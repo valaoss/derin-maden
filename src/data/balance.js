@@ -312,7 +312,7 @@ export const ENEMIES = {
   leech:      { name: 'Kan Sülüğü', hp: 140, speed: 26, dmg: 16, r: 6, armor: 0.25, burrow: true, dig: 99, digRate: 7, knockResist: 0.75, drain: true, loot: [['iron', 3]], cost: 5 }, // ısırınca kan emer: iyileşir ve büyür, sen kanarsın
   echoer:     { name: 'Yankıcı', hp: 95, speed: 32, dmg: 14, r: 6, howl: true, howlRange: 110, howlCd: 5.5, echoNoise: 10, cost: 4 }, // ulumasi ölçeri yükseltir, sürüyü hızlandırır
   // v6 biyom imzaları
-  korAvci:    { name: 'Kör Avcı', hp: 160, speed: 34, dmg: 42, r: 6, armor: 0.2, deaf: true, dash: 1.8, cost: 5 },                 // görmez; son sese koşar, çok sert vurur
+  korAvci:    { name: 'Kör Avcı', hp: 160, speed: 34, dmg: 28, r: 6, armor: 0.2, deaf: true, dash: 1.8, cost: 5 },                 // görmez; son sese koşar, çok sert vurur
   yilan:      { name: 'Batak Yılanbalığı', hp: 120, speed: 30, dmg: 14, r: 5, fly: true, swim: true, latch: 2.5, cost: 4 },         // suda çok hızlı; yapışır, sudan çıkana kadar yer
   orucu:      { name: 'Örücü', hp: 180, speed: 26, dmg: 16, r: 6, armor: 0.3, seal: 5, sealRange: 130, cost: 5 },                  // arkandaki tüneli örer
   kalkanli:   { name: 'Kalkanlı Muhafız', hp: 260, speed: 22, dmg: 26, r: 8, armor: 0.3, front: 0.9, dig: 99, digRate: 5, knockResist: 0.8, cost: 7 }, // önden gelen vuruşu keser
@@ -330,7 +330,7 @@ export const ENEMIES = {
     loot: [['crystal', 14], ['gold', 12], ['kehribar', 3]], lore: 'Maden yaşıyor. Duvarlar ona ait: duvara yaslanma, yerinde durma.' },
   balrog: { name: 'Balrog', title: 'Kadim Gölge ve Alev', col: '#ff5a1a', hp: 900, speed: 19, dmg: 32, r: 12, armor: 0.35, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 2.6, hpMul: 1.4,
     loot: [['crystal', 10], ['gold', 10], ['cobalt', 6]], lore: 'Kor Katmanının dibinde uyuyan kadim gölge. Kamçısı uzağa uzanır, kılıcı yeri yarar; gölgeye karışıp arkanda belirir.' },
-  dunyaYilani: { name: 'Dünya Yılanı', title: 'Denizin Kuşağı', col: '#5ae0ff', hp: 950, speed: 0, dmg: 28, r: 12, armor: 0.3, fly: true, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 2.5, hpMul: 1.5,
+  dunyaYilani: { name: 'Dünya Yılanı', title: 'Denizin Kuşağı', col: '#5ae0ff', hp: 520, speed: 0, dmg: 28, r: 12, armor: 0.3, fly: true, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 2.5, hpMul: 1.5,
     loot: [['crystal', 14], ['gold', 10], ['cobalt', 6]], lore: 'Denizin altında uyuyan kuşak. Duvardan duvara geçer, gövdesi kayayı yarar; yalnız başı vurulur. Geçeceği yol duvarda parlar.' },
   poseidon: { name: 'Poseidon', title: 'Denizlerin Efendisi', col: '#6fd8ff', hp: 950, speed: 24, dmg: 30, r: 11, armor: 0.3, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 2.6, hpMul: 1.5,
     loot: [['crystal', 12], ['gold', 10], ['water', 20]], lore: 'Mızrağın nişan çizgisinden ve yerdeki girdaptan çık; mızrağını fırlatınca silahsız kalır. Öfkelenince deve dönüşür: yeri dövdüğünde dalganın üstünden uç.' },
@@ -542,6 +542,6 @@ export const BOSS_MELEE = { range: 12, reach: 20, arc: 1.15, wind: 0.5, rest: 0.
 // Balrog: Kor Katmanı'nın ortasına inen madenciyi bir kez karşılar. dark: sisin toplanma süresi (sn), intro: alevlenme
 export const BALROG = { depth: 16, dark: 7.5, intro: 2.6, drum: 1.15, aura: 28, auraDmg: 4, carve: 0.3 };
 // Dünya Yılanı: Sessiz Deniz'in ortasında bir kez; duvardan duvara geçer, yalnız başı vurulur
-export const SERPENT = { depth: 16, omen: 8.5, seg: 5, n: 48, speed: 150, under: 1.4, tell: 1.1, rear: 2.3, headDmg: 26, bodyDmg: 12 };
+export const SERPENT = { depth: 16, omen: 8.5, seg: 5, n: 48, speed: 150, under: 1.4, tell: 1.1, rear: 3, headDmg: 26, bodyDmg: 12 };
 // Hazine Ejderi: Altın Saray'ın altındaki hazine salonunda altına gömülü uyur; altın ve gürültü kıpırdatır, saldırı uyandırır
 export const HOARD = { noise: 6, gold: 14, decay: 1.2, stirMax: 90, intro: 3.4, weak: 2 };

@@ -284,7 +284,8 @@ export function unbury(c, r, p = null) {
   if (d.nest && p && isLocal(p)) emit('toast', { text: 'Yuva buldun', icon: 'wave' });
   if (p && hear(p, x, y)) sfx.oreReveal();
 }
-export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
+// machine: makine kırdı (Sondaj Matkabı) — vuruş donması (hitstop) ve sarsıntı yok
+export function breakTile(c, r, byPlayer, dx = 0, dy = 0, machine = false) {
   const t = tileAt(c, r), d = TD[t], mat = matOf(c, r);
   setTile(c, r, T.AIR);
   onBreak(c, r, t);
@@ -293,7 +294,7 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
   if (d.gas) spawnGas(x, y);
   if (d.ember) { sparks(x, y, '#ff9a4a', 10, 90); flashLight(x, y, 4, 0.3); if (byPlayer && Math.hypot(byPlayer.x - x, byPlayer.y - y) < 22) { byPlayer.burnT = 2; damagePlayer(byPlayer, HAZARD.emberBurn, x, y); } }
   if (!byPlayer) { debris(x, y, mat, 5, 0.7); return; }
-  const p = byPlayer, near = hear(p, x, y), local = isLocal(p), feel = local && Math.hypot(p.x - x, p.y - y) < 170; // uzaktaki sondaj sarsmasın
+  const p = byPlayer, near = hear(p, x, y), local = isLocal(p), feel = !machine && local && Math.hypot(p.x - x, p.y - y) < 170; // uzaktaki sondaj sarsmasın
   G.stats.dug++;
   if (pickType(p).leech && p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + pickType(p).leech);
   addNoise((THREAT.noise.brk + (d.ore ? THREAT.noise.ore : 0)) * perkNoise(), x, y);
@@ -310,7 +311,7 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0) {
   if (near) sfx.breakBlock(mat);
   if (feel) haptic(d.hp >= 6 ? 14 : 7);
   // hitstop simülasyonu durdurur: deterministik kalması için iki tarafta da uygulanır
-  if (d.hp >= 6 || d.ore) { hitstop(0.035); if (feel) shake(0.12); } else if (feel) shake(d.hp >= 3 ? 0.07 : 0.04);
+  if (d.hp >= 6 || d.ore) { if (!machine) hitstop(0.035); if (feel) shake(0.12); } else if (feel) shake(d.hp >= 3 ? 0.07 : 0.04);
   // derin biyom taşları
   if (d.toxic && Math.hypot(p.x - x, p.y - y) < 26) { poisonPlayer(p, 12, true); dust(x, y, 3, 'rgba(200,210,220,0.6)'); }
   if (d.shock) {

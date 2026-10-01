@@ -79,7 +79,7 @@ export const PERK_KEYS = Object.keys(PERKS);
 export const maxLv = k => (PERKS[k].v ? PERKS[k].v.length : 1);
 // seviye değerinin okunur hali
 export function fmtV(k, lv) {
-  const d = PERKS[k], v = d.v ? d.v[Math.max(0, lv - 1)] : 0;
+  const d = PERKS[k], v = d.v ? d.v[Math.max(0, Math.min(d.v.length, lv) - 1)] : 0; // son seviyenin "sonraki" değeri yok: son değerde kalır
   return d.f === 'p' ? String(Math.round(v * 100)) : d.f === 'b' ? String(+(v / 16).toFixed(1)) : String(+v.toFixed(2));
 }
 export function perkDesc(k, lv = 1, next = 0) {

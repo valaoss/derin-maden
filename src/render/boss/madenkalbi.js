@@ -69,13 +69,14 @@ const lub = ph => { const c = ph - Math.floor(ph); return bump(0, 0.06, 0.1, 0.2
 function pose(o) {
   const t = o.t, A = o.A, dead = o.dying > 0, rage = o.rage ? 1 : 0;
   let beat = lub(t / (rage ? 0.8 : 1.15) + o.wob), s = 1 + beat * 0.07, sy = 1, x = clamp(o.vx * 0.04, -2, 2), y = Math.sin(t * 1.3 + o.wob) * 1.8, spike = 0, spread = 1, orb = t * (1.1 + rage * 0.6), swing = 1, lag = clamp(o.vx * 0.02, -0.6, 0.6), stone = 0, fall = 0, rate = 24, alpha = 1;
-  if (o.act === 'spikes' || (o.prev === 'spikes' && !o.act && o.since < 0.6)) {
+  const BURST = ['spikes', 'clot'], QUAKE = ['fall', 'grow'];
+  if (BURST.includes(o.act) || (BURST.includes(o.prev) && !o.act && o.since < 0.6)) {
     // sıkışır, sonra dikenleri dört yana fırlar; yavaşça geri çekilir
-    const c = o.act === 'spikes' ? o.since : 0.4 + o.since, cl = bump(0, 0.1, 0.14, 0.2, c), out = ss(0.14, 0.2, c) * (1 - ss(0.5, 1, c));
+    const c = o.act ? o.since : 0.4 + o.since, cl = bump(0, 0.1, 0.14, 0.2, c), out = ss(0.14, 0.2, c) * (1 - ss(0.5, 1, c));
     s = 1 - 0.14 * cl + 0.06 * out; spike = out; beat = Math.max(beat, out); spread = 1 + 0.5 * out; rate = 50;
-  } else if (o.act === 'fall' || (o.prev === 'fall' && !o.act && o.since < 0.5)) {
+  } else if (QUAKE.includes(o.act) || (QUAKE.includes(o.prev) && !o.act && o.since < 0.5)) {
     // şişer ve sarsılır: tavan çöker
-    const c = o.act === 'fall' ? o.since : 0.3 + o.since, k = bump(0, 0.12, 0.4, 0.8, c);
+    const c = o.act ? o.since : 0.3 + o.since, k = bump(0, 0.12, 0.4, 0.8, c);
     s = 1 + 0.16 * k; x += Math.sin(t * 60) * 1.4 * k; y += Math.cos(t * 47) * k; beat = Math.max(beat, k * 0.8); swing = 1 + 3 * k; rate = 50;
   } else if (o.act === 'melee') {
     // büzülür, sonra dikenlerini madenciye doğru fırlatıp geri çeker

@@ -159,12 +159,15 @@ function closestNest() {
 }
 // grup çıkar: dalga kaynağından, yoksa en yakın uyanık yuvadan, o da yoksa derindeki oyuncunun çevresindeki kayadan
 function launchSquad(lv, types, at) {
-  const D = G.threat.dir; D.sid++;
+  // grup kimliği yalnız grup gerçekten çıkınca ilerler (boş grup "önceki grup öldü" kapısını atlatmasın)
+  const D = G.threat.dir, sid = D.sid + 1;
   const n = at && at.nest && G.nests.includes(at.nest) ? at.nest : at && at.cell ? null : closestNest();
-  if (n && spawnFrom(n, n.p || deepestUnder() || G.player, lv, types, D.sid)) return true;
+  if (n && spawnFrom(n, n.p || deepestUnder() || G.player, lv, types, sid)) { D.sid = sid; return true; }
   const p = deepestUnder(); if (!p) return false;
   const st = Math.max(0, stratumOfRow(Math.floor(p.y / TILE)));
-  return seep(p, st, lv, types, D.sid, at && at.cell ? at.cell : seepCell(p));
+  const ok = seep(p, st, lv, types, sid, at && at.cell ? at.cell : seepCell(p));
+  if (ok) D.sid = sid;
+  return ok;
 }
 function squadAlive(sid) { let n = 0; for (const e of G.enemies) if (!e.dead && e.sq === sid) n++; return n; }
 // dalga kaynağı: uyarıda bellidir (ok ve ses), dalga oradan gelir
@@ -210,7 +213,14 @@ export function updateThreat(dt) {
   // Sessiz Deniz: ölçer sönmez, zamanla dolar
   th.noise = Math.max(th.noise, seaFloor());
   // boss öldü: ölçer sakinleşir
-  if (th.bossUp && !bossAlive) { th.bossUp = false; th.noise = Math.min(th.noise, THREAT.afterBoss); th.bossCd = THREAT.bossRest; G.stats.bosses++; emit('bossDown', th.bossType); th.bossType = ''; }
+  // kaçtıysa (herkes kampta kaldı): sayılmaz, afiş "yeniden uyudu" der, dinlenme kısa
+  if (th.bossUp && !bossAlive) {
+    th.bossUp = false;
+    if (th.bossFled) { th.bossCd = THREAT.bossRest / 4; emit('bossCalm', th.bossType); }
+    else { th.noise = Math.min(th.noise, THREAT.afterBoss); th.bossCd = THREAT.bossRest; G.stats.bosses++; emit('bossDown', th.bossType); }
+    th.bossType = '';
+  }
+  th.bossFled = false;
   if (th.bossCd > 0) th.bossCd -= dt;
   // tepe: boss hemen uyanmaz, sayaç başlar; ölçer tepeden inerse sayaç geri sarar ve boss yeniden uyur. Hangisi olduğu uyarıda belli olur
   const full = lvBefore === 4 || levelOf(th.noise) === 4;

@@ -77,8 +77,8 @@ export function drawPoseidonFx(ctx, e, x, y, t, glow) {
     glow(hx, hy, 'rgba(138,216,255,0.6)', Math.round(4 + e.wind * 8), 0.9);
   } else if (A.k === 'wave' && A.stage === 'wind') {
     // dalganın geçeceği şerit
-    const [ox, oy] = heartOf(e), nx = -Math.sin(A.a), ny = Math.cos(A.a), c = e.wind > 0.6 ? '#ff5a3a' : W[1];
-    if (on || e.wind > 0.6) for (const s of [-1, 1]) dash(ctx, ox + nx * A.hw * s, oy + ny * A.hw * s, A.a, A.len || 100, c, -t * 60);
+    const [ox, oy] = heartOf(e), nx = -Math.sin(A.a), ny = Math.cos(A.a), lock = e.wind >= 0.45, c = lock ? '#ff5a3a' : W[1];
+    if (on || lock) for (const s of [-1, 1]) dash(ctx, ox + nx * A.hw * s, oy + ny * A.hw * s, A.a, A.len || 100, c, -t * 60);
   } else if (A.k === 'slam' && A.stage === 'raise') {
     // zemin boyunca iki yana yürüyecek dalganın yüksekliği
     const c = e.wind > 0.6 ? '#ff5a3a' : W[1], yy = y - 4;
