@@ -34,7 +34,7 @@ Paket kimliği `com.baranbulduk.fall`. Değiştirmek istersen ilk yüklemeden ö
 | Alan | Değer |
 |---|---|
 | Platform | iOS |
-| Name | `metadata/tr/name.txt` (FALL: Derin Maden) |
+| Name | `metadata/tr/name.txt` (FALL; İngilizce sayfada "FALL: Deep Mine", yalın FALL orada başka hesapta) |
 | Primary Language | Turkish |
 | Bundle ID | com.baranbulduk.fall (listede yoksa önce developer.apple.com → Identifiers'da oluştur; Xcode ilk Archive'da kendisi de oluşturur) |
 | SKU | fall-ios-1 |
