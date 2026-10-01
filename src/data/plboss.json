@@ -52,7 +52,7 @@
   "feet": 128,
   "cx": 64,
   "rows": 12,
-  "scale": 0.62
+  "scale": 0.539
  },
  "kavurgan": {
   "cell": 128,
@@ -91,7 +91,7 @@
   "feet": 123,
   "cx": 64,
   "rows": 8,
-  "scale": 0.62
+  "scale": 0.539
  },
  "karakok": {
   "cell": 128,
@@ -134,7 +134,7 @@
   "feet": 126,
   "cx": 64,
   "rows": 9,
-  "scale": 0.62
+  "scale": 0.539
  },
  "otegoz": {
   "cell": 128,
@@ -173,7 +173,7 @@
   "feet": 122,
   "cx": 64,
   "rows": 8,
-  "scale": 0.6
+  "scale": 0.522
  },
  "sultan": {
   "cell": 128,
@@ -216,7 +216,7 @@
   "feet": 125,
   "cx": 64,
   "rows": 9,
-  "scale": 0.6
+  "scale": 0.522
  },
  "ezeli": {
   "cell": 128,
@@ -255,7 +255,7 @@
   "feet": 121,
   "cx": 64,
   "rows": 8,
-  "scale": 0.62
+  "scale": 0.539
  },
  "aynasiz": {
   "cell": 128,
@@ -294,7 +294,7 @@
   "feet": 126,
   "cx": 64,
   "rows": 8,
-  "scale": 0.62
+  "scale": 0.539
  },
  "kehribarAna": {
   "cell": 128,
@@ -333,7 +333,7 @@
   "feet": 124,
   "cx": 64,
   "rows": 8,
-  "scale": 0.62
+  "scale": 0.539
  },
  "madenKalbi": {
   "cell": 128,
@@ -372,7 +372,7 @@
   "feet": 124,
   "cx": 64,
   "rows": 8,
-  "scale": 0.6
+  "scale": 0.522
  },
  "ejder": {
   "cell": 128,
@@ -419,6 +419,6 @@
   "feet": 124,
   "cx": 64,
   "rows": 10,
-  "scale": 0.68
+  "scale": 0.591
  }
 }
