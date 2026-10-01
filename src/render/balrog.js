@@ -7,6 +7,7 @@ import { G } from '../game/state.js';
 import { hash2, clamp, lerp } from '../core/util.js';
 import { drawBossArt, drawBossArtGlow, artAttachment } from './bossart.js';
 import { flame, origin as flameOrigin } from './beast.js';
+import { has3D } from './boss/actor.js';
 
 let X, OX, OY, F;
 const SC = 1.5; // iskelet (kamçı eli, sis içindeki gözler) sprite boyuna oturur
@@ -130,14 +131,14 @@ export function drawBalrogGlow(ctx, e, alpha, glow) {
   if (eye && fire > 0.01) {
     flameOrigin(ctx, 0, 0, 1, 1);
     // The burning mane has independent tongues and a bright core, not a static halo.
-    for (let i = 0; i < 5; i++) {
+    if (!has3D(e)) for (let i = 0; i < 5; i++) {
       const h = (7 + Math.sin(t * (7 + i * 0.6) + i * 2) * 3 + (P.rage ? 5 : 0)) * fire;
       flame(eye[0] - P.F * (7 + i * 2), eye[1] - 8 + i * 1.2, h, 3, -P.F * 0.2, i, P.rage);
     }
     if (eye[3] !== false) glow(eye[0], eye[1], 'rgba(255,196,82,0.75)', 7, Math.min(1, fire));
     if (chest) glow(chest[0], chest[1], 'rgba(255,83,20,0.32)', 22, Math.min(1, fire) * (0.65 + Math.sin(t * 4) * 0.15));
   }
-  if (P.roar > 0.05 && fade > 0) { const m = up(P, [12, -40]); glow(wx(m[0]), wy(m[1]), 'rgba(255,140,40,0.8)', Math.round(6 + P.roar * 10), P.roar); }
+  if (P.roar > 0.05 && fade > 0) { const q = artAttachment(e, alpha, 'mouth'), m = up(P, [12, -40]); glow(q ? q[0] : wx(m[0]), q ? q[1] : wy(m[1]), 'rgba(255,140,40,0.8)', Math.round(6 + P.roar * 10), P.roar); }
   if (fire <= 0.01) return;
   glow(OX, OY - 2, 'rgba(255,90,30,0.4)', 26, Math.min(1, fire) * (0.7 + 0.2 * Math.sin(t * 5)));
   const whH = up(P, P.whH);
@@ -211,7 +212,8 @@ export function drawBalrogOmen(ctx, glow) {
   const p = G.players[S.pi] || G.player; F = p.x < x ? -1 : 1; OX = x; OY = fy;
   if (t > 3.2) {
     const k = clamp((t - 3.2) / 0.8, 0, 1), bl = ((t * 0.7) % 3) < 0.12 ? 0 : 1, h = Math.max(1, Math.round(k * 2)) * bl;
-    if (h) { glow(wx(9), wy(-44), 'rgba(255,150,50,0.6)', 8, k); X.fillStyle = '#fff4a0'; X.fillRect(Math.round(wx(F > 0 ? 9 : 11)), Math.round(wy(-44)), 3, h); X.fillStyle = '#ffb040'; X.fillRect(Math.round(wx(F > 0 ? 6 : 7)), Math.round(wy(-44)), 2, h); }
+    // çömelmiş 3B gövdenin göz hizası
+    if (h) { glow(wx(7), wy(-27), 'rgba(255,150,50,0.6)', 8, k); X.fillStyle = '#fff4a0'; X.fillRect(Math.round(wx(F > 0 ? 7 : 9)), Math.round(wy(-27)), 3, h); X.fillStyle = '#ffb040'; X.fillRect(Math.round(wx(F > 0 ? 4 : 5)), Math.round(wy(-27)), 2, h); }
   }
   const late = BALROG.dark - 2.6;
   if (t > late) {

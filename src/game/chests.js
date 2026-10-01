@@ -1,11 +1,13 @@
 // Sandıklar: türüne göre kalıntı seçimi, silah teklifi, cevher yağmuru, erzak, lanet ya da taklitçi.
-// Teklif anahtarları: kalıntı adı ya da 'w:<silah>' (silah türü), 'wl:<silah>' (+2 ustalık), 'm:<eklenti>', 'tl:<alet>' (+2 seviye)
+// Teklif anahtarları: kalıntı adı ya da 'w:<silah>' (silah türü), 'xl:1' (+1 silah seviyesi), 'm:<eklenti>', 'tl:<alet>' (+2 seviye),
+// 'x:<kart>' (silah kartı), 'e:<silah>:<0|1>' (silah evrimi)
 import { rnd } from '../core/rng.js';
 import { TILE, stratumOfRow } from '../config.js';
-import { CHESTS, WEAPONS, WEAPON_KEYS, WEAPON_UP, MODS, MOD_KEYS, TOOL_UP, BUILD_KEYS, BUILDS, ITEMS, DEEP_ORES } from '../data/balance.js';
+import { CHESTS, WEAPONS, WEAPON_KEYS, CARDS, MODS, MOD_KEYS, TOOL_UP, BUILD_KEYS, BUILDS, ITEMS, DEEP_ORES } from '../data/balance.js';
 import { PERKS, PERK_KEYS, SOY, RESONANCE, OFFER_W, REROLL, maxLv, perkDesc, perkKind } from '../data/relics.js';
 import { G } from './state.js';
-import { hasPerk, isUnlocked, modSlots, isLocal, perkLv } from './run.js';
+import { hasPerk, isUnlocked, isLocal, perkLv, cardLv } from './run.js';
+import { WOFFER, weaponMaxed, levelUpWeapon } from './weaponlevel.js';
 export const ROMAN = ['', 'I', 'II', 'III'];
 import { spawnOrb } from './player.js';
 import { spawnEnemy, makeElite } from './enemies.js';
@@ -50,7 +52,7 @@ export function perkChoices(type = 'wood') {
 export function rerollCost() { return hasPerk('kumar') ? 0 : REROLL.base + REROLL.step * (G.rerolls | 0); }
 export function rerollOffer(p) {
   const off = G.perkOffer, c = rerollCost();
-  if (!off || off.pi !== p.i || (G.store.gold | 0) < c) return false;
+  if (!off || off.pi !== p.i || WOFFER[off.chest] || (G.store.gold | 0) < c) return false;
   G.store.gold -= c; G.rerolls = (G.rerolls | 0) + 1;
   const C = CHESTS[off.chest] || CHESTS.wood;
   off.keys = C.arms ? armsChoices(C.n) : perkChoices(off.chest);
@@ -58,11 +60,11 @@ export function rerollOffer(p) {
   return true;
 }
 
-// Silah Sandığı: sahip olmadığın silah, sahip olduğun silaha ustalık, eklenti ya da alet seviyesi
+// Silah Sandığı: sahip olmadığın silah, silah seviyesi, eklenti ya da alet seviyesi
 function armsChoices(n) {
   const g = G.gear, opts = [];
   for (const k of WEAPON_KEYS) if (!g.wOwn.includes(k)) opts.push('w:' + k);
-  for (const k of g.wOwn) if ((g.wLvl[k] | 0) < WEAPON_UP.max) opts.push('wl:' + k);
+  if (!weaponMaxed()) opts.push('xl:1');
   for (const k of MOD_KEYS) if (!g.owned.includes(k)) opts.push('m:' + k);
   for (const k of BUILD_KEYS) if (isUnlocked(k) && (g.tLvl[k] | 0) < TOOL_UP.max) opts.push('tl:' + k);
   const out = [];
@@ -80,18 +82,22 @@ export function offerInfo(k) {
   }
   const [a, b] = k.split(':');
   if (a === 'w') return { name: WEAPONS[b].name, desc: 'Bedava silah: ' + WEAPONS[b].desc, icon: WEAPONS[b].icon, t: 2, tag: 'SİLAH', col: '#9fe8ff' };
-  if (a === 'wl') return { name: WEAPONS[b].name + ' +2', desc: `Ustalık iki seviye artar (hasar +%${WEAPON_UP.dmg * 200}, atış hızı +%${WEAPON_UP.cd * 200}).`, icon: WEAPONS[b].icon, t: 2, tag: 'USTALIK', col: '#9fe8ff' };
-  if (a === 'm') return { name: MODS[b].name, desc: 'Bedava eklenti: ' + MODS[b].desc, icon: MODS[b].icon, t: 1, tag: 'EKLENTİ', col: '#9fe8ff' };
+  if (a === 'xl') return { name: 'Silah Seviyesi +1', desc: 'Silahın hemen seviye atlar: bir kart seçersin.', icon: 'blaster', t: 2, tag: 'SİLAH SEVİYESİ', col: '#ffd24a' };
+  if (a === 'x' && CARDS[b]) { const l = cardLv(b); return { name: CARDS[b].name, desc: CARDS[b].desc, icon: CARDS[b].icon, t: 1, tag: 'KART', col: '#ffd24a', lv: l + 1, max: CARDS[b].max }; }
+  if (a === 'e' && WEAPONS[b]) { const E = WEAPONS[b].evo[+k.split(':')[2]]; return { name: E.name, desc: E.desc, icon: WEAPONS[b].icon, t: 3, tag: 'EVRİM · ' + WEAPONS[b].name.toLocaleUpperCase('tr'), col: '#ff9a3a', kind: 'leg' }; }
+  if (a === 'm') return { name: MODS[b].name, desc: MODS[b].desc, icon: MODS[b].icon, t: 1, tag: 'BEDAVA EKLENTİ', col: '#9fe8ff' };
   if (a === 'tl') return { name: BUILDS[b].name + ' +2', desc: `Alet iki seviye artar (hasar +%${TOOL_UP.dmg * 200}, dayanıklılık +%${TOOL_UP.hp * 200}).`, icon: BUILDS[b].icon, t: 2, tag: 'ALET', col: '#9fe8ff' };
   return { name: k, desc: '', icon: 'chest', t: 1, tag: '' };
 }
 
-// silah sandığı teklifini uygula
+// silah teklifini uygula (sandık, kart, evrim, başlangıç eklentisi)
 export function applyOffer(k, p) {
-  const g = G.gear, [a, b] = k.split(':');
+  const g = G.gear, [a, b, c] = k.split(':');
   if (a === 'w' && WEAPONS[b] && !g.wOwn.includes(b)) { g.wOwn.push(b); p.wpn = b; }
-  else if (a === 'wl' && g.wOwn.includes(b)) g.wLvl[b] = Math.min(WEAPON_UP.max, (g.wLvl[b] | 0) + 2);
-  else if (a === 'm' && MODS[b] && !g.owned.includes(b)) { g.owned.push(b); if (g.eq.length < modSlots()) g.eq.push(b); emit('modChanged', b); }
+  else if (a === 'xl') levelUpWeapon();
+  else if (a === 'x' && CARDS[b] && cardLv(b) < CARDS[b].max) g.cards[b] = cardLv(b) + 1;
+  else if (a === 'e' && WEAPONS[b] && (c === '0' || c === '1') && g.evo[b] == null) g.evo[b] = +c;
+  else if (a === 'm' && MODS[b] && !g.owned.includes(b)) { g.owned.push(b); emit('modChanged', b); }
   else if (a === 'tl' && BUILDS[b]) g.tLvl[b] = Math.min(TOOL_UP.max, (g.tLvl[b] | 0) + 2);
   else return false;
   emit('gearChanged', { kind: 'chest', k, pi: p.i });
@@ -99,6 +105,9 @@ export function applyOffer(k, p) {
 }
 
 export function offer(p, type, keys) {
+  // yarıda kalan silah teklifi kaybolmaz: sıraya geri döner
+  const cur = G.perkOffer;
+  if (keys.length && cur && WOFFER[cur.chest]) G.gear.pend.unshift({ kind: cur.chest === 'start' ? 'start' : 'lvl', pi: cur.pi });
   if (keys.length) { G.perkOffer = { pi: p.i, keys, chest: type }; emit('perkOffer', p.i); }
   else if (isLocal(p)) emit('toast', { text: CHESTS[type].name + ' boş çıktı', icon: 'chest' });
 }

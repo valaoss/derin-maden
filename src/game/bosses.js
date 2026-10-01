@@ -140,7 +140,7 @@ export const KITS = {
         if (t < 0.7) { e.wind = t / 0.7; return; }
         if (B.phase === 2 && p) A.a += Math.max(-1.2 * dt, Math.min(1.2 * dt, angDiff(Math.atan2(p.y - e.y, p.x - e.x), A.a)));
         A.fire = true;
-        const mx = e.x + Math.cos(A.a) * 8, my = e.y + Math.sin(A.a) * 8;
+        const mx = e.x + Math.cos(A.a) * 20, my = e.y - 4 + Math.sin(A.a) * 20;   // 3B modelin uzanan başı
         for (let i = 0; i < 3; i++) { const a = A.a + (rnd() - 0.5) * 0.8, s = 60 + rnd() * 70; particle(mx, my, Math.cos(a) * s, Math.sin(a) * s, 0.5, rnd() < 0.5 ? '#ffd060' : '#ff6a1a', rnd() < 0.3 ? 2 : 1, 1, -30); }
         A.tick -= dt;
         if (A.tick <= 0) {
@@ -202,8 +202,8 @@ export const KITS = {
     },
   },
 
-  // TAÇSIZ SULTAN: kayayı yararak hücum, asa darbesi (şok halkası), altın yelpazesi
-  sultan: {
+  // KÖRDEŞEN (dev köstebek): kayayı yararak hücum, pençe darbesi (şok halkası), cevher yelpazesi
+  kordesen: {
     cd: { charge: 3, slam: 2, coins: 2 },
     choose(e, p, dp, B) {
       if (B.cd.slam <= 0 && dp < 50) return 'slam';
@@ -406,7 +406,7 @@ Object.assign(KITS, {
 
 // BALROG: alev kamçısı (uzak, öfkede çeker), alev kılıcı (yeri yarar), gölge kanatları (korku + kor yağmuru),
 // gölgeye karışıp arkanda belirme. Yürürken kayayı parçalar; öfkede çevresini kavurur.
-const ARM = e => [e.x + e.face * 43, e.y - 55];
+const ARM = e => [e.x + e.face * 24, e.y - 22]; // 3B modelin kamçı eli
 KITS.balrog = {
   cd: { whip: 1.2, sword: 0.8, wings: 7, shadow: 9 },
   choose(e, p, dp, B) {

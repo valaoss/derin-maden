@@ -1,6 +1,7 @@
 // Deterministik lockstep, donmaya karşı sertleştirilmiş:
 // - Girdi gecikmesi ölçülen ağa göre kendini ayarlar (geç gelen girdi -> gecikme artar, bol pay -> azalır).
-// - Her paket son HIST karenin girdisini taşır (sırasız kanal + kayıp/gecikme telafisi).
+// - Her paket karşı tarafın henüz onaylamadığı tüm kareleri taşır; kanal yeniden iletim yapmaz (kuyruk birikmez),
+//   kayıp paketi bir sonraki paket telafi eder.
 // - Hız eşitleme: öndeki taraf hafifçe yavaşlar, gerideki hızlanır; kimse bekleme duvarına çarpmaz.
 // - Bekleme olursa yakalama yumuşaktır (kare başına en fazla 3 adım).
 import { G } from '../game/state.js';
@@ -9,14 +10,14 @@ import { execCmd, setCommandQueue } from '../game/commands.js';
 import { send, link } from './peer.js';
 import { emit } from '../core/events.js';
 
-const HIST = 8;            // pakette taşınan geçmiş kare sayısı
+const MAX_ROWS = 48;       // pakette en fazla kare (tek UDP paketine sığar)
 const MIN_DELAY = 3, MAX_DELAY = 16;
 
 export const net = {
   on: false, idx: 0, frame: 0, delay: 5,
-  local: new Map(), remote: new Map(), cmds: [], lastSched: -1, hist: [],
+  local: new Map(), remote: new Map(), cmds: [], lastSched: -1, peerAck: -1, have: -1,
   hashes: new Map(), desync: false, stallT: 0, stalls: 0,
-  remoteFrame: 0, remoteAt: 0, lead: 0, rtt: 0, pingT: 0, resendT: 0,
+  remoteFrame: 0, remoteAt: 0, lead: 0, rtt: 0, rtts: [], pingT: 0, resendT: 0,
   slackMin: 99, adaptT: 0, calmT: 0, stallCd: 0, quality: 'iyi',
   log: [], lost: false, bye: false,
 };
@@ -25,14 +26,14 @@ const LOG = 600;           // yeniden bağlanmada karşıya verilen yerel girdi 
 export function startLockstep(localIdx) {
   net.on = true; net.idx = localIdx; net.frame = 0; net.delay = 5;
   net.local.clear(); net.remote.clear(); net.hashes.clear();
-  net.cmds = []; net.hist = []; net.lastSched = -1; net.desync = false; net.stallT = 0; net.stalls = 0;
-  net.remoteFrame = 0; net.remoteAt = performance.now(); net.lead = 0; net.rtt = 0; net.pingT = 0; net.resendT = 0;
+  net.cmds = []; net.lastSched = -1; net.desync = false; net.stallT = 0; net.stalls = 0;
+  net.remoteFrame = 0; net.remoteAt = performance.now(); net.lead = 0; net.rtt = 0; net.rtts = []; net.pingT = 0; net.resendT = 0;
   net.slackMin = 99; net.adaptT = 0; net.calmT = 0; net.stallCd = 0; net.quality = 'iyi';
   net.log = []; net.lost = false; net.bye = false;
   setCommandQueue(cmd => net.cmds.push(cmd));
   // ilk DELAY kare boş girdi: iki taraf da hemen başlayabilsin
   for (let f = 0; f < net.delay; f++) { net.local.set(f, { x: 0, y: 0, m: 0, c: [] }); net.remote.set(f, { x: 0, y: 0, m: 0, c: [] }); }
-  net.lastSched = net.delay - 1;
+  net.lastSched = net.peerAck = net.have = net.delay - 1;
   link.onMessage = onMessage;
 }
 export function stopLockstep() {
@@ -52,15 +53,19 @@ export function sampleLocal() {
   for (let f = net.lastSched + 1; f <= target; f++) {
     const inp = { x: quant(mv.x), y: quant(mv.y), m: quant(mv.mag), c: f === net.lastSched + 1 ? cmds : [] };
     net.local.set(f, inp);
-    const row = [f, inp.x, inp.y, inp.m, inp.c.length ? inp.c : 0];
-    net.hist.push(row); net.log.push(row);
+    net.log.push([f, inp.x, inp.y, inp.m, inp.c.length ? inp.c : 0]);
   }
   while (net.log.length > LOG) net.log.shift();
   net.lastSched = target;
-  while (net.hist.length > HIST) net.hist.shift();
   sendInputs();
 }
-function sendInputs() { net.resendT = 0; send(['i', net.frame, net.hist]); }
+// elimizdeki kesintisiz son karşı kare: karşı taraf bundan sonrasını göndermeyi sürdürür
+function have() { let h = Math.max(net.have, net.frame - 1); while (net.remote.has(h + 1)) h++; return (net.have = h); }
+function sendInputs() {
+  net.resendT = 0;
+  const L = net.log; let i = L.length; while (i > 0 && L[i - 1][0] > net.peerAck) i--;
+  send(['i', net.frame, L.slice(i, i + MAX_ROWS), have()], true);
+}
 
 export function canStep() { return net.local.has(net.frame) && net.remote.has(net.frame); }
 
@@ -99,8 +104,8 @@ function check(f, mine, theirs) {
 export function netTick(dt, stalled) {
   if (net.lost) return 0; // bağlantı kopuk: uyarlama ve hız eşitleme durur
   net.pingT += dt; net.resendT += dt; net.adaptT += dt;
-  if (net.pingT >= 1) { net.pingT = 0; send(['p', performance.now(), net.slackMin]); }
-  if (net.resendT >= 0.05 && net.hist.length) sendInputs(); // sessizken bile yedekli tekrar
+  if (net.pingT >= 1) { net.pingT = 0; send(['p', performance.now(), net.slackMin], true); }
+  if (net.resendT >= 0.05) sendInputs(); // sessizken bile tekrar: onay ve eksik kareler
   net.stallCd = Math.max(0, (net.stallCd || 0) - dt);
   if (stalled) {
     net.stallT += dt;
@@ -115,8 +120,10 @@ export function netTick(dt, stalled) {
     else net.calmT = 0;
     net.slackMin = 99;
   }
-  // hız eşitleme: karşı tarafın tahmini karesiyle farkımız
-  const est = net.remoteFrame + (performance.now() - net.remoteAt) / (1000 / 60);
+  // hız eşitleme: karşı tarafın tahmini karesiyle farkımız. Paket yolda geçen süre kadar eskidir (ölçülen en düşük ping'in yarısı);
+  // bu eklenmezse iki taraf da kendini önde sanıp birlikte yavaşlar.
+  const lat = net.rtts.length ? Math.min(300, ...net.rtts) / 2 : 0;
+  const est = net.remoteFrame + (performance.now() - net.remoteAt + lat) / (1000 / 60);
   net.lead = net.frame - Math.min(est, net.remoteFrame + 30);
   net.quality = net.rtt > 220 || net.delay >= 12 ? 'zayıf' : net.rtt > 110 || net.delay >= 8 ? 'orta' : 'iyi';
   if (net.lead > 2) return -dt * 0.3;   // öndeyiz: %30 yavaşla
@@ -130,6 +137,7 @@ function onMessage(d) {
   const k = d[0];
   if (k === 'i') {
     net.remoteFrame = d[1]; net.remoteAt = performance.now();
+    if (d[3] > net.peerAck) net.peerAck = d[3];
     const list = d[2] || [];
     let newest = -1;
     for (const e of list) {
@@ -141,10 +149,11 @@ function onMessage(d) {
     if (newest >= 0) { const slack = newest - net.frame; if (slack < net.slackMin) net.slackMin = slack; }
   } else if (k === 'p') {
     if (typeof d[2] === 'number' && d[2] < net.slackMin) net.slackMin = d[2];
-    send(['q', d[1], net.slackMin]);
+    send(['q', d[1], net.slackMin], true);
   } else if (k === 'q') {
     const r = performance.now() - d[1];
     net.rtt = net.rtt ? net.rtt * 0.7 + r * 0.3 : r;
+    net.rtts.push(r); if (net.rtts.length > 8) net.rtts.shift();
     if (typeof d[2] === 'number' && d[2] < net.slackMin) net.slackMin = d[2];
   } else if (k === 'h') {
     const f = d[1], h = d[2];

@@ -1,4 +1,4 @@
-// Harita sürprizlerinin çizimi: yeraltı gölü (dalga, balıklar, olta), portal taşı (rünler, dönen kıvılcım),
+// Harita sürprizlerinin çizimi: yeraltı gölü (sazlar, balıklar, olta; suyu sıvı çizicisi boyar), portal taşı (rünler, dönen kıvılcım),
 // mantar (gözlü sap, benekli şapka) ve olay efektleri (yeme, ışınlanma, balık tutma).
 import { COLS, TILE } from '../config.js';
 import { P } from '../data/palette.js';
@@ -34,7 +34,6 @@ function drawLake(L, i, t) {
     const sw = Math.round(Math.sin(t * 1.3 + rx) * 1);
     R('#2a6a3a', rx, ys - h + 4, 1, h); R('#4ab060', rx + sw, ys - h + 3, 1, 3); R('#c89a5a', rx + sw, ys - h + 1, 1, 2);
   }
-  X.globalAlpha = 0.88; R('#18406e', x0, ys, x1 - x0, yb - ys); R('#0f2c52', x0, yb - 3, x1 - x0, 3); X.globalAlpha = 1;
   // balıklar: suda gezinir, arada biri zıplar
   for (let k = 0; k < L.fish; k++) {
     const ph = t * 0.5 + k * 2.1 + L.c, half = (x1 - x0) / 2 - 7, mid = (x0 + x1) / 2;
@@ -43,8 +42,6 @@ function drawLake(L, i, t) {
     if (j < 0.09) { const a = j / 0.09; fishPx(fxp, ys - Math.sin(a * Math.PI) * 10, dir); if (a > 0.85) R('#c8ecff', fxp - 2, ys - 2, 1, 1); }
     else fishPx(fxp, ys + 4 + (k % 2) * 2, dir, 0.75);
   }
-  for (let x = x0; x < x1; x += 2) R('#7ac8ff', x, ys + Math.round(Math.sin(t * 2 + x * 0.25) * 0.8), 2, 1);
-  for (let k = 0; k < 3; k++) R('#c8ecff', x0 + ((t * 9 + k * 27) % (x1 - x0 - 3)), ys + 3 + k * 2, 3, 1);
   // olta: kamış, misina, şamandıra; ısırınca dalar
   for (const p of G.players) {
     if (!p.fish || p.fish.li !== i) continue;

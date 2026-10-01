@@ -1,11 +1,14 @@
 // Headless oyun testleri: gerçek modüller, DOM yok. Kullanım: node tests/sim.test.mjs
 import { App, G } from '../src/game/state.js';
-import { newRun, recompute, serialize, deserialize, pickDmg, pickInterval, modSlots, makeStructure, bagCount } from '../src/game/run.js';
+import { newRun, recompute, serialize, deserialize, pickDmg, pickInterval, makeStructure, bagCount, weaponOf, cardLv, hasMod } from '../src/game/run.js';
 import { updatePlayer, updateOrbs, updateDeposit, bindEnemyDamage, breakTile, damagePlayer, blindPlayer } from '../src/game/player.js';
 const damagePlayerX = (p, d) => { p.iframes = 0; damagePlayer(p, d, p.x, p.y + 20); };
 import { updateEnemies, damageEnemy, spawnEnemy, killEnemy } from '../src/game/enemies.js';
-import { updatePlayerGun, updateBullets, updateStructures, updateShells, useMod } from '../src/game/combat.js';
-import { buyUpgrade, buyMod, toggleMod, upgradeCost, applyPerk, beaconLack, levelUp, itemCost } from '../src/game/economy.js';
+import { updatePlayerGun, updateBullets, updateStructures, updateShells } from '../src/game/combat.js';
+import { gunDps, gunDmg, gunCd, critChance, directorHp } from '../src/game/power.js';
+import { xpNeed, weaponMaxed, WOFFER } from '../src/game/weaponlevel.js';
+import { offerInfo, rerollOffer } from '../src/game/chests.js';
+import { buyUpgrade, buyMod, upgradeCost, applyPerk, beaconLack, levelUp, itemCost } from '../src/game/economy.js';
 import { updateItems, useItem } from '../src/game/items.js';
 import { updateHazards } from '../src/game/hazards.js';
 import { updateThreat, addNoise, nestsInStratum } from '../src/game/threat.js';
@@ -28,6 +31,7 @@ import { updateFlow, forceFlow } from '../src/world/flow.js';
 import { setTile, tileAt } from '../src/world/map.js';
 import { generate, biomeOrder } from '../src/world/gen.js';
 import { T, TD, HOST_TILE } from '../src/data/tiles.js';
+import { WEAPONS, CARDS, CARD_KEYS, START_MODS, WXP, CRIT, POWER } from '../src/data/balance.js';
 import { ENEMIES, MODS, MOD_KEYS, PICK_TIERS, UPGRADES, ELITE, RES_KEYS, THREAT, BUILDS, ITEMS, RELICS, RELIC_KEYS, PERKS, ROLES, EVENT_KEYS, DEEP_ORES, ozForRun } from '../src/data/balance.js';
 import { placeBuild, pickupBuild, craftItem, gearPick, testFunds, TEST_FUNDS } from '../src/game/economy.js';
 import { WEAPON_KEYS, PICK_TYPE_KEYS, SHIELD, AUGER, DIRECTOR, AFFIX, enemyHpMul } from '../src/data/balance.js';
@@ -55,7 +59,7 @@ function step(dt = STEP) {
   updateItems(dt); updateHazards(dt); updateThreat(dt); updateEvents(dt); updateMerchant(dt); updateWell(dt); updateCritters(); updateWonders(dt); updateLiquids(dt); updateBalrog(dt); updateSerpent(dt); updateHoard(dt); updateOrbs(dt); updateDeposit(dt); updateParticles(dt); updateFlashes(dt);
 }
 const run = sec => { for (let i = 0, n = Math.round(sec / STEP); i < n; i++) step(); };
-const fresh = (seed = 1) => { const g = newRun({ seed }); allDown = false; g.player.inp = { x: 0, y: 0, mag: 0 }; return g; };
+const fresh = (seed = 1) => { const g = newRun({ seed, start: false }); allDown = false; g.player.inp = { x: 0, y: 0, mag: 0 }; return g; };
 const shaft = (c, toRow) => { for (let r = GROUND_ROW; r <= toRow; r++) setTile(c, r, T.AIR); };
 function hash() {
   let h = 2166136261; const mix = v => { v = Math.round(v * 8) | 0; for (let s = 0; s < 24; s += 8) { h ^= (v >>> s) & 255; h = Math.imul(h, 16777619); } };
@@ -152,20 +156,25 @@ section('Ekonomi');
   // eklentiler
   fresh(8); const q = G.player;
   for (const k of RES_KEYS) G.store[k] = 0; ok('parasız eklenti alınmaz', !buyMod('ricochet', q));
-  const slots = modSlots(); ok('yuva sayısı', slots >= 1 && slots <= 3, `${slots}`);
-  for (const k of MOD_KEYS) { for (const r of RES_KEYS) G.store[r] = 9999; ok(`eklenti ${k} alınır`, buyMod(k, q) && G.gear.owned.includes(k)); }
-  ok('yuva sınırı', G.gear.eq.length === slots, `${G.gear.eq.length}/${slots}`);
+  ok('ilk eklentiler yalnız demir ve suyla alınır', START_MODS.concat('rapid').every(k => Object.keys(MODS[k].cost).every(r => r === 'iron' || r === 'water')));
+  ok('alınmayan eklenti çalışmaz', !hasMod('ricochet'));
+  const dps0 = gunDps(q);
+  for (const k of MOD_KEYS) { for (const r of RES_KEYS) G.store[r] = 9999; ok(`eklenti ${k} alınır ve çalışır`, buyMod(k, q) && hasMod(k)); }
   ok('tekrar alınmaz', !buyMod(MOD_KEYS[0], q));
-  const eq0 = G.gear.eq[0]; ok('çıkar', toggleMod(eq0, q) && !G.gear.eq.includes(eq0));
-  ok('tak', toggleMod(eq0, q) && G.gear.eq.includes(eq0));
-  const free = MOD_KEYS.find(k => !G.gear.eq.includes(k)); ok('dolu yuvaya takılmaz', !toggleMod(free, q));
-  G.gear.eq = ['overdrive', 'nova', 'chain'];
-  const b0 = G.bullets.length; ok('nova kullanılır', useMod('nova', q) && G.bullets.length > b0 && G.gear.cd.nova > 0);
-  ok('nova beklemede tekrar kullanılmaz', !useMod('nova', q));
-  ok('aşırı yük', useMod('overdrive', q) && G.gear.active.overdrive > 0);
-  run(MODS.overdrive.dur + 0.5); ok('aşırı yük biter', !(G.gear.active.overdrive > 0));
-  run(MODS.nova.cd); ok('nova bekleme dolar', (G.gear.cd.nova || 0) <= 0.01, `${G.gear.cd.nova}`);
-  ok('takılı olmayan eklenti kullanılmaz', !useMod('ricochet', q));
+  ok('eklentiler gücü artırır', gunDps(q) > dps0 * 2, `${dps0} → ${gunDps(q)}`);
+  // Aşırı Yük: ateş ederken kendiliğinden devreye girer, biter, yeniden dolar
+  shaft(8, GROUND_ROW + 14); q.x = 8 * TILE + 8; q.y = (GROUND_ROW + 4) * TILE + 8; q.px = q.x; q.py = q.y; forceFlow();
+  const e = spawnEnemy('ogolem', q.x, q.y + 44, 4); e.emergeT = 0; e.hp = e.maxHp = 1e7; e.dmgMul = 0;
+  run(0.6); ok('aşırı yük kendiliğinden açılır', G.gear.active.overdrive > 0 && G.gear.cd.overdrive > 0);
+  run(MODS.overdrive.dur + 0.2); ok('aşırı yük biter', !(G.gear.active.overdrive > 0));
+  run(MODS.overdrive.cd - MODS.overdrive.dur); ok('aşırı yük yeniden açılır', G.gear.active.overdrive > 0);
+  ok('hasar sayıları birikir ve sınırlı kalır', G.nums.length > 0 && G.nums.length <= 28 && G.nums.every(n => n.v > 0));
+  // Saçılma ve Can Çalan: silahla ölen düşman mermi saçar, can verir
+  G.enemies.length = 0; G.bullets.length = 0; q.hp = q.maxHp * 0.5; q.fireCd = 0;
+  const v = spawnEnemy('rodent', q.x, q.y + 30, 0); v.emergeT = 0; v.hp = v.maxHp = 1; v.dmgMul = 0;
+  let frag = 0; for (let i = 0; i < 90 && !v.dead; i++) step(); frag = G.bullets.filter(b => b.hit === v).length;
+  ok('saçılma: ölen düşmandan mermi çıkar', v.dead && frag >= MODS.nova.n, `${frag}`);
+  ok('can çalan: öldürme can verir', q.hp > q.maxHp * 0.5, `${q.hp}`);
 }
 
 // ---------- 4. uyanış ve yuvalar ----------
@@ -340,13 +349,16 @@ section('Kayıt');
   const strip = s => { const o = JSON.parse(JSON.stringify(s)); delete o.player; delete o.wave; return JSON.stringify(o); };
   ok('serialize → deserialize → serialize eşit', strip(s1) === strip(s2));
   ok('kazma seviyesi korunur', G.lvl.drill === 1);
-  ok('eklentiler korunur', G.gear.owned.includes('ricochet') && G.gear.eq.includes('frost'));
+  ok('eklentiler korunur', hasMod('ricochet') && hasMod('frost'));
   ok('taret korunur', G.structures.length === 1 && G.structures[0].type === 'turret');
   ok('konum korunur', Math.abs(G.player.x - s1.player.x) < 1e-6 && Math.abs(G.player.y - s1.player.y) < 1e-6);
   let threw = null; try { run(5); } catch (e) { threw = e; } ok('yükleme sonrası oynanır', !threw, threw && threw.message);
   // eski kayıt (v5, gear yok)
   const old = JSON.parse(j1); delete old.gear; old.v = 5; threw = null; try { deserialize(old); } catch (e) { threw = e; }
-  ok('gear’sız eski kayıt açılır', !threw && Array.isArray(G.gear.eq), threw && threw.message);
+  ok('gear’sız eski kayıt açılır', !threw && Array.isArray(G.gear.owned), threw && threw.message);
+  // eski kayıt: yuva/ustalık alanları ve artık olmayan eklenti yok sayılır
+  const old2 = JSON.parse(j1); old2.gear = { owned: ['ricochet', 'yok'], eq: ['ricochet'], wOwn: ['blaster'], pOwn: ['std'], wLvl: { blaster: 3 }, tLvl: {} }; threw = null; try { deserialize(old2); } catch (e) { threw = e; }
+  ok('ustalıklı eski kayıt açılır', !threw && hasMod('ricochet') && G.gear.owned.length === 1 && G.gear.lv === 0 && !G.gear.pend.length, threw && threw.message);
 }
 
 // ---------- 8. derin sefer ----------
@@ -453,7 +465,7 @@ section('Performans');
   fresh(77); const p = G.player; shaft(8, GROUND_ROW + 30); p.x = 8 * TILE + 8; p.y = (GROUND_ROW + 1) * TILE + 8; p.px = p.x; p.py = p.y; G.threat.noise = 60; forceFlow();
   const types = Object.keys(ENEMIES).filter(k => !ENEMIES[k].boss);
   for (let i = 0; i < 60; i++) { const e = spawnEnemy(types[i % types.length], 8 * TILE + 8, (GROUND_ROW + 2 + (i % 28)) * TILE + 8, 8); e.emergeT = 0; }
-  G.gear.eq = ['chain', 'split', 'boom'];
+  G.gear.owned = MOD_KEYS.slice(); G.gear.cards = { cok: 2, del: 2, hiz: 6 };
   const t0 = performance.now(); run(20); const ms = (performance.now() - t0) / (20 * 60);
   console.log(`  60 düşman + eklentiler: ${ms.toFixed(3)} ms/kare (bütçe 16.7)`);
   ok('kare bütçesi', ms < 4, `${ms.toFixed(2)} ms`);
@@ -544,7 +556,7 @@ section('İmza davranışları');
 section('Bosslar');
 {
   const rowOf = st => GROUND_ROW + st * STRATUM_ROWS + 10;
-  ok('derinlik bandı -> boss', [[0, 'karakok'], [3, 'karakok'], [5, 'kavurgan'], [9, 'otegoz'], [13, 'sultan'], [18, 'ezeli']].every(([st, k]) => bossForY(rowOf(st) * TILE) === k));
+  ok('derinlik bandı -> boss', [[0, 'karakok'], [3, 'karakok'], [5, 'kavurgan'], [9, 'otegoz'], [13, 'kordesen'], [18, 'ezeli']].every(([st, k]) => bossForY(rowOf(st) * TILE) === k));
   // ölçer tepede: en derindeki madencinin bandındaki boss uyanır
   { fresh(700); const p = G.player; shaft(8, rowOf(9) + 2); p.x = 8 * TILE + 8; p.y = rowOf(9) * TILE + 8; p.px = p.x; p.py = p.y; G.maxStratum = 9; forceFlow();
     for (let i = 0; i < 60 * (THREAT.bossDelay + 1); i++) { G.threat.noise = 100; step(); }
@@ -552,7 +564,7 @@ section('Bosslar');
   const arena = (seed, k) => { fresh(seed); const p = G.player; for (let r = GROUND_ROW + 1; r <= GROUND_ROW + 12; r++) for (let c = 3; c <= 13; c++) setTile(c, r, T.AIR);
     p.x = 8 * TILE + 8; p.y = (GROUND_ROW + 9) * TILE + 8; p.px = p.x; p.py = p.y; p.hp = p.maxHp = 9999; forceFlow();
     const e = spawnEnemy(k, 8 * TILE + 8, (GROUND_ROW + 4) * TILE + 8, 3); e.emergeT = 0; e.hp = e.maxHp = 1e6; return [p, e]; };
-  for (const k of ['karakok', 'kavurgan', 'otegoz', 'sultan', 'ezeli']) {
+  for (const k of ['karakok', 'kavurgan', 'otegoz', 'kordesen', 'ezeli']) {
     const [p, e] = arena(710, k); const seen = new Set();
     for (let i = 0; i < 60 * 12; i++) { step(); if (e.bs && e.bs.act) seen.add(e.bs.act.k); p.hp = Math.max(p.hp, 5000); }
     ok(`${ENEMIES[k].name}: saldırı döngüsü`, seen.size >= 2 && p.hp < 9999, [...seen].join(','));
@@ -569,7 +581,7 @@ section('Bosslar');
     for (let c = 3; c <= 13; c++) setTile(c, GROUND_ROW + 7, T.BEDROCK || T.STONE);
     p.hp = 9999; e.px = e.x; for (let i = 0; i < 60 * 2.6; i++) { step(); e.x = e.px = 8 * TILE + 8; e.y = e.py = (GROUND_ROW + 4) * TILE + 8; }
     ok('Kıyamet Halkası siperde vurmaz', p.hp === 9999, `hp ${p.hp}`); }
-  ok('bosslar deterministik', (() => { const h = []; for (let i = 0; i < 2; i++) { arena(740, 'sultan'); spawnEnemy('ezeli', 6 * TILE + 8, (GROUND_ROW + 3) * TILE + 8, 3).emergeT = 0; run(8); h.push(hash()); } return h[0] === h[1]; })());
+  ok('bosslar deterministik', (() => { const h = []; for (let i = 0; i < 2; i++) { arena(740, 'kordesen'); spawnEnemy('ezeli', 6 * TILE + 8, (GROUND_ROW + 3) * TILE + 8, 3).emergeT = 0; run(8); h.push(hash()); } return h[0] === h[1]; })());
 }
 
 // ---------- 15. yeni kalıntılar ----------
@@ -680,6 +692,76 @@ section('Silah ve kazma türleri');
   ok('silah ve kazma türü kayıtla gelir', g2.player.wpn === 'sacma' && g2.player.pk === 'matkap' && g2.gear.wOwn.includes('sacma'));
 }
 
+section('Silah seviyesi, kartlar, evrim');
+{
+  // sefer başı: her madenci bir başlangıç eklentisi seçer
+  newRun({ seed: 980 }); const p = G.player; p.inp = { x: 0, y: 0, mag: 0 };
+  ok('başlangıç teklifi sırada', G.gear.pend.length === 1 && !G.perkOffer);
+  step(); ok('başlangıç teklifi sunulur', G.perkOffer && G.perkOffer.chest === 'start' && G.perkOffer.keys.join() === START_MODS.map(k => 'm:' + k).join());
+  ok('teklif bilgisi (eklenti)', G.perkOffer.keys.every(k => offerInfo(k).name && offerInfo(k).desc));
+  ok('başlangıç eklentisi alınır', applyPerk('m:frost', p) && hasMod('frost') && !G.perkOffer);
+  ok('öğreticide başlangıç teklifi yok', !newRun({ seed: 980, tutorial: true }).gear.pend.length);
+  ok('çok oyunculuda iki madenci de seçer', newRun({ seed: 980, mp: true }).gear.pend.length === 2);
+  // öldürdükçe seviye: çubuk dolar, kart teklifi gelir
+  fresh(981); const q = G.player; shaft(8, GROUND_ROW + 14); q.x = 8 * TILE + 8; q.y = (GROUND_ROW + 4) * TILE + 8; q.px = q.x; q.py = q.y;
+  ok('seviye eşiği artar', xpNeed(0) === WXP.base && xpNeed(5) > xpNeed(1));
+  const kill = (type = 'bug') => { const e = spawnEnemy(type, q.x, q.y + 300, 0); e.emergeT = 0; killEnemy(e); return e; };
+  kill('rodent'); ok('öldürme çubuğu doldurur', G.gear.xp === ENEMIES.rodent.cost && G.gear.lv === 0);
+  while (G.gear.lv < 1) kill();
+  ok('seviye atlar, teklif sıraya girer', G.gear.lv === 1 && G.gear.pend.length === 1);
+  step(); const off = G.perkOffer;
+  ok('kart teklifi: üç farklı kart', off && off.chest === 'lvl' && off.keys.length === 3 && new Set(off.keys).size === 3 && off.keys.every(k => k.startsWith('x:') && CARDS[k.slice(2)]), off && off.keys.join());
+  ok('teklif bilgisi (kart)', off.keys.every(k => { const o = offerInfo(k); return o.name && o.lv === 1 && o.max >= 2; }));
+  ok('kart teklifi yeniden çekilmez', WOFFER.lvl && !rerollOffer(q));
+  const dmg0 = gunDmg(q), cd0 = gunCd(q), cc0 = critChance(q);
+  ok('kart alınır', applyPerk(off.keys[0], q) && cardLv(off.keys[0].slice(2)) === 1 && !G.perkOffer);
+  G.gear.cards = { dmg: 2, hiz: 2, krit: 2 };
+  ok('hasar kartı', Math.abs(gunDmg(q) / dmg0 - (1 + 2 * CARDS.dmg.v)) < 1e-6 || off.keys[0] === 'x:dmg');
+  ok('hız kartı', gunCd(q) < cd0);
+  ok('kritik kartı', critChance(q) > cc0 && Math.abs(critChance(q) - (CRIT.base + 2 * CARDS.krit.v)) < 1e-9);
+  ok('kart sınırı', !applyPerk('x:dmg', q) === false && (G.gear.cards.dmg = CARDS.dmg.max, !applyPerk('x:dmg', q)));
+  // evrim: seviye evoAt olunca elindeki silah için iki yol
+  G.perkOffer = null; G.gear.pend.length = 0; G.gear.cards = {}; G.gear.lv = WXP.evoAt - 1; G.gear.xp = 0;
+  while (G.gear.lv < WXP.evoAt) kill();
+  step(); const ev = G.perkOffer;
+  ok('evrim teklifi', ev && ev.chest === 'evo' && ev.keys.join() === 'e:blaster:0,e:blaster:1', ev && ev.keys.join());
+  ok('teklif bilgisi (evrim)', ev.keys.every(k => offerInfo(k).name && offerInfo(k).desc));
+  ok('evrim seçilir, silah değişir', applyPerk('e:blaster:0', q) && weaponOf(q).pellets === 3 && weaponOf(q).name === WEAPONS.blaster.evo[0].name);
+  ok('evrim ikinci kez seçilmez', !applyPerk('e:blaster:1', q) && G.gear.evo.blaster === 0);
+  kill(); kill(); kill(); kill(); kill(); kill(); kill(); kill(); G.perkOffer = null; step();
+  ok('evrimden sonra yine kart gelir', !G.perkOffer || G.perkOffer.chest === 'lvl');
+  // her silahın iki evrimi de ateş eder ve vurur
+  for (const k of WEAPON_KEYS) for (const i of [0, 1]) {
+    fresh(982); const w = G.player; shaft(8, GROUND_ROW + 14); w.x = 8 * TILE + 8; w.y = (GROUND_ROW + 4) * TILE + 8; w.px = w.x; w.py = w.y; forceFlow();
+    G.gear.wOwn = WEAPON_KEYS.slice(); w.wpn = k; G.gear.evo[k] = i; G.gear.cards = { cok: 2, del: 2 }; G.gear.owned = MOD_KEYS.slice();
+    const e = spawnEnemy('bug', w.x, w.y + 40, 3); e.emergeT = 0; let threw = null;
+    try { run(2.5); } catch (err) { threw = err; }
+    ok(`${k} evrim ${i} vurur`, !threw && (e.dead || e.hp < e.maxHp) && finite(gunDps(w)) && gunDps(w) > 0, threw ? threw.message : `${e.hp}/${e.maxHp}`);
+  }
+  // yarıda kalan silah teklifi sandık teklifiyle kaybolmaz
+  fresh(983); const z = G.player; G.gear.pend.push({ kind: 'lvl' }); G.gear.lv = 1; step();
+  const first = G.perkOffer; ok('kart teklifi bekliyor', first && first.chest === 'lvl');
+  const { offer: giveOffer } = await import('../src/game/chests.js'); giveOffer(z, 'wood', ['kor']);
+  ok('sandık teklifi öne geçer, kart sıraya döner', G.perkOffer.chest === 'wood' && G.gear.pend.length === 1);
+  applyPerk('kor', z); step(); ok('kart teklifi geri gelir', G.perkOffer && G.perkOffer.chest === 'lvl');
+  // tüm kartlar dolunca seviye durur
+  G.perkOffer = null; for (const k of CARD_KEYS) G.gear.cards[k] = CARDS[k].max; const lv0 = G.gear.lv, xp0 = G.gear.xp;
+  kill('brute'); ok('kartlar bitince seviye durur', weaponMaxed() && G.gear.lv === lv0 && G.gear.xp === xp0);
+  // kayıt: seviye, kartlar ve evrim korunur
+  fresh(984); G.gear.lv = 4; G.gear.xp = 3; G.gear.cards = { dmg: 2, krit: 1 }; G.gear.evo = { blaster: 1 };
+  const g2 = deserialize(JSON.parse(JSON.stringify(serialize())));
+  ok('silah seviyesi kayıtla gelir', g2.gear.lv === 4 && g2.gear.xp === 3 && g2.gear.cards.dmg === 2 && g2.gear.evo.blaster === 1 && weaponOf(g2.player).pierce === 2 && !g2.gear.pend.length);
+  // yönetmen: ilk biyomlarda karışmaz, sonra da beklenenin 'free' katına kadar dokunmaz
+  fresh(985); G.lvl.blaster = 6; G.gear.owned = MOD_KEYS.slice();
+  ok('yönetmen ilk biyomlarda kapalı', directorHp(0) === 1 && directorHp(POWER.from - 1) === 1);
+  ok('yönetmen güçlü ekibe karşı açılır ama sınırlı', directorHp(POWER.from) > 1 && directorHp(POWER.from) <= POWER.max, `${directorHp(POWER.from)}`);
+  fresh(986); G.lvl.blaster = 2; ok('yönetmen olağan güçte dokunmaz', directorHp(3) === 1, `${directorHp(3)}`);
+  // başlangıç gücü: Kemirgen iki atışta ölür, Kaya Devi tek şarjörde ölmez
+  fresh(987); const b = G.player;
+  ok('başlangıç: kemirgen iki atış', Math.ceil(ENEMIES.rodent.hp / gunDmg(b)) === 2, `${gunDmg(b)}`);
+  ok('başlangıç: kaya devi 8+ sn', ENEMIES.brute.hp / (1 - ENEMIES.brute.armor) / (gunDmg(b) / gunCd(b)) > 8);
+}
+
 section('Yeni eşyalar ve köşe kayması');
 {
   fresh(980); const u = G.player; shaft(8, GROUND_ROW + 6);
@@ -750,21 +832,17 @@ section('Market');
   const sum = c => Object.values(c).reduce((a, b) => a + b, 0);
   for (const k of ['drill', 'blaster', 'armor', 'bag']) { const cs = UPGRADES[k].costs; ok(`${k} fiyatı katlanır`, sum(cs[cs.length - 1]) > sum(cs[0]) * 40, `${sum(cs[0])} → ${sum(cs[cs.length - 1])}`); }
   ok('Silah Gücü 15 seviye', UPGRADES.blaster.costs.length === 15 && UPGRADES.blaster.dmg.length === 16);
-  // silah ustalığı: sahip olmadan geliştirilmez, seviye hasarı artırır
-  give(); ok('sahip olunmayan silah geliştirilmez', !levelUp('w', 'sacma', p));
-  const { updatePlayerGun: _g } = await import('../src/game/combat.js');
-  ok('blaster ustalığı', levelUp('w', 'blaster', p) && levelUp('w', 'blaster', p) && G.gear.wLvl.blaster === 2);
-  for (let i = 0; i < 5; i++) levelUp('w', 'blaster', p); ok('ustalık sınırı', G.gear.wLvl.blaster === 5);
+  give();
   // alet seviyesi: kurulu aletin canı da artar
   shaft(8, GROUND_ROW + 6); p.x = 8 * TILE + 8; p.y = (GROUND_ROW + 4) * TILE + 8; p.px = p.x; p.py = p.y;
   G.items.turret = 1; placeBuild('turret', p); const s0 = G.structures[0], m0 = s0.maxHp;
-  ok('alet seviyesi', levelUp('t', 'turret', p) && G.gear.tLvl.turret === 1 && s0.maxHp > m0);
-  G.meta.schem = []; ok('şemasız alet geliştirilmez', !levelUp('t', 'mortar', p));
+  ok('alet seviyesi', levelUp('turret', p) && G.gear.tLvl.turret === 1 && s0.maxHp > m0);
+  G.meta.schem = []; ok('şemasız alet geliştirilmez', !levelUp('mortar', p));
   // üretim fiyatı derinlikle artar
   const c0 = itemCost('medkit').water; G.maxStratum = 20; ok('üretim fiyatı derinde artar', itemCost('medkit').water > c0 * 2, `${c0} → ${itemCost('medkit').water}`);
-  // kayıt: ustalık ve alet seviyesi korunur
+  // kayıt: alet seviyesi korunur
   const g2 = deserialize(JSON.parse(JSON.stringify(serialize())));
-  ok('ustalık kayıtla gelir', g2.gear.wLvl.blaster === 5 && g2.gear.tLvl.turret === 1);
+  ok('alet seviyesi kayıtla gelir', g2.gear.tLvl.turret === 1);
   // test düğmesi Fener kilidini de açar
   fresh(1201); G.lvl.blaster = 10; testFunds(G.player); ok('test düğmesi kilidi açar', beaconLack('blaster') === 0 && buyUpgrade('blaster', G.player));
 }

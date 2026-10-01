@@ -89,7 +89,8 @@ export function updateHoard(dt) {
     // altın patlar: ejder yığının içinden kalkar, üstündeki altın saçılır
     if (H.t > 0.3 && !H.burst) {
       H.burst = true;
-      for (let r = H.r - 2; r <= H.r + 1; r++) for (let c = H.c - 3; c <= H.c + 3; c++) if (TD[tileAt(c, r)].ore === 'gold') breakTile(c, r, null);
+      // ayağının altındaki sıra kalır: ejder altının üstünde durur
+      for (let r = H.r - 2; r <= H.r; r++) for (let c = H.c - 3; c <= H.c + 3; c++) if (TD[tileAt(c, r)].ore === 'gold') breakTile(c, r, null);
       for (let i = 0; i < 70; i++) { const a = -Math.PI / 2 + (rnd() - 0.5) * 2.6, s = 60 + rnd() * 160; particle(x + (rnd() - 0.5) * 60, y - 6, Math.cos(a) * s, Math.sin(a) * s, 1 + rnd() * 0.8, rnd() < 0.5 ? '#ffd24a' : rnd() < 0.5 ? '#ffe79a' : '#c8901a', rnd() < 0.3 ? 2 : 1, 0, 320); }
       dust(x, y, 14, 'rgba(255,220,140,0.45)'); shake(1); hitstop(0.1); flashLight(x, y - 10, 6, 0.4); sfx.coins(); sfx.explode(); haptic([60, 40, 120]);
     }
@@ -117,7 +118,7 @@ export function updateHoard(dt) {
 }
 
 // ---------- saldırılar ----------
-const MOUTH = e => [e.x + e.face * 72, e.y - 23]; // Yeni nefes pozunun ağzı: [152,105], köken [80,136].
+const MOUTH = e => [e.x + e.face * 38, e.y - 12]; // 3B modelin nefes duruşundaki ağzı
 KITS.ejder = {
   cd: { breath: 1.5, tail: 1, gust: 6, soar: 4 },
   choose(e, p, dp, B) {

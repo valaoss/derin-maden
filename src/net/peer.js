@@ -3,7 +3,7 @@
 import { Peer } from 'peerjs';
 import { isNative, WEB_URL, nativeShare } from '../core/native.js';
 
-const PREFIX = 'derinmaden-v4-';
+const PREFIX = 'derinmaden-v5-';
 const LOBBY = PREFIX + 'lobi-';
 const LOBBY_SLOTS = 6;
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // karışan harfler yok (I/O/0/1)
@@ -25,19 +25,40 @@ function peerOpts() {
   if (env.VITE_PEER_HOST) { o.host = env.VITE_PEER_HOST; o.port = +(env.VITE_PEER_PORT || 443); o.secure = env.VITE_PEER_SECURE !== '0'; o.path = env.VITE_PEER_PATH || '/'; }
   return o;
 }
-// Oyun kanalı: sırasız (head-of-line blocking yok); kayıp paketleri girdi yedeklemesi telafi eder
+// Denetim kanalı (PeerJS): sırasız ama güvenilir; oda, sohbet, senkron özeti, yeniden bağlanma.
 const CHAN = { reliable: false, serialization: 'json' };
+// Hızlı kanal: girdi ve ping. Yeniden iletim yok: kayıp paket beklenmez, eskimiş paket kuyrukta birikmez
+// (güvenilir kanalda her kayıp, yeniden iletim süresi katlanarak saniyelere varan gecikme yaratıyordu).
+const FAST = { negotiated: true, id: 101, ordered: false, maxRetransmits: 0 };
 
 export const link = {
-  peer: null, conn: null, host: false, code: '', open: false, quick: false,
+  peer: null, conn: null, fast: null, fastOk: false, host: false, code: '', open: false, quick: false,
   onMessage: null, onOpen: null, onClose: null, onError: null,
 };
 
+// iki taraf aynı kimlikle açar (ek sinyalleşme gerekmez); karşıdan ilk paket gelince kullanılmaya başlanır
+function openFast(c) {
+  if (c.fast) return;
+  try {
+    const dc = c.fast = c.peerConnection.createDataChannel('fast', FAST);
+    let tries = 0;
+    const probe = () => { if (link.fast !== dc || link.fastOk || dc.readyState !== 'open' || tries++ > 30) return; try { dc.send('["f"]'); } catch (e) { /* kapandı */ } setTimeout(probe, 300); };
+    dc.onopen = () => { if (link.conn !== c) return; link.fast = dc; link.fastOk = false; probe(); };
+    dc.onclose = () => { if (link.fast === dc) { link.fast = null; link.fastOk = false; } };
+    dc.onmessage = e => {
+      if (link.fast !== dc) return;
+      link.fastOk = true;
+      let d; try { d = JSON.parse(e.data); } catch (err) { return; }
+      if (d[0] !== 'f') link.onMessage && link.onMessage(d);
+    };
+  } catch (e) { /* desteklenmiyorsa denetim kanalı yeter */ }
+}
 function bindConn(c) {
-  link.conn = c;
-  c.on('open', () => { link.open = true; link.onOpen && link.onOpen(); });
+  link.conn = c; link.fast = null; link.fastOk = false;
+  if (c.open) openFast(c);
+  c.on('open', () => { link.open = true; openFast(c); link.onOpen && link.onOpen(); });
   c.on('data', d => { link.onMessage && link.onMessage(d); });
-  c.on('close', () => { if (link.conn !== c) return; link.open = false; link.conn = null; link.onClose && link.onClose('closed'); });
+  c.on('close', () => { if (link.conn !== c) return; link.open = false; link.conn = null; link.fast = null; link.fastOk = false; link.onClose && link.onClose('closed'); });
   c.on('error', e => { link.onError && link.onError(String(e && e.type || e)); });
 }
 
@@ -160,7 +181,7 @@ function dropPeer() {
   link.open = false;
   try { link.conn && link.conn.close(); } catch (e) { /* yok */ }
   try { link.peer && link.peer.destroy(); } catch (e) { /* yok */ }
-  link.conn = null; link.peer = null;
+  link.conn = null; link.peer = null; link.fast = null; link.fastOk = false;
 }
 export function reconnectHost(id) {
   return new Promise((resolve, reject) => {
@@ -184,11 +205,18 @@ export function reconnectJoin(id, timeout = 6000) {
   });
 }
 
-export function send(msg) { if (link.conn && link.open) { try { link.conn.send(msg); } catch (e) { /* kapandı */ } } }
+// fast: girdi/ping gibi anlık veri hızlı kanaldan gider; kanal hazır değilse denetim kanalına düşer
+export function send(msg, fast = false) {
+  if (!link.conn || !link.open) return;
+  try {
+    if (fast && link.fastOk && link.fast.readyState === 'open') link.fast.send(JSON.stringify(msg));
+    else link.conn.send(msg);
+  } catch (e) { /* kapandı */ }
+}
 
 export function closeLink() {
   link.open = false;
   try { link.conn && link.conn.close(); } catch (e) { /* yok */ }
   try { link.peer && link.peer.destroy(); } catch (e) { /* yok */ }
-  link.conn = null; link.peer = null; link.code = ''; link.quick = false;
+  link.conn = null; link.peer = null; link.fast = null; link.fastOk = false; link.code = ''; link.quick = false;
 }

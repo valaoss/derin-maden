@@ -6,7 +6,7 @@ import { placeHoard } from './dragon.js';
 import { CRITTERS } from '../data/critters.js';
 import { COLS, ROWS, TILE, GROUND_ROW, BASE_X, BASE_Y, CENTER_COL, STRATUM_ROWS, stratumOfRow, PLAY_MIN_COL, PLAY_MAX_COL } from '../config.js';
 import { PERKS, RESONANCE } from '../data/relics.js';
-import { MERCHANT, SHROOM, UPGRADES, PLAYER, BUILDS, ITEMS, ITEM_KEYS, SCHEMATICS, CONTRACTS, kademeMods, MOD_SLOTS, PICK_TIERS, ROLES, RES_KEYS, MASTER_KEYS, PICK_TYPES, WEAPONS, ADREN, TOOL_UP, WEAPON_UP, BUILD_KEYS } from '../data/balance.js';
+import { MERCHANT, SHROOM, UPGRADES, PLAYER, BUILDS, ITEMS, ITEM_KEYS, SCHEMATICS, CONTRACTS, kademeMods, PICK_TIERS, ROLES, RES_KEYS, MASTER_KEYS, PICK_TYPES, WEAPONS, EVOLVED, CARDS, CARD_KEYS, MODS, ADREN, TOOL_UP, BUILD_KEYS } from '../data/balance.js';
 import { T, TD } from '../data/tiles.js';
 import { makeThreat, scanNests } from './threat.js';
 import { makeEvents } from './events.js';
@@ -73,7 +73,7 @@ export function metaSnapshot(m = App.meta) {
   return { lv: Object.assign({}, m.lv || {}), schem: (m.schem || []).slice(), relics: (m.relics || []).slice(), maxStratum: m.maxStratum | 0, beacons: (m.beacons || []).slice(), echo: m.echo ? Object.assign({}, m.echo) : null };
 }
 
-export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kademe = 0, daily = null, mp = false, meta = null, localIdx = 0, helms = null, names = null, roles = null, startStratum = 0 } = {}) {
+export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kademe = 0, daily = null, mp = false, meta = null, localIdx = 0, helms = null, names = null, roles = null, startStratum = 0, start = true } = {}) {
   const gm = meta || metaSnapshot(), ml = gm.lv;
   const mods = kademeMods(kademe);
   if (mp) { mods.hp *= MP_MODS.hp; mods.noise *= MP_MODS.noise; mods.oz *= MP_MODS.oz; }
@@ -89,11 +89,12 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
     store: emptyRes(), collected: emptyRes(),
     lvl: { drill: Math.min(2, ml.keskinUc | 0), sharp: 0, swing: 0, bag: 0, armor: 0, blaster: Math.min(2, ml.ayarliBl | 0), lamp: 0, ...Object.fromEntries(MASTER_KEYS.map(k => [k, 0])) },
     perks: [], perkLv: {}, rerolls: 0, items: emptyItems(), perkOffer: null, merchant: null, merchT: MERCHANT.first, wish: null, wishes: 0, balrog: null, serpent: null, hoard: null,
-    gear: { owned: [], eq: [], cd: {}, active: {}, wOwn: ['blaster'], pOwn: ['std'], wLvl: {}, tLvl: {} },
+    // owned: alınan eklentiler (hepsi çalışır); lv/xp/cards/evo: silah seviyesi, kartlar ve evrimler; pend: sıradaki kart teklifleri
+    gear: { owned: [], cd: {}, active: {}, wOwn: ['blaster'], pOwn: ['std'], tLvl: {}, lv: 0, xp: 0, cards: {}, evo: {}, pend: [] },
     kademe, mods, daily, contracts: [],
     bombs: [], rocks: [], falls: [], gas: [], shells: [], hazT: 0,
     structures: [], enemies: [], bullets: [], ebullets: [], orbs: [], particles: [], pIdx: 0, flashes: [], lightSrc: [],
-    satchels: [], zaps: [], pings: [], regrow: [], eggs: [], corpses: [], hungerT: 15, seaT: 0, nodeT: 0, seenStratum: 0, evt: makeEvents(), echo: null, stations: [], journey: makeJourney(mp ? 2 : 1),
+    satchels: [], zaps: [], nums: [], pings: [], regrow: [], eggs: [], corpses: [], hungerT: 15, seaT: 0, nodeT: 0, seenStratum: 0, evt: makeEvents(), echo: null, stations: [], journey: makeJourney(mp ? 2 : 1),
     // uyanış: dalga yok; G.wave yalnızca gök rengi/ambiyans uyumu için türetilir
     wave: { num: 0, phase: 'calm', t: Infinity, nests: [], boss: false },
     threat: makeThreat(), nests: [], nestTotal: [], beacons: [], selfRevive: (ml.sigorta | 0) ? 1 : 0, allDownT: 0,
@@ -119,6 +120,8 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
   recompute(true);
   if (ml.hazirTaret) g.items.turret = 1;
   if (g.players.some(p => p.role === 'yikici')) g.items.dynamite = Math.max(g.items.dynamite | 0, 3);
+  // her madenci sefere bir başlangıç eklentisi seçerek girer
+  if (!tutorial && start) for (const p of g.players) g.gear.pend.push({ pi: p.i, kind: 'start' });
   Object.assign(g, tutorial ? { lq: null, lk: null, springs: [], lqT: 0 } : placeLiquids(g, seed));
   g.hoard = tutorial ? null : placeHoard(g);
   g.critters = tutorial ? [] : placeCritters(g, seed);
@@ -173,8 +176,9 @@ export function lastStand(p) {
   return (p.hp < p.maxHp * 0.35 ? pv('sonDirenis') || 1 : 1) * (p.adrenT > 0 ? ADREN.dmg : 1) * (bond ? 1 + pv('kanBagi') : 1) * (quiet ? 1.4 : 1);
 }
 export function pickType(p = G.player) { return PICK_TYPES[p && p.pk] || PICK_TYPES.std; }
-export function weaponOf(p = G.player) { return WEAPONS[p && p.wpn] || WEAPONS.blaster; }
-export function weaponLvl(k) { return Math.min(WEAPON_UP.max, (G.gear.wLvl && G.gear.wLvl[k]) | 0); }
+// elindeki silah: evrim seçildiyse evrimli tanım
+export function weaponOf(p = G.player) { const k = p && WEAPONS[p.wpn] ? p.wpn : 'blaster', e = G.gear.evo[k]; return e === 0 || e === 1 ? EVOLVED[k][e] : WEAPONS[k]; }
+export function cardLv(k) { return Math.min(CARDS[k].max, G.gear.cards[k] | 0); }
 export function toolLvl(k) { return Math.min(TOOL_UP.max, (G.gear.tLvl && G.gear.tLvl[k]) | 0); }
 // alet hasarı: kendi seviyesi + Silah Gücü (aletler derinde de işe yarasın)
 export function toolDmgMul(k) { return (1 + TOOL_UP.dmg * toolLvl(k)) * (1 + 0.15 * G.lvl.blaster) * (hasPerk('aletUstasi') ? 1.5 : 1); }
@@ -197,8 +201,7 @@ export function pickDmg(p = G.player) { return PICK_TIERS[G.lvl.drill].dmg * pic
 export function pickInterval(p = G.player) { return PICK_TIERS[G.lvl.drill].interval * pickType(p).int * UPGRADES.swing.mult[G.lvl.swing]; }
 // kazı/kırma gürültü çarpanı: Sessiz Adım, Gölge rezonansı, Gürültü Tanrısı
 export function perkNoise() { return (1 - pv('sessizAdim')) * (resonance('golge') ? 0.65 : 1) * (hasPerk('gurultuTanrisi') ? 1.6 : 1); }
-export function modSlots() { return MOD_SLOTS + (hasPerk('dorduncuYuva') ? 1 : 0); }
-export function hasMod(k) { return G.gear.eq.includes(k); }
+export function hasMod(k) { return G.gear.owned.includes(k); }
 
 export function lampTiles() {
   const r = UPGRADES.lamp.radius[G.lvl.lamp] + (hasRelic('kivilcim') ? 1 : 0) + (hasRelic('arken') ? 3 : 0) + (G.lvl.inciFener ? 3 : 0);
@@ -219,7 +222,7 @@ function unb64(s) { const b = atob(s), u = new Uint8Array(b.length); for (let i 
 export function serialize() {
   const g = G;
   return {
-    v: 8, seed: g.seed, rng: g.rng, heartRow: g.heartRow, order: g.order, map: b64(g.map), rev: b64(g.rev), buried: b64(g.buried), bhp: g.bhp, gear: { owned: g.gear.owned, eq: g.gear.eq, wOwn: g.gear.wOwn, pOwn: g.gear.pOwn, wLvl: g.gear.wLvl, tLvl: g.gear.tLvl },
+    v: 8, seed: g.seed, rng: g.rng, heartRow: g.heartRow, order: g.order, map: b64(g.map), rev: b64(g.rev), buried: b64(g.buried), bhp: g.bhp, gear: { owned: g.gear.owned, wOwn: g.gear.wOwn, pOwn: g.gear.pOwn, tLvl: g.gear.tLvl, lv: g.gear.lv, xp: g.gear.xp, cards: g.gear.cards, evo: g.gear.evo },
     base: { hp: g.base.hp }, bag: g.player.bag, store: g.store, collected: g.collected, lvl: g.lvl, perks: g.perks, perkLv: g.perkLv, rerolls: g.rerolls, merchant: g.merchant, merchT: g.merchT, wishes: g.wishes, critters: g.critters, lakes: g.lakes, portals: g.portals, shrooms: g.shrooms, lq: g.lq ? b64(g.lq) : null, lk: g.lk ? b64(g.lk) : null, lqT: g.lqT, balrogDone: !!(g.balrog && g.balrog.st === 'done'), serpentDone: !!(g.serpent && g.serpent.st === 'done'), hoard: g.hoard ? { v: 2, st: g.hoard.st === 'done' ? 'done' : 'sleep', wake: g.hoard.st === 'sleep' ? g.hoard.wake : 0 } : null,
     items: g.items, structures: g.structures.map(s => ({ type: s.type, c: s.c, r: s.r, hp: s.hp })),
     kademe: g.kademe, daily: g.daily, contracts: g.contracts,
@@ -230,7 +233,7 @@ export function serialize() {
   };
 }
 export function deserialize(d) {
-  const g = newRun({ seed: d.seed, kademe: d.kademe | 0, daily: d.daily || null });
+  const g = newRun({ seed: d.seed, kademe: d.kademe | 0, daily: d.daily || null, start: false });
   g.map = unb64(d.map); g.rev = unb64(d.rev);
   g.buried = d.buried ? unb64(d.buried) : new Uint8Array(COLS * ROWS);
   if (g.map.length !== COLS * ROWS) throw new Error('harita boyutu uyumsuz'); g.bhp = d.bhp || {}; g.heartRow = d.heartRow; if (d.order) g.order = d.order;
@@ -243,8 +246,10 @@ export function deserialize(d) {
   if (!d.hoard || d.hoard.v !== 2) g.hoard = null; // eski kayıt: haritada bu hazine salonu yok
   if (d.hoard && g.hoard) { g.hoard.st = d.hoard.st === 'done' ? 'done' : 'sleep'; g.hoard.wake = Math.max(0, Math.min(90, +d.hoard.wake || 0)); }
   if (d.lq && d.lk && g.lq) { const a = unb64(d.lq), b = unb64(d.lk); if (a.length === g.lq.length && b.length === g.lk.length) { g.lq = a; g.lk = b; g.lqT = d.lqT | 0; } }
-  if (d.gear) { g.gear.owned = d.gear.owned || []; g.gear.eq = d.gear.eq || []; g.gear.wOwn = (d.gear.wOwn || ['blaster']).filter(k => WEAPONS[k]); g.gear.pOwn = (d.gear.pOwn || ['std']).filter(k => PICK_TYPES[k]);
-    for (const k in d.gear.wLvl || {}) if (WEAPONS[k]) g.gear.wLvl[k] = Math.min(WEAPON_UP.max, d.gear.wLvl[k] | 0);
+  if (d.gear) { g.gear.owned = (d.gear.owned || []).filter(k => MODS[k]); g.gear.wOwn = (d.gear.wOwn || ['blaster']).filter(k => WEAPONS[k]); g.gear.pOwn = (d.gear.pOwn || ['std']).filter(k => PICK_TYPES[k]);
+    g.gear.lv = Math.max(0, d.gear.lv | 0); g.gear.xp = Math.max(0, +d.gear.xp || 0);
+    for (const k of CARD_KEYS) if (d.gear.cards && d.gear.cards[k]) g.gear.cards[k] = Math.min(CARDS[k].max, d.gear.cards[k] | 0);
+    for (const k in d.gear.evo || {}) if (WEAPONS[k] && (d.gear.evo[k] === 0 || d.gear.evo[k] === 1)) g.gear.evo[k] = d.gear.evo[k];
     for (const k in d.gear.tLvl || {}) if (BUILD_KEYS.includes(k)) g.gear.tLvl[k] = Math.min(TOOL_UP.max, d.gear.tLvl[k] | 0); }
   for (const k of ITEM_KEYS) if (d.items && d.items[k]) g.items[k] = d.items[k] | 0;
   if (d.contracts) g.contracts = d.contracts;

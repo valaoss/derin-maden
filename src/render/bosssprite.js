@@ -5,6 +5,7 @@ import { BALROG } from '../data/balance.js';
 import PL from '../data/plboss.json';
 import { G } from '../game/state.js';
 import { clamp } from '../core/util.js';
+import { DEFS } from './boss/defs.js';
 
 const sheets = {};
 function sheet(type) {
@@ -18,7 +19,8 @@ function sheet(type) {
   }
   return s.ready ? s : null;
 }
-if (typeof Image !== 'undefined') for (const t in PL) sheet(t);
+// 3B modeli olan bossların sprite sayfası yüklenmez
+if (typeof Image !== 'undefined') for (const t in PL) if (!DEFS[t]) sheet(t);
 
 // parlayan pikseller (alev, kor, lav): karanlıkta görünen katman
 function glowLayer(img) {

@@ -1,161 +1,147 @@
-// Dünya Yılanı çizimi: koyu pullu, sırtı yüzgeçli, iki yanında biyolüminesan beneklerle dev bir kuşak.
+// Dünya Yılanı çizimi: koyu pullu, sırtı yelkenli, iki yanında biyolüminesan beneklerle dev bir kuşak (3B: boss/serpent3d.js).
 // Duvarların arasından akar (oyun alanının dışı kırpılır). Karşılaşma öncesi: duvarların ardından geçen dev gölge.
 import { TILE, COLS, PLAY_MIN_COL, PLAY_MAX_COL, GROUND_ROW } from '../config.js';
 import { TD } from '../data/tiles.js';
 import { SERPENT } from '../data/balance.js';
 import { G } from '../game/state.js';
 import { pathAt } from '../game/serpent.js';
+import { nearestPlayer } from '../game/player.js';
 import { hash2, clamp, lerp } from '../core/util.js';
 import { blobSprite, vignette } from './beast.js';
-import { drawArtFrame } from './bossart.js';
-import { bossMotion } from './bossmotion.js';
-import { drawBoss3D } from './boss3d.js';
+import { drawSerpent3D } from './boss/serpent3d.js';
 
-const X0 = PLAY_MIN_COL * TILE, X1 = (PLAY_MAX_COL + 1) * TILE, SC = 1.4;
-const C = { out: '#03070c', body: '#10283a', mid: '#1a3c50', belly: '#3a6a70', fin: '#0c2030', finTip: '#2a6a80', spot: '#5ae0ff', spot2: '#b8f8ff', eye: '#d8ffff', gum: '#6a1a2a', tooth: '#e8f0f0' };
+const X0 = PLAY_MIN_COL * TILE, X1 = (PLAY_MAX_COL + 1) * TILE;
 let X;
-const headViews = new WeakMap();
-const rad = (i, n) => (2.5 + 7.5 * Math.pow(1 - i / n, 0.55)) * SC;
+const rad = (i, n) => 2.2 + 10.6 * Math.pow(1 - i / n, 0.6);
+const ss = (a, b, x) => { const k = clamp((x - a) / (b - a), 0, 1); return k * k * (3 - 2 * k); };
+const dying = e => e.dead ? clamp(1 - e.dieT / (e.d.dieT || 1), 0, 1) : 0;
+// ölüm: can çekişir, sonra yaralı hâlde yandaki duvara kaçar; gövde eski izinden başın ardından akar
+const flees = new WeakMap(), fled = k => 480 * Math.pow(clamp((k - 0.16) / 0.84, 0, 1), 1.6);
+function flee(e) {
+  let F = flees.get(e); if (F) return F;
+  const B = (e.bs && e.bs.body) || [], n = B[3] || B[1], a = n ? Math.atan2(e.y - n[1], e.x - n[0]) : (e.face > 0 ? 0 : Math.PI);
+  const side = e.x <= X0 ? -1 : e.x >= X1 ? 1 : Math.cos(a) >= 0 ? 1 : -1, E = [side > 0 ? X1 + 50 : X0 - 50, e.y - 26];
+  const P = [[e.x, e.y], [e.x + Math.cos(a) * 50, e.y + Math.sin(a) * 50], [E[0] - side * 70, E[1]], E], T = [];
+  for (let i = B.length - 1; i >= 0; i--) T.push(B[i]);
+  for (let i = 0; i <= 40; i++) { const u = i / 40, v = 1 - u; T.push([0, 1].map(c => v * v * v * P[0][c] + 3 * v * v * u * P[1][c] + 3 * v * u * u * P[2][c] + u * u * u * P[3][c])); }
+  T.push([E[0] + side * 700, E[1]]);
+  const L = [0]; for (let i = 1; i < T.length; i++) L.push(L[i - 1] + Math.hypot(T[i][0] - T[i - 1][0], T[i][1] - T[i - 1][1]));
+  flees.set(e, F = { T, L, L0: L[B.length], a });
+  return F;
+}
+function along(F, d) {
+  const { T, L } = F; if (d <= 0) return T[0];
+  let i = 1; while (i < L.length - 1 && L[i] < d) i++;
+  const k = (d - L[i - 1]) / (L[i] - L[i - 1] || 1);
+  return [lerp(T[i - 1][0], T[i][0], k), lerp(T[i - 1][1], T[i][1], k)];
+}
+const roars = new WeakMap();
 
-function clipPlay() { X.save(); X.beginPath(); X.rect(X0, -1e6, X1 - X0, 2e6); X.clip(); }
-// gövde noktaları: ölümde çöker ve düşer
+// duvar gedikleri: yılan yan duvardan girip çıkarken ana kayada kısa süreli bir oyuk açılır; gövde geçince kapanır
+const HOLE = { R: 17, D: 24, open: 0.14, hold: 0.3, close: 1 }, holes = new WeakMap();
+const holeScale = h => Math.min(ss(0, HOLE.open, G.time - h.t0), 1 - ss(HOLE.hold, HOLE.hold + HOLE.close, G.time - h.last));
+function holeRows(h, fn) {
+  const k = holeScale(h), R = HOLE.R * k, dir = h.x === X0 ? -1 : 1, y0 = Math.round(h.y);
+  for (let dy = -Math.floor(R); dy <= R; dy++) {
+    const w = Math.round(HOLE.D * Math.sqrt(k * Math.max(0, 1 - (dy / R) ** 2)) * (0.7 + 0.3 * hash2(dy + 40, y0, 5)));
+    if (w > 0) fn(dir > 0 ? h.x : h.x - w, y0 + dy, w, dir);
+  }
+}
+function holesOf(e, H, pts, head) {
+  let L = holes.get(e); if (!L) holes.set(e, L = []);
+  const t = G.time, line = head ? [[H.x + Math.cos(H.a) * 30, H.y + Math.sin(H.a) * 30], [H.x, H.y], ...pts] : pts;
+  for (let i = 1; i < line.length; i++) for (const bx of [X0, X1]) {
+    const a = line[i - 1], b = line[i]; if ((a[0] - bx) * (b[0] - bx) >= 0) continue;
+    const y = a[1] + (b[1] - a[1]) * (bx - a[0]) / (b[0] - a[0]);
+    let h = L.find(q => q.x === bx && Math.abs(q.y - y) < 26);
+    if (!h) L.push(h = { x: bx, y, t0: t });
+    h.last = t;
+  }
+  for (let i = L.length - 1; i >= 0; i--) if (t < L[i].t0 || t - L[i].last > HOLE.hold + HOLE.close) L.splice(i, 1);
+  return L;
+}
+function clipPlay(L) { X.save(); X.beginPath(); X.rect(X0, -1e6, X1 - X0, 2e6); if (L) for (const h of L) holeRows(h, (x, y, w) => X.rect(x, y, w, 1)); X.clip(); }
 function bodyPts(e) {
   const B = e.bs && e.bs.body; if (!B || !B.length) return [];
   if (!e.dead) return B;
-  const k = clamp(1 - e.dieT / (e.d.dieT || 1), 0, 1);
-  return B.map(([x, y], i) => [x + Math.sin(i * 0.7) * k * 4, y + Math.pow(Math.max(0, k * 1.4 - i / B.length * 0.4), 2) * 70]);
+  const F = flee(e), d = F.L0 + fled(dying(e));
+  return B.map((_, i) => along(F, d - (i + 1) * SERPENT.seg));
 }
-function headPose(e, alpha, pts) {
-  const x = lerp(e.px, e.x, alpha), y = lerp(e.py, e.y, alpha), n = pts[3] || pts[1];
+// baş duruşu: yüzerken madenciye yaklaştıkça ağzı açılır; dikildiğinde madenciye döner, yelpazesini açar, zehri gırtlağında toplar; ilk çıkışta kükrer
+function headPose(e, alpha) {
+  const x = lerp(e.px, e.x, alpha), y = lerp(e.py, e.y, alpha), B = (e.bs && e.bs.body) || [], n = B[3] || B[1], t = G.time, k = dying(e);
   let a = n ? Math.atan2(y - n[1], x - n[0]) : (e.face > 0 ? 0 : Math.PI);
-  const S = e.bs && e.bs.sv, rear = S && S.m === 'rear';
-  if (rear) { const q = G.player; let d = Math.atan2(q.y - y, q.x - x) - a; d = Math.atan2(Math.sin(d), Math.cos(d)); a += d * 0.7; }
-  let open = rear ? clamp(e.wind || 0, 0, 1) : 0.15 + 0.1 * Math.sin(G.time * 3);
-  let hx = x, hy = y;
-  if (e.dead) { const k = clamp(1 - e.dieT / (e.d.dieT || 1), 0, 1); hy += k * k * 60; a += k * 1.2 * (Math.cos(a) > 0 ? 1 : -1); open = 0.5 * (1 - k); }
-  return { x: hx, y: hy, a, open };
+  const S = e.bs && e.bs.sv, rear = S && S.m === 'rear' && !e.dead, q = nearestPlayer(x, y);
+  let open = 0.16 + 0.08 * Math.sin(t * 3), flare = 0, venom = 0, push = (e.lunge || 0) * 7, thrash = 0;
+  if (e.dead) {
+    const F = flee(e), d = F.L0 + fled(k), h = along(F, d), b = along(F, d - 10), w = 1 - ss(0.1, 0.3, k);
+    a = (Math.hypot(h[0] - b[0], h[1] - b[1]) > 1 ? Math.atan2(h[1] - b[1], h[0] - b[0]) : F.a) + Math.sin(t * 14) * 0.35 * w;
+    return { x: h[0], y: h[1], a, open: lerp(1, 0.2, ss(0.12, 0.35, k)), flare: w, venom: 0, thrash: Math.max(w, 0.3), rage: !!(e.bs && e.bs.phase === 2) };
+  }
+  if (rear) {
+    if (q) { let d = Math.atan2(q.y - y, q.x - x) - a; d = Math.atan2(Math.sin(d), Math.cos(d)); a += d * 0.7; }
+    const w = clamp(e.wind || 0, 0, 1);
+    if (S.first) roars.set(e, true);
+    if (roars.get(e)) { open = Math.max(0.3, ss(SERPENT.rear, SERPENT.rear - 0.4, S.hold) * (1 - ss(0.7, 0.3, S.hold))); flare = open; }
+    else { open = 0.3 + 0.7 * w; flare = 0.35 + 0.65 * w; venom = S.spat ? 0 : w; push -= w * 5; }
+  } else {
+    roars.delete(e);
+    if (q && !e.under) open += 0.6 * clamp(1 - Math.hypot(q.x - x, q.y - y) / 80, 0, 1);
+  }
+  return { x: x + Math.cos(a) * push, y: y + Math.sin(a) * push, a, open, flare, venom, thrash, rage: !!(e.bs && e.bs.phase === 2) };
 }
+// kayanın içinden geçen gövde soluklaşır: kaya üstünden görünür
+function inRock(cx, R) {
+  if (!G.map) return;
+  const w = cx.canvas.width, h = cx.canvas.height;
+  cx.globalCompositeOperation = 'destination-out'; cx.fillStyle = 'rgba(0,0,0,0.5)';
+  for (let r = Math.max(0, Math.floor(R.oy / TILE)); r * TILE < R.oy + h; r++) for (let c = Math.max(0, Math.floor(R.ox / TILE)); c < COLS && c * TILE < R.ox + w; c++) {
+    const d = TD[G.map[r * COLS + c]]; if (d && d.solid) cx.fillRect(c * TILE - R.ox, r * TILE - R.oy, TILE, TILE);
+  }
+  cx.globalCompositeOperation = 'source-over';
+}
+const shown = e => { const S = e.bs && e.bs.sv; return e.dead || !e.under || (S && (S.m === 'go' || S.m === 'rear') && e.x > X0 - 46 && e.x < X1 + 46); };
 
 export function drawSerpent(ctx, e, alpha) {
-  X = ctx; const pts = bodyPts(e);
-  if (!pts.length && (e.under || !e.bs)) return;
-  const H = headPose(e, alpha, pts);
-  clipPlay();
-  const ready = drawBoss3D(ctx, e, alpha, 1, false, serpentPose(H, pts));
-  X.restore();
-  if (ready) return;
-  const n = SERPENT.n, fade = e.dead ? clamp(e.dieT / 0.8, 0, 1) : 1;
-  clipPlay(); X.globalAlpha = fade;
-  // kuyruktan başa: kontur, gövde, karın, sırt yüzgeçleri
-  for (let pass = 0; pass < 2; pass++) for (let i = pts.length - 1; i >= 1; i--) {
-    const [x, y] = pts[i], [px, py] = pts[i - 1], r = rad(i, n), dx = px - x, dy = py - y, d = Math.hypot(dx, dy) || 1;
-    let nx = -dy / d, ny = dx / d; if (ny > 0) { nx = -nx; ny = -ny; }
-    const inRock = TD[G.map[Math.floor(y / TILE) * COLS + Math.floor(x / TILE)]].solid;
-    if (pass === 0) {
-      X.globalAlpha = fade * (inRock ? 0.45 : 1);
-      if (i % 2 === 0) { X.fillStyle = C.fin; X.beginPath(); X.moveTo(x + nx * r * 0.6 - dx / d * 3, y + ny * r * 0.6 - dy / d * 3); X.lineTo(x + nx * (r + 5 * SC) - dx / d * 4, y + ny * (r + 5 * SC) - dy / d * 4); X.lineTo(x + nx * r * 0.6 + dx / d * 3, y + ny * r * 0.6 + dy / d * 3); X.fill(); X.fillStyle = C.finTip; X.fillRect(Math.round(x + nx * (r + 4 * SC) - dx / d * 4), Math.round(y + ny * (r + 4 * SC) - dy / d * 4), 1, 1); }
-      X.fillStyle = C.out; X.beginPath(); X.arc(x, y, r + 1, 0, Math.PI * 2); X.fill();
-    } else {
-      X.globalAlpha = fade * (inRock ? 0.45 : 1);
-      // Curved bands model a cylinder: a cool back, pale underside and narrow rim light.
-      const bands = ['#081521', '#102a3a', '#1c4051', '#315e67', '#50828a'];
-      for (let layer = 0; layer < bands.length; layer++) {
-        const rr = r * (1 - layer * 0.16), shift = (layer - 1) * r * 0.13;
-        X.fillStyle = bands[layer]; X.beginPath(); X.arc(x - nx * shift, y - ny * shift, rr, 0, Math.PI * 2); X.fill();
-      }
-      // Staggered scale rows follow the body's tangent and disappear around its far side.
-      for (let row = -1; row <= 1; row++) {
-        const s = row * r * 0.53, offset = (i + row) % 2 ? 1.4 : -1.4;
-        const sx = x + nx * s + dx / d * offset, sy = y + ny * s + dy / d * offset;
-        X.strokeStyle = row < 0 ? '#447480' : '#0b2334'; X.lineWidth = 1;
-        X.beginPath(); X.moveTo(sx - dx / d * 2, sy - dy / d * 2);
-        X.quadraticCurveTo(sx + nx * 2, sy + ny * 2, sx + dx / d * 2, sy + dy / d * 2); X.stroke();
-      }
+  X = ctx; const pts = bodyPts(e), head = !!e.bs && shown(e);
+  const H = headPose(e, alpha), L = holesOf(e, H, pts, head), t = G.time;
+  if (!pts.length && !head && !L.length) return;
+  X.fillStyle = '#04070c'; for (const h of L) holeRows(h, (x, y, w) => X.fillRect(x, y, w, 1));
+  if (pts.length || head) {
+    clipPlay(L);
+    drawSerpent3D(ctx, e, pts, H, t, SERPENT.n, head, e.dead ? clamp(e.dieT / 0.3, 0, 1) : 1, false, inRock);
+    X.restore();
+  }
+  for (const h of L) {
+    // oyuğun dibi karanlık, ağzı kırık kaya; açılırken moloz saçılır
+    holeRows(h, (x, y, w, dir) => {
+      const d = Math.round(w * 0.45);
+      X.fillStyle = 'rgba(3,6,10,0.5)'; X.fillRect(dir > 0 ? x + d : x, y, w - d, 1);
+      X.fillStyle = 'rgba(3,6,10,0.85)'; X.fillRect(dir > 0 ? x + w - Math.round(w * 0.3) : x, y, Math.round(w * 0.3), 1);
+      X.fillStyle = 'rgba(150,160,205,0.4)'; X.fillRect(dir > 0 ? x + w : x - 1, y, 1, 1);
+    });
+    const age = t - h.t0, dir = h.x === X0 ? 1 : -1;
+    if (age < 0.7) for (let n = 0; n < 9; n++) {
+      const a = hash2(n, Math.round(h.y), 7), b = hash2(n, Math.round(h.y), 8), sz = a > 0.6 ? 2 : 1;
+      X.fillStyle = n % 3 ? '#2c3046' : '#4a5070';
+      X.fillRect(Math.round(h.x + dir * age * (24 + a * 70)), Math.round(h.y + (b - 0.5) * 26 - age * (30 + b * 40) + age * age * 190), sz, sz);
     }
   }
-  X.globalAlpha = fade;
-  if (!e.under || e.dead) head(headPose(e, alpha, pts), e);
-  X.globalAlpha = 1; X.restore();
-}
-
-function serpentPose(H, pts) {
-  return { yaw: Math.cos(H.a) < 0 ? Math.PI - 0.22 : 0.22, roll: -Math.atan2(Math.sin(H.a), Math.abs(Math.cos(H.a))) * (Math.cos(H.a) < 0 ? -1 : 1), feet: H.y, body: pts, act: { k: 'breath', fire: H.open > 0.3 }, wind: H.open };
-}
-function headArt(H, e, glow = false) {
-  if (drawBoss3D(X, e, 1, 1, glow, serpentPose(H, bodyPts(e)))) return true;
-  const direction = Math.round(H.a / (Math.PI / 4)), view = (direction % 8 + 8) % 8;
-  const attack = H.open > 0.32 && Math.abs(Math.sin(H.a)) < 0.38;
-  const row = e.dead || attack ? 1 : 0, fr = e.dead ? 3 : attack ? 1 : view;
-  const face = row && Math.cos(H.a) < 0 ? -1 : 1;
-  const motion = bossMotion('dunyaYilani', G.time, attack ? { k: 'cast' } : null, e.wind || 0, 0, e.dead ? 1 - clamp(e.dieT / (e.d.dieT || 1), 0, 1) : 0);
-  let state = headViews.get(e);
-  if (!state || G.time < state.time) { state = { view, previous: view, changed: -9, time: G.time }; headViews.set(e, state); }
-  if (state.view !== view) { state.previous = state.view; state.view = view; state.changed = G.time; }
-  state.time = G.time;
-  const k = clamp((G.time - state.changed) / 0.14, 0, 1), blend = k * k * (3 - 2 * k);
-  const alpha = X.globalAlpha;
-  const paint = (frame, opacity) => {
-    X.save(); X.translate(H.x, H.y);
-    // Authored front, rear and quarter views supply volume; residual tilt follows the spine.
-    X.rotate(row ? Math.atan2(Math.sin(H.a), Math.abs(Math.cos(H.a))) * face : H.a - direction * Math.PI / 4);
-    const ready = drawArtFrame(X, 'dunyaYilani', row, frame, 0, 18, face, alpha * opacity, 1, glow, motion);
-    X.restore(); return ready;
-  };
-  if (!row && blend < 1) paint(state.previous, 1 - blend);
-  return paint(fr, row ? 1 : blend);
-}
-
-function head(H, e) {
-  if (headArt(H, e)) return;
-  X.restore();
-  X.save(); X.translate(H.x, H.y); X.rotate(H.a); if (Math.cos(H.a) < 0) X.scale(1, -1); X.scale(SC, SC);
-  const o = H.open * 7;
-  // yan yüzgeçler ve boynuzlar (arkaya savrulur)
-  X.fillStyle = C.fin;
-  for (const [a, b, c, d2] of [[-4, -7, -18, -15], [-6, -4, -20, -6], [-4, 5, -16, 10]]) { X.beginPath(); X.moveTo(a, b); X.lineTo(c, d2); X.lineTo(a + 5, b + 1); X.fill(); }
-  X.fillStyle = '#c8d8d0'; X.beginPath(); X.moveTo(2, -8); X.quadraticCurveTo(-8, -16, -16, -14); X.lineTo(-6, -11); X.fill();
-  // alt çene (açılır), ağız içi, dişler
-  X.fillStyle = C.out; X.beginPath(); X.moveTo(-6, 3); X.lineTo(22, 2 + o); X.lineTo(20, 5 + o); X.lineTo(-4, 8); X.fill();
-  X.fillStyle = C.mid; X.beginPath(); X.moveTo(-4, 3); X.lineTo(20, 2.5 + o); X.lineTo(18, 4.5 + o); X.lineTo(-3, 6.5); X.fill();
-  if (o > 1) { X.fillStyle = C.gum; X.beginPath(); X.moveTo(2, 1); X.lineTo(22, 0.5); X.lineTo(20, 2 + o); X.lineTo(2, 3); X.fill(); X.fillStyle = C.tooth; for (let k = 6; k < 21; k += 3) { X.fillRect(k, 0.5, 1, 1.5); X.fillRect(k + 1, 1 + o, 1, -1.5); } }
-  // kafatası
-  X.fillStyle = C.out; X.beginPath(); X.moveTo(-8, -9); X.lineTo(6, -10); X.lineTo(17, -6); X.lineTo(25, -2); X.lineTo(26, 1); X.lineTo(14, 2); X.lineTo(-8, 4); X.fill();
-  X.fillStyle = C.body; X.beginPath(); X.moveTo(-6, -8); X.lineTo(6, -9); X.lineTo(16, -5); X.lineTo(24, -1.5); X.lineTo(24, 0.5); X.lineTo(13, 1); X.lineTo(-6, 3); X.fill();
-  X.fillStyle = C.mid; X.fillRect(-2, -7, 14, 2); X.fillRect(14, -4, 7, 1);
-  X.fillStyle = C.belly; X.fillRect(0, 1, 16, 1);
-  X.restore();
 }
 
 // ---------- ışık katmanı ----------
 export function drawSerpentGlow(ctx, e, alpha, glow) {
-  X = ctx; const pts = bodyPts(e), t = G.time, n = SERPENT.n;
-  const k = e.dead ? clamp(1 - e.dieT / (e.d.dieT || 1), 0, 1) : 0;
-  const rage = e.bs && e.bs.phase === 2;
-  clipPlay();
-  // benekler: kuyruktan başa akan bir ışık dalgası; ölümde kuyruktan başa doğru söner
-  for (let i = 1; i < pts.length; i += 2) {
-    const [x, y] = pts[i], [px, py] = pts[i - 1], r = rad(i, n), dx = px - x, dy = py - y, d = Math.hypot(dx, dy) || 1;
-    const nx = -dy / d, ny = dx / d, wave = 0.35 + 0.65 * Math.max(0, Math.sin(t * 4 - i * 0.35));
-    const off = k > 0 && i / pts.length > 1 - k * 1.3 ? 0 : 1;
-    if (!off) continue;
-    X.globalAlpha = wave * (TD[G.map[Math.floor(y / TILE) * COLS + Math.floor(x / TILE)]].solid ? 0.5 : 1);
-    X.fillStyle = rage ? (i % 4 ? '#ff5a8a' : '#ffd0e0') : (i % 4 ? C.spot : C.spot2);
-    X.fillRect(Math.round(x + nx * r * 0.55), Math.round(y + ny * r * 0.55), 1, 1);
-    X.fillRect(Math.round(x - nx * r * 0.55), Math.round(y - ny * r * 0.55), 1, 1);
-    if (i % 6 === 1) glow(x, y, rage ? 'rgba(255,90,140,0.25)' : 'rgba(90,224,255,0.22)', Math.round(r + 4), wave);
-  }
-  X.globalAlpha = 1;
-  if (!e.under || e.dead) {
-    const H = headPose(e, alpha, pts), ca = Math.cos(H.a), sa = Math.sin(H.a), fl = ca < 0 ? -1 : 1;
-    X.globalAlpha = 1 - k;
-    if (headArt(H, e, true)) glow(H.x, H.y - 10, 'rgba(90,224,255,0.24)', 18, 1 - k);
-    else {
-      const ex = H.x + (10 * ca - (-6 * fl) * sa) * SC, ey = H.y + (10 * sa + (-6 * fl) * ca) * SC;
-      glow(ex, ey, 'rgba(160,250,255,0.7)', 7, 1 - k);
-      X.fillStyle = C.eye; X.fillRect(Math.round(ex) - 1, Math.round(ey), 3, 1);
+  X = ctx; const pts = bodyPts(e), t = G.time, n = SERPENT.n, rage = e.bs && e.bs.phase === 2;
+  clipPlay(holes.get(e));
+  const head = !!e.bs && shown(e);
+  if (pts.length || head) {
+    // gözler, benekler, zehir: 3B katmandan; çevrelerine yumuşak ışık
+    const H = headPose(e, alpha), R = drawSerpent3D(ctx, e, pts, H, t, n, head, e.dead ? clamp(e.dieT / 0.3, 0, 1) * (0.75 + 0.25 * Math.sin(t * 23)) : 1, true, inRock);
+    for (let i = 1; i < pts.length; i += 6) {
+      const [x, y] = pts[i]; glow(x, y, rage ? 'rgba(255,90,140,0.25)' : 'rgba(90,224,255,0.22)', Math.round(rad(i, n) + 4), 0.35 + 0.65 * Math.max(0, Math.sin(t * 4 - i * 0.35)));
     }
-    X.globalAlpha = 1;
-    if (H.open > 0.3) { const mx = H.x + 16 * ca * SC, my = H.y + 16 * sa * SC; glow(mx, my, 'rgba(90,224,200,0.6)', Math.round(6 + H.open * 10), H.open); }
+    if (R.at.eye) glow(R.at.eye[0], R.at.eye[1], rage ? 'rgba(255,120,170,0.6)' : 'rgba(160,250,255,0.6)', 9, 1);
+    if (R.at.mouth && H.open > 0.3 && !e.dead) glow(R.at.mouth[0], R.at.mouth[1], 'rgba(90,224,200,0.6)', Math.round(6 + H.open * 10), H.open * (0.4 + 0.6 * H.venom));
   }
   // sonraki çıkış: duvar çatlar ve yol parlar
   const S = e.bs && e.bs.sv;

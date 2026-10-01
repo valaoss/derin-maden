@@ -34,7 +34,7 @@ import { initRenderer, resize, render, updateCamera, view, viewToWorld } from '.
 import { initInput, input, cancelStick, keyPressed, setStickVisible, setStickMode, readMove } from './input/input.js';
 import { initAudio, sfx, setAmbience, stopAmbience, suspendAudio, haptic } from './audio/audio.js';
 import { on, emit } from './core/events.js';
-import { ozForRun, CONTRACTS, ITEM_KEYS, MODS, PERKS, ROLES } from './data/balance.js';
+import { ozForRun, CONTRACTS, ITEM_KEYS, PERKS, ROLES } from './data/balance.js';
 import { STRATA } from './data/palette.js';
 import { todayKey } from './core/util.js';
 import { dispatch, CMD } from './game/commands.js';
@@ -447,7 +447,6 @@ function tick(now, bg) {
     const belt = ITEM_KEYS.filter(k => G.items[k] > 0);
     for (let i = 0; i < Math.min(9, belt.length); i++) if (keyPressed(String(i + 1))) { dispatch({ t: CMD.USE, k: belt[i] }); UI.refreshHUD(true); }
     if (G.mp && keyPressed('x')) dispatch({ t: CMD.PING, x: G.player.x, y: G.player.y - 10 });
-    if (keyPressed('q') || keyPressed('e')) { const act = G.gear.eq.filter(k => MODS[k].active); const k = act[keyPressed('e') ? 1 : 0] || act[0]; if (k) { dispatch({ t: CMD.MODUSE, k }); UI.refreshHUD(true); } }
     acc += dt; let n = 0;
     if (G.mp) {
       // lockstep: girdi her çizim karesinde örneklenir (adım atılmasa da karşıya gider)

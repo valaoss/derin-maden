@@ -8,6 +8,7 @@ import { clamp } from '../core/util.js';
 import { bossMotion, motionFrame, drawMotion, motionPoint } from './bossmotion.js';
 import { drawBoss3D, boss3DPoint } from './boss3d.js';
 import { hasPL, drawPL, drawPLGlow, plAttachment } from './bosssprite.js';
+import { has3D, draw3D, draw3DGlow, point3D as actorPoint } from './boss/actor.js';
 
 const sheets = {};
 function sheet(type) {
@@ -35,7 +36,7 @@ function tint(s, A, sx, sy, col) {
 }
 
 // oyun açılırken yüklenir: boss ortaya çıktığında hazır olsun
-if (typeof Image !== 'undefined') for (const t in BOSS_ART) { sheet(t); if (BOSS_ART[t].turns) sheet(t + '-turn'); }
+if (typeof Image !== 'undefined') for (const t in BOSS_ART) if (!has3D({ type: t }) && t !== 'dunyaYilani') { sheet(t); if (BOSS_ART[t].turns) sheet(t + '-turn'); }
 
 // eylemin ilerleyişi -> [satır, kare]; null: yürüme/durma
 const k01 = k => clamp(k, 0, 1), fi = (k, n) => Math.min(n - 1, Math.floor(k01(k) * n));
@@ -178,10 +179,11 @@ function paint(ctx, s, P, glow = false, color = null) {
   ctx.globalAlpha = opacity;
 }
 
-export const hasBossArt = e => !!BOSS_ART[e.type];
+export const hasBossArt = e => has3D(e) || !!BOSS_ART[e.type];
 
 // ana katman: false dönerse sayfa henüz yüklenmedi (eski çizim kullanılır)
 export function drawBossArt(ctx, e, alpha, a0 = 1) {
+  if (has3D(e)) return draw3D(ctx, e, alpha, a0);
   if (hasPL(e)) return drawPL(ctx, e, alpha, a0);
   if (drawBoss3D(ctx, e, alpha, a0)) return true;
   const P = pose(e, alpha, true), A = P.A;
@@ -210,6 +212,7 @@ export function drawBossArt(ctx, e, alpha, a0 = 1) {
 
 // ışık katmanı: parlayan pikseller toplanarak çizilir, parıltı noktalarında hale
 export function drawBossArtGlow(ctx, e, alpha, glow, a0 = 1) {
+  if (has3D(e)) return draw3DGlow(ctx, e, alpha, glow, a0);
   if (hasPL(e)) return drawPLGlow(ctx, e, alpha, glow, a0);
   if (drawBoss3D(ctx, e, alpha, a0, true)) {
     const chest = boss3DPoint(e, alpha, 'chests');
@@ -257,6 +260,7 @@ export const artPoseRow = (e, alpha = 1) => pose(e, alpha, false).row;
 
 // Attach eye/throat effects to the actually visible view, including front and back.
 export function artAttachment(e, alpha, kind) {
+  if (has3D(e)) return actorPoint(e, alpha, kind);
   if (hasPL(e)) return plAttachment(e, alpha, kind);
   const point3D = boss3DPoint(e, alpha, kind); if (point3D) return point3D;
   const P = pose(e, alpha, false), A = P.A;

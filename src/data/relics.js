@@ -62,7 +62,7 @@ export const PERKS = {
   adrenPompa: { duo: ['kan', 'simsek'], name: 'Adrenalin Pompası', icon: 'adren', desc: 'Canın yarının altındayken atış hızın ×1.5, hareketin +%25.' },
   kanAvcisi:  { duo: ['kan', 'golge'], name: 'Kan Avcısı', icon: 'skull', desc: 'Tek vuruşta öldürdüğün her düşman azami canının %4’ünü yeniler.' },
   // ---- EFSANEVİ: soysuz, nadir
-  dorduncuYuva:{ leg: true, name: 'Dördüncü Yuva', icon: 'nova', desc: 'Eklenti yuvası +1.' },
+  dorduncuYuva:{ leg: true, name: 'Usta Tüfekçi', icon: 'blaster', desc: 'Silah seviyen iki kat hızlı dolar.' },
   aletUstasi: { leg: true, name: 'Alet Ustası', icon: 'turret', desc: 'Aynı anda bir alet daha kurarsın; aletler %50 daha hızlı ve güçlü.' },
   devAvcisi:  { leg: true, name: 'Dev Avcısı', icon: 'elite', v: [0.35, 0.6, 0.9], f: 'p', desc: 'Elitlere ve bosslara %{v} fazla hasar verirsin.' },
   bolKemer:   { leg: true, name: 'Bol Kemer', icon: 'gear', desc: 'Her eşyadan 2 fazla taşırsın ve açık her eşyadan birer tane kazanırsın.' },

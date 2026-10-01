@@ -5,6 +5,7 @@ import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y, GROUND_ROW, stratumOfRow } from '../config.js';
 import { T, TD } from '../data/tiles.js';
 import { directorHp, ttkFloor } from './power.js';
+import { gainXp } from './weaponlevel.js';
 import { ENEMIES, BARRICADE, BUILDS, ELITE, BURN, AFFIX, AFFIX_KEYS, enemyHpMul, enemyDmgMul } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, solidAt, damageTile, idx, matOf } from '../world/map.js';
@@ -25,7 +26,7 @@ import { updateBoss } from './bosses.js';
 import { markJourney } from './journey.js';
 
 const ENEMY_COL = { rodent: '#b07a4a', bug: '#5a9a5a', spitter: '#9a5ac0', flyer: '#7a64a0', boomer: '#e070ff', brute: '#8a7c78', worm: '#c07890',
-  karakok: '#78b43c', kavurgan: '#ff6a1a', otegoz: '#b080ff', sultan: '#ffd870', ezeli: '#fff4c0',
+  karakok: '#78b43c', kavurgan: '#ff6a1a', otegoz: '#b080ff', kordesen: '#ffd870', ezeli: '#fff4c0',
   glarer: '#ffe79a', lurker: '#6a8a5a', howler: '#8a5a7a', shade: '#4a3a6a',
   spider: '#6a4a8a', spiderling: '#8a6aaa', broodmother: '#5a2a6a', frostbat: '#9ad8ff', skitter: '#d0c0a0', magmite: '#ff7a3a', voidling: '#7a6aff', ogolem: '#4a3e68',
   quickling: '#c8d8e4', droplet: '#c8d8e4', voltbat: '#3a8aff', gilded: '#ffd870', sporeling: '#a8f070', mirrorling: '#d8f8ff', titanling: '#7a9a78', chronoling: '#ffd890', leech: '#c02a30', echoer: '#8a86b0', seraph: '#fff4e8', mimic: '#b07a42',
@@ -88,7 +89,7 @@ export function losClear(x0, y0, x1, y1, ignoreBarricade = false) {
   return true;
 }
 
-export function damageEnemy(e, dmg, dx = 0, dy = 0, knock = 1, silent = false) {
+export function damageEnemy(e, dmg, dx = 0, dy = 0, knock = 1, silent = false, crit = false) {
   if (e.hp <= 0 || e.dead || e.emergeT > 0.3 || e.under || e.intro > 0) return;
   const full = e.hp >= e.maxHp;
   let real = dmg * (1 - (e.d.armor || 0)) * (e.elite || e.d.boss ? 1 + pv('devAvcisi') : 1);
@@ -103,6 +104,7 @@ export function damageEnemy(e, dmg, dx = 0, dy = 0, knock = 1, silent = false) {
   if (e.d.front && !silent && dx * e.face < -0.3) { real *= 1 - e.d.front; if (rnd() < 0.6) sparks(e.x + e.face * 6, e.y - 2, '#e0e8ff', 3, 70); if (nearLocal(e) && rnd() < 0.3) sfx.ping(); }
   if (e.shield > 0) { const a = Math.min(e.shield, real); e.shield -= a; real -= a; if (rnd() < 0.5) sparks(e.x, e.y, AFFIX.kalkan.col, 2, 50); }
   e.hp -= real; e.hitT = 0.09; e.hitDx = dx; e.hitDy = dy;
+  if (real > 0 && nearLocal(e)) dmgNum(e, real, crit);
   const kr = 1 - (e.d.knockResist || 0);
   e.kx += dx * 55 * knock * kr; e.ky += dy * 55 * knock * kr;
   if (!silent && nearLocal(e)) sfx.hit();
@@ -141,6 +143,13 @@ export function damageEnemy(e, dmg, dx = 0, dy = 0, knock = 1, silent = false) {
 // dps: ek yanma hasarı/sn (Kor Mermi, Magma Kazma); yanma sürerken en güçlüsü kalır
 export function burnEnemy(e, t, dps = 0) { if (e.dead) return; if (e.burnT <= 0) e.burnDps = 0; e.burnT = Math.max(e.burnT, t); e.burnDps = Math.max(e.burnDps || 0, dps); }
 function nearLocal(e) { const l = G.player; return Math.hypot(l.x - e.x, l.y - e.y) < 200; }
+// hasar sayısı (kozmetik): aynı düşmana art arda gelen vuruşlar tek sayıda toplanır; kritik ayrı ve büyük yazılır
+function dmgNum(e, v, crit) {
+  const N = G.nums, last = e.num;
+  if (last && !crit && !last.crit && last.t < 0.35) { last.v += v; return; }
+  if (N.length >= 28) N.shift();
+  N.push(e.num = { x: e.x + (Math.random() - 0.5) * 8, y: e.y - e.r - 3, v, crit, t: 0 });
+}
 
 export function killEnemy(e) {
   if (e.dead) return;
@@ -154,6 +163,7 @@ export function killEnemy(e) {
   dust(e.x, e.y, e.d.boss ? 6 : 2, 'rgba(120,90,110,0.5)');
   if (nearLocal(e) || e.d.boss) sfx.enemyDie(e.d.boss || e.type === 'brute');
   G.stats.kills++;
+  gainXp(e);
   if (e.elite) {
     G.stats.elites++;
     const n = ELITE.gold + (hasPerk('altinDokunus') ? 5 : 0);

@@ -398,18 +398,14 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 /* öğretici eli başparmak bölgesinde */
 #coach .hand { position: absolute; top: 44dvh; left: 50%; margin-left: -18px; width: 44px; height: 44px; }
 
-/* v4: blaster eklenti paneli (sağ kenar, atölye düğmesinin üstünde) */
-#mods { position: absolute; right: calc(var(--sar) + 14px); bottom: calc(var(--sab) + 96px); display: flex; flex-direction: column-reverse; gap: 6px; pointer-events: none; z-index: 2; }
-.lefty #mods { right: auto; left: calc(var(--sal) + 14px); }
-#mods.hide { opacity: 0; pointer-events: none; }
-.mod { pointer-events: auto; width: 52px; height: 52px; min-height: 0; padding: 0; position: relative; overflow: hidden; animation: slotIn .16s ease-out; }
-.mod.passive { opacity: .85; width: 40px; height: 40px; pointer-events: none; }
-.mod.passive .icon.l { width: 24px; height: 24px; }
-.mod .cd { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(10,6,14,.7); pointer-events: none; }
-.mod.ready { box-shadow: inset 0 0 0 2px var(--ink), 0 0 0 2px var(--helm); animation: modReady 1.2s steps(2) infinite; }
-.mod.on { box-shadow: inset 0 0 0 2px var(--ink), 0 0 0 3px var(--good); }
-.mod.empty { opacity: .35; pointer-events: none; }
-@keyframes modReady { 50% { box-shadow: inset 0 0 0 2px var(--ink), 0 0 0 2px var(--text); } }
+/* silah seviyesi göstergesi (üst şeridin altında, sağda) */
+#mods { position: absolute; right: calc(var(--sar) + 10px); top: calc(var(--sat) + 100px); pointer-events: none; z-index: 2; }
+.wlv { display: flex; align-items: center; gap: 5px; padding: 3px 8px 5px; font-size: 12px; letter-spacing: 1px; }
+.wlv b { color: var(--helm); }
+.wlv .xpb { width: 46px; }
+.wlv.on { box-shadow: inset 0 0 0 2px var(--ink), 0 0 0 2px var(--good); }
+.xpb { display: block; height: 6px; background: var(--ink); box-shadow: inset 0 0 0 1px #54436a; }
+.xpb i { display: block; height: 100%; background: var(--helm); box-shadow: inset 0 2px 0 var(--helmL); transition: width .15s steps(3); }
 .pickcard { display: flex; align-items: center; gap: 10px; padding: 8px 10px; }
 .pickcard .sw { width: 34px; height: 34px; image-rendering: pixelated; }
 .row.owned .buy { background: var(--plateL); color: var(--text); }

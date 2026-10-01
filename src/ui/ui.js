@@ -9,10 +9,11 @@ import { STRATA } from '../data/palette.js';
 import { G, App, biomeOf } from '../game/state.js';
 import { iconURL, HELMETS } from '../render/sprites.js';
 import { on, emit } from '../core/events.js';
-import { bagCount, hasPerk, isUnlocked, contractProgress, pickDmg, pickInterval, modSlots, soyCount } from '../game/run.js';
-import { canAfford, upgradeCost, craftState, beaconLack, weaponUpCost, toolUpCost, itemCost } from '../game/economy.js';
-import { WEAPON_UP, TOOL_UP, beaconReq } from '../data/balance.js';
-import { weaponLvl, toolLvl } from '../game/run.js';
+import { bagCount, hasPerk, isUnlocked, contractProgress, pickDmg, pickInterval, soyCount, weaponOf } from '../game/run.js';
+import { canAfford, upgradeCost, craftState, beaconLack, toolUpCost, itemCost } from '../game/economy.js';
+import { TOOL_UP, beaconReq } from '../data/balance.js';
+import { toolLvl } from '../game/run.js';
+import { WOFFER, xpNeed, weaponMaxed } from '../game/weaponlevel.js';
 import { offerInfo, rerollCost, ROMAN } from '../game/chests.js';
 import { SOY, SOY_KEYS, RESONANCE } from '../data/relics.js';
 import { CHESTS } from '../data/balance.js';
@@ -186,7 +187,8 @@ export function initUI(root, h) {
     setTimeout(() => toast(who + R.desc, R.icon), 2600);
     refreshHUD(true);
   });
-  on('perkOffer', pi => { if (pi === G.localIdx) showPerks(); else toast('Partnerin bir kalıntı buldu', 'chest'); });
+  on('perkOffer', pi => { if (pi === G.localIdx) showPerks(); else if (!WOFFER[G.perkOffer.chest]) toast('Partnerin bir kalıntı buldu', 'chest'); else if (G.perkOffer.chest !== 'start') toast('Silah seviye atladı · kartı partnerin seçiyor', 'blaster'); });
+  on('weaponLevel', () => { sfx.chest(); refreshHUD(true); });
   on('resonance', d => { const S = SOY[d.soy]; banner('REZONANS', S.name, 'gold'); setTimeout(() => toast(S.res, S.icon), 2400); });
   on('perkTaken', d => { if (d.pi !== G.localIdx) { const o = offerInfo(d.k); toast('Partner seçti: ' + o.name, o.icon); } });
   on('blind', () => { const f = $('#flash'); f.classList.remove('on'); void f.offsetWidth; f.classList.add('on'); });
@@ -233,17 +235,12 @@ function toggleChat() {
 const bubbles = {};
 export function chatBubble(pi, k) { bubbles[pi] = { text: CHAT[k] || '…', t: performance.now() }; }
 export function bubbleFor(pi) { const b = bubbles[pi]; return b && performance.now() - b.t < 2600 ? b.text : ''; }
-// sağ kenar: takılı blaster eklentileri (aktifler dokunulabilir, bekleme süresi dolgu olarak)
+// üst şeridin altı: silah seviyesi ve dolan çubuğu; Aşırı Yük sürerken parlar
+const wlvFill = () => weaponMaxed() ? 20 : Math.floor(G.gear.xp / xpNeed(G.gear.lv) * 20);
 function renderMods() {
   const box = $('#mods'), p = G.player, g = G.gear;
-  if (p.dead || !g.eq.length) { box.innerHTML = ''; return; }
-  box.innerHTML = g.eq.map(k => {
-    const m = MODS[k];
-    if (!m.active) return `<div class="btn dark mod passive" aria-label="${m.name}">${ic(m.icon, 'l')}</div>`;
-    const cd = Math.max(0, g.cd[k] || 0), on = (g.active[k] || 0) > 0;
-    return `<button class="btn dark mod ${cd <= 0 && !on ? 'ready' : ''} ${on ? 'on' : ''}" data-k="${k}" aria-label="${m.name}">${ic(m.icon, 'l')}<div class="cd" style="height:${Math.round(cd / m.cd * 100)}%"></div></button>`;
-  }).join('');
-  box.querySelectorAll('.mod[data-k]').forEach(el => tap(el, () => { dispatch({ t: CMD.MODUSE, k: el.dataset.k }); refreshHUD(true); }));
+  if (p.dead) { box.innerHTML = ''; return; }
+  box.innerHTML = `<div class="plate wlv ${(g.active.overdrive || 0) > 0 ? 'on' : ''}" aria-label="Silah seviyesi ${g.lv}">${ic(weaponOf(p).icon, 's')}<b>SV ${g.lv}</b><span class="xpb"><i style="width:${wlvFill() * 5}%"></i></span></div>`;
 }
 function renderBelt() {
   const b = $('#belt'), p = G.player;
@@ -329,14 +326,13 @@ export function refreshHUD(force = false) {
   if (!p.dead) for (const k of ITEM_KEYS) if (G.items[k] > 0) bk += k + G.items[k] + (itemUsable(k) ? '+' : '-') + (k === 'recall' && p.recallT > 0 ? 'r' : '');
   set(0, 'belt', bk, () => renderBelt());
   const g = G.gear;
-  let mk = p.dead ? '' : g.eq.map(k => k + (MODS[k].active ? Math.ceil(Math.max(0, g.cd[k] || 0)) + ((g.active[k] || 0) > 0 ? 'a' : '') : '')).join(',');
+  const mk = p.dead ? '' : p.wpn + g.lv + ':' + wlvFill() + ((g.active.overdrive || 0) > 0 ? 'a' : '');
   set(0, 'mods', mk, () => renderMods());
   set(0, 'lefty', App.settings.lefty, v => ui.parentElement.classList.toggle('lefty', v));
 }
 function fmt(t) { t = Math.max(0, Math.ceil(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); }
 function anyAffordable() {
   for (const k of UPGRADE_KEYS.concat(PICK_KEYS, MASTER_KEYS)) { const c = upgradeCost(k); if (c && canAfford(c) && !beaconLack(k)) return true; }
-  for (const k of G.gear.wOwn) { const c = weaponUpCost(k); if (c && canAfford(c)) return true; }
   for (const k of MOD_KEYS) if (!G.gear.owned.includes(k) && canAfford(MODS[k].cost)) return true;
   for (const k of WEAPON_KEYS) if (!G.gear.wOwn.includes(k) && canAfford(WEAPONS[k].cost)) return true;
   for (const k of PICK_TYPE_KEYS) if (!G.gear.pOwn.includes(k) && canAfford(PICK_TYPES[k].cost)) return true;
@@ -530,24 +526,25 @@ function soyBar() {
 function showPerks() {
   const off = G.perkOffer;
   if (!off || !off.keys.length) return;
-  const ch = off.keys, arms = (CHESTS[off.chest] || {}).arms, cost = rerollCost();
+  const wo = WOFFER[off.chest], ch = off.keys, arms = wo || (CHESTS[off.chest] || {}).arms, cost = rerollCost();
   hooks.pause(false, true); cancelStick();
   const s = $('#perk');
-  const cn = ((CHESTS[off.chest] || CHESTS.wood).name).toLocaleUpperCase('tr');
-  s.innerHTML = `<div class="perkhead"><div class="k">${cn}</div><div class="n">Birini seç</div>${G.mp ? '<div class="k" style="margin-top:6px">OYUN DEVAM EDİYOR</div>' : ''}</div>
+  const cn = off.chest === 'start' ? 'SEFER BAŞLIYOR' : off.chest === 'lvl' ? 'SİLAH SEVİYESİ ' + G.gear.lv : off.chest === 'evo' ? 'SİLAH EVRİLİYOR' : ((CHESTS[off.chest] || CHESTS.wood).name).toLocaleUpperCase('tr');
+  const hn = off.chest === 'start' ? 'İlk eklentini seç' : off.chest === 'lvl' ? 'Bir kart seç' : off.chest === 'evo' ? 'Bir yol seç' : 'Birini seç';
+  s.innerHTML = `<div class="perkhead"><div class="k">${cn}</div><div class="n">${hn}</div>${G.mp ? '<div class="k" style="margin-top:6px">OYUN DEVAM EDİYOR</div>' : ''}</div>
     ${arms ? '' : soyBar()}
     <div class="cards">${ch.map((k, i) => { const o = offerInfo(k);
       const lv = o.max > 1 ? `<span class="lvp">${Array.from({ length: o.max }, (_, q) => `<b class="${q < o.lv ? 'f' : ''}"></b>`).join('')}</span>` : '';
       const res = o.kind === 'soy' && !o.up ? (() => { const n = soyCount(o.soy) + 1; return n >= RESONANCE ? `<div class="resl">${n === RESONANCE ? 'REZONANS AÇILIR: ' : 'Rezonans: '}${SOY[o.soy].res}</div>` : `<div class="resl dim">${SOY[o.soy].name} ${n}/${RESONANCE} · rezonansa ${RESONANCE - n}</div>`; })() : '';
       return `<button class="plate card k-${o.kind || 'arm'} ${o.up ? 'up' : ''}" data-k="${k}" style="--c:${o.col || '#9fe8ff'};animation-delay:${0.08 + i * 0.07}s"><span class="ci">${ic(o.icon, 'xl')}</span>
       <div class="cm"><div class="tag">${o.tag}</div><div class="name">${o.name}${lv}</div><div class="desc">${o.desc}</div>${res}</div></button>`; }).join('')}</div>
-    <button class="btn dark reroll" id="reroll" ${(G.store.gold | 0) >= cost ? '' : 'disabled'}>YENİDEN ÇEK ${cost ? `· ${ic('gold', 's')}${cost}` : '· BEDAVA'}</button>`;
+    ${wo ? '' : `<button class="btn dark reroll" id="reroll" ${(G.store.gold | 0) >= cost ? '' : 'disabled'}>YENİDEN ÇEK ${cost ? `· ${ic('gold', 's')}${cost}` : '· BEDAVA'}</button>`}`;
   s.classList.add('on');
   s.querySelectorAll('.card').forEach(c => tap(c, () => {
     dispatch({ t: CMD.PERK, k: c.dataset.k }); s.classList.remove('on'); hooks.resume(); refreshHUD(true);
     const o = offerInfo(c.dataset.k); toast(o.up ? `${o.name} ${ROMAN[o.lv]}` : o.name, o.icon);
   }));
-  tap($('#reroll'), () => { if (dispatch({ t: CMD.REROLL })) sfx.click(); else sfx.deny(); });
+  if (!wo) tap($('#reroll'), () => { if (dispatch({ t: CMD.REROLL })) sfx.click(); else sfx.deny(); });
 }
 export function setNetStall(v) { const el = $('#netstall'); el.classList.toggle('on', !!v); if (v && el.textContent !== v) el.textContent = v; }
 

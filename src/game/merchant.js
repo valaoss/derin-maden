@@ -44,7 +44,7 @@ export function buyMerch(p, i) {
   if (!g || g.sold || p.dead || p.y >= GROUND_Y || (G.store.gold | 0) < g.cost) { if (isLocal(p)) sfx.deny(); return false; }
   if (g.k === 'perk') { const off = G.perkOffer; if (!applyPerk(g.id, p)) return false; G.perkOffer = off; }
   else if (g.k === 'item') { if ((G.items[g.id] | 0) >= itemMax(g.id)) { if (isLocal(p)) sfx.deny(); return false; } G.items[g.id] = itemMax(g.id); sfx.buy(); }
-  else { G.gear.owned.push(g.id); sfx.buy(); }
+  else { if (G.gear.owned.includes(g.id)) { if (isLocal(p)) sfx.deny(); return false; } G.gear.owned.push(g.id); sfx.buy(); emit('modChanged', g.id); }
   G.store.gold -= g.cost; g.sold = true;
   emit('store'); emit('merchBuy', { i, pi: p.i });
   return true;

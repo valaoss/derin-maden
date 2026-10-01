@@ -1,8 +1,9 @@
 // Atölye (market): üstte güç göstergeleri; her sekmede ana yükseltmeler büyük kart, türler/eklentiler/eşyalar ızgara + seçili detay.
-import { UPGRADES, BAG_CAPS, PICK_TIERS, PICK_TYPES, PICK_TYPE_KEYS, WEAPONS, WEAPON_KEYS, MODS, MOD_KEYS, ITEMS, ITEM_KEYS, BUILD_KEYS, MASTER_KEYS, RES, RES_KEYS, WEAPON_UP, TOOL_UP, beaconReq } from '../data/balance.js';
+import { UPGRADES, BAG_CAPS, PICK_TIERS, PICK_TYPES, PICK_TYPE_KEYS, WEAPONS, WEAPON_KEYS, MODS, MOD_KEYS, ITEMS, ITEM_KEYS, BUILD_KEYS, MASTER_KEYS, RES, RES_KEYS, TOOL_UP, CARDS, CARD_KEYS, WXP, beaconReq } from '../data/balance.js';
 import { G } from '../game/state.js';
-import { canAfford, upgradeCost, beaconLack, weaponUpCost, toolUpCost, itemCost, craftState, deployLimit } from '../game/economy.js';
-import { pickDmg, modSlots, weaponLvl, toolLvl, perkLv, soyCount } from '../game/run.js';
+import { canAfford, upgradeCost, beaconLack, toolUpCost, itemCost, craftState, deployLimit } from '../game/economy.js';
+import { pickDmg, toolLvl, perkLv, soyCount, cardLv, weaponOf } from '../game/run.js';
+import { xpNeed, weaponMaxed } from '../game/weaponlevel.js';
 import { PERKS, SOY, SOY_KEYS, RESONANCE, perkDesc, maxLv } from '../data/relics.js';
 import { offerInfo, ROMAN } from '../game/chests.js';
 import { gunDps } from '../game/power.js';
@@ -32,7 +33,7 @@ export function tabCounts() {
   for (const k of ['drill', 'sharp', 'swing']) n.pick += upOk(k);
   for (const k of PICK_TYPE_KEYS) n.pick += !G.gear.pOwn.includes(k) && !!PICK_TYPES[k].cost && canAfford(PICK_TYPES[k].cost);
   n.mods += upOk('blaster');
-  for (const k of WEAPON_KEYS) { const own = G.gear.wOwn.includes(k), c = own ? weaponUpCost(k) : WEAPONS[k].cost; n.mods += !!c && canAfford(c); }
+  for (const k of WEAPON_KEYS) n.mods += !G.gear.wOwn.includes(k) && canAfford(WEAPONS[k].cost);
   for (const k of MOD_KEYS) n.mods += !G.gear.owned.includes(k) && canAfford(MODS[k].cost);
   for (const k of ['armor', 'bag', 'lamp']) n.up += upOk(k);
   for (const k of MASTER_KEYS) n.up += !!masterSeen(k) && upOk(k);
@@ -75,11 +76,22 @@ export function renderShop(body, tab, justKey, x) {
   };
   const detRow = (attr, iconHTML, name, desc, c, btn, tag = '') =>
     `<div class="plate row" ${attr}>${iconHTML}<div class="main"><div class="name">${name}${tag}</div><div class="eff">${desc}</div>${c ? cost(c) : ''}</div>${btn}</div>`;
-  const lvLine = (g, k) => {
-    const w = g === 'w', l = w ? weaponLvl(k) : toolLvl(k), max = w ? WEAPON_UP.max : TOOL_UP.max, c = w ? weaponUpCost(k) : toolUpCost(k);
-    const a = w ? WEAPON_UP : TOOL_UP, eff = w ? `Hasar +%${Math.round(a.dmg * 100 * l)} · atış hızı +%${Math.round(a.cd * 100 * l)}` : `Hasar +%${Math.round(a.dmg * 100 * l)} · dayanıklılık +%${Math.round(a.hp * 100 * l)}`;
+  const lvLine = k => {
+    const l = toolLvl(k), a = TOOL_UP, c = toolUpCost(k);
     const nx = c ? ` → <b>+%${Math.round(a.dmg * 100 * (l + 1))}</b>` : '';
-    return `<div class="plate row sub ${c ? '' : 'max'} ${justKey === g + k ? 'just' : ''}" data-lvup="${g}:${k}"><div class="main"><div class="name">${w ? 'Ustalık' : 'Seviye'} ${bar(l, max)}</div><div class="eff">${eff}${nx}</div>${c ? cost(c) : ''}</div>${c ? `<button class="btn buy" ${canAfford(c) ? '' : 'disabled'}>GELİŞTİR</button>` : ''}</div>`;
+    return `<div class="plate row sub ${c ? '' : 'max'} ${justKey === 't' + k ? 'just' : ''}" data-lvup="${k}"><div class="main"><div class="name">Seviye ${bar(l, a.max)}</div><div class="eff">Hasar +%${Math.round(a.dmg * 100 * l)} · dayanıklılık +%${Math.round(a.hp * 100 * l)}${nx}</div>${c ? cost(c) : ''}</div>${c ? `<button class="btn buy" ${canAfford(c) ? '' : 'disabled'}>GELİŞTİR</button>` : ''}</div>`;
+  };
+  // silah seviyesi: öldürdükçe dolan çubuk + alınan kartlar
+  const levelCard = () => {
+    const g = G.gear, max = weaponMaxed(), f = max ? 100 : Math.round(g.xp / xpNeed(g.lv) * 100);
+    const got = CARD_KEYS.filter(k => cardLv(k)).map(k => `${CARDS[k].name} ${cardLv(k)}/${CARDS[k].max}`).join(' · ');
+    return `<div class="plate trk"><div class="ti">${ic(weaponOf().icon, 'xl')}</div><div class="main"><div class="name">Silah Seviyesi<span class="lv">SEVİYE ${g.lv}${max ? ' · MAKS' : ''}</span></div><span class="xpb"><i style="width:${f}%"></i></span>
+      <div class="eff">Düşman öldürdükçe dolar. Her seviyede üç karttan birini seçersin; ${WXP.evoAt}. seviyede elindeki silah evrilir.</div>${got ? `<div class="eff"><b>${got}</b></div>` : ''}</div></div>`;
+  };
+  // silahın evrimi: seçilen ya da sunulacak iki yol
+  const evoLine = k => {
+    const e = G.gear.evo[k], E = WEAPONS[k].evo;
+    return `<div class="plate row sub"><div class="main"><div class="name">${e == null ? `Evrim · ${WXP.evoAt}. seviyede seçilir` : 'Evrim · ' + E[e].name}</div><div class="eff">${e == null ? E.map(x => `<b>${x.name}</b>: ${x.desc}`).join('<br>') : E[e].desc}</div></div></div>`;
   };
   // kazma türü / silah karosu ve detayı
   const gearTiles = (g, keys, D) => keys.map(k => {
@@ -89,7 +101,7 @@ export function renderShop(body, tab, justKey, x) {
   const gearDet = (g, D) => k => {
     const d = D[k], own = (g === 'w' ? G.gear.wOwn : G.gear.pOwn).includes(k), on = (g === 'w' ? G.player.wpn : G.player.pk) === k;
     const btn = on ? '' : own ? '<button class="btn buy">TAK</button>' : `<button class="btn buy" ${canAfford(d.cost) ? '' : 'disabled'}>AL</button>`;
-    return detRow(`data-gear="${g}:${k}"`, ic(d.icon, 'l'), d.name, d.desc, own ? null : d.cost, btn, on ? ' <span class="have">ELİNDE</span>' : '') + (g === 'w' && own ? lvLine('w', k) : '');
+    return detRow(`data-gear="${g}:${k}"`, ic(d.icon, 'l'), d.name, d.desc, own ? null : d.cost, btn, on ? ' <span class="have">ELİNDE</span>' : '') + (g === 'w' ? evoLine(k) : '');
   };
 
   let h = '';
@@ -112,21 +124,18 @@ export function renderShop(body, tab, justKey, x) {
     h += '<div class="sec">KAZMA TÜRÜ · HER MADENCİ KENDİNİ SEÇER</div>';
     h += grid('pt', gearTiles('p', PICK_TYPE_KEYS, PICK_TYPES), gearDet('p', PICK_TYPES));
   } else if (tab === 'mods') {
-    h += track('blaster');
+    h += track('blaster') + levelCard();
     h += '<div class="sec">SİLAHLAR · HER MADENCİ KENDİNİ SEÇER</div>';
-    h += grid('wp', gearTiles('w', WEAPON_KEYS, WEAPONS).map(t => { const l = weaponLvl(t.id); if (l && !t.corner) t.corner = 'Sv' + l; return t; }), gearDet('w', WEAPONS));
-    const slots = modSlots();
-    h += `<div class="sec">EKLENTİLER · ${G.gear.eq.length}/${slots} YUVA</div>`;
-    h += `<div class="slots">${Array.from({ length: slots }, (_, i) => { const k = G.gear.eq[i]; return `<span class="slot2 ${k ? 'on' : ''}">${k ? ic(MODS[k].icon, 'l') : ''}</span>`; }).join('')}</div>`;
+    h += grid('wp', gearTiles('w', WEAPON_KEYS, WEAPONS).map(t => { if (G.gear.evo[t.id] != null && !t.corner) t.corner = 'EVRİM'; return t; }), gearDet('w', WEAPONS));
+    h += `<div class="sec">EKLENTİLER · ${G.gear.owned.length}/${MOD_KEYS.length} · ALDIĞIN HEP ÇALIŞIR</div>`;
     h += grid('md', MOD_KEYS.map(k => {
-      const m = MODS[k], own = G.gear.owned.includes(k), eq = G.gear.eq.includes(k);
-      return { id: k, icon: ic(m.icon, 'xl'), name: m.name, cls: eq ? 'eq' : own ? 'own' : canAfford(m.cost) ? 'ok' : '', corner: eq ? 'TAKILI' : m.active ? 'AKTİF' : '' };
+      const m = MODS[k], own = G.gear.owned.includes(k);
+      return { id: k, icon: ic(m.icon, 'xl'), name: m.name, cls: own ? 'eq' : canAfford(m.cost) ? 'ok' : '', corner: own ? 'SENDE' : '' };
     }), k => {
-      const m = MODS[k], own = G.gear.owned.includes(k), eq = G.gear.eq.includes(k);
-      return own ? detRow(`data-mod="${k}"`, ic(m.icon, 'l'), m.name, m.desc, null, `<button class="btn buy">${eq ? 'ÇIKAR' : 'TAK'}</button>`)
+      const m = MODS[k];
+      return G.gear.owned.includes(k) ? detRow('', ic(m.icon, 'l'), m.name, m.desc, null, '', ' <span class="have">SENDE · ÇALIŞIYOR</span>')
         : detRow(`data-modbuy="${k}"`, ic(m.icon, 'l'), m.name, m.desc, m.cost, `<button class="btn buy" ${canAfford(m.cost) ? '' : 'disabled'}>AL</button>`);
     });
-    h += '<div class="note">Aktif eklentiler ekranın sağındaki düğmelerden (klavyede Q / E) kullanılır.</div>';
   } else if (tab === 'up') {
     h += track('armor') + track('bag') + track('lamp');
     h += '<div class="sec">USTA İŞİ · DERİN CEVHER BUL, AÇILSIN</div>';
@@ -157,7 +166,7 @@ export function renderShop(body, tab, justKey, x) {
       const d = ITEMS[k], st = craftState(k);
       if (st === 'locked') return detRow('', ic('schematic', 'l'), d.name, 'Şema gerekli: sandıklarda bulunur.', null, '');
       return detRow(`data-craft="${k}"`, ic(d.icon, 'l'), d.name, d.desc, itemCost(k), `<button class="btn buy" ${st === 'ok' ? '' : 'disabled'}>${st === 'full' ? 'DOLU' : 'ÜRET'}</button>`, ` <span class="have">${G.items[k] | 0}/${d.max}</span>`)
-        + (d.build && st !== 'locked' ? lvLine('t', k) : '');
+        + (d.build && st !== 'locked' ? lvLine(k) : '');
     };
     h += '<div class="sec">EŞYALAR · KEMERDEN KULLANILIR</div>';
     h += grid('it', ITEM_KEYS.filter(k => !ITEMS[k].build).map(itemTile), itemDet);
@@ -176,9 +185,8 @@ function bind(body, x) {
   q('[data-sel]', b => { const [s, id] = b.dataset.sel.split(':'); sel[s] = id; after(null); });
   q('[data-up] .buy', b => { const k = b.closest('[data-up]').dataset.up; if (dispatch({ t: CMD.BUY, k })) after(k, true); });
   q('[data-modbuy] .buy', b => { const k = b.closest('[data-modbuy]').dataset.modbuy; if (dispatch({ t: CMD.MODBUY, k })) after(k); });
-  q('[data-mod] .buy', b => { const k = b.closest('[data-mod]').dataset.mod; if (dispatch({ t: CMD.MODEQ, k })) after(k); });
   q('[data-gear] .buy', b => { const [g, k] = b.closest('[data-gear]').dataset.gear.split(':'); if (dispatch({ t: CMD.GEAR, g, k })) after(k); });
-  q('[data-lvup] .buy', b => { const [g, k] = b.closest('[data-lvup]').dataset.lvup.split(':'); if (dispatch({ t: CMD.LVUP, g, k })) after(g + k); });
+  q('[data-lvup] .buy', b => { const k = b.closest('[data-lvup]').dataset.lvup; if (dispatch({ t: CMD.LVUP, k })) after('t' + k); });
   q('[data-merch] .buy', b => { const i = +b.closest('[data-merch]').dataset.merch; if (dispatch({ t: CMD.MERCH, i })) after('m' + i, true); });
   q('[data-craft] .buy', b => { const k = b.closest('[data-craft]').dataset.craft; if (dispatch({ t: CMD.CRAFT, k })) after(k); });
 }

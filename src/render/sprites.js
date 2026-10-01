@@ -1463,6 +1463,7 @@ export function buildSprites() {
   SPR.kavurgan = [makeSprite(KAVURGAN_A, KAVURGAN_PAL, 'fF'), makeSprite(KAVURGAN_B, KAVURGAN_PAL, 'fF')];
   SPR.otegoz = [makeSprite(OTEGOZ_A, OTEGOZ_PAL, 'iIx'), makeSprite(OTEGOZ_B, OTEGOZ_PAL, 'iIx')];
   SPR.sultan = [makeSprite(SULTAN_A, SULTAN_PAL, 'ej'), makeSprite(SULTAN_B, SULTAN_PAL, 'ej')];
+  SPR.kordesen = SPR.sultan;   // yedek kare (3B model çizilemezse); Kördeşen'in kendi çizimi boss/kordesen.js
   SPR.ezeli = [makeSprite(EZELI_A, EZELI_PAL, 'HeE'), makeSprite(EZELI_B, EZELI_PAL, 'HeE')];
   SPR.spider = [makeSprite(SPIDER_A, SPIDER_PAL, 'r'), makeSprite(SPIDER_B, SPIDER_PAL, 'r')];
   SPR.spiderling = [makeSprite(SPIDERLING_A, SPIDER_PAL, 'r'), makeSprite(SPIDERLING_B, SPIDER_PAL, 'r')];

@@ -24,10 +24,14 @@ export function placeWonders(g, seed) {
   };
   const carve = (c, r, w, h) => { for (let y = r; y < r + h; y++) for (let x = c; x < c + w; x++) g.map[y * COLS + x] = T.AIR; };
   const col = w => PLAY_MIN_COL + Math.floor(R() * (PLAY_MAX_COL - PLAY_MIN_COL - w + 2));
-  const find = (w, h, r0, r1, m) => { for (let i = 0; i < 120; i++) { const c = col(w), r = r0 + Math.floor(R() * (r1 - r0)); if (box(c, r, w, h, m)) return [c, r]; } return null; };
+  const find = (w, h, r0, r1, m, test) => { for (let i = 0; i < 120; i++) { const c = col(w), r = r0 + Math.floor(R() * (r1 - r0)); if (box(c, r, w, h, m) && (!test || test(c, r))) return [c, r]; } return null; };
+  // göl yatağı: suyun iki yanı ve altı kırılmaz (kazılırsa su havada kalırdı); üstü ve üst yanları açık kalır
+  const bed = (c, r) => { if (c >= PLAY_MIN_COL && c <= PLAY_MAX_COL) g.map[r * COLS + c] = T.LAKEBED; };
+  const shore = (c, r) => [c - 1, c + LAKE.w].every(x => ok(x, r + LAKE.h - 1) && ok(x, r + LAKE.h));
+  const basin = (c, r, w, h) => { for (let x = c - 1; x <= c + w; x++) bed(x, r + h); bed(c - 1, r + h - 1); bed(c + w, r + h - 1); };
   for (let s = 0; s < STRATA_COUNT; s++) {
     const top = GROUND_ROW + s * STRATUM_ROWS + 3, bot = top + STRATUM_ROWS - 8;
-    if (R() < LAKE.chance) { const q = find(LAKE.w, LAKE.h, top, bot, 0); if (q) { carve(q[0], q[1], LAKE.w, LAKE.h); lakes.push({ c: q[0], r: q[1], w: LAKE.w, h: LAKE.h, fish: LAKE.fish }); } }
+    if (R() < LAKE.chance) { const q = find(LAKE.w, LAKE.h, top, bot, 0, shore); if (q) { carve(q[0], q[1], LAKE.w, LAKE.h); basin(q[0], q[1], LAKE.w, LAKE.h); lakes.push({ c: q[0], r: q[1], w: LAKE.w, h: LAKE.h, fish: LAKE.fish }); } }
     if (R() < PORTAL.chance) {
       const a = find(1, 1, top, bot);
       if (a) {

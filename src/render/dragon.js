@@ -13,6 +13,8 @@ import { drawBossArt, drawBossArtGlow, drawArtFrame, artPoint, artPoseRow, artAt
 import { bossMotion, motionPoint } from './bossmotion.js';
 import { drawBoss3D, boss3DPoint } from './boss3d.js';
 import { drawPLFrame } from './bosssprite.js';
+import { drawHoard3D, drawHoard3DGlow } from './hoarddragon.js';
+import { has3D } from './boss/actor.js';
 
 const SC = 1.45;
 const C = { scale: '#6a1a12', dark: '#3a0a08', back: '#2a0806', hi: '#a8442a', belly: '#c8902a', bellyD: '#8a5a18', wing: 'rgba(74,16,10,0.95)', wingFar: 'rgba(44,8,6,0.95)', bone: '#2a0806', horn: '#e0d0a8', hornD: '#8a7a60', claw: '#e8dcc0', eye: '#ffe060' };
@@ -202,12 +204,14 @@ function artGlow(ctx, e, alpha, P, glow) {
   }
   // göğüs: pulların arasından içerideki ateş, boğazdan ağıza yükselir
   if (P.chest > 0.02) {
-    const chest = ART.chests ? ART.chests[artPoseRow(e, alpha)] : ART.chest;
-    const [cx, cy] = artAttachment(e, alpha, 'chests') || artPoint(e, alpha, chest[0], chest[1]), a = P.chest;
+    const [cx, cy] = artAttachment(e, alpha, 'chests') || artPoint(e, alpha, ...(ART.chests ? ART.chests[artPoseRow(e, alpha)] : ART.chest)), a = P.chest;
     glow(cx, cy, 'rgba(255,150,50,0.8)', Math.round(12 + a * 18), a);
-    X.globalAlpha = a; X.strokeStyle = a > 0.7 ? '#fff0b0' : '#ffb040'; X.lineWidth = 1;
-    for (let i = 0; i < 4; i++) { X.beginPath(); X.moveTo(cx - F * (6 - i * 3), cy + 8 - i); X.quadraticCurveTo(cx - F * (2 - i * 3), cy - i * 2, cx - F * (4 - i * 3.5), cy - 8 - i); X.stroke(); }
-    X.globalAlpha = 1;
+    // 3B modelde pul araları kendisi kızarır
+    if (!has3D(e)) {
+      X.globalAlpha = a; X.strokeStyle = a > 0.7 ? '#fff0b0' : '#ffb040'; X.lineWidth = 1;
+      for (let i = 0; i < 4; i++) { X.beginPath(); X.moveTo(cx - F * (6 - i * 3), cy + 8 - i); X.quadraticCurveTo(cx - F * (2 - i * 3), cy - i * 2, cx - F * (4 - i * 3.5), cy - 8 - i); X.stroke(); }
+      X.globalAlpha = 1;
+    }
     for (let i = 1; i < 5; i++) { const k = i / 5; glow(cx + (mx - cx) * k, cy + (my - cy) * k, 'rgba(255,140,40,0.45)', 7, a * (1 - k * 0.5) * (0.6 + 0.4 * Math.sin(t * 12 - i))); }
   }
   if (P.jaw > 0.3 && (P.chest > 0.2 || P.fire !== null)) glow(mx, my, 'rgba(255,170,60,0.8)', 12, P.jaw);
@@ -267,6 +271,7 @@ function hoardPL(ctx, H, glow) {
 }
 export function drawHoardDragon(ctx) {
   const H = G.hoard; if (!H || (H.st !== 'sleep' && H.st !== 'wake')) return;
+  if (drawHoard3D(ctx)) return;
   if (hoardPL(ctx, H, false)) return;
   const P = pose({ hoard: H, F: -1 }, 1);
   const actor = sleepingActor(H);
@@ -384,6 +389,7 @@ export function drawHoardGlow(ctx, glow) {
     if (k < 0.25) { const x = c * TILE + 3 + Math.floor(h * 10), y = r * TILE + 2 + Math.floor(hash2(r, c, 9) * 8), s = Math.sin(k / 0.25 * Math.PI); ctx.globalAlpha = s; ctx.fillStyle = '#fff8d0'; ctx.fillRect(x, y, 1, 1); ctx.fillRect(x - 1, y, 3, 1); ctx.fillRect(x, y - 1, 1, 3); ctx.globalAlpha = 1; glow(x, y, 'rgba(255,220,120,0.4)', 5, s); }
   }
   if (H.st !== 'sleep' && H.st !== 'wake') return;
+  if (drawHoard3DGlow(ctx, glow)) return;
   if (hoardPL(ctx, H, true)) return;
   const P = pose({ hoard: H, F: -1 }, 1);
   const actor = sleepingActor(H);

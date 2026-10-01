@@ -279,7 +279,7 @@ export function render(alpha, opts = {}) {
   drawEmissive(r0, r1, alpha, opts);
   ctx.restore();
   if (!opts.hidePlayer) { drawNestArrows(camX, camY); drawStationArrow(camX, camY); }
-  if (!opts.hidePlayer) { drawPartnerArrow(camX, camY, alpha); drawPings(camX, camY); drawBubbles(camX, camY, alpha); }
+  if (!opts.hidePlayer) { drawNums(camX, camY); drawPartnerArrow(camX, camY, alpha); drawPings(camX, camY); drawBubbles(camX, camY, alpha); }
   // kör edici parlama sonrası: görüş bulanık (beyaz perde)
   const lp = G.player;
   if (!opts.hidePlayer && lp.blindT > 0) { ctx.fillStyle = `rgba(255,248,224,${Math.min(0.85, lp.blindT * 0.6)})`; ctx.fillRect(0, 0, vw, vh); }
@@ -370,6 +370,27 @@ function drawNestArrows(camX, camY) {
     ctx.fillStyle = '#ff5a4a';
     for (let i = 0; i < 6; i++) ctx.fillRect(sx - 5 + i, sy + dir * (i - 3) + bob * dir, 11 - i * 2, 1);
   }
+}
+// hasar sayıları: 3×5 piksel rakamlar, yukarı süzülür; kritik iki kat büyük ve sarı
+const DIGIT = { 0: 31599, 1: 11415, 2: 29671, 3: 29647, 4: 23497, 5: 31183, 6: 31215, 7: 29257, 8: 31727, 9: 31695, k: 23469 };
+function drawNums(camX, camY) {
+  for (const n of G.nums) {
+    const v = Math.round(n.v), txt = v >= 1000 ? Math.round(v / 1000) + 'k' : String(Math.max(1, v)), s = n.crit ? 2 : 1;
+    const k = n.t / 0.75, w = txt.length * 4 * s - s;
+    const x0 = Math.round(n.x - camX - w / 2), y0 = Math.round(n.y - camY - 5 * s - (1 - (1 - k) * (1 - k)) * 14 - (n.crit && n.t < 0.08 ? 2 : 0));
+    ctx.globalAlpha = k > 0.7 ? (1 - k) / 0.3 : 1;
+    for (let pass = 0; pass < 2; pass++) {
+      ctx.fillStyle = pass ? (n.crit ? '#ffd24a' : '#fff4dc') : P.ink;
+      for (let i = 0; i < txt.length; i++) {
+        const g = DIGIT[txt[i]];
+        for (let b = 0; b < 15; b++) if (g >> (14 - b) & 1) {
+          const px = x0 + (i * 4 + b % 3) * s, py = y0 + Math.floor(b / 3) * s;
+          if (pass) ctx.fillRect(px, py, s, s); else ctx.fillRect(px - 1, py - 1, s + 2, s + 2);
+        }
+      }
+    }
+  }
+  ctx.globalAlpha = 1;
 }
 // partner işaretleri: elmas + kask rengi; ekran dışındaysa kenar oku
 function drawPings(camX, camY) {
@@ -1214,6 +1235,12 @@ function drawPlayer(p, alpha) {
   if (sk !== 1) { ctx.translate(x, feetY); ctx.scale(sk, sk); ctx.translate(-x, -feetY); }
   // gölge
   shadow(x, feetY, 8, 0.35);
+  // partide kendi madencin: ayağının altında kask renginde halka
+  if (G.mp && p === G.player) {
+    ctx.fillStyle = HELMETS[p.helm % HELMETS.length].c; ctx.globalAlpha = 0.75 + 0.25 * Math.sin(G.time * 4);
+    for (let dx = -9; dx <= 9; dx++) { const dy = Math.round(3 * Math.sqrt(1 - dx * dx / 81)); ctx.fillRect(x + dx, feetY - dy, 1, 1); if (dy) ctx.fillRect(x + dx, feetY + dy, 1, 1); }
+    ctx.globalAlpha = 1;
+  }
   // iniş ezilmesi
   let sx = 1, sy = 1;
   if (p.landT > 0) { const k = p.landT / 0.18; sx = 1 + k * 0.18; sy = 1 - k * 0.2; }

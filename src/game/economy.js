@@ -3,10 +3,10 @@ import { rnd } from '../core/rng.js';
 import { TILE, GROUND_ROW } from '../config.js';
 import { T, TD } from '../data/tiles.js';
 import { applyOffer, itemMax } from './chests.js';
-import { UPGRADES, BUILDS, PERKS, ITEMS, MODS, DEPLOY_MAX, WEAPONS, PICK_TYPES, RES_KEYS, SCHEMATICS, WEAPON_UP, TOOL_UP, ITEM_SCALE, beaconReq, ITEM_KEYS } from '../data/balance.js';
+import { UPGRADES, BUILDS, PERKS, ITEMS, MODS, DEPLOY_MAX, WEAPONS, PICK_TYPES, RES_KEYS, SCHEMATICS, TOOL_UP, ITEM_SCALE, beaconReq, ITEM_KEYS } from '../data/balance.js';
 import { G, App } from './state.js';
 import { tileAt } from '../world/map.js';
-import { makeStructure, recompute, hasPerk, isUnlocked, isLocal, modSlots, teamHas, weaponLvl, toolLvl, perkLv, resonance } from './run.js';
+import { makeStructure, recompute, hasPerk, isUnlocked, isLocal, teamHas, toolLvl, perkLv, resonance } from './run.js';
 import { maxLv } from '../data/relics.js';
 import { sparks, ring, dust } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
@@ -32,38 +32,28 @@ export function buyUpgrade(key, p = G.player) {
   return true;
 }
 
-// Blaster eklentileri: satın al (bir kez), tak/çıkar (yuva sınırı)
+// Silah eklentileri: bir kez alınır, alındığı andan itibaren çalışır
 export function buyMod(k, p = G.player) {
   const m = MODS[k];
   if (!m || G.gear.owned.includes(k) || !canAfford(m.cost)) { if (isLocal(p)) sfx.deny(); return false; }
   pay(m.cost); G.gear.owned.push(k);
-  if (G.gear.eq.length < modSlots()) G.gear.eq.push(k);
   sfx.buy(); if (isLocal(p)) haptic(15);
   ring(p.x, p.y, '#9fe8ff', 18); sparks(p.x, p.y, '#bff4ff', 10, 70);
   emit('modChanged', k);
   return true;
 }
-export function toggleMod(k, p = G.player) {
-  if (!G.gear.owned.includes(k)) return false;
-  const i = G.gear.eq.indexOf(k);
-  if (i >= 0) G.gear.eq.splice(i, 1);
-  else { if (G.gear.eq.length >= modSlots()) { if (isLocal(p)) sfx.deny(); return false; } G.gear.eq.push(k); }
-  sfx.click(); emit('modChanged', k);
-  return true;
-}
 
 // Kazma/silah türü: sahip değilse satın al (ekip), sonra komutu veren madenciye tak
-// silah ustalığı ve alet seviyesi: ekip ortak, her biri kendi seviyesini alır
-export function weaponUpCost(k) { const l = weaponLvl(k); return WEAPONS[k] && G.gear.wOwn.includes(k) && l < WEAPON_UP.max ? WEAPON_UP.costs[l] : null; }
+// alet seviyesi: ekip ortak, her alet kendi seviyesini alır
 export function toolUpCost(k) { const l = toolLvl(k); return BUILDS[k] && isUnlocked(k) && l < TOOL_UP.max ? TOOL_UP.costs[l] : null; }
-export function levelUp(kind, k, p = G.player) {
-  const w = kind === 'w', c = w ? weaponUpCost(k) : toolUpCost(k);
+export function levelUp(k, p = G.player) {
+  const c = toolUpCost(k);
   if (!c || !canAfford(c)) { if (isLocal(p)) sfx.deny(); return false; }
-  pay(c); const L = w ? G.gear.wLvl : G.gear.tLvl; L[k] = (L[k] | 0) + 1;
-  if (!w) for (const s of G.structures) if (s.type === k) { const m = makeStructure(k, s.c, s.r).maxHp; s.hp += m - s.maxHp; s.maxHp = m; }
+  pay(c); G.gear.tLvl[k] = (G.gear.tLvl[k] | 0) + 1;
+  for (const s of G.structures) if (s.type === k) { const m = makeStructure(k, s.c, s.r).maxHp; s.hp += m - s.maxHp; s.maxHp = m; }
   sfx.buy(); if (isLocal(p)) haptic(15);
   ring(p.x, p.y, '#ffd24a', 20); sparks(p.x, p.y, '#ffe79a', 12, 80);
-  emit('gearChanged', { kind: w ? 'wl' : 'tl', k, pi: p.i });
+  emit('gearChanged', { kind: 'tl', k, pi: p.i });
   return true;
 }
 

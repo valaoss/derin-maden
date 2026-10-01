@@ -64,23 +64,54 @@ export const PICK_TYPES = {
 export const PICK_TYPE_KEYS = Object.keys(PICK_TYPES);
 
 // Silahlar: hepsi otomatik nişan alır; güç 'Silah Gücü' seviyesinden gelir, tür çarpanları uygular (Atölye > SİLAH)
+// evo: silah seviyesi WXP.evoAt olunca elindeki silah için sunulan iki evrim; seçilen, silahın değerlerinin üstüne yazılır
 export const WEAPONS = {
-  blaster:  { name: 'Blaster', icon: 'blaster', dmg: 1, cd: 1, range: 1, speed: 250, desc: 'Dengeli otomatik tabanca.' },
-  sacma:    { name: 'Saçmalı', icon: 'shotgun', dmg: 0.42, cd: 1.7, range: 0.72, speed: 230, pellets: 5, spread: 0.55, knock: 1.8, life: 0.4, cost: { iron: 40, water: 20 }, desc: 'Yakın menzil: 5 saçma, düşmanı geri savurur.' },
-  makineli: { name: 'Makineli', icon: 'rapid', dmg: 0.42, cd: 0.36, range: 0.95, speed: 270, jitter: 0.14, cost: { iron: 40, cobalt: 24 }, desc: 'Mermi yağmuru (%17 daha çok hasar/sn), biraz dağınık.' },
-  alev:     { name: 'Alev Püskürtücü', icon: 'flame', flame: true, dmg: 0.2, cd: 0.1, range: 0.6, cost: { cobalt: 40, gold: 20 }, desc: 'Kısa menzil koni: içindeki herkesi yakar. Gazı tutuşturur!' },
-  tufek:    { name: 'Delici Tüfek', icon: 'rifle', dmg: 2.8, cd: 2.2, range: 1.55, speed: 480, pierce: 4, cost: { yesim: 5, crystal: 30 }, desc: 'Uzak menzil; mermi sıradaki 4 düşmanı deler.' },
-  simsek:   { name: 'Şimşek Tabancası', icon: 'chain', zap: 3, dmg: 0.95, cd: 1.1, range: 0.9, cost: { opal: 5, cobalt: 60 }, desc: 'Anında çarpar ve 3 düşmana daha sekerek geçer.' },
-  roket:    { name: 'Roketatar', icon: 'rocket', dmg: 2.6, cd: 2.6, range: 1.3, speed: 170, blast: 28, cost: { inci: 5, gold: 80 }, desc: 'Yavaş roket: geniş alan patlaması. Gürültülüdür.' },
-  kirag:    { name: 'Kırağı Topu', icon: 'frost', dmg: 1.2, cd: 1.1, range: 1.1, speed: 200, blast: 18, freeze: 2.5, cost: { akik: 5, water: 120 }, desc: 'Buz güllesi: küçük alan hasarı, vurduklarını 2.5 sn yarı hıza düşürür.' },
+  blaster:  { name: 'Blaster', icon: 'blaster', dmg: 1, cd: 1, range: 1, speed: 250, desc: 'Dengeli otomatik tabanca.', evo: [
+    { name: 'Üçlü Blaster', desc: 'Her atışta 3 mermi (her biri %60 hasar).', pellets: 3, spread: 0.3, dmg: 0.6 },
+    { name: 'Delici Blaster', desc: 'Mermi 2 düşmanı deler ve %30 sert vurur.', pierce: 2, dmg: 1.3, speed: 330 }] },
+  sacma:    { name: 'Saçmalı', icon: 'shotgun', dmg: 0.42, cd: 1.7, range: 0.72, speed: 230, pellets: 5, spread: 0.55, knock: 1.8, life: 0.4, cost: { iron: 40, water: 20 }, desc: 'Yakın menzil: 5 saçma, düşmanı geri savurur.', evo: [
+    { name: 'Ejder Nefesi', desc: '7 saçma; her biri düşmanı tutuşturur.', pellets: 7, burn: true },
+    { name: 'Tek Kurşun', desc: 'Tek ağır mermi: 2.8 kat hasar, uzun menzil, 1 düşmanı deler.', pellets: 0, dmg: 2.8, range: 1.1, life: 0.7, knock: 3, pierce: 1 }] },
+  makineli: { name: 'Makineli', icon: 'rapid', dmg: 0.42, cd: 0.36, range: 0.95, speed: 270, jitter: 0.14, cost: { iron: 40, cobalt: 24 }, desc: 'Mermi yağmuru (%17 daha çok hasar/sn), biraz dağınık.', evo: [
+    { name: 'Fırtına', desc: 'Atış hızı %40 artar.', cd: 0.257 },
+    { name: 'Zırh Delen', desc: 'Mermiler %30 sert vurur, 1 düşmanı deler ve dağılmaz.', dmg: 0.55, pierce: 1, jitter: 0.04 }] },
+  alev:     { name: 'Alev Püskürtücü', icon: 'flame', flame: true, dmg: 0.2, cd: 0.1, range: 0.6, cost: { cobalt: 40, gold: 20 }, desc: 'Kısa menzil koni: içindeki herkesi yakar. Gazı tutuşturur!', evo: [
+    { name: 'Mavi Alev', desc: 'Hasar %50, menzil %25 artar.', dmg: 0.3, range: 0.75 },
+    { name: 'Yangın Hortumu', desc: 'Koni iki kat geniş; yanık silah hasarıyla birlikte büyür.', cone: 1, burnMul: 2 }] },
+  tufek:    { name: 'Delici Tüfek', icon: 'rifle', dmg: 2.8, cd: 2.2, range: 1.55, speed: 480, pierce: 4, cost: { yesim: 5, crystal: 30 }, desc: 'Uzak menzil; mermi sıradaki 4 düşmanı deler.', evo: [
+    { name: 'Keskin Nişancı', desc: 'Hasar %35, menzil %15 artar; kritik şansı iki katına çıkar.', dmg: 3.8, range: 1.8, crit: 2 },
+    { name: 'Patlayan Mermi', desc: 'Deldiği her düşmanda küçük bir patlama.', blast: 16, quiet: true }] },
+  simsek:   { name: 'Şimşek Tabancası', icon: 'chain', zap: 3, dmg: 0.95, cd: 1.1, range: 0.9, cost: { opal: 5, cobalt: 60 }, desc: 'Anında çarpar ve 3 düşmana daha sekerek geçer.', evo: [
+    { name: 'Fırtına Zinciri', desc: '7 düşmana sekerek geçer.', zap: 7 },
+    { name: 'Aşırı Voltaj', desc: 'Hasar %50 artar; çarptığı düşman 0.6 sn saldıramaz.', dmg: 1.43, stun: 0.6 }] },
+  roket:    { name: 'Roketatar', icon: 'rocket', dmg: 2.6, cd: 2.6, range: 1.3, speed: 170, blast: 28, cost: { inci: 5, gold: 80 }, desc: 'Yavaş roket: geniş alan patlaması. Gürültülüdür.', evo: [
+    { name: 'İkiz Roket', desc: 'Aynı anda 2 roket (her biri %65 hasar).', pellets: 2, spread: 0.22, dmg: 1.7 },
+    { name: 'Dev Başlık', desc: 'Patlama alanı %45 büyür, hasar %20 artar.', blast: 41, dmg: 3.1 }] },
+  kirag:    { name: 'Kırağı Topu', icon: 'frost', dmg: 1.2, cd: 1.1, range: 1.1, speed: 200, blast: 18, freeze: 2.5, cost: { akik: 5, water: 120 }, desc: 'Buz güllesi: küçük alan hasarı, vurduklarını 2.5 sn yarı hıza düşürür.', evo: [
+    { name: 'Derin Don', desc: 'Yavaşlatma 5 sn sürer, alan %40 büyür.', freeze: 5, blast: 25 },
+    { name: 'Dolu Fırtınası', desc: 'Atış hızı %45 artar.', cd: 0.76 }] },
 };
 export const WEAPON_KEYS = Object.keys(WEAPONS);
-// Silah ustalığı: her silah kendi seviyesini alır (ekip ortak); seviye başına hasar +%15, atış aralığı -%5
-export const WEAPON_UP = { max: 5, dmg: 0.15, cd: 0.05, costs: [{ iron: 30, gold: 10 }, { cobalt: 50, gold: 30, yesim: 2 }, { crystal: 80, gold: 60, inci: 3 }, { crystal: 150, gold: 120, akik: 4 }, { crystal: 260, gold: 200, elmas: 5 }] };
+// evrimli silah tanımları (weaponOf): temel değerler + seçilen evrim
+export const EVOLVED = Object.fromEntries(WEAPON_KEYS.map(k => [k, WEAPONS[k].evo.map(e => ({ ...WEAPONS[k], ...e }))]));
+// Silah seviyesi: düşman öldürdükçe dolar (ekip ortak). Her seviyede üç karttan biri seçilir; evoAt'ta elindeki silah evrilir.
+// xp: düşmanın yönetmen bedeli (elit ×3, boss sabit). Sonraki seviye için gereken: base + step × seviye
+export const WXP = { base: 6, step: 4, elite: 3, boss: 20, evoAt: 3 };
+export const CRIT = { base: 0.1, mul: 2 };
+// kartlar: en çok max kez alınır. shot: yalnız mermi atan silah elindeyken, noFlame: alev püskürtücü dışında sunulur
+export const CARDS = {
+  dmg:  { name: 'Ağır Mermi', icon: 'blaster', max: 6, v: 0.1, desc: 'Silah hasarı +%10.' },
+  hiz:  { name: 'Yağlı Mekanizma', icon: 'rapid', max: 6, v: 0.08, desc: 'Atış hızı +%8.' },
+  krit: { name: 'Keskin Göz', icon: 'spark', max: 5, v: 0.06, desc: 'Kritik vuruş şansı +%6 (kritik iki kat vurur).' },
+  cok:  { name: 'Ek Namlu', icon: 'split', max: 2, noFlame: true, desc: 'Her atışta bir mermi daha (yarım hasar).' },
+  del:  { name: 'Sert Çekirdek', icon: 'pierce', max: 2, shot: true, desc: 'Mermiler bir düşmanı daha deler.' },
+};
+export const CARD_KEYS = Object.keys(CARDS);
 // Alet seviyesi: Nöbetçi, Alev Kulesi, Havan; seviye başına hasar +%50, dayanıklılık +%40
 export const TOOL_UP = { max: 5, dmg: 0.5, hp: 0.4, costs: [{ iron: 24, cobalt: 6 }, { cobalt: 40, gold: 16 }, { crystal: 60, gold: 40, opal: 3 }, { crystal: 120, gold: 90, akik: 4 }, { crystal: 220, gold: 170, elmas: 5 }] };
 
 // Seviye 0..max. effect[lvl] mevcut seviyedeki değer.
+const BLASTER_DMG = [10, 13, 16, 20, 24, 30, 38, 48, 60, 75, 92, 112, 136, 165, 200, 240];
 export const BAG_CAPS = [12, 20, 32, 50, 75, 110, 160, 230, 320, 450, 620, 800, 1000];
 export const UPGRADES = {
   drill: {
@@ -116,12 +147,12 @@ export const UPGRADES = {
   },
   blaster: {
     name: 'Silah Gücü', icon: 'blaster',
-    dmg: [8, 11, 14, 18, 23, 30, 38, 48, 60, 75, 92, 112, 136, 165, 200, 240],
-    cd: [0.5, 0.45, 0.4, 0.36, 0.32, 0.28, 0.25, 0.22, 0.21, 0.2, 0.19, 0.18, 0.17, 0.16, 0.155, 0.15],
+    dmg: BLASTER_DMG,
+    cd: [0.45, 0.42, 0.39, 0.36, 0.32, 0.28, 0.25, 0.22, 0.21, 0.2, 0.19, 0.18, 0.17, 0.16, 0.155, 0.15],
     range: [78, 84, 90, 96, 102, 110, 118, 126, 132, 138, 144, 148, 152, 156, 160, 164], lock: true,
     costs: [{ iron: 8 }, { iron: 16, water: 5 }, { cobalt: 12 }, { cobalt: 24, water: 10 }, { cobalt: 36, crystal: 10, yesim: 3 }, { crystal: 30, gold: 24, opal: 3 }, { crystal: 50, gold: 40, opal: 5 }, { crystal: 75, gold: 60, inci: 4 },
       { crystal: 105, gold: 85, inci: 6 }, { crystal: 140, gold: 115, akik: 5 }, { crystal: 180, gold: 150, akik: 7 }, { crystal: 230, gold: 190, yildiz: 6 }, { crystal: 290, gold: 240, elmas: 6 }, { crystal: 360, gold: 300, elmas: 8 }, { crystal: 450, gold: 380, kehribar: 8 }],
-    desc: l => `Tüm silahlara işler: temel hasar ${[8, 11, 14, 18, 23, 30, 38, 48, 60, 75, 92, 112, 136, 165, 200, 240][l]}`,
+    desc: l => `Tüm silahlara işler: temel hasar ${BLASTER_DMG[l]}`,
   },
   lamp: {
     name: 'Fener', icon: 'lamp',
@@ -133,7 +164,7 @@ export const UPGRADES = {
 // Usta İşi: derin cevherle alınan tek seferlik yükseltmeler (cevher bulununca Atölye'de görünür)
 Object.assign(UPGRADES, {
   muska:          { name: 'Yeşim Muska', icon: 'yesim', costs: [{ yesim: 4, iron: 40 }], desc: () => 'Azami can +30.' },
-  opalNamlu:      { name: 'Opal Namlu', icon: 'opal', costs: [{ opal: 4, cobalt: 40 }], desc: () => 'Mermilerin yakar; eklenti yuvası harcamaz.' },
+  opalNamlu:      { name: 'Opal Namlu', icon: 'opal', costs: [{ opal: 4, cobalt: 40 }], desc: () => 'Mermilerin yakar: 3 sn boyunca saniyede silah hasarının %25’i.' },
   inciFener:      { name: 'İnci Fener', icon: 'inci', costs: [{ inci: 4, crystal: 40 }], desc: () => 'Görüş +3 blok; karartma fenerini kısamaz.' },
   akikKalkan:     { name: 'Akik Kalkan', icon: 'akik', costs: [{ akik: 4, gold: 80 }], desc: () => '15 sn’de bir gelen darbeyi tamamen emer.' },
   yildizCekirdek: { name: 'Yıldız Çekirdeği', icon: 'yildiz', costs: [{ yildiz: 5, crystal: 120 }], desc: () => 'Kazma ve silah hasarı ×1.4.' },
@@ -151,20 +182,24 @@ export function beaconReq(key, l) {
 export const UPGRADE_KEYS = ['bag', 'blaster', 'armor', 'lamp'];
 export const PICK_KEYS = ['drill', 'sharp', 'swing'];
 
-// Blaster eklentileri: Atölye > Blaster'dan alınır, 3 yuvaya takılır. Aktif olanlar sağ paneldeki düğmeyle kullanılır.
-export const MOD_SLOTS = 3;
+// Silah eklentileri: Atölye > SİLAH'tan bir kez alınır, alındığı andan itibaren hep çalışır (yuva, takma-çıkarma yok).
+// İlk dördü yalnız demir ve suyla alınır; sefer başında START_MODS'tan biri bedava seçilir.
 export const MODS = {
-  ricochet: { name: 'Sekme',        icon: 'ricochet', cost: { iron: 30, gold: 10 },    desc: 'Mermiler duvardan bir kez seker.' },
-  split:    { name: 'Çatal Namlu',  icon: 'split',    cost: { iron: 36, cobalt: 16 },  desc: 'Her atışta iki yan mermi (yarım hasar).' },
-  frost:    { name: 'Buz Ucu',      icon: 'frost',    cost: { water: 30, cobalt: 12 }, desc: 'İsabet düşmanı 1.2 sn yavaşlatır.' },
-  fire:     { name: 'Yakıcı',       icon: 'flame',    cost: { cobalt: 24, gold: 16 },  desc: 'İsabet 3 sn boyunca yakar (saniyede 4).' },
-  chain:    { name: 'Yıldırım',     icon: 'chain',    cost: { cobalt: 30, gold: 20 },  desc: 'İsabet yakındaki bir düşmana sıçrar (yarım hasar).' },
-  boom:     { name: 'Patlayıcı',    icon: 'boom',     cost: { crystal: 20, gold: 24 }, desc: 'Mermiler küçük bir alanda patlar.' },
-  rapid:    { name: 'Hızlı Ateş',   icon: 'rapid',    cost: { iron: 40, crystal: 12 }, desc: 'Atış hızı %30 artar.' },
-  overdrive:{ name: 'Aşırı Yük',    icon: 'overdrive', cost: { crystal: 24, gold: 30 }, active: true, dur: 4, cd: 18, desc: 'AKTİF: 4 sn boyunca üç kat atış hızı.' },
-  nova:     { name: 'Nova',         icon: 'nova',     cost: { crystal: 36, gold: 36 }, active: true, cd: 14, desc: 'AKTİF: çevrene 14 mermilik halka.' },
+  split:    { name: 'Çatal Namlu',  icon: 'split',    cost: { iron: 14 },               desc: 'Her atışta iki yan mermi (yarım hasar).' },
+  ricochet: { name: 'Sekme',        icon: 'ricochet', cost: { iron: 10, water: 4 },     desc: 'Mermiler duvardan iki kez seker.' },
+  frost:    { name: 'Buz Ucu',      icon: 'frost',    cost: { water: 12 },              desc: 'İsabet düşmanı 1.5 sn yavaşlatır.' },
+  rapid:    { name: 'Hızlı Ateş',   icon: 'rapid',    cost: { iron: 24, water: 10 },    desc: 'Atış hızı %30 artar.' },
+  fire:     { name: 'Yakıcı',       icon: 'flame',    cost: { iron: 30, cobalt: 10 },   desc: 'İsabet 3 sn boyunca yakar (saniyede 4).' },
+  homing:   { name: 'Güdümlü',      icon: 'magnet',   cost: { water: 24, cobalt: 14 },  desc: 'Mermiler yakındaki düşmana kıvrılır; ıskalamak zorlaşır.' },
+  chain:    { name: 'Yıldırım',     icon: 'chain',    cost: { cobalt: 20, gold: 8 },    desc: 'İsabet yakındaki bir düşmana sıçrar (yarım hasar).' },
+  stun:     { name: 'Sersemletici', icon: 'shock',    cost: { iron: 40, gold: 12 },     v: 0.5, desc: 'İsabet alan düşman 0.5 sn saldıramaz (boss hariç).' },
+  leech:    { name: 'Can Çalan',    icon: 'heart',    cost: { water: 40, gold: 14 },    v: 0.02, desc: 'Silahla öldürdüğün her düşman azami canının %2’sini yeniler.' },
+  boom:     { name: 'Patlayıcı',    icon: 'boom',     cost: { crystal: 14, gold: 16 },  desc: 'Mermiler küçük bir alanda patlar.' },
+  nova:     { name: 'Saçılma',      icon: 'nova',     cost: { crystal: 20, gold: 22 },  n: 6, v: 0.5, desc: 'Silahla öldürdüğün düşmandan 6 mermi saçılır (yarım hasar).' },
+  overdrive:{ name: 'Aşırı Yük',    icon: 'overdrive', cost: { crystal: 24, gold: 26 }, dur: 3, cd: 12, desc: 'Ateş ederken 12 sn’de bir kendiliğinden devreye girer: 3 sn üç kat atış hızı.' },
 };
 export const MOD_KEYS = Object.keys(MODS);
+export const START_MODS = ['split', 'ricochet', 'frost'];
 export const BURN = { dps: 4, t: 3 };
 
 // schematic: true => Kalıntı sandığından çıkan şema ile açılır (kalıcı)
@@ -231,15 +266,15 @@ export const ENEMIES = {
   brute:   { name: 'Kaya Devi', hp: 140, speed: 20, dmg: 22, r: 8, armor: 0.4, dig: 99, digRate: 5, knockResist: 0.85, cost: 5 },
   worm:    { name: 'Maden Solucanı', hp: 60, speed: 24, dmg: 10, r: 6, armor: 0.2, burrow: true, dig: 99, digRate: 7, knockResist: 0.7, cost: 3 },
   // bosslar (bosses.js): ölçer tepede kalınca derinliğe göre biri uyanır; %50 canda öfkelenir
-  karakok:  { name: 'Karakök', title: 'Toprağın Düğümü', col: '#78b43c', hp: 480, speed: 22, dmg: 24, r: 11, armor: 0.3, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0,
+  karakok:  { name: 'Karakök', title: 'Toprağın Düğümü', col: '#78b43c', hp: 480, speed: 22, dmg: 24, r: 11, armor: 0.3, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 1.8,
     loot: [['cobalt', 4], ['iron', 4], ['crystal', 2]], lore: 'Madenin ilk kökü. Toprağa dalar, altından çıkar; yerde kök çatlarsa kaç.' },
-  kavurgan: { name: 'Kavurgan', title: 'Kül ve Kemik Ejderi', col: '#ff6a1a', hp: 540, speed: 23, dmg: 26, r: 11, armor: 0.35, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0,
+  kavurgan: { name: 'Kavurgan', title: 'Kül ve Kemik Ejderi', col: '#ff6a1a', hp: 540, speed: 23, dmg: 26, r: 11, armor: 0.35, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 1.8,
     loot: [['cobalt', 5], ['crystal', 3], ['gold', 2]], lore: 'Kor katmanında yanan kemik. Nefesi koni, küllü yer patlar; arkasında dur.' },
-  otegoz:   { name: 'Ötegöz', title: 'Boşluğa Bakan', col: '#b080ff', hp: 560, speed: 30, dmg: 22, r: 10, armor: 0.2, fly: true, dig: 99, digRate: 7, knockResist: 1, blink: true, blinkCd: 6, boss: true, cost: 0,
+  otegoz:   { name: 'Ötegöz', title: 'Boşluğa Bakan', col: '#b080ff', hp: 560, speed: 30, dmg: 22, r: 10, armor: 0.2, fly: true, dig: 99, digRate: 7, knockResist: 1, blink: true, blinkCd: 6, boss: true, cost: 0, dieT: 1.8,
     loot: [['crystal', 5], ['gold', 3]], lore: 'Karanlığın ötesinden bakar. Küreleri seni kovalar, bakışı çeker; ışınını kayayla kes.' },
-  sultan:   { name: 'Taçsız Sultan', title: 'Altın Sarayın Laneti', col: '#ffd870', hp: 640, speed: 22, dmg: 30, r: 11, armor: 0.45, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0,
-    loot: [['gold', 8], ['crystal', 3]], lore: 'Tacını kaybeden hükümdar. Kayayı yararak hücum eder; hücumdan sonra sersemler.' },
-  ezeli:    { name: 'Ezelî', title: 'Çekirdeğin Rüyası', col: '#fff4c0', hp: 720, speed: 26, dmg: 26, r: 11, armor: 0.3, fly: true, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0,
+  kordesen: { name: 'Kördeşen', title: 'Derinlerin Kör Kazıcısı', col: '#ffd870', hp: 640, speed: 22, dmg: 30, r: 11, armor: 0.45, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 1.8,
+    loot: [['gold', 8], ['crystal', 3]], lore: 'Madeni senden önce o kazdı. Kayayı matkap gibi yararak hücum eder; duvara çarpınca sersemler.' },
+  ezeli:    { name: 'Ezelî', title: 'Çekirdeğin Rüyası', col: '#fff4c0', hp: 720, speed: 26, dmg: 26, r: 11, armor: 0.3, fly: true, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 1.8,
     loot: [['gold', 6], ['crystal', 6]], lore: 'Yaratılıştan önce vardı. Işık sütunları iner; halkası geldiğinde kayanın ardına saklan.' },
   // derin katman yaratıkları: her biri farklı bir "sürpriz"
   glarer:  { name: 'Parıldak', hp: 34, speed: 34, dmg: 5, r: 5, fly: true, blind: true, blindRange: 48, blindCd: 4.5, cost: 2.5 },
@@ -278,11 +313,11 @@ export const ENEMIES = {
   tozbocek:   { name: 'Tozböcek', hp: 14, speed: 70, dmg: 4, r: 3, small: true, pack: 4, cost: 0.6 },                                // sürü halinde gelir
   yumurtaci:  { name: 'Yumurtacı', hp: 170, speed: 24, dmg: 14, r: 7, armor: 0.25, lay: 6, cost: 6 },                               // duvara yumurta bırakır
   isikYiyen:  { name: 'Işık Yiyen', hp: 130, speed: 40, dmg: 20, r: 5, fly: true, eatLight: 72, cost: 5 },                         // yakındayken fenerin söner
-  aynasiz:  { name: 'Aynasız Hükümdar', title: 'Yansımanın Efendisi', col: '#c8d0ff', hp: 800, speed: 26, dmg: 30, r: 11, armor: 0.35, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0,
+  aynasiz:  { name: 'Aynasız Hükümdar', title: 'Yansımanın Efendisi', col: '#c8d0ff', hp: 800, speed: 26, dmg: 30, r: 11, armor: 0.35, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 1.8,
     loot: [['crystal', 8], ['gold', 6], ['elmas', 2]], lore: 'Senin silahını senden iyi kullanır. Elindekine dikkat et.' },
-  kehribarAna: { name: 'Kehribar Ana', title: 'Kovanların Kraliçesi', col: '#ffb040', hp: 900, speed: 20, dmg: 28, r: 11, armor: 0.3, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0,
+  kehribarAna: { name: 'Kehribar Ana', title: 'Kovanların Kraliçesi', col: '#ffb040', hp: 900, speed: 20, dmg: 28, r: 11, armor: 0.3, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 1.8,
     loot: [['crystal', 10], ['gold', 8], ['kehribar', 2]], lore: 'Yumurtaları yere düşünce çatlar; reçinesi seni yere yapıştırır.' },
-  madenKalbi: { name: 'Madenin Kalbi', title: 'FALL', col: '#ff3a6a', hp: 1100, speed: 16, dmg: 30, r: 12, armor: 0.3, fly: true, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0,
+  madenKalbi: { name: 'Madenin Kalbi', title: 'FALL', col: '#ff3a6a', hp: 1100, speed: 16, dmg: 30, r: 12, armor: 0.3, fly: true, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 1.8,
     loot: [['crystal', 14], ['gold', 12], ['kehribar', 3]], lore: 'Maden yaşıyor. Duvarlar ona ait: duvara yaslanma, yerinde durma.' },
   balrog: { name: 'Balrog', title: 'Kadim Gölge ve Alev', col: '#ff5a1a', hp: 900, speed: 19, dmg: 32, r: 12, armor: 0.35, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 2.6, hpMul: 1.4,
     loot: [['crystal', 10], ['gold', 10], ['cobalt', 6]], lore: 'Kor Katmanının dibinde uyuyan kadim gölge. Kamçısı uzağa uzanır, kılıcı yeri yarar; gölgeye karışıp arkanda belirir.' },
@@ -295,7 +330,7 @@ export const ENEMIES = {
 };
 
 // derinlik bandı (her 4 biyom) -> boss
-export const BOSS_BANDS = ['karakok', 'kavurgan', 'otegoz', 'sultan', 'ezeli', 'aynasiz', 'kehribarAna', 'madenKalbi'];
+export const BOSS_BANDS = ['karakok', 'kavurgan', 'otegoz', 'kordesen', 'ezeli', 'aynasiz', 'kehribarAna', 'madenKalbi'];
 
 // Elit: Öfke seviyesinde yuvalardan şansla çıkar (can ×2.2, boyut ×1.25, altın düşürür); derinde özellik kazanır
 export const ELITE = { hp: 2.2, dmg: 1.6, scale: 1.25, gold: 3, fromWave: 3, affixAt: [6, 14, 22] };
@@ -312,9 +347,9 @@ export const AFFIX_KEYS = Object.keys(AFFIX);
 export const SCALE = { hp: 1.13, bossHp: 1.1, dmg: 0.08, lv: 0.1 };
 export function enemyHpMul(st, lv, boss) { return Math.pow(boss ? SCALE.bossHp : SCALE.hp, Math.max(0, st)) * (1 + SCALE.lv * Math.max(0, lv)); }
 export function enemyDmgMul(st) { return 1 + SCALE.dmg * Math.max(0, st); }
-// Güç yönetmeni (power.js): ekibin hasar/sn'si bu derinlikte beklenenin üstündeyse düşman canı (oran^exp) katına çıkar, en çok max;
-// elit ve boss canı en az 'ekip hasar/sn × ttk' olur. lvPerBiome/wlPerBiome: beklenen Silah Gücü ve ustalık ilerleyişi
-export const POWER = { exp: 0.85, max: 5, eliteTtk: 3.5, bossTtk: 20, tool: 0.5, lvPerBiome: 0.5, wlPerBiome: 0.2 };
+// Güç yönetmeni (power.js): ilk 'from' biyomda karışmaz; sonra ekibin hasar/sn'si beklenenin 'free' katını aşarsa düşman canı (oran^exp) katına çıkar, en çok max.
+// Elit ve boss canı en az 'ekip hasar/sn × ttk' olur. lvPerBiome: beklenen Silah Gücü ilerleyişi; cardPerBiome/cardMax: silah kartlarının beklenen katkısı
+export const POWER = { exp: 0.6, max: 4, from: 2, free: 1.5, eliteTtk: 3.5, bossTtk: 20, tool: 0.5, lvPerBiome: 0.5, cardPerBiome: 0.12, cardMax: 2.5 };
 
 // Yönetmen: tek ortak bütçe, karışık gruplar, duyurulan dalgalar ve sonrasında nefes arası
 export const DIRECTOR = {
