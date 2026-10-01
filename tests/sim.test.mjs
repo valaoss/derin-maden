@@ -11,7 +11,7 @@ import { offerInfo, rerollOffer } from '../src/game/chests.js';
 import { buyUpgrade, buyMod, upgradeCost, applyPerk, beaconLack, levelUp, itemCost } from '../src/game/economy.js';
 import { updateItems, useItem } from '../src/game/items.js';
 import { updateHazards } from '../src/game/hazards.js';
-import { updateThreat, addNoise, nestsInStratum } from '../src/game/threat.js';
+import { updateThreat, addNoise, nestsInStratum, nestDestroyed, wakeDelay } from '../src/game/threat.js';
 import { updateEvents } from '../src/game/events.js';
 import { roleOf, lampTiles, metaSnapshot, hasRelic, lastStand, resonance } from '../src/game/run.js';
 import { deployLimit } from '../src/game/economy.js';
@@ -45,7 +45,7 @@ App.settings = { sfx: false, music: false, haptics: false, shake: false };
 App.meta = { lv: {}, tutorialDone: true };
 bindEnemyDamage(damageEnemy);
 let allDown = false; on('allDown', () => { allDown = true; });
-const events = {}; for (const n of ['heart', 'web', 'chill', 'relic', 'bossPhase', 'bossSpawn', 'stratum', 'modChanged', 'modUsed', 'perkOffer', 'toast', 'threat', 'nestDown', 'beacon', 'bossDown', 'revived', 'event', 'station', 'elevatorDone', 'critter']) on(n, () => { events[n] = (events[n] || 0) + 1; });
+const events = {}; for (const n of ['heart', 'web', 'chill', 'relic', 'bossPhase', 'bossSpawn', 'stratum', 'modChanged', 'modUsed', 'perkOffer', 'toast', 'threat', 'nestDown', 'beacon', 'bossDown', 'revived', 'event', 'station', 'elevatorDone', 'critter', 'bossWarn', 'bossCalm']) on(n, () => { events[n] = (events[n] || 0) + 1; });
 
 const STEP = 1 / 60;
 let fails = 0, checks = 0;
@@ -201,10 +201,25 @@ section('Uyanış ve yuvalar');
   fresh(501); const q = G.player; shaft(8, GROUND_ROW + 20); q.x = 8 * TILE + 8; q.y = (GROUND_ROW + 18) * TILE + 8; q.px = q.x; q.py = q.y;
   const ev0 = events.threat | 0;
   for (const [v, lv] of [[30, 1], [55, 2], [80, 3]]) { G.threat.noise = v; step(); ok(`gürültü ${v} -> seviye ${lv}`, G.threat.level === lv, `${G.threat.level}`); }
-  for (let i = 0; i < 60 * (THREAT.bossDelay + 1); i++) { G.threat.noise = 100; step(); }
+  for (let i = 0; i < 60 * (THREAT.bossDelay[0] + 1); i++) { G.threat.noise = 100; step(); }
   ok('gürültü 100 (sürekli) -> seviye 4', G.threat.level === 4, `${G.threat.level}`);
   ok('seviye olayları yayınlandı', (events.threat | 0) - ev0 >= 4);
   ok('boss uyanır', G.enemies.some(e => e.d.boss), G.enemies.map(e => e.type).join(','));
+  ok('uyanan boss bir sonrakini geciktirir', G.threat.woke === 1 && wakeDelay(G.threat) === THREAT.bossDelay[1], `${G.threat.woke}`);
+  for (const e of G.enemies) if (e.d.boss) e.dead = true;
+  step(); ok('boss ölünce maden uzun süre dinlenir', G.threat.bossCd > THREAT.bossRest - 1, `${G.threat.bossCd}`);
+  for (let i = 0; i < 60 * 5; i++) { G.threat.noise = 100; step(); }
+  ok('dinlenirken sayaç işlemez', G.threat.fullT === 0 && !G.threat.warned && !G.enemies.some(e => e.d.boss && !e.dead));
+  // kaçış: sayaç dolmadan susulursa ya da bir yuva yıkılırsa boss yeniden uyur
+  { fresh(502); const q = G.player; shaft(8, GROUND_ROW + 20); q.x = 8 * TILE + 8; q.y = (GROUND_ROW + 18) * TILE + 8; q.px = q.x; q.py = q.y;
+    const w0 = events.bossWarn | 0, c0 = events.bossCalm | 0;
+    for (let i = 0; i < 120; i++) { G.threat.noise = 100; step(); }
+    ok('uyanış sayacı başlar', G.threat.warned && G.threat.fullT > 1.5 && (events.bossWarn | 0) === w0 + 1, `${G.threat.fullT}`);
+    G.threat.noise = 97; run(0.5); ok('susunca sayaç geri sarar', G.threat.warned && G.threat.fullT > 0 && G.threat.fullT < 1.5, `${G.threat.fullT}`);
+    run(1); ok('sayaç sıfırlanınca boss yeniden uyur', !G.threat.warned && G.threat.fullT === 0 && (events.bossCalm | 0) === c0 + 1 && !G.enemies.some(e => e.d.boss));
+    for (let i = 0; i < 120; i++) { G.threat.noise = 100; step(); }
+    nestDestroyed(-9, -9, null);
+    ok('yuva yıkılınca uyanış iptal olur', !G.threat.warned && G.threat.fullT === 0 && (events.bossCalm | 0) === c0 + 2 && G.threat.woke === 0); }
   // yuva yakın oyuncuya düşman çıkarır (uyanış seviyesi)
   fresh(502); const r = G.player;
   const nest = G.nests.slice().sort((a, b) => a.r - b.r)[0];
@@ -560,7 +575,7 @@ section('Bosslar');
   ok('derinlik bandı -> boss', [[0, 'karakok'], [3, 'karakok'], [5, 'kavurgan'], [9, 'otegoz'], [13, 'kordesen'], [18, 'ezeli']].every(([st, k]) => bossForY(rowOf(st) * TILE) === k));
   // ölçer tepede: en derindeki madencinin bandındaki boss uyanır
   { fresh(700); const p = G.player; shaft(8, rowOf(9) + 2); p.x = 8 * TILE + 8; p.y = rowOf(9) * TILE + 8; p.px = p.x; p.py = p.y; G.maxStratum = 9; forceFlow();
-    for (let i = 0; i < 60 * (THREAT.bossDelay + 1); i++) { G.threat.noise = 100; step(); }
+    for (let i = 0; i < 60 * (THREAT.bossDelay[0] + 1); i++) { G.threat.noise = 100; step(); }
     ok('Boşluk bandında Ötegöz uyanır', G.enemies.some(e => e.type === 'otegoz'), G.enemies.filter(e => e.d.boss).map(e => e.type).join(',')); }
   const arena = (seed, k) => { fresh(seed); const p = G.player; for (let r = GROUND_ROW + 1; r <= GROUND_ROW + 12; r++) for (let c = 3; c <= 13; c++) setTile(c, r, T.AIR);
     p.x = 8 * TILE + 8; p.y = (GROUND_ROW + 9) * TILE + 8; p.px = p.x; p.py = p.y; p.hp = p.maxHp = 9999; forceFlow();

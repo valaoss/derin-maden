@@ -116,6 +116,8 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 #goal { align-self: center; display: flex; align-items: center; gap: 6px; padding: 3px 10px 5px; font-size: 12px; letter-spacing: 1px; color: var(--dim); }
 #goal.done { color: var(--good); }
 .meter.noise .bar.base > i { background: #c8a04a; }
+.meter.noise #wakeN { min-width: 0; color: #ff6a6a; animation: blink .5s steps(2) infinite; }
+.meter.noise #wakeN:empty { display: none; }
 .meter.noise.lv1 .bar.base > i { background: #e0b040; }
 .meter.noise.lv2 .bar.base > i { background: #ec6a4a; }
 .meter.noise.lv3 .bar.base > i { background: #ec4a4a; animation: blink .8s steps(2) infinite; }

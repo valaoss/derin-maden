@@ -251,7 +251,8 @@ export const HAZARD = { fallDelay: 0.9, fallDmg: 22, fallEnemyDmg: 45, gasTime: 
 export const THREAT = {
   decay: 0.7, decayPerLevel: 0.45, surfaceDecay: 9, quietAfter: 1.2, depthMul: 0.1,
   noise: { dig: 0.25, brk: 0.42, ore: 0.35, shot: 0.12, boom: 8, mine: 4, chest: 3 },
-  bossDelay: 4,                     // ölçer tepedeyken bossun uyanmasına kalan süre (sn)
+  bossDelay: [4, 10, 20],           // ölçer tepedeyken bossun uyanmasına kalan süre (sn): her uyanış bir sonrakini zorlaştırır
+  bossRest: 90, calmRate: 2,        // boss öldükten sonraki dinlenme (sn); susunca uyanış sayacının geri sarma hızı
   range: [7, 13, 20, 30, 45],       // yuvanın uyanma menzili (tile), seviyeye göre (sessizken de yakın yuva tepki verir)
   cap: [5, 12, 18, 26, 34],          // sahadaki canlı düşman üst sınırı (yönetmen yavaşça yaklaşır)
   eliteChance: 0.3, nestRelief: 18, afterBoss: 55,
@@ -351,7 +352,7 @@ export function enemyHpMul(st, lv, boss) { return Math.pow(boss ? SCALE.bossHp :
 export function enemyDmgMul(st) { return 1 + SCALE.dmg * Math.max(0, st); }
 // Güç yönetmeni (power.js): ilk 'from' biyomda karışmaz; sonra ekibin hasar/sn'si beklenenin 'free' katını aşarsa düşman canı (oran^exp) katına çıkar, en çok max.
 // Elit ve boss canı en az 'ekip hasar/sn × ttk' olur. lvPerBiome: beklenen Silah Gücü ilerleyişi; cardPerBiome/cardMax: silah kartlarının beklenen katkısı
-export const POWER = { exp: 0.6, max: 4, from: 2, free: 1.5, eliteTtk: 3.5, bossTtk: 20, tool: 0.5, lvPerBiome: 0.5, cardPerBiome: 0.12, cardMax: 2.5 };
+export const POWER = { exp: 0.6, max: 4, from: 2, free: 1.5, eliteTtk: 3.05, bossTtk: 17.4, tool: 0.5, lvPerBiome: 0.5, cardPerBiome: 0.12, cardMax: 2.5 };
 
 // Yönetmen: tek ortak bütçe, karışık gruplar, duyurulan dalgalar ve sonrasında nefes arası
 export const DIRECTOR = {

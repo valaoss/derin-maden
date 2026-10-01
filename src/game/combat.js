@@ -208,7 +208,7 @@ function blastAt(b, x, y, skip) {
   }
   const col = b.freeze ? '#bff4ff' : '#ffb050';
   ring(x, y, col, R); sparks(x, y, b.freeze ? '#ffffff' : '#ffd48a', 10, 100); flashLight(x, y, b.freeze ? 3 : 5, 0.2);
-  if (b.rocket) { igniteGas(x, y, R); addNoise(THREAT.noise.shot * 6, x, y); debris(x, y, 'dirt', 4); if (hear(G.player, x, y)) { sfx.mortarHit(); shake(0.12); } }
+  if (b.rocket) { igniteGas(x, y, R); addNoise(THREAT.noise.shot * 6, x, y); debris(x, y, 'dirt', 4); if (hear(G.player, x, y)) { sfx.mortarHit(); shake(0.07); } }
   else if (b.freeze && hear(G.player, x, y)) sfx.frost();
 }
 

@@ -407,7 +407,7 @@ Object.assign(KITS, {
 // BALROG: alev kamçısı (uzak, öfkede çeker), alev kılıcı (yeri yarar), gölge kanatları (korku + kor yağmuru), ateş nefesi,
 // alev alan kanatlarla havalanıp madencinin üstüne konma. Yürürken kayayı parçalar; öfkede çevresini kavurur.
 const ARM = e => [e.x + e.face * 30, e.y - 16]; // 3B modelin kamçı eli
-const MAW = e => [e.x + e.face * 17, e.y - 17]; // 3B modelin nefes duruşundaki ağzı
+const MAW = e => [e.x + e.face * 20, e.y - 34]; // 3B modelin nefes duruşundaki ağzı
 KITS.balrog = {
   cd: { whip: 1.2, sword: 0.8, wings: 7, breath: 4, swoop: 9 },
   choose(e, p, dp, B) {
@@ -598,6 +598,8 @@ function enrage(e) {
   if (e.type === 'ezeli') for (let k = 0; k < 2; k++) { const s = spawnEnemy('seraph', e.x + (k ? 18 : -18), e.y - 6, G.wave.num); s.emergeT = 0.3; }
   const call = { balrog: ['magmite', 'magmite', 'magmite'], dunyaYilani: ['isikYiyen', 'isikYiyen'], ejder: ['gilded'], aynasiz: ['kalkanli', 'kalkanli'], kehribarAna: ['yumurtaci', 'diriltici'], madenKalbi: ['korAvci', 'kalkanli', 'isikYiyen'] }[e.type];
   if (call) call.forEach((t, k) => { const s = spawnEnemy(t, e.x + (k - (call.length - 1) / 2) * 20, e.y - 4, G.wave.num); s.emergeT = 0.4; });
+  // Balrog: önce gerilir, sonra kükremeyle alev alır; o sırada yürümez ve saldırmaz
+  if (e.type === 'balrog') { B.rageT = 2; B.roared = false; }
   emit('bossPhase', e.type);
 }
 
@@ -652,6 +654,13 @@ export function updateBoss(e, dt, p, dp) {
   if (e.intro > 0) { e.intro -= dt; return true; }
   if (K.tick) K.tick(e, dt, B);
   if (B.phase === 1 && e.hp < e.maxHp * 0.5) enrage(e);
+  if (B.rageT > 0) {
+    B.rageT -= dt;
+    if (!B.roared && B.rageT <= 1.3) {
+      B.roared = true; sfx.roar(); sfx.flame(); shake(0.8); ring(e.x, e.y - 8, '#ff6a1a', 60); sparks(e.x, e.y - 12, '#ffd060', 26, 160); sparks(e.x, e.y - 12, '#ff5a1a', 20, 110); flashLight(e.x, e.y - 10, 9, 0.6); haptic([80, 40, 160]);
+    }
+    return true;
+  }
   if (B.phase === 2) { e.slowT = Math.min(e.slowT, -0.1); if (rnd() < dt * 10) particle(e.x + (rnd() - 0.5) * 20, e.y + (rnd() - 0.5) * 14, 0, -20, 0.5, e.d.col, 1, 1, 0); }
   if (B.act) {
     B.act.T -= dt;

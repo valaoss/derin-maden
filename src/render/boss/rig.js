@@ -173,6 +173,7 @@ export function reach(H, T, max) { const d = sub(T, H), L = len(d); return L > m
 // ---------- ortak uzuvlar ----------
 // yarasa kanadı. C: gövde çerçevesi, S: omuz, hip: zarın gövdeye bağlandığı arka nokta, s: yan (+1/-1)
 // W = { open, fan, flap, lean, sweep, wave, span }; cfg = { fold, open, fly, arm, fingers, r, memb, bone, claw }
+// cfg.bands: zarın bilekten uca üç kuşağının malzemeleri (uca doğru seyrelen gölge); cfg.finger: parmak kemiği kalınlığı (yoksa çizgi)
 export function batWing(g, C, S, hip, s, W, cfg) {
   const cf = Math.cos(W.flap), sf = Math.sin(W.flap), la = -s * W.lean * W.open + (W.sweep || 0), cl = Math.cos(la), sl = Math.sin(la);
   // lean: açıkken uzak kanat öne, yakın kanat geriye yatar (iki kanat da okunur)
@@ -185,7 +186,7 @@ export function batWing(g, C, S, hip, s, W, cfg) {
   const panel = (O, a, b, scallop, m) => {
     const nrm = mul(norm(cross(sub(a, O), sub(b, O))), -s * sag), K = 3; let pa = O, pm = O, pb = O;
     for (let t = 1; t <= K; t++) {
-      const k = t / K, na = mix(O, a, k), nb = mix(O, b, k), mm = t === K && cfg.edge ? cfg.edge : m;
+      const k = t / K, na = mix(O, a, k), nb = mix(O, b, k), mm = cfg.bands ? cfg.bands[t - 1] : t === K && cfg.edge ? cfg.edge : m;
       const nm = mad(mix(mix(na, nb, 0.5), O, t === K ? scallop : 0), nrm, Math.sin(k * 2.2));
       if (t === 1) { mf(O, na, nm, mm); mf(O, nm, nb, mm); } else { mf(pa, na, nm, mm); mf(pa, nm, pm, mm); mf(pm, nm, nb, mm); mf(pm, nb, pb, mm); }
       pa = na; pm = nm; pb = nb;
@@ -195,7 +196,7 @@ export function batWing(g, C, S, hip, s, W, cfg) {
   panel(Wr, tips[n - 1], E, 0.05); mf(E, tips[n - 1], hip); mf(S, E, hip); mf(S, Wr, E);
   const r = cfg.r;
   bone(g, S, E, r[0], r[1], cfg.bone, 1.1, 5); ball(g, E, r[1], cfg.bone, 5); bone(g, E, Wr, r[2], r[3], cfg.bone, 1, 5);
-  for (const t of tips) line(g, Wr, t, cfg.bone, cfg.tone ?? 3);
+  for (const t of tips) if (cfg.finger) bone(g, Wr, t, cfg.finger, cfg.finger * 0.35, cfg.bone, 1, 4, true); else line(g, Wr, t, cfg.bone, cfg.tone ?? 3);
   line(g, Wr, mad(Wr, D([0.6, 0.8, 0], [0.6, 0.8, 0], 0), 2.6), cfg.claw, 3);
   return { E, Wr, tips };
 }

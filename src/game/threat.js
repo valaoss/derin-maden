@@ -22,7 +22,11 @@ import { seaFloor } from './biomes.js';
 export const LEVEL_NAMES = ['SESSİZ', 'KIPIRTI', 'UYANIŞ', 'ÖFKE', 'AV'];
 
 function makeDirector() { return { phase: 'build', t: 0, bank: 0, gapT: 6, waveT: DIRECTOR.waveEvery[0], left: 0, sid: 0, cap: THREAT.cap[0], capT: 0, src: null, at: null }; }
-export function makeThreat() { return { noise: 0, level: 0, quietT: 0, bossUp: false, bossCd: 0, peak: 0, fullT: 0, warned: false, bossType: '', dir: makeDirector() }; }
+export function makeThreat() { return { noise: 0, level: 0, quietT: 0, bossUp: false, bossCd: 0, peak: 0, fullT: 0, warned: false, woke: 0, bossType: '', dir: makeDirector() }; }
+// uyanış sayacının süresi: ölçerle uyanan her boss bir sonrakini geciktirir
+export const wakeDelay = th => THREAT.bossDelay[Math.min(th.woke || 0, THREAT.bossDelay.length - 1)];
+// uyanış yarıda kaldı (sessizlik ya da yıkılan yuva): boss yeniden uyur
+function calmBoss(th) { th.fullT = 0; if (!th.warned) return; th.warned = false; if (!th.bossUp) { emit('bossCalm', th.bossType); th.bossType = ''; } }
 
 // haritadaki yuvaları listele (sefer başı ve yükleme)
 export function scanNests() {
@@ -202,16 +206,18 @@ export function updateThreat(dt) {
   // Sessiz Deniz: ölçer sönmez, zamanla dolar
   th.noise = Math.max(th.noise, seaFloor());
   // boss öldü: ölçer sakinleşir
-  if (th.bossUp && !bossAlive) { th.bossUp = false; th.noise = Math.min(th.noise, THREAT.afterBoss); th.bossCd = 20; G.stats.bosses++; emit('bossDown', th.bossType); th.bossType = ''; }
+  if (th.bossUp && !bossAlive) { th.bossUp = false; th.noise = Math.min(th.noise, THREAT.afterBoss); th.bossCd = THREAT.bossRest; G.stats.bosses++; emit('bossDown', th.bossType); th.bossType = ''; }
   if (th.bossCd > 0) th.bossCd -= dt;
-  // tepe: boss hemen değil, birkaç saniye sonra uyanır (sessizleşme şansı); hangisi olduğu uyarıda belli olur
-  if (lvBefore === 4 || levelOf(th.noise) === 4) {
+  // tepe: boss hemen uyanmaz, sayaç başlar; ölçer tepeden inerse sayaç geri sarar ve boss yeniden uyur. Hangisi olduğu uyarıda belli olur
+  const full = lvBefore === 4 || levelOf(th.noise) === 4;
+  if (bossAlive || th.bossUp || th.bossCd > 0) { if (th.bossUp) { th.fullT = 0; th.warned = false; } }
+  else if (full) {
     th.fullT += dt;
-    if (!th.warned) { th.warned = true; const p = deepestUnder(); if (!bossAlive && p) th.bossType = bossForY(p.y); emit('bossWarn', th.bossType); }
+    if (!th.warned) { th.warned = true; const p = deepestUnder(); if (p) th.bossType = bossForY(p.y); emit('bossWarn', th.bossType); }
   }
-  else { th.fullT = 0; if (th.noise < 90) { th.warned = false; if (!bossAlive && !th.bossUp) th.bossType = ''; } }
+  else if (th.fullT > 0) { th.fullT -= dt * THREAT.calmRate; if (th.fullT <= 0) calmBoss(th); }
   let lv = Math.min(3, Math.max(levelOf(th.noise), lvBefore));
-  if (th.fullT >= THREAT.bossDelay && !th.bossUp && th.bossCd <= 0) lv = 4;
+  if (th.fullT >= wakeDelay(th) && !th.bossUp && th.bossCd <= 0) lv = 4;
   if (bossAlive) lv = 4;
   if (lv !== th.level) {
     const up = lv > th.level; th.level = lv;
@@ -230,7 +236,7 @@ export function updateThreat(dt) {
   // boss
   if (lv === 4 && !bossAlive && th.bossCd <= 0) {
     const p = deepestUnder();
-    if (p && spawnBoss(p)) th.bossUp = true; else th.bossCd = 3;
+    if (p && spawnBoss(p)) { th.bossUp = true; th.woke = (th.woke || 0) + 1; } else th.bossCd = 3;
   }
   // yuvalar: uyanıklık (menzildeki oyuncu) ve nabız; üretimi yönetmen yapar
   for (const n of G.nests) {
@@ -286,7 +292,7 @@ export function nestDestroyed(c, r, byPlayer) {
   if (i >= 0) G.nests.splice(i, 1);
   const x = c * TILE + 8, y = r * TILE + 8, st = Math.max(0, stratumOfRow(r));
   G.stats.nests++; markJourney('nest', x, y, byPlayer ? byPlayer.i : -1);
-  const th = G.threat; th.noise = Math.max(0, th.noise - THREAT.nestRelief);
+  const th = G.threat; th.noise = Math.max(0, th.noise - THREAT.nestRelief); calmBoss(th);
   // ganimet: demir + biyom cevheri + altın şansı
   const ores = st >= 6 ? ['crystal', 'cobalt', 'gold'] : st >= 2 ? ['cobalt', 'gold', 'water'] : ['iron', 'water', 'iron'];
   for (let k = 0; k < 2; k++) spawnOrb(x, y, 'iron', true);

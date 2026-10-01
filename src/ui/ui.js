@@ -22,7 +22,7 @@ import { dispatch, CMD } from '../game/commands.js';
 import { PICK_TIERS } from '../data/balance.js';
 import { net } from '../net/lockstep.js';
 import { todayKey } from '../core/util.js';
-import { LEVEL_NAMES, nestsInStratum, nestTotalInStratum } from '../game/threat.js';
+import { LEVEL_NAMES, nestsInStratum, nestTotalInStratum, wakeDelay } from '../game/threat.js';
 import { atShaft, destinations } from '../game/elevator.js';
 import { STRATA_COUNT } from '../config.js';
 import { worldToView, viewToWorld } from '../render/renderer.js';
@@ -44,7 +44,7 @@ export function initUI(root, h) {
     <div class="hud-row">
       <div class="plate meter">${ic('heart')}<div class="bar hp"><b></b><i></i></div></div>
       <div class="plate depth"><div class="m" id="dM">0m</div><div class="s" id="dS">YÜZEY</div></div>
-      <div class="plate meter noise" id="noiseM">${ic('wave')}<div class="bar base"><b></b><i></i></div></div>
+      <div class="plate meter noise" id="noiseM">${ic('wave')}<div class="bar base"><b></b><i></i></div><span class="num" id="wakeN"></span></div>
       <button class="plate pausebtn" id="pauseBtn" aria-label="Duraklat">${ic('pause')}</button>
     </div>
     <div class="hud-row">
@@ -163,7 +163,8 @@ export function initUI(root, h) {
   on('bossDown', k => banner((ENEMIES[k] ? up(ENEMIES[k].name) : 'BOSS') + ' DÜŞTÜ', 'MADEN SUSUYOR'));
   on('horde', () => banner('DALGA GELİYOR', 'OK YÖNÜNE HAZIRLAN', true));
   on('hordeDone', () => toast('Dalga bitti · kısa bir nefes arası', 'wave'));
-  on('bossWarn', k => banner((ENEMIES[k] ? up(ENEMIES[k].name) : 'BİR ŞEY') + ' UYANIYOR', 'HEMEN SUS YA DA KAÇ', true));
+  on('bossWarn', k => banner((ENEMIES[k] ? up(ENEMIES[k].name) : 'BİR ŞEY') + ' UYANIYOR', 'SUS YA DA BİR YUVA YIK', true));
+  on('bossCalm', k => banner((ENEMIES[k] ? up(ENEMIES[k].name) : 'DERİNLİK') + ' YENİDEN UYUDU', 'MADEN SUSTU'));
   on('bossSpawn', k => { const B = ENEMIES[k]; if (B && once(k)) setTimeout(() => toast(B.lore, 'skull', true), 2600); });
   on('balrog', k => { if (k === 'dark') toast('Derinden davul sesleri geliyor… ışık sönüyor', 'skull', true); else if (k === 'eyes') toast('Gölgede bir şey sana bakıyor', 'skull', true); });
   on('serpent', k => { if (k === 'omen') toast('Deniz sustu… duvarların ardında dev bir şey kıpırdıyor', 'skull', true); else if (k === 'crack') toast('Duvar çatlıyor!', 'skull', true); });
@@ -264,6 +265,7 @@ export function refreshHUD(force = false) {
     const bar = $('.bar.base'); bar.children[1].style.width = `calc(${f}% - ${f / 25}px)`; bar.children[0].style.width = `calc(${f}% - ${f / 25}px)`;
     $('#noiseM').className = 'plate meter noise lv' + th.level;
   });
+  set(0, 'wake', th.warned && !th.bossUp && th.fullT > 0 ? Math.max(1, Math.ceil(wakeDelay(th) - th.fullT)) : 0, v => { $('#wakeN').textContent = v || ''; });
   const bc = bagCount();
   set(0, 'bag', bc + '/' + G.bagCap, () => {
     const f = Math.min(1, bc / G.bagCap) * 100;
