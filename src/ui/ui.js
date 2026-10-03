@@ -271,6 +271,7 @@ const bubbles = {};
 export function chatBubble(pi, k) { bubbles[pi] = { text: CHAT[k] || '…', t: performance.now() }; }
 export function bubbleFor(pi) { const b = bubbles[pi]; return b && performance.now() - b.t < 2600 ? b.text : ''; }
 // üst şeridin altı: silah seviyesi ve dolan çubuğu; Aşırı Yük sürerken parlar
+const GREET = ['Hoş geldin! Çorba sıcak.', 'Sağ salim döndün, şükür.', 'Fenerini doldurdum.', 'Aşağısı nasıldı? Anlat hele.', 'Kandiller seni bekledi.', 'Kazman körelmiş, bir bileyeyim.', 'Bugün kimseyi yukarıda unutmadın, değil mi?'];
 // kutlama: yerel madencinin başından konfeti
 const party = (n = 24) => { if (G && G.player) confetti(G.player.x, G.player.y - 10, n); };
 const oilFill = () => Math.ceil(Math.min(1, G.oil / oilMax()) * 20);
@@ -315,6 +316,13 @@ export function refreshHUD(force = false) {
   for (const k of BASE_RES) set(0, 'r' + k, G.store[k], v => { $('#r_' + k + ' span').textContent = v; });
   const row = Math.floor(p.y / TILE), depth = Math.max(0, row - 6);
   set(0, 'depth', depth, v => { $('#dM').textContent = v + 'm'; });
+  // kampa dönüş: kurtarılan madencilerden biri karşılar
+  if (depth > 15) G.wasDeep = true;
+  else if (depth === 0 && G.wasDeep && !p.dead) {
+    G.wasDeep = false;
+    const got = MINERS.filter(m => (App.meta.rescued || []).includes(m.k));
+    if (got.length) { const m = got[(Math.random() * got.length) | 0]; toast(m.name + ': ' + GREET[(Math.random() * GREET.length) | 0], 'heart'); }
+  }
   // yeni derinlik rekoru: sefer başına bir kez kutlanır
   if (!G.tutorial && !G.recDone && (App.meta.bestDepth | 0) > 20 && depth > (App.meta.bestDepth | 0)) { G.recDone = true; party(36); sfx.chest(); toast('YENİ REKOR: ' + depth + 'm', 'drill'); }
   const st = stratumOfRow(row);
