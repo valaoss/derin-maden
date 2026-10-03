@@ -216,6 +216,7 @@ function transition(fn) {
 function toMenu() {
   if (net.on) stopLockstep();
   App.scene = 'menu';
+  checkUpdate();
   // menü arka planı: gerçek bir dünya, yavaşça kayan kamera
   newRun({ seed: 1337 });
   resetTiles(); prebuildTiles(0);
@@ -557,6 +558,18 @@ if ('serviceWorker' in navigator && import.meta.env.PROD && !isNative) {
   const reg = () => navigator.serviceWorker.register('./sw.js').catch(() => {});
   if (document.readyState === 'complete') reg(); else window.addEventListener('load', reg);
 }
+
+// yeni sürüm yayınlandıysa açık sekme / ana ekran uygulaması menüdeyken kendini yeniler (sefer ve oda bölünmez);
+// aynı sürüm için oturumda bir kez (önbellek hâlâ eskiyi verirse döngüye girmez)
+function checkUpdate() {
+  if (!import.meta.env.PROD || isNative) return;
+  fetch('./version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => {
+    if (!j || !j.v || j.v === __BUILD__ || App.scene !== 'menu') return;
+    try { if (sessionStorage.getItem('derinMaden.reloaded') === j.v) return; sessionStorage.setItem('derinMaden.reloaded', j.v); } catch (e) { return; }
+    location.reload();
+  }).catch(() => {});
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden && App.scene === 'menu') checkUpdate(); });
 
 // geliştirme: ?boss=<tür> → yüzeyin altında arena, boss karşıda
 function devArena(type) {

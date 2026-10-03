@@ -13,7 +13,7 @@ async function keep(req, res) {
 }
 self.addEventListener('fetch', e => {
   const req = e.request;
-  if (req.method !== 'GET' || !req.url.startsWith(self.location.origin)) return;
+  if (req.method !== 'GET' || !req.url.startsWith(self.location.origin) || new URL(req.url).pathname.endsWith('/version.json')) return;
   const nav = req.mode === 'navigate';
   e.respondWith(
     fetch(req, nav ? { cache: 'no-cache' } : undefined).then(r => { if (r.ok && r.type === 'basic') e.waitUntil(keep(req, r.clone())); return r; })
