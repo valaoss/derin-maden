@@ -1529,5 +1529,30 @@ section('Geç oyun dengesi');
   ok('Cellat ve Leş Bombası güç ölçümüne girer', gunDps(G.player) > base * 1.6 && gunDps(G.player, true) === base * 1 || gunDps(G.player, true) <= base * 1.01, `${gunDps(G.player) / base}`);
 }
 
+section('Derin düşman baskısı');
+{
+  fresh(2301);
+  const deep = GROUND_ROW + 24 * STRATUM_ROWS + 10, top = GROUND_ROW + 1 * STRATUM_ROWS + 10;
+  const a = spawnEnemy('spitter', 8 * TILE + 8, top * TILE + 8, 1), b = spawnEnemy('spitter', 8 * TILE + 8, deep * TILE + 8, 1);
+  ok('derinde düşman daha hızlı, sık vurur, uzağa atar', b.spMul > a.spMul + 0.2 && b.atkMul < a.atkMul - 0.3 && b.rngMul > a.rngMul + 0.3, `${b.spMul} ${b.atkMul} ${b.rngMul}`);
+  ok('boss derinlik çevikliği almaz', spawnEnemy('karakok', 8 * TILE + 8, deep * TILE + 8, 1).spMul === 1);
+  // hiçbir kaya bir düşmanı 5 sn'den uzun tutmaz
+  { fresh(2302); const p = G.player, r0 = GROUND_ROW + 26 * STRATUM_ROWS + 10; shaft(8, r0 + 1);
+    for (let c = 4; c <= 12; c++) setTile(c, r0, T.AIR);
+    p.x = p.px = 12 * TILE + 8; p.y = p.py = r0 * TILE + 8; p.hp = p.maxHp = 1e5; G.maxStratum = 26;
+    const c0 = 4, r1 = r0 + 3; const e = spawnEnemy('brute', c0 * TILE + 8, r1 * TILE + 8, 1); e.emergeT = 0; forceFlow();
+    for (let i = 0; i < 60 * 14; i++) { step(); p.hp = 1e5; }
+    ok('derin kayada mahsur kalmaz', Math.hypot(e.x - p.x, e.y - p.y) < 60 || e.dead, `${Math.round(Math.hypot(e.x - p.x, e.y - p.y))}`); }
+  // Gölge kayanın içinden süzülür
+  { fresh(2303); const p = G.player, r0 = GROUND_ROW + 9 * STRATUM_ROWS + 10; shaft(8, r0 + 1); p.x = p.px = 8 * TILE + 8; p.y = p.py = r0 * TILE + 8; p.hp = p.maxHp = 1e5;
+    const e = spawnEnemy('shade', 3 * TILE + 8, (r0 + 4) * TILE + 8, 1); e.emergeT = 0; let inRock = false;
+    for (let i = 0; i < 60 * 3; i++) { step(); p.hp = 1e5; if (e.inRock) inRock = true; }
+    ok('Gölge kayanın içinden süzülür', inRock && Math.hypot(e.x - p.x, e.y - p.y) < 30, `${inRock} ${Math.round(Math.hypot(e.x - p.x, e.y - p.y))}`); }
+  // derinde sahadaki sınır ve grup büyür
+  { fresh(2304); const p = G.player, r0 = GROUND_ROW + 22 * STRATUM_ROWS + 10; shaft(8, r0 + 1); p.x = p.px = 8 * TILE + 8; p.y = p.py = r0 * TILE + 8; p.hp = p.maxHp = 1e6; G.maxStratum = 22;
+    let mx = 0; for (let i = 0; i < 60 * 20; i++) { G.threat.noise = 85; G.threat.dir.capT = 99; step(); p.hp = 1e6; mx = Math.max(mx, G.threat.dir.cap); }
+    ok('derinde sahadaki düşman sınırı yükselir', mx > THREAT.cap[3] * 1.3, `${mx}`); }
+}
+
 console.log(`\n${checks - fails}/${checks} kontrol geçti${fails ? `, ${fails} HATA` : ''}`);
 process.exit(fails ? 1 : 0);

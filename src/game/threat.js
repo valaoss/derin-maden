@@ -84,8 +84,11 @@ function squadTypes(st, lv, n) {
   const pool = WAVES.allowed(2 + lv * 2, st).filter(t => !ENEMIES[t].boss && !ENEMIES[t].small);
   const pick = a => a[Math.floor(rnd() * a.length)];
   const out = [], tanks = pool.filter(tank), rng = pool.filter(far);
-  if (n >= 4 && tanks.length) out.push(pick(tanks));
-  if (n >= 3 && rng.length) out.push(pick(rng));
+  // derinde ağır ve menzilli yerini biyomun kendi canavarı alır (sığ katman düşmanları değil)
+  const S = STRATA[biomeOf(st)], sigs = (Array.isArray(S.sig) ? S.sig : [S.sig, S.sig2]).filter(t => t && ENEMIES[t] && !ENEMIES[t].boss);
+  const own = f => st >= 8 && rnd() < 0.6 ? sigs.filter(f) : [];
+  if (n >= 4 && tanks.length) { const o = own(tank); out.push(o.length ? pick(o) : pick(tanks)); }
+  if (n >= 3 && rng.length) { const o = own(far); out.push(o.length ? pick(o) : pick(rng)); }
   while (out.length < n) { let t = pickType(st, lv); if (out.length && tank(t)) t = pickType(st, lv); out.push(t); }
   return out;
 }
@@ -142,8 +145,20 @@ function seep(p, st, lv, types = [pickType(st, lv)], sid = 0, cell = seepCell(p)
   const { c, r } = cell, d = TD[tileAt(c, r)];
   if (d.unbreakable || d.chest || d.heart || d.nest || d.relic) return false;
   if (d.solid) { setTile(c, r, T.AIR); debris(c * TILE + 8, r * TILE + 8, 'stone', 8); }
+  tunnelTo(c, r, p);
   types.forEach((type, i) => emerge(type, c * TILE + 8, r * TILE + 8, lv, i, sid));
   return true;
+}
+// sızan grup madenciye doğru dar bir tünel açarak çıkar (derin kayada mahsur kalmasın); özel taşlara dokunmaz
+function tunnelTo(c, r, p) {
+  const pc = Math.floor(p.x / TILE), pr = Math.floor(p.y / TILE);
+  for (let k = 0; k < 8 && (c !== pc || r !== pr); k++) {
+    if (Math.abs(pr - r) >= Math.abs(pc - c)) r += Math.sign(pr - r); else c += Math.sign(pc - c);
+    const d = TD[tileAt(c, r)];
+    if (!d.solid) return;
+    if (d.unbreakable || d.chest || d.heart || d.nest || d.relic || r < GROUND_ROW + 1) return;
+    setTile(c, r, T.AIR); if (rnd() < 0.5) debris(c * TILE + 8, r * TILE + 8, 'stone', 3);
+  }
 }
 
 // Sürü olayı: oyuncunun altındaki kayadan birkaç yaratık sızar
@@ -169,6 +184,12 @@ function launchSquad(lv, types, at) {
   const ok = seep(p, st, lv, types, sid, at && at.cell ? at.cell : seepCell(p));
   if (ok) D.sid = sid;
   return ok;
+}
+// şampiyon sürüsü: grubun birkaç üyesi birlikte elit olur
+function champions(sid, k) {
+  let n = 0;
+  for (const e of G.enemies) if (!e.dead && e.sq === sid && !e.elite && !e.d.small && !e.d.timid && n < k) { makeElite(e); n++; }
+  if (n >= 2) { emit('toast', { text: `Şampiyon sürüsü: ${n} elit birlikte geliyor`, icon: 'elite', bad: true }); sfx.elite(); }
 }
 function squadAlive(sid) { let n = 0; for (const e of G.enemies) if (!e.dead && e.sq === sid) n++; return n; }
 // dalga kaynağı: uyarıda bellidir (ok ve ses), dalga oradan gelir
@@ -245,7 +266,7 @@ export function updateThreat(dt) {
 
   // sahadaki sınır yavaşça yükselir (bir anda ordu gelmez), düşünce hemen iner
   const D = th.dir;
-  const capT = Math.round(THREAT.cap[lv] * (G.mp ? 1.5 : 1));
+  const capT = Math.round(THREAT.cap[lv] * (G.mp ? 1.5 : 1) * (1 + DIRECTOR.capDepth * dst));
   D.capT += dt;
   if (D.cap > capT) D.cap = capT; else if (D.cap < capT && D.capT >= DIRECTOR.capRamp) { D.cap++; D.capT = 0; }
   // boss
@@ -268,11 +289,15 @@ export function updateThreat(dt) {
     D.gapT -= dt;
     // grup: önceki grup büyük ölçüde öldü (ya da çok beklendi), bütçe ve sınır izin veriyor
     if (D.gapT <= 0 && (squadAlive(D.sid) <= 1 || D.gapT < -DIRECTOR.maxWait) && alive < cap) {
-      const [a, b] = DIRECTOR.squad[L];
-      const n = Math.min(a + Math.floor(rnd() * (b - a + 1)), Math.max(1, cap - alive));
+      const [a, b] = DIRECTOR.squad[L], more = Math.floor(dst / DIRECTOR.squadDepth);
+      const n = Math.min(a + more + Math.floor(rnd() * (b - a + 1)), Math.max(1, cap - alive));
       const types = squadTypes(dst, lv, n);
       while (types.length > 1 && (squadCost(types) > D.bank || bodies(types) > Math.max(1, cap - alive))) types.pop();
-      if (squadCost(types) <= D.bank && launchSquad(lv, types)) { D.bank -= squadCost(types); D.gapT = DIRECTOR.gap[L] * (0.85 + rnd() * 0.3); }
+      if (squadCost(types) <= D.bank && launchSquad(lv, types)) {
+        D.bank -= squadCost(types); D.gapT = DIRECTOR.gap[L] * Math.max(DIRECTOR.gapMin, 1 - DIRECTOR.gapDepth * dst) * (0.85 + rnd() * 0.3);
+        const C = DIRECTOR.champ;
+        if (dst >= C.from && lv >= 3 && types.length >= 3 && rnd() < C.chance) champions(D.sid, dst >= C.deep ? C.deepN : C.n);
+      }
     }
     // dalga: uyanış ve üstünde ara ara, önceden duyurulur
     if (lv >= DIRECTOR.waveMin && !bossAlive) {

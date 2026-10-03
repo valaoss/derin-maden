@@ -2,11 +2,11 @@
 // Kazıcılar kayayı oyar; yolu tamamen kapalı olan herkes yavaşça kazmaya başlar (asla takılmaz).
 // Yeraltında oyuncu kalmazsa izini kaybederler ve kısa sürede geri çekilirler.
 import { rnd } from '../core/rng.js';
-import { TILE, GROUND_Y, GROUND_ROW, stratumOfRow } from '../config.js';
+import { TILE, GROUND_Y, GROUND_ROW, PLAY_MIN_COL, PLAY_MAX_COL, stratumOfRow } from '../config.js';
 import { T, TD } from '../data/tiles.js';
 import { directorHp, ttkFloor } from './power.js';
 import { gainXp } from './weaponlevel.js';
-import { ENEMIES, BARRICADE, BUILDS, ELITE, BURN, AFFIX, AFFIX_KEYS, KNOCK, KILL_HEAL, enemyHpMul, enemyDmgMul } from '../data/balance.js';
+import { ENEMIES, BARRICADE, BUILDS, ELITE, BURN, AFFIX, AFFIX_KEYS, KNOCK, KILL_HEAL, SCALE, enemyHpMul, enemyDmgMul, enemyPace } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, solidAt, damageTile, idx, matOf } from '../world/map.js';
 import { FIELD, flowAt, nextStep, FLOW_INF } from '../world/flow.js';
@@ -52,6 +52,8 @@ export function spawnEnemy(type, x, y, lv = 0) {
     burnT: 0, burnTick: 0, blinkCd: 1.5 + rnd() * 2, blinkT: 0, broodT: d.brood || 0, elite: false, scale: 1, dmgMul: ((G.mods && G.mods.dmg) || 1) * enemyDmgMul(st), breathe: rnd() * 6, lostT: 0,
     zapCd: 1.5, puffT: d.puff || 0, mirrorCd: 0, quakeCd: 2.5, rewindCd: 8, judgeCd: 2.5, beamT: 0, beamP: -1, sack: 0, baseMax: hp, aff: null, shield: 0, shieldMax: 0, sinceHit: 9, spMul: 1,
   };
+  // derinde daha çevik: hız, saldırı sıklığı, menzil (boss kendi döngüsüyle dövüşür)
+  if (!d.boss) { const P = enemyPace(st); e.spMul = P.sp; e.atkMul = P.atk; e.rngMul = P.rng; e.shotMul = P.shot; }
   G.enemies.push(e);
   return e;
 }
@@ -64,7 +66,7 @@ export function makeElite(e) {
     const pool = AFFIX_KEYS.slice(); e.aff = [];
     while (e.aff.length < n && pool.length) e.aff.push(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
     if (e.aff.includes('kalkan')) e.shield = e.shieldMax = e.maxHp * AFFIX.kalkan.shield;
-    if (e.aff.includes('hizli')) e.spMul = AFFIX.hizli.speed;
+    if (e.aff.includes('hizli')) e.spMul *= AFFIX.hizli.speed;
   }
   return e;
 }
@@ -302,7 +304,7 @@ export function updateEnemies(dt) {
     }
     // sıkışma kurtarma: kutusu kayaya taşmışsa hücre merkezine kay (doğuş/savrulma kenar durumları).
     // Kendi hücresi tümüyle kaya olduysa (örülen tünel, obsidyene dönen lav, komşu hücrede doğuş) boş komşuya çık, yoksa hücreyi kır
-    if (!e.under && !e.d.burrow && !e.d.boss && blocked(e, e.x, e.y)) {
+    if (!e.under && !e.d.burrow && !e.d.boss && !e.d.phase && blocked(e, e.x, e.y)) {
       const c = Math.floor(e.x / TILE), r = Math.floor(e.y / TILE);
       if (solidAt(c, r)) {
         let to = null;
@@ -451,19 +453,19 @@ export function updateEnemies(dt) {
       e.fireCd -= dt;
       let tx = null, ty = 0;
       // görüş, oyuncunun omuz silahıyla aynı noktadan: o bizi göremiyorsa biz de ona ateş etmeyiz (tek yönlü kilitlenme olmasın)
-      if (p && dp < e.d.range && losClear(e.x, e.y, p.x - p.face * 3, p.y - 5, true)) { tx = p.x; ty = p.y; }
+      if (p && dp < e.d.range * (e.rngMul || 1) && losClear(e.x, e.y, p.x - p.face * 3, p.y - 5, true)) { tx = p.x; ty = p.y; }
       if (tx !== null) {
         e.face = tx > e.x ? 1 : -1;
         e.wind = e.fireCd < 0.35 ? 1 - e.fireCd / 0.35 : 0;
         if (e.fireCd <= 0) {
-          e.fireCd = e.d.fireCd; e.lunge = 0.6;
+          e.fireCd = e.d.fireCd * (e.atkMul || 1); e.lunge = 0.6; const vs = e.shotMul || 1;
           const d = Math.hypot(tx - e.x, ty - e.y) || 1;
           if (e.d.web) {
-            G.ebullets.push({ x: e.x + e.face * 4, y: e.y - 2, vx: (tx - e.x) / d * 120, vy: (ty - e.y) / d * 120, life: 1.2, dmg: e.d.dmg * 0.4 * e.dmgMul, web: true });
+            G.ebullets.push({ x: e.x + e.face * 4, y: e.y - 2, vx: (tx - e.x) / d * 120 * vs, vy: (ty - e.y) / d * 120 * vs, life: 1.2, dmg: e.d.dmg * 0.4 * e.dmgMul, web: true });
             sparks(e.x + e.face * 5, e.y - 2, '#f0f0ff', 3, 40);
             if (nearLocal(e)) sfx.web();
           } else {
-            G.ebullets.push({ x: e.x + e.face * 4, y: e.y - 2, vx: (tx - e.x) / d * 105, vy: (ty - e.y) / d * 105, life: 1.4, dmg: e.d.dmg * e.dmgMul });
+            G.ebullets.push({ x: e.x + e.face * 4, y: e.y - 2, vx: (tx - e.x) / d * 105 * vs, vy: (ty - e.y) / d * 105 * vs, life: 1.4 * (e.rngMul || 1) / vs, dmg: e.d.dmg * e.dmgMul });
             sparks(e.x + e.face * 5, e.y - 2, '#9af060', 3, 40);
             if (nearLocal(e)) sfx.spit();
           }
@@ -487,6 +489,18 @@ export function updateEnemies(dt) {
       continue;
     }
 
+    // Gölge ve Cam Gölgesi: yakındaki madenciye kayanın içinden süzülür
+    if (e.d.phase && p && dp < 220 && p.y >= GROUND_Y) {
+      if (dp < e.r + 7) { e.face = p.x >= e.x ? 1 : -1; e.wind = windup(e); if (e.atkCd <= 0) attack(e, p); continue; }
+      const d = dp || 1, nx = e.x + (p.x - e.x) / d * sp * dt, ny = e.y + (p.y - e.y) / d * sp * dt, nc = Math.floor(nx / TILE), nt = TD[tileAt(nc, Math.floor(ny / TILE))];
+      // kaya, göl yatağı geçilir; ana kaya duvarı ve mühür geçilmez
+      if (nc >= PLAY_MIN_COL && nc <= PLAY_MAX_COL && !nt.seal) { e.x = nx; e.y = Math.max(GROUND_Y + 4, ny); }
+      e.face = p.x >= e.x ? 1 : -1; e.st = 'phase'; e.inRock = solidAt(Math.floor(e.x / TILE), Math.floor(e.y / TILE));
+      continue;
+    }
+    // süzülürken yakalanamayan madenciden uzaklaştıysa kayadan çıkana dek süzülmeye devam eder
+    if (e.inRock && p) { const d = dp || 1, nx = e.x + (p.x - e.x) / d * sp * dt, nc = Math.floor(nx / TILE); if (nc >= PLAY_MIN_COL && nc <= PLAY_MAX_COL) e.x = nx; e.y = Math.max(GROUND_Y + 4, e.y + (p.y - e.y) / d * sp * dt); e.inRock = solidAt(Math.floor(e.x / TILE), Math.floor(e.y / TILE)); continue; }
+    e.inRock = false;
     // --- akış alanını izle ---
     const c = Math.floor(e.x / TILE), r = Math.floor(e.y / TILE);
     let mode = e.d.dig >= 99 ? FIELD.digAll : e.d.dig >= 1 ? FIELD.dig1 : FIELD.walk;
@@ -510,7 +524,8 @@ export function updateEnemies(dt) {
       e.face = nx.c > c ? 1 : nx.c < c ? -1 : e.face;
       if (nt === T.BARRICADE) { e.wind = windup(e); if (e.atkCd <= 0) { e.atkCd = 1; e.lunge = 1; hurtBarricade(nx.c, nx.r, e.d.dmg); } }
       else {
-        if (damageTile(nx.c, nx.r, digRate * dt)) breakTile(nx.c, nx.r, null);
+        // derin kaya düşmanı hapsetmesin: hiçbir taş SCALE.digT saniyeden uzun sürmez
+        if (damageTile(nx.c, nx.r, Math.max(digRate, (TD[nt].hp || 0) / SCALE.digT) * dt)) breakTile(nx.c, nx.r, null);
         if (rnd() < dt * 6) debris(nx.c * TILE + 8 - (nx.c - c) * 6, nx.r * TILE + 8 - (nx.r - r) * 6, 'dirt', 1, 0.3);
         e.lunge = 0.3 + Math.abs(Math.sin(e.anim * 2)) * 0.5;
       }
@@ -644,7 +659,7 @@ function updateWorm(e, dt, sp, p, dp) {
 
 // target: oyuncu nesnesi | alet
 function attack(e, target) {
-  e.atkCd = e.d.small ? 0.7 : 1; e.lunge = 1; e.wind = 0;
+  e.atkCd = (e.d.small ? 0.7 : 1) * (e.atkMul || 1); e.lunge = 1; e.wind = 0;
   const dmg = e.d.dmg * e.dmgMul;
   if (e.illusion) { killEnemy(e); return; } // cam kopya dokununca dağılır
   if (e.d.boom) { e.hp = 0; killEnemy(e); return; }

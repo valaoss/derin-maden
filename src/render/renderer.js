@@ -1100,6 +1100,8 @@ function drawEnemy(e, alpha, camY, vh) {
   }
   // cam kopya: yarı saydam, ara sıra titrer
   if (e.illusion) ctx.globalAlpha = 0.62 + (Math.floor(G.time * 9 + e.wob) % 3 === 0 ? 0.2 : 0);
+  // kayanın içinden süzülen gölge: soluk ve dalgalı
+  if (e.inRock) ctx.globalAlpha *= 0.45 + 0.15 * Math.sin(G.time * 6 + e.wob);
   const M3 = mob ? drawMob(ctx, e, alpha) : null, top = M3 ? M3.top : feet - f.h * sy;
   if (!M3) sprScaled(f, ox, feet, sx, sy, flip, e.hitT > 0);
   ctx.globalAlpha = 1;

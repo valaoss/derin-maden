@@ -371,8 +371,10 @@ export const AFFIX = {
 };
 export const AFFIX_KEYS = Object.keys(AFFIX);
 
-// Derinlik ölçeği: düşman canı biyom başına ×1.13 (boss ×1.1), hasarı +%12; uyanış seviyesi canı +%10
-export const SCALE = { hp: 1.13, bossHp: 1.1, dmg: 0.12, lv: 0.1 };
+// Derinlik ölçeği: düşman canı biyom başına ×1.13 (boss ×1.1), hasarı +%10; uyanış seviyesi canı +%10
+export const SCALE = { hp: 1.13, bossHp: 1.1, dmg: 0.1, lv: 0.1, sp: 0.008, atk: 0.01, atkMin: 0.7, rng: 0.015, shot: 0.01, digT: 5 };
+// derin düşman: biyom başı hız +%0.8, saldırı aralığı -%1 (en az %70), menzil +%1.5, mermi hızı +%1; hiçbir kaya bir düşmanı digT saniyeden uzun tutmaz
+export const enemyPace = st => ({ sp: 1 + SCALE.sp * st, atk: Math.max(SCALE.atkMin, 1 - SCALE.atk * st), rng: 1 + SCALE.rng * st, shot: 1 + SCALE.shot * st });
 export function enemyHpMul(st, lv, boss) { return Math.pow(boss ? SCALE.bossHp : SCALE.hp, Math.max(0, st)) * (1 + SCALE.lv * Math.max(0, lv)); }
 export function enemyDmgMul(st) { return 1 + SCALE.dmg * Math.max(0, st); }
 // Güç yönetmeni (power.js): ilk 'from' biyomda karışmaz; sonra ekibin hasar/sn'si beklenenin 'free' katını aşarsa düşman canı (oran^exp) katına çıkar, en çok max.
@@ -382,7 +384,11 @@ export const POWER = { exp: 0.85, max: 10, from: 2, free: 1.25, eliteTtk: 2.6, b
 // Yönetmen: tek ortak bütçe, karışık gruplar, duyurulan dalgalar ve sonrasında nefes arası
 export const DIRECTOR = {
   rate: [0.12, 0.35, 0.7, 1.1],       // seviye başına saniyede bütçe puanı (düşman bedeli ENEMIES.cost)
-  depthRate: 0.04, mpRate: 1.4, bankMax: 30,
+  depthRate: 0.07, mpRate: 1.4, bankMax: 30,
+  // derinlik: sahadaki sınır biyom başı +%2, grup her 8 biyomda +1 kişi, gruplar arası bekleme biyom başı -%1.2 (en az %60)
+  capDepth: 0.02, squadDepth: 8, gapDepth: 0.012, gapMin: 0.6,
+  // şampiyon sürüsü: derinde (12+) öfke seviyesinde grubun birkaç üyesi birlikte elit gelir
+  champ: { from: 12, chance: 0.12, n: 2, deepN: 3, deep: 20 },
   squad: [[1, 2], [2, 3], [3, 4], [4, 6]],
   gap: [16, 11, 8, 6], maxWait: 14,   // gruplar arası en kısa süre; önceki grup yaşasa da en çok bu kadar beklenir
   waveMin: 2, waveEvery: [80, 110], waveWarn: 4, waveLen: 12, waveSquads: 3, rest: 18,
