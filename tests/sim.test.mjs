@@ -1691,5 +1691,16 @@ section('Fener yağı, kuşatma, mahsur madenci');
     ok('elit gelince yaratıklar birden çok yönden sızar', dv('surround') > 0 && side.size >= 3, `${dv('surround')} ${[...side].join('')}`); }
 }
 
+section('Jeod');
+{
+  const { GEODE } = await import('../src/data/balance.js');
+  fresh(2801); const p = G.player; let hit = null, n = 0, tot = 0;
+  const geo = (c, r) => { const v = Math.sin(c * 127.1 + r * 311.7 + (G.seed % 1000) * 0.37) * 43758.5453; return v - Math.floor(v) < GEODE.chance; };
+  for (let r = GROUND_ROW + 3; r < GROUND_ROW + 400; r++) for (let c = PLAY_MIN_COL; c <= PLAY_MAX_COL; c++) { tot++; if (geo(c, r)) { n++; if (!hit && TD[tileAt(c, r)].plain) hit = [c, r]; } }
+  ok('jeod seyrek ama var', n > 0 && n / tot < GEODE.chance * 2.5, `${n}/${tot}`);
+  G.orbs.length = 0; breakTile(hit[0], hit[1], p);
+  ok('jeod kırılınca cevher ve Kabuk saçılır', G.orbs.length >= GEODE.n + 1 && G.orbs.some(o => o.res === 'kabuk'), `${G.orbs.length}`);
+}
+
 console.log(`\n${checks - fails}/${checks} kontrol geçti${fails ? `, ${fails} HATA` : ''}`);
 process.exit(fails ? 1 : 0);

@@ -3,7 +3,7 @@
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y, GROUND_ROW, PLAYER_MIN_Y, WORLD_W, BASE_X, BASE_Y, stratumOfRow, depthOfY } from '../config.js';
 import { T, TD, isMineable, isPlain } from '../data/tiles.js';
-import { PLAYER, UPGRADES, PERKS, RES_KEYS, MATS, FORGE, OIL, PICK_TIERS, RELIC_OF_BIOME, DEEP_ORES, DIG_DEPTH, ADREN, KEHRIBAR, SHROOM, LIQUID } from '../data/balance.js';
+import { PLAYER, UPGRADES, PERKS, RES_KEYS, MATS, FORGE, OIL, GEODE, PICK_TIERS, RELIC_OF_BIOME, DEEP_ORES, DIG_DEPTH, ADREN, KEHRIBAR, SHROOM, LIQUID } from '../data/balance.js';
 import { RES_COL } from '../data/palette.js';
 import { G, App, biomeOf } from './state.js';
 import { tileAt, solidAt, setTile, damageTile, matOf } from '../world/map.js';
@@ -18,7 +18,7 @@ import { addNoise, nestDestroyed } from './threat.js';
 import { openCage } from './lantern.js';
 import { openStation, updateRide } from './elevator.js';
 import { THREAT } from '../data/balance.js';
-import { debris, dust, sparks, shake, kick, hitstop, flashLight, ring, particle } from './fx.js';
+import { debris, dust, sparks, shake, kick, hitstop, flashLight, ring, particle, confetti } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
 import { emit } from '../core/events.js';
 import { clamp } from '../core/util.js';
@@ -363,6 +363,16 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0, machine = false) {
   }
   if (d.gate && local) emit('toast', { text: 'Saray kapısı açıldı', icon: 'chest' });
   if (d.lure || d.node || d.egg || d.lumen || d.amber) onSpecial(d, c, r, p, x, y);
+  // Jeod: sıradan kayanın içinden ara sıra renkli bir sürpriz dökülür
+  if (d.plain && !machine && r > GROUND_ROW + 2 && !G.tutorial && geodeAt(c, r)) {
+    const st = Math.max(0, stratumOfRow(r)), n = Math.min(GEODE.max, Math.round(GEODE.n + GEODE.perBiome * st));
+    const pool = st < 2 ? ['iron', 'water', 'gold'] : st < 6 ? ['cobalt', 'gold', 'water'] : ['crystal', 'gold', 'cobalt'];
+    for (let i = 0; i < n; i++) spawnOrb(x, y, pool[i % pool.length]);
+    spawnOrb(x, y, 'kabuk');
+    confetti(x, y, 26); ring(x, y, '#e070ff', 30); ring(x, y, '#ffffff', 18); flashLight(x, y, 6, 0.5); hitstop(0.06); if (local) { shake(0.2); haptic([15, 30, 15]); }
+    if (near) sfx.chest();
+    if (local) emit('geode');
+  }
   // Dünya Tohumu: sıradan kaya bazen kristal verir
   if (d.plain && hasRelic('tohum') && rnd() < 0.04) { spawnOrb(x, y, 'crystal'); sparks(x, y, '#e070ff', 6, 70); }
   if (d.relic) markJourney('relic', x, y, p.i);
@@ -443,6 +453,9 @@ function takeRelic(p, x, y, k) {
     sfx.chest(); emit('relic', { k, pi: p.i, again: true });
   }
 }
+
+// jeod yeri haritaya ve sefer tohumuna göre sabittir (iki tarafta da aynı, zar tüketmez)
+function geodeAt(c, r) { const v = Math.sin(c * 127.1 + r * 311.7 + (G.seed % 1000) * 0.37) * 43758.5453; return v - Math.floor(v) < GEODE.chance; }
 
 // ---------- cevher küreleri ----------
 export function spawnOrb(x, y, res, fromEnemy = false) {

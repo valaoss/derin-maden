@@ -53,6 +53,8 @@ export const MINERS = [
   { k: 'doruk', name: 'Doruk', st: 22, col: '#e070ff', perk: 'Sefere fazladan bir Fener Yağı ile başlarsın.' },
   { k: 'ilkim', name: 'İlkim', st: 25, col: '#ffd24a', perk: 'Kazı gürültüsü %10 azalır.' },
 ];
+// Jeod: sıradan kayanın içinden ara sıra çıkan sürpriz (haritaya göre sabit, zar atılmaz). n: taban cevher, perBiome: biyom başına ek
+export const GEODE = { chance: 0.012, n: 5, perBiome: 0.25, max: 12 };
 // elit geldiğinde kuşatma: dört yandan birer (derinde ikişer) yaratık sızar; cd: iki kuşatma arası en az süre
 export const SURROUND = { cd: 20, dist: 5, deep: 12 };
 

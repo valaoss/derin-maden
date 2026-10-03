@@ -33,6 +33,14 @@ export function sparks(x, y, col, n, speed = 90) {
     particle(x, y, Math.cos(a) * s, Math.sin(a) * s, 0.15 + Math.random() * 0.2, col, 1, 1, 120);
   }
 }
+// konfeti: kutlamalar (dövme, kurtarma, seviye, rekor, jeod). Renkli, yavaş süzülen parçalar
+const CONFETTI = ['#ffd24a', '#ff5a8a', '#6fd0ff', '#5ae08a', '#e070ff', '#ffffff', '#ff9a4a'];
+export function confetti(x, y, n = 24, speed = 110) {
+  for (let i = 0; i < n; i++) {
+    const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.4, s = speed * (0.45 + Math.random() * 0.8);
+    particle(x + (Math.random() - 0.5) * 6, y, Math.cos(a) * s, Math.sin(a) * s, 0.8 + Math.random() * 0.7, CONFETTI[(Math.random() * CONFETTI.length) | 0], Math.random() < 0.4 ? 2 : 1, 1, 170);
+  }
+}
 export function ring(x, y, col, r = 20) { const p = particle(x, y, 0, 0, 0.3, col, r, 3, 0); return p; }
 
 export function updateParticles(dt) {

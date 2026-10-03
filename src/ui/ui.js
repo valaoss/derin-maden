@@ -23,6 +23,7 @@ import { PICK_TIERS } from '../data/balance.js';
 import { net } from '../net/lockstep.js';
 import { todayKey } from '../core/util.js';
 import { LEVEL_NAMES, nestsInStratum, nestTotalInStratum, wakeDelay } from '../game/threat.js';
+import { confetti } from '../game/fx.js';
 import { oilMax } from '../game/lantern.js';
 import { atShaft, destinations } from '../game/elevator.js';
 import { STRATA_COUNT } from '../config.js';
@@ -152,7 +153,7 @@ export function initUI(root, h) {
   });
   on('modChanged', () => { if (sheetOpen()) refreshSheet(); refreshHUD(true); });
   on('gearChanged', () => { if (sheetOpen()) refreshSheet(); refreshHUD(true); });
-  on('forged', d => { if (sheetOpen()) refreshSheet(); refreshHUD(true); toast(FORGE[d.k].name + ' dövüldü: ' + FORGE[d.k].steps[d.lv - 1][0], FORGE[d.k].icon); });
+  on('forged', d => { party(30); if (sheetOpen()) refreshSheet(); refreshHUD(true); toast(FORGE[d.k].name + ' dövüldü: ' + FORGE[d.k].steps[d.lv - 1][0], FORGE[d.k].icon); });
   on('matPop', k => { if (once('m' + k)) toast(MATS[k].label + ' · Atölye > TEZGÂH’ta silah, kazma ve zırh dövmeye yarar', k); });
   on('modUsed', () => refreshHUD(true));
   on('chill', () => { const v = $('#vignette'); v.classList.add('cold'); setTimeout(() => v.classList.remove('cold'), 1800); });
@@ -168,7 +169,7 @@ export function initUI(root, h) {
     toast(d.left ? `Yuva yıkıldı · bu biyomda ${d.left} kaldı` : 'Yuva yıkıldı', 'wave');
     if (G.tutorial && !G.tutorial.done) { G.tutorial.done = true; App.meta.tutorialDone = true; saveMeta(App.meta); coach('Harika. Derine in: yeni katmanlar, daha değerli cevherler.', '', 5); }
   });
-  on('beacon', () => toast('Biyom temiz · fener dikildi', 'lamp'));
+  on('beacon', () => { party(30); toast('Biyom temiz · fener dikildi', 'lamp'); });
   on('bossDown', k => banner((ENEMIES[k] ? up(ENEMIES[k].name) : 'BOSS') + ' DÜŞTÜ', 'MADEN SUSUYOR'));
   on('horde', () => banner('DALGA GELİYOR', 'OK YÖNÜNE HAZIRLAN', true));
   on('hordeDone', () => toast('Dalga bitti · kısa bir nefes arası', 'wave'));
@@ -180,6 +181,7 @@ export function initUI(root, h) {
   on('keeperWarn', d => { const B = ENEMIES[d.type]; banner((B ? up(B.name) : 'BEKÇİ') + ' UYANIYOR', d.heart ? 'KALBİN BEKÇİSİ' : 'MÜHRÜN BEKÇİSİ', true);
     setTimeout(() => toast(d.loud ? 'Gürültün onu öfkelendirdi: daha sert vuruyor' : 'Sessiz geldin: ilk vuruşun pusu (üç kat)', d.loud ? 'skull' : 'hush', d.loud), 2200); });
   on('lairOmen', d => { const B = ENEMIES[d.type]; banner((B ? up(B.name) : 'BİR ŞEY') + ' UYANIYOR', B ? up(B.title) : '', true); setTimeout(() => toast(d.text, 'skull', true), 2400); });
+  on('sealBroken', () => party(40));
   on('sealBroken', d => setTimeout(() => banner('MÜHÜR KIRILDI', d.heart ? 'KALP KRİSTALİ AÇIKTA' : d.temple ? 'TAPINAĞIN YANLARI AÇILDI' : 'YOL AŞAĞI AÇIK', 'gold'), 1800));
   on('poseidon', k => { if (k === 'omen') toast('Salonun ortasında su kabarıyor… denizin sahibi geliyor', 'skull', true); });
   on('serpent', k => { if (k === 'omen') toast('Deniz sustu… duvarların ardında dev bir şey kıpırdıyor', 'skull', true); else if (k === 'crack') toast('Duvar çatlıyor!', 'skull', true); });
@@ -202,7 +204,7 @@ export function initUI(root, h) {
     const m = MINERS.find(q => q.k === d.k);
     if (d.again || !m) { toast('Boş kafes: içinde erzak vardı (+1 Tamir Kiti, +1 Fener Yağı)', 'medkit'); return; }
     saveMeta(App.meta);
-    banner('KURTARILDI', m.name.toUpperCase() + ' KAMPA DÖNÜYOR', 'gold'); setTimeout(() => toast(m.name + ': ' + m.perk, 'heart'), 2600);
+    party(40); banner('KURTARILDI', m.name.toUpperCase() + ' KAMPA DÖNÜYOR', 'gold'); setTimeout(() => toast(m.name + ': ' + m.perk, 'heart'), 2600);
   });
   on('relic', d => {
     const R = RELICS[d.k];
@@ -215,7 +217,8 @@ export function initUI(root, h) {
     refreshHUD(true);
   });
   on('perkOffer', pi => { if (pi !== G.localIdx && $('#perk').classList.contains('on')) { $('#perk').classList.remove('on'); hooks.resume(); } if (pi === G.localIdx) showPerks(); else if (!WOFFER[G.perkOffer.chest]) toast('Partnerin bir kalıntı buldu', 'chest'); else if (G.perkOffer.chest !== 'start') toast('Silah seviye atladı · kartı partnerin seçiyor', 'blaster'); });
-  on('weaponLevel', () => { sfx.chest(); refreshHUD(true); });
+  on('weaponLevel', () => { sfx.chest(); party(18); refreshHUD(true); });
+  on('geode', () => { if (once('geode')) toast('Jeod! Kayanın içinden sürpriz çıktı', 'gem'); });
   on('resonance', d => { const S = SOY[d.soy]; banner('REZONANS', S.name, 'gold'); setTimeout(() => toast(S.res, S.icon), 2400); });
   on('perkTaken', d => { if (d.pi !== G.localIdx) { const o = offerInfo(d.k); toast('Partner seçti: ' + o.name, o.icon); } });
   on('blind', () => { const f = $('#flash'); f.classList.remove('on'); void f.offsetWidth; f.classList.add('on'); });
@@ -268,6 +271,8 @@ const bubbles = {};
 export function chatBubble(pi, k) { bubbles[pi] = { text: CHAT[k] || '…', t: performance.now() }; }
 export function bubbleFor(pi) { const b = bubbles[pi]; return b && performance.now() - b.t < 2600 ? b.text : ''; }
 // üst şeridin altı: silah seviyesi ve dolan çubuğu; Aşırı Yük sürerken parlar
+// kutlama: yerel madencinin başından konfeti
+const party = (n = 24) => { if (G && G.player) confetti(G.player.x, G.player.y - 10, n); };
 const oilFill = () => Math.ceil(Math.min(1, G.oil / oilMax()) * 20);
 const wlvFill = () => weaponMaxed() ? 20 : Math.floor(G.gear.xp / xpNeed(G.gear.lv) * 20);
 function renderMods() {
@@ -310,6 +315,8 @@ export function refreshHUD(force = false) {
   for (const k of BASE_RES) set(0, 'r' + k, G.store[k], v => { $('#r_' + k + ' span').textContent = v; });
   const row = Math.floor(p.y / TILE), depth = Math.max(0, row - 6);
   set(0, 'depth', depth, v => { $('#dM').textContent = v + 'm'; });
+  // yeni derinlik rekoru: sefer başına bir kez kutlanır
+  if (!G.tutorial && !G.recDone && (App.meta.bestDepth | 0) > 20 && depth > (App.meta.bestDepth | 0)) { G.recDone = true; party(36); sfx.chest(); toast('YENİ REKOR: ' + depth + 'm', 'drill'); }
   const st = stratumOfRow(row);
   set(0, 'strat', st, v => { const b = v < 0 ? null : STRATA[biomeOf(v)]; $('#dS').textContent = b ? b.short : 'YÜZEY'; $('#dS').classList.toggle('legend', !!(b && b.legend)); });
 

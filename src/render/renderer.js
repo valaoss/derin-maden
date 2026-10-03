@@ -284,6 +284,12 @@ export function render(alpha, opts = {}) {
   }
   drawBalrogDark(ctx, camX, camY, vw, vh, alpha);
   drawSerpentDark(ctx, camX, camY, vw, vh, alpha);
+  // fener sondu: madencinin cevresindeki tek blok disinda her yer kararir (isik yayanlar yine gorunur)
+  if (!opts.hidePlayer && G.dark && G.player.y >= GROUND_Y) {
+    const px = G.player.x - camX, py = G.player.y - 4 - camY, dg = ctx.createRadialGradient(px, py, TILE * 0.9, px, py, TILE * 2.6);
+    dg.addColorStop(0, 'rgba(4,2,8,0)'); dg.addColorStop(1, 'rgba(4,2,8,0.94)');
+    ctx.fillStyle = dg; ctx.fillRect(0, 0, vw, vh);
+  }
 
   // ---- ışık yayanlar ----
   ctx.save();
