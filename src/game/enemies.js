@@ -103,6 +103,8 @@ export function damageEnemy(e, dmg, dx = 0, dy = 0, knock = 1, silent = false, c
   if (e.slowT > 0) real *= 1 + pv('kirilgan');
   if (e.burnT > 0 && resonance('ates')) real *= 1.3;
   if (full && hasPerk('suikast') && !silent) real *= pv('suikast');
+  // sessiz gelenin pususu: bekçiye ilk doğrudan vuruş kat kat işler
+  if (e.ambush && !silent) { real *= e.ambush; e.ambush = 0; sparks(e.x, e.y - 6, '#ffe79a', 18, 140); ring(e.x, e.y, '#ffe79a', 30); flashLight(e.x, e.y, 6, 0.4); emit('toast', { text: 'PUSU: sessiz geldin, ilk vuruş üç kat', icon: 'hush' }); }
   e.sinceHit = 0;
   // Kalkanlı Muhafız: önünden gelen doğrudan vuruşu keser (patlama, sekme, yanma geçer)
   if (e.d.front && !silent && dx * e.face < -0.3) { real *= 1 - e.d.front; if (rnd() < 0.6) sparks(e.x + e.face * 6, e.y - 2, '#e0e8ff', 3, 70); if (nearLocal(e) && Math.random() < 0.3) sfx.ping(); }

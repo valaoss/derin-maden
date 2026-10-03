@@ -26,6 +26,7 @@ import { updateBalrog } from '../src/game/balrog.js';
 import { updateSerpent, SEA_BIOME } from '../src/game/serpent.js';
 import { updateHoard, PALACE_BIOME } from '../src/game/dragon.js';
 import { updatePoseidon, inTemple } from '../src/game/poseidon.js';
+import { updateSeals, bossLock, makeSeals } from '../src/game/seals.js';
 import { CRITTERS } from '../src/data/critters.js';
 import { updateParticles, updateFlashes } from '../src/game/fx.js';
 import { updateFlow, forceFlow } from '../src/world/flow.js';
@@ -38,7 +39,8 @@ import { placeBuild, pickupBuild, craftItem, gearPick, testFunds, TEST_FUNDS } f
 import { WEAPON_KEYS, PICK_TYPE_KEYS, SHIELD, AUGER, DIRECTOR, AFFIX, enemyHpMul } from '../src/data/balance.js';
 import { playerSpeed } from '../src/game/player.js';
 import { STRATA } from '../src/data/palette.js';
-import { COLS, ROWS, GROUND_ROW, GROUND_Y, STRATUM_ROWS, STRATA_COUNT, TILE, PLAY_MIN_COL, PLAY_MAX_COL } from '../src/config.js';
+import { COLS, ROWS, GROUND_ROW, GROUND_Y, STRATUM_ROWS, STRATA_COUNT, TILE, PLAY_MIN_COL, PLAY_MAX_COL, CENTER_COL, sealRowOf } from '../src/config.js';
+import { SEAL } from '../src/data/balance.js';
 import { on } from '../src/core/events.js';
 import { maxLv } from '../src/data/relics.js';
 import { BOSS_BANDS } from '../src/data/balance.js';
@@ -59,7 +61,7 @@ function step(dt = STEP) {
   G.time += dt; G.stats.time += dt; G.frame++;
   if (G.hitstop > 0) { G.hitstop -= dt; return; }
   updateFlow(dt); updatePlayer(dt); updatePlayerGun(dt); updateEnemies(dt); updateBullets(dt); updateStructures(dt);
-  updateItems(dt); updateHazards(dt); updateThreat(dt); updateEvents(dt); updateMerchant(dt); updateWell(dt); updateCritters(); updateWonders(dt); updateLiquids(dt); updateBalrog(dt); updateSerpent(dt); updateHoard(dt); updatePoseidon(dt); updateOrbs(dt); updateDeposit(dt); updateParticles(dt); updateFlashes(dt);
+  updateItems(dt); updateHazards(dt); updateThreat(dt); updateEvents(dt); updateMerchant(dt); updateWell(dt); updateCritters(); updateWonders(dt); updateLiquids(dt); updateBalrog(dt); updateSerpent(dt); updateHoard(dt); updatePoseidon(dt); updateSeals(dt); updateOrbs(dt); updateDeposit(dt); updateParticles(dt); updateFlashes(dt);
 }
 const run = sec => { for (let i = 0, n = Math.round(sec / STEP); i < n; i++) step(); };
 const fresh = (seed = 1) => { const g = newRun({ seed, start: false }); allDown = false; g.player.inp = { x: 0, y: 0, mag: 0 }; return g; };
@@ -1155,7 +1157,7 @@ section('Poseidon');
   fresh(1701); const S = G.temple, s = G.order.indexOf(FALLS_BIOME), fr = S.r1 + 1, cols = []; for (let c = S.c0; c <= S.c1; c++) cols.push(c);
   ok('su tapınağı Şelale Mağarası’nın dibinde', !!S && S.r0 === GROUND_ROW + s * STRATUM_ROWS + POSEIDON.top && cols.every(c => tileAt(c, S.r1) === T.AIR));
   ok('zemin kırılmaz, aralarında giderler var', cols.every(c => TD[tileAt(c, fr)].unbreakable) && cols.filter(c => TD[tileAt(c, fr)].sink).length >= 4);
-  ok('iki yandan aşağı inilir', [PLAY_MIN_COL, PLAY_MAX_COL].every(c => { for (let r = S.r0; r <= fr + 1; r++) if (TD[tileAt(c, r)].unbreakable) return false; return true; }));
+  ok('iki yan sütun Poseidon yenilene dek mühürlü', [PLAY_MIN_COL, PLAY_MAX_COL].every(c => { for (let r = S.r0; r < fr; r++) if (TD[tileAt(c, r)].unbreakable) return false; return tileAt(c, fr) === T.SEAL; }));
   // su perdeleri akar ama salon taşmaz: su yalnız zeminde ince bir tabaka, kaynak sütunları dışında yükselmez
   run(60);
   let high = 0, tot = 0, falls = 0, wet = 0;
@@ -1188,6 +1190,7 @@ section('Poseidon');
     ok('dev yere basar', Math.abs(e.y - (S.r1 * TILE + 8)) < 2, `${e.y} ${S.r1 * TILE + 8}`); }
   killEnemy(e); run(3.2);
   ok('öldükten sonra bir daha gelmez', S.st === 'done' && !G.enemies.some(o => o.type === 'poseidon' && !o.dead));
+  ok('Poseidon yenilince yanlar açılır', [PLAY_MIN_COL, PLAY_MAX_COL].every(c => tileAt(c, fr) === T.AIR));
   const d = JSON.parse(JSON.stringify(serialize())); deserialize(d);
   ok('Poseidon yenilgisi kaydedilir', G.temple && G.temple.st === 'done' && G.springs.some(q => q.drain));
   delete d.temple; deserialize(d);
@@ -1449,6 +1452,54 @@ section('Boss yetenek döngüsü');
   ok('yeni yetenekler deterministik', (() => { const h = []; for (let i = 0; i < 2; i++) { const [p] = arena(1620, 'kordesen'); spawnEnemy('aynasiz', 6 * TILE + 8, (GROUND_ROW + 3) * TILE + 8, 3).emergeT = 0; spawnEnemy('madenKalbi', 10 * TILE + 8, (GROUND_ROW + 3) * TILE + 8, 3).emergeT = 0; for (let j = 0; j < 60 * 25; j++) { step(); p.hp = 9999; } h.push(hash()); } return h[0] === h[1]; })());
   // son seviyedeki kalıntının açıklaması (atölyenin Donanım sekmesi) çökmez
   ok('son seviye kalıntı açıklaması çökmez', (() => { fresh(1621); try { for (const k of Object.keys(PERKS)) { G.perks = [k]; G.perkLv = { [k]: maxLv(k) }; offerInfo(k); } return true; } catch (err) { return false; } })());
+}
+
+section('Mühürler ve bekçiler');
+{
+  const SL = sealRowOf;
+  fresh(2101);
+  ok('her bölüm sonu mühürlü', SEAL.strata.every(s => { for (let c = PLAY_MIN_COL; c <= PLAY_MAX_COL; c++) if (tileAt(c, SL(s)) !== T.SEAL) return false; return true; }));
+  ok('Kalp Kristali mühür kafesinde', [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]].every(([dc, dr]) => tileAt(CENTER_COL + dc, G.heartRow + dr) === T.SEAL) && tileAt(CENTER_COL, G.heartRow) === T.HEART);
+  ok('mühür kazılamaz, patlamaz', !TD[T.SEAL].plain && TD[T.SEAL].unbreakable && !TD[T.SEAL].blastable);
+  ok('bekçiler: 7 bölüm + kalp', G.seals.filter(S => !S.temple).length === 8 && G.seals.find(S => S.heart).by === 'madenKalbi');
+  ok('portallar mühür aşmaz', (G.portals || []).every(P => SEAL.strata.every(s => (P.a[1] < SL(s)) === (P.b[1] < SL(s)))));
+  ok('öğreticide mühür yok', (() => { const g = newRun({ tutorial: true, seed: 5, start: false }); const n = g.map.filter(t => t === T.SEAL).length; fresh(2101); return n === 0; })());
+  // bekçi: bölgeye giren madenciyi gürültüsüz de karşılar
+  const zone = (seed, loud) => {
+    fresh(seed); const S = G.seals.find(o => !o.temple && !o.heart && o.by !== 'poseidon' && o.by !== 'balrog'), p = G.player, r = S.bot - 4;
+    for (let rr = r - 3; rr <= r + 2; rr++) for (let c = 3; c <= 13; c++) setTile(c, rr, T.AIR);
+    p.x = p.px = 8 * TILE + 8; p.y = p.py = r * TILE + 8; p.hp = p.maxHp = 1e5; G.maxStratum = S.s; forceFlow();
+    G.threat.noise = loud ? 90 : 0;
+    for (let i = 0; i < 60 * (SEAL.omen + 0.6); i++) { if (!loud) G.threat.noise = 0; step(); p.hp = 1e5; }
+    return [S, p, G.enemies.find(e => e.keeper)];
+  };
+  { const [S, p, e] = zone(2102, false);
+    ok('sessiz gelene de bekçi uyanır', S.st === 'up' && e && e.type === S.by, `${S.st} ${e && e.type}`);
+    ok('sessiz gelen pusu kurar', e && e.ambush === SEAL.ambush);
+    ok('boss uyanıkken kaçış kilitli', bossLock());
+    const h = e.hp; e.emergeT = 0; damageEnemy(e, 10, 0, 0, 0); ok('pusu vuruşu üç kat işler', h - e.hp > 10 * 2.5 * (1 - (e.d.armor || 0)) && !e.ambush, `${h - e.hp}`);
+    killEnemy(e); run(1.2);
+    ok('bekçi yenilince mühür kırılır', S.st === 'done' && S.cells.every(([c, r]) => tileAt(c, r) === T.AIR) && !bossLock(), S.st);
+    const d = JSON.parse(JSON.stringify(serialize())); deserialize(d);
+    ok('kırık mühür kayıtta kalır', G.seals.find(o => o.s === S.s && !o.temple).st === 'done' && G.seals.filter(o => o.st === 'wait').length >= 6); }
+  { const [S, p, e] = zone(2103, true); ok('gürültülü gelene öfkeli uyanır', e && !e.ambush && e.spMul > 1.1, `${e && e.spMul}`);
+    e.dead = true; e.hp = 0; e.dieT = 0.01; run(0.3); ok('çekilen bekçi mühürde yeniden bekler', S.st === 'wait' && S.cells.every(([c, r]) => tileAt(c, r) === T.SEAL), S.st); }
+  // ölçerle uyanan bölüm bossu o bölümde yenilirse mühür kırılır
+  { fresh(2104); const S = G.seals.find(o => !o.temple && !o.heart && o.by !== 'poseidon' && o.by !== 'balrog');
+    const r = S.bot - 20; for (let c = 3; c <= 13; c++) setTile(c, r, T.AIR);
+    const e = spawnEnemy(S.by, 8 * TILE + 8, r * TILE + 8, 4); e.emergeT = 0; killEnemy(e); run(0.5);
+    ok('avcı boss yenilince bölümün mührü kırılır', S.st === 'done', S.st); }
+  // kaçan madencinin peşinden kayayı yararak gelir
+  { fresh(2105); const p = G.player, r0 = GROUND_ROW + 3 * STRATUM_ROWS; shaft(8, r0 + 30);
+    p.x = p.px = 8 * TILE + 8; p.y = p.py = (r0 + 30) * TILE + 8; p.hp = p.maxHp = 1e5; G.maxStratum = 3;
+    const e = spawnEnemy('karakok', 4 * TILE + 8, (r0 + 4) * TILE + 8, 4); e.emergeT = 0; e.hp = e.maxHp = 1e6; const d0 = Math.hypot(e.x - p.x, e.y - p.y);
+    for (let i = 0; i < 60 * 3; i++) { step(); p.hp = 1e5; }
+    ok('kaçanın peşinden kayayı yararak gelir', Math.hypot(e.x - p.x, e.y - p.y) < d0 - 180, `${Math.round(d0)} -> ${Math.round(Math.hypot(e.x - p.x, e.y - p.y))}`); }
+  // Dönüş Fişeği boss uyanıkken çalışmaz
+  { fresh(2106); const p = G.player; shaft(8, GROUND_ROW + 20); p.x = p.px = 8 * TILE + 8; p.y = p.py = (GROUND_ROW + 18) * TILE + 8; G.items.recall = 1;
+    const e = spawnEnemy('karakok', 8 * TILE + 8, (GROUND_ROW + 12) * TILE + 8, 4); e.emergeT = 0; e.hp = e.maxHp = 1e6;
+    ok('boss uyanıkken Dönüş Fişeği yanmaz', !useItem('recall', p) && G.items.recall === 1); }
+  ok('mühürler deterministik', (() => { const h = []; for (let i = 0; i < 2; i++) { zone(2107, false); run(4); h.push(hash()); } return h[0] === h[1]; })());
 }
 
 console.log(`\n${checks - fails}/${checks} kontrol geçti${fails ? `, ${fails} HATA` : ''}`);

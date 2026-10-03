@@ -4,6 +4,7 @@ import { TILE, GROUND_Y, GROUND_ROW, BASE_X, COLS } from '../config.js';
 import { T, TD, isMineable } from '../data/tiles.js';
 import { DYNAMITE, MEDKIT, RECALL, ITEMS, BUILDS, THREAT, SONAR, HUSH, SHIELD, AUGER, ADREN, BELL } from '../data/balance.js';
 import { addNoise } from './threat.js';
+import { bossLock } from './seals.js';
 import { G } from './state.js';
 import { tileAt } from '../world/map.js';
 import { placeBuild } from './economy.js';
@@ -32,7 +33,7 @@ export function itemUsable(k, p = G.player) {
   switch (k) {
     case 'dynamite': return under && G.bombs.length < 3;
     case 'medkit': return p.hp < p.maxHp;
-    case 'recall': return under && !p.carrying && !p.ride && p.recallT <= 0;
+    case 'recall': return under && !p.carrying && !p.ride && p.recallT <= 0 && !bossLock();
     case 'sonar': return under;
     case 'can': return under;
     case 'zil': return under && G.bells.length < 2;
@@ -46,7 +47,7 @@ export function itemUsable(k, p = G.player) {
 export function useItem(k, p = G.player) {
   const local = isLocal(p);
   if (!itemUsable(k, p)) {
-    if (local) { sfx.deny(); if (k === 'recall' && p.carrying) emit('toast', { text: 'Kalp Kristali ışınlanamaz', icon: 'heart', bad: true }); }
+    if (local) { sfx.deny(); if (k === 'recall' && p.carrying) emit('toast', { text: 'Kalp Kristali ışınlanamaz', icon: 'heart', bad: true }); else if (k === 'recall' && bossLock()) emit('toast', { text: 'Fişek sönük: boss uyanık', icon: 'skull', bad: true }); }
     return false;
   }
   const c = Math.floor(p.x / TILE), r = Math.floor(p.y / TILE);
@@ -184,7 +185,7 @@ export function updateItems(dt) {
   // dönüş fişeği
   for (const p of G.players) {
     if (p.recallT <= 0) continue;
-    if (p.dead || p.carrying) { p.recallT = 0; continue; }
+    if (p.dead || p.carrying || bossLock()) { p.recallT = 0; continue; }
     p.recallT -= dt;
     const a = rnd() * Math.PI * 2, rr = 14 + rnd() * 8;
     particle(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr, -Math.cos(a) * rr * 4, -Math.sin(a) * rr * 4, 0.22, '#9fe8ff', 1, 1, 0);

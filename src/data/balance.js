@@ -352,6 +352,11 @@ export const ENEMIES = {
 
 // derinlik bandı (her 4 biyom) -> boss
 export const BOSS_BANDS = ['karakok', 'kavurgan', 'otegoz', 'kordesen', 'ezeli', 'aynasiz', 'kehribarAna', 'madenKalbi'];
+// Mühürler ve bekçiler: her dört biyomluk bölümün dibi mühürlü; bölümün bekçisi yenilmeden aşağı inilmez.
+// strata: mühürlü biyom konumları (bölüm sonları); zone: mührün kaç satır yukarısında bekçi uyanır; heartZone: kalbin kaç satır yukarısında.
+// rage: bu gürültünün üstünde gelene bekçi öfkeli uyanır (hasar/hız); ambush: sessiz gelenin ilk vuruşu kaç kat
+// far/hunt: kaçan madencinin peşinden kayayı yararak gelme eşiği (px) ve hızı (px/sn)
+export const SEAL = { strata: [3, 7, 11, 15, 19, 23, 27], zone: 9, heartZone: 11, omen: 2.6, rageNoise: 70, rage: { dmg: 1.2, sp: 1.15 }, ambush: 3, far: 170, hunt: 80, digMax: 6 };
 
 // Elit: Öfke seviyesinde yuvalardan şansla çıkar (can ×2.2, boyut ×1.25, altın düşürür); derinde özellik kazanır
 export const ELITE = { hp: 2.2, dmg: 1.6, scale: 1.25, gold: 3, fromWave: 3, affixAt: [6, 14, 22] };

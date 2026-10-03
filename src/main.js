@@ -24,6 +24,7 @@ import { updateBalrog } from './game/balrog.js';
 import { updateSerpent } from './game/serpent.js';
 import { updateHoard } from './game/dragon.js';
 import { updatePoseidon } from './game/poseidon.js';
+import { updateSeals } from './game/seals.js';
 import { updateCanary } from './game/canary.js';
 import { snapshotJourney } from './ui/journey.js';
 import { updatePrediction, pred } from './net/predict.js';
@@ -361,7 +362,7 @@ function step(dt) {
   updateEvents(dt);
   updateMerchant(dt);
   updateWell(dt);
-  updateCritters(); updateWonders(dt); updateLiquids(dt); updateBalrog(dt); updateSerpent(dt); updateHoard(dt); updatePoseidon(dt);
+  updateCritters(); updateWonders(dt); updateLiquids(dt); updateBalrog(dt); updateSerpent(dt); updateHoard(dt); updatePoseidon(dt); updateSeals(dt);
   updatePings(dt);
   updateOrbs(dt);
   updateDeposit(dt);

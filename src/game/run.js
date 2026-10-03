@@ -4,6 +4,7 @@ import { placeWonders } from './wonders.js';
 import { placeLiquids } from './liquids.js';
 import { placeHoard } from './dragon.js';
 import { placeTemple, dropTemple } from './poseidon.js';
+import { makeSeals, syncSeals } from './seals.js';
 import { CRITTERS } from '../data/critters.js';
 import { COLS, ROWS, TILE, GROUND_ROW, BASE_X, BASE_Y, CENTER_COL, STRATUM_ROWS, stratumOfRow, PLAY_MIN_COL, PLAY_MAX_COL } from '../config.js';
 import { PERKS, RESONANCE } from '../data/relics.js';
@@ -148,6 +149,7 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
       g.echo = { c, r };
     }
   }
+  g.seals = makeSeals(g);
   if (!tutorial) g.contracts = pickContracts(seed);
   // yüzeyi baştan açığa çıkar
   for (let r = 0; r < GROUND_ROW + 1; r++) for (let c = 0; c < COLS; c++) g.rev[r * COLS + c] = 1;
@@ -271,6 +273,7 @@ export function deserialize(d) {
   const keysOk = o => o && Array.isArray(o.keys) && o.keys.length && o.keys.every(k => typeof k === 'string') && typeof o.chest === 'string';
   if (keysOk(d.offer)) g.perkOffer = { pi: 0, keys: d.offer.keys.slice(0, 6), chest: d.offer.chest };
   if (Array.isArray(d.pend)) g.gear.pend = d.pend.filter(o => o && (o.kind === 'start' || o.kind === 'lvl' || (o.kind === 'offer' && keysOk(o)))).slice(0, 12).map(o => Object.assign({}, o, { pi: 0 }));
+  syncSeals(g);
   g.nests = scanNests(); g.nestTotal = [];
   for (const n of g.nests) { const s = stratumOfRow(n.r); g.nestTotal[s] = (g.nestTotal[s] | 0) + 1; }
   for (const s of g.beacons) g.nestTotal[s] = Math.max(g.nestTotal[s] | 0, 1);

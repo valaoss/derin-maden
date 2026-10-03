@@ -20,7 +20,7 @@ for (const k in ORE_RAMP) ramp('o_' + k, ORE_RAMP[k]);
 ramp('grass', [P.ink, P.grass0, P.grass1, P.grass2]);
 const MAT_SEED = { dirt: 11, stone: 23, hard: 37, dense: 53, bedrock: 71, found: 83, vault: 97, moss: 101, ice: 113, bone: 127, magma: 131, obsidian: 139, void: 149,
   quick: 151, storm: 157, gilt: 163, gate: 167, fungus: 173, glass: 179, titan: 181, chrono: 191, blood: 193, echo: 197, genesis: 199,
-  mute: 211, tide: 223, flesh: 227, mirror: 229, amber: 233, magnet: 239, hunger: 241, rootwood: 251, sea: 257, zero: 263, falls: 269 };
+  mute: 211, tide: 223, flesh: 227, mirror: 229, amber: 233, magnet: 239, hunger: 241, rootwood: 251, sea: 257, zero: 263, falls: 269, seal: 271 };
 const CLEAR = [0, 0, 0], EMBER = [[120, 30, 10], [220, 90, 30], [255, 170, 60], [255, 240, 180]];
 const gemCache = new Map();
 function gemRamp(gem) { let r = gemCache.get(gem); if (!r) { r = gem.map(hexToRgb); gemCache.set(gem, r); } return r; }
@@ -86,6 +86,17 @@ function baseShade(mat, wx, wy, s) {
       if (d2 < 9) return 0;
       if (d2 < 13) return 3;
       if (((lx + ly) & 3) === 0) return 3;
+      return h < 0.05 ? 1 : 2;
+    }
+    case 'seal': {
+      // mühür: iri kesme taş blokları, ortasında oyulmuş halka rün; "buradan geçilmez" okunur
+      const lx = ((wx % 16) + 16) % 16, ly = ((wy % 16) + 16) % 16;
+      if (ly === 0 || lx === 0) return 0;
+      if (ly === 15 || lx === 15) return 1;
+      const cx = lx - 7.5, cy = ly - 7.5, d2 = cx * cx + cy * cy;
+      if (d2 > 16 && d2 < 26) return 4;
+      if (d2 < 3) return 3;
+      if (ly === 1) return 3;
       return h < 0.05 ? 1 : 2;
     }
     case 'found': {
@@ -385,7 +396,7 @@ function paintTile(img, c, r, oy) {
   const mN = !eN ? nm(c, r - 1) : null, mS = !eS ? nm(c, r + 1) : null;
   const mW = !eW && c > 0 ? nm(c - 1, r) : null, mE = !eE && c < COLS - 1 ? nm(c + 1, r) : null;
   // çelik temel düz kenarlı kalır (insan yapımı)
-  const blend = m => m && m !== mat0 && m !== 'found' && mat0 !== 'found' && m !== 'vault' && mat0 !== 'vault' && m !== 'gate' && mat0 !== 'gate';
+  const blend = m => m && m !== mat0 && m !== 'found' && mat0 !== 'found' && m !== 'vault' && mat0 !== 'vault' && m !== 'gate' && mat0 !== 'gate' && m !== 'seal' && mat0 !== 'seal';
   const dN = blend(mN), dS = blend(mS), dW = blend(mW), dE = blend(mE);
   const grass = eN && r === GROUND_ROW && mat0 === 'dirt';
   const ember = TD[t].ember, gem = TD[t].gem ? gemRamp(TD[t].gem) : null;

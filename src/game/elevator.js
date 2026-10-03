@@ -6,6 +6,7 @@ import { ELEVATOR } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, setTile } from '../world/map.js';
 import { addNoise } from './threat.js';
+import { bossLock } from './seals.js';
 import { isLocal, hear } from './run.js';
 import { dust, sparks } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
@@ -23,7 +24,7 @@ export function openStation(s) {
   for (let r = GROUND_ROW; r <= r1; r++) {
     const t = tileAt(CENTER_COL, r), d = TD[t];
     // su tapınağının kırılmaz zemini ve giderleri delinmez (boss salonu açılmasın; kabin içinden geçer)
-    if (t === T.AIR || t === T.FOUNDATION || t === T.BEDROCK || d.chest || d.heart || d.nest || d.relic || d.sink || (G.temple && r === G.temple.r1 + 1)) continue;
+    if (t === T.AIR || t === T.FOUNDATION || t === T.BEDROCK || d.chest || d.heart || d.nest || d.relic || d.sink || d.seal || (G.temple && r === G.temple.r1 + 1)) continue;
     setTile(CENTER_COL, r, T.AIR);
   }
   emit('station', s);
@@ -47,6 +48,8 @@ export function destinations(p) {
 export function callElevator(p, to) {
   if (p.dead || p.ride || !atShaft(p)) return false;
   if (to !== -1 && !G.stations.includes(to)) return false;
+  // boss uyanıkken asansör kilitli: kaçış yok
+  if (bossLock()) { if (isLocal(p)) { sfx.deny(); emit('toast', { text: 'Asansör kilitli: boss uyanık', icon: 'skull', bad: true }); } return false; }
   const y = stationY(to);
   if (Math.abs(y - p.y) <= 6) return false;
   // binme: kabine yürü, kolu indir (kısa), sonra yola çık

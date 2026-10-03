@@ -3,7 +3,7 @@
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y, PLAY_MIN_COL, PLAY_MAX_COL, stratumOfRow } from '../config.js';
 import { T, TD } from '../data/tiles.js';
-import { BOSS_BANDS, BALROG, BOSS_MELEE } from '../data/balance.js';
+import { BOSS_BANDS, BALROG, BOSS_MELEE, SEAL } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, solidAt, setTile, matOf } from '../world/map.js';
 import { breakTile, damagePlayer, blindPlayer, pullPlayer, webPlayer, scarePlayer } from './player.js';
@@ -25,6 +25,8 @@ export const live = () => G.players.filter(q => !q.dead);
 export function bossBusy(self) {
   if (G.enemies.some(e => e.d.boss && !e.dead)) return true;
   for (const S of [G.balrog, G.serpent, G.temple, G.hoard]) if (S && S !== self && (S.st === 'dark' || S.st === 'omen' || S.st === 'wake')) return true;
+  // mühür bekçisi uyanıyor
+  if ((G.seals || []).some(S => S.st === 'omen')) return true;
   return false;
 }
 export const TAU = Math.PI * 2;
@@ -667,6 +669,30 @@ export function mirrored(e) {
   return true;
 }
 
+// kendi arenası/yolu olan bosslar kovalamaz (yığınındaki ejder, duvardan duvara geçen yılan, tapınaktaki Poseidon)
+const NO_HUNT = { ejder: 1, dunyaYilani: 1, poseidon: 1 };
+function hunt(e, dt, p, dp) {
+  const s = SEAL.hunt * dt, ux = (p.x - e.x) / dp, uy = (p.y - e.y) / dp, R = Math.max(6, Math.min(12, e.r * 0.7));
+  const clear = (x, y) => {
+    let ok = true;
+    for (let r = Math.floor((y - R) / TILE); r <= Math.floor((y + R) / TILE); r++) for (let c = Math.floor((x - R) / TILE); c <= Math.floor((x + R) / TILE); c++) {
+      if (!solidAt(c, r)) continue;
+      if (breakable(c, r)) { breakTile(c, r, null); if (rnd() < 0.5) debris(c * TILE + 8, r * TILE + 8, 'stone', 3); } else ok = false;
+    }
+    return ok;
+  };
+  const lim = x => Math.max(PLAY_MIN_COL * TILE + 8, Math.min(PLAY_MAX_COL * TILE + 8, x));
+  const nx = lim(e.x + ux * s), ny = Math.max(GROUND_Y + 8, e.y + uy * s);
+  if (clear(nx, ny)) { e.x = nx; e.y = ny; }
+  else if (clear(nx, e.y)) e.x = nx;
+  else if (clear(e.x, ny)) e.y = ny;
+  e.face = ux >= 0 ? 1 : -1; e.wind = 0;
+  if (rnd() < dt * 14) dust(e.x + (rnd() - 0.5) * 12, e.y + 4, 1, 'rgba(160,140,130,0.5)');
+  if (rnd() < dt * 2) { sfx.burrow(); shake(0.08); }
+  if (!e.hunting && !e.huntSaid) { e.huntSaid = true; emit('toast', { text: e.d.name + ' peşinde: kayayı yararak geliyor', icon: 'skull', bad: true }); }
+  e.hunting = true;
+}
+
 // true dönerse bu karede yürümez/saldırmaz
 export function updateBoss(e, dt, p, dp) {
   if (!e.bs) initBoss(e);
@@ -691,6 +717,9 @@ export function updateBoss(e, dt, p, dp) {
   const rate = B.phase === 2 ? 1.35 : 1;
   for (const k in B.cd) B.cd[k] -= dt * rate;
   if (!p || p.dead) return false;
+  // kaçan madencinin peşinden kayayı yararak gelir: kazıp kaçmak işe yaramaz
+  if (dp > SEAL.far && !e.under && !NO_HUNT[e.type] && p.y >= GROUND_Y) { hunt(e, dt, p, dp); return true; }
+  e.hunting = false;
   if (!(B.cd.melee > 0) && !e.under) { const M = meleeOf(e, B); if (M && dp < e.r + M.range && (dp < e.r + 4 || losClear(e.x, e.y, p.x, p.y))) { startMelee(e, p, B, M); return true; } }
   const k = K.rot ? nextSkill(e, p, dp, B, K) : K.choose(e, p, dp, B);
   // kendi yürüyüşü olan kit (yere basan dev) hareketi üstlenir

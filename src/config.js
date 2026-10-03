@@ -27,4 +27,6 @@ export function stratumOfRow(r) {
   if (r < GROUND_ROW) return -1;
   return Math.max(0, Math.min(STRATA_COUNT - 1, Math.floor((r - GROUND_ROW) / STRATUM_ROWS)));
 }
+// biyomun son satırı (bölüm sonlarında mühür buraya oturur)
+export const sealRowOf = s => GROUND_ROW + (s + 1) * STRATUM_ROWS - 1;
 export function depthOfY(y) { return Math.max(0, Math.floor(y / TILE) - GROUND_ROW); }

@@ -142,6 +142,9 @@ export function initUI(root, h) {
     const b = STRATA[biomeOf(s)];
     banner((b.legend ? 'EFSANEVİ BİYOM' : 'BİYOM ' + (s + 1)) + ' · ' + s * STRATUM_ROWS + 'M', b.name.toUpperCase(), b.legend ? 'gold' : false);
     if (b.desc && once('b' + biomeOf(s))) setTimeout(() => toast(b.desc, 'depth'), 2600);
+    // bölüm sonu: dibi mühürlü
+    const S = (G.seals || []).find(o => o.s === s && o.st === 'wait' && !o.temple && !o.heart);
+    if (S) { const B = ENEMIES[S.by]; setTimeout(() => toast(`Bu biyomun dibi mühürlü: ${B ? B.name : 'bekçi'} yenilmeden aşağı inilmez`, 'skull', true), 5200); }
   });
   on('modChanged', () => { if (sheetOpen()) refreshSheet(); refreshHUD(true); });
   on('gearChanged', () => { if (sheetOpen()) refreshSheet(); refreshHUD(true); });
@@ -167,6 +170,10 @@ export function initUI(root, h) {
   on('bossCalm', k => banner((ENEMIES[k] ? up(ENEMIES[k].name) : 'DERİNLİK') + ' YENİDEN UYUDU', 'MADEN SUSTU'));
   on('bossSpawn', k => { const B = ENEMIES[k]; if (B && once(k)) setTimeout(() => toast(B.lore, 'skull', true), 2600); });
   on('balrog', k => { if (k === 'dark') toast('Derinden boğuk gümbürtüler geliyor… ışık sönüyor', 'skull', true); else if (k === 'eyes') toast('Gölgede bir şey sana bakıyor', 'skull', true); });
+  // mühür bekçisi: gürültüden bağımsız gelir; gürültülü geleni öfkeli bulur, sessiz gelen pusu kurar
+  on('keeperWarn', d => { const B = ENEMIES[d.type]; banner((B ? up(B.name) : 'BEKÇİ') + ' UYANIYOR', d.heart ? 'KALBİN BEKÇİSİ' : 'MÜHRÜN BEKÇİSİ', true);
+    setTimeout(() => toast(d.loud ? 'Gürültün onu öfkelendirdi: daha sert vuruyor' : 'Sessiz geldin: ilk vuruşun pusu (üç kat)', d.loud ? 'skull' : 'hush', d.loud), 2200); });
+  on('sealBroken', d => setTimeout(() => banner('MÜHÜR KIRILDI', d.heart ? 'KALP KRİSTALİ AÇIKTA' : d.temple ? 'TAPINAĞIN YANLARI AÇILDI' : 'YOL AŞAĞI AÇIK', 'gold'), 1800));
   on('poseidon', k => { if (k === 'omen') toast('Salonun ortasında su kabarıyor… denizin sahibi geliyor', 'skull', true); });
   on('serpent', k => { if (k === 'omen') toast('Deniz sustu… duvarların ardında dev bir şey kıpırdıyor', 'skull', true); else if (k === 'crack') toast('Duvar çatlıyor!', 'skull', true); });
   on('hoard', k => {

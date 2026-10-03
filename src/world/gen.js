@@ -1,8 +1,8 @@
 // Katmanlı dünya üretimi (v6: 30 biyom): malzeme kümeleri, cevher damarları, mağaralar, biyom özellikleri, sandıklar, çekirdek odası.
 // Biyom sırası tohuma göre karışır: Toprak hep ilk, Yaratılış Çekirdeği 20., Sıfır Noktası hep son; aradakiler zorluk bantları içinde yer değiştirir.
-import { COLS, ROWS, GROUND_ROW, STRATUM_ROWS, STRATA_COUNT, PLAY_MIN_COL, PLAY_MAX_COL, CENTER_COL } from '../config.js';
+import { COLS, ROWS, GROUND_ROW, STRATUM_ROWS, STRATA_COUNT, PLAY_MIN_COL, PLAY_MAX_COL, CENTER_COL, sealRowOf } from '../config.js';
 import { T, TD, HOST_TILE, isPlain, DEEP_TILE, CHEST_TILE } from '../data/tiles.js';
-import { DEEP_ORES, chestWeights } from '../data/balance.js';
+import { DEEP_ORES, chestWeights, SEAL } from '../data/balance.js';
 import { STRATA } from '../data/palette.js';
 import { mulberry32, fbm, vnoise } from '../core/util.js';
 
@@ -357,6 +357,11 @@ export function generate(seed, opts = {}) {
     set(tc, GROUND_ROW + 3, T.IRON);
     set(tc, GROUND_ROW + 5, T.IRON);
     set(tc + 1, GROUND_ROW + 5, T.IRON);
+  }
+  // mühürler: bölüm sonlarının son satırı kırılmaz; Kalp Kristali mühür taşından bir kafeste (öğreticide yok)
+  if (!opts.tutorial) {
+    for (const s of SEAL.strata) { const r = sealRowOf(s); for (let c = PLAY_MIN_COL; c <= PLAY_MAX_COL; c++) set(c, r, T.SEAL); }
+    for (let r = hr - 1; r <= hr + 1; r++) for (let c = CENTER_COL - 1; c <= CENTER_COL + 1; c++) if (r !== hr || c !== CENTER_COL) set(c, r, T.SEAL);
   }
   // gömülü cevher ve yuva: değerli cevherin üçte biri ve tüm yuvalar kaya gibi görünür, yanından kazınca ya da çok yaklaşınca belirir
   const buried = new Uint8Array(COLS * ROWS), HIDE = ['cobalt', 'crystal', 'gold', ...DEEP_ORES];
