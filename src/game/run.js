@@ -9,7 +9,7 @@ import { makeLairs, lairsDone, loadLairs } from './lairs.js';
 import { CRITTERS } from '../data/critters.js';
 import { COLS, ROWS, TILE, GROUND_ROW, BASE_X, BASE_Y, CENTER_COL, STRATUM_ROWS, stratumOfRow, PLAY_MIN_COL, PLAY_MAX_COL } from '../config.js';
 import { PERKS, RESONANCE } from '../data/relics.js';
-import { MERCHANT, SHROOM, UPGRADES, PLAYER, BUILDS, ITEMS, ITEM_KEYS, SCHEMATICS, CONTRACTS, kademeMods, PICK_TIERS, RES_KEYS, MAT_KEYS, FORGE, FORGE_KEYS, MASTER_KEYS, PICK_TYPES, WEAPONS, EVOLVED, CARDS, CARD_KEYS, MODS, ADREN, TOOL_UP, BUILD_KEYS } from '../data/balance.js';
+import { MERCHANT, SHROOM, UPGRADES, PLAYER, BUILDS, ITEMS, ITEM_KEYS, SCHEMATICS, CONTRACTS, kademeMods, PICK_TIERS, RES_KEYS, MAT_KEYS, FORGE, FORGE_KEYS, OIL, MASTER_KEYS, PICK_TYPES, WEAPONS, EVOLVED, CARDS, CARD_KEYS, MODS, ADREN, TOOL_UP, BUILD_KEYS } from '../data/balance.js';
 import { T, TD } from '../data/tiles.js';
 import { makeThreat, scanNests } from './threat.js';
 import { makeEvents } from './events.js';
@@ -73,7 +73,7 @@ export function makePlayer(i, helm = i, name = '') {
 
 // meta: sefer boyunca sabit meta anlık görüntüsü (çok oyunculuda ev sahibininki)
 export function metaSnapshot(m = App.meta) {
-  return { lv: Object.assign({}, m.lv || {}), schem: (m.schem || []).slice(), relics: (m.relics || []).slice(), maxStratum: m.maxStratum | 0, beacons: (m.beacons || []).slice(), pets: (m.pets || []).slice(), echo: m.echo ? Object.assign({}, m.echo) : null };
+  return { lv: Object.assign({}, m.lv || {}), schem: (m.schem || []).slice(), relics: (m.relics || []).slice(), maxStratum: m.maxStratum | 0, beacons: (m.beacons || []).slice(), pets: (m.pets || []).slice(), rescued: (m.rescued || []).slice(), echo: m.echo ? Object.assign({}, m.echo) : null };
 }
 
 export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kademe = 0, daily = null, mp = false, meta = null, localIdx = 0, helms = null, names = null, startStratum = 0, start = true } = {}) {
@@ -107,7 +107,7 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
     cam: { x: 0, y: 0, px: 0, py: 0, trauma: 0, kx: 0, ky: 0 },
     combo: { n: 0, t: 0 },
     deposit: [], bagFullT: 0, flashWhite: 0,
-    paused: false, over: false,
+    paused: false, over: false, oil: 0, dark: false,
   };
   g.store.iron = 8 * (ml.erzak | 0);
   g.store.gold = 4 * (ml.altinKese | 0) + ((gm.relics || []).includes('tac') ? 12 : 0);
@@ -121,6 +121,10 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
   seedRng(seed);
   recompute(true);
   if (ml.hazirTaret) g.items.direk = 1;
+  // fener dolu, kemerde bir şişe; kurtarılan madencilerin katkısı
+  const res = gm.rescued || [];
+  g.oil = (OIL.full + OIL.perLamp * g.lvl.lamp) * (res.includes('ece') ? OIL.ece : 1);
+  if (!tutorial) { g.items.yag = 1 + (res.includes('doruk') ? 1 : 0); if (res.includes('bora')) g.items.medkit = 1; if (res.includes('tamer')) g.store.kabuk = 6; }
   // her madenci sefere bir başlangıç eklentisi seçerek girer
   if (!tutorial && start) for (const p of g.players) g.gear.pend.push({ pi: p.i, kind: 'start' });
   Object.assign(g, tutorial ? { lq: null, lk: null, springs: [], lqT: 0 } : placeLiquids(g, seed));
@@ -205,7 +209,7 @@ export function recompute(fill = false) {
 export function pickDmg(p = G.player) { return (forgeLv('p') ? FORGE.p.dmg : 1) * PICK_TIERS[G.lvl.drill].dmg * pickType(p).dmg * UPGRADES.sharp.mult[G.lvl.sharp] * (hasRelic('kivilcim') ? 2 : 1) * (G.lvl.yildizCekirdek ? 1.4 : 1) * (hasRelic('sifirTasi') ? 1.4 : 1) * (resonance('toprak') ? 1.5 : 1) * (hasPerk('camTop') ? 1.8 : 1) * (hasPerk('acKazma') ? 2.2 : 1) * (p && p.shroom && p.shroom.k === 'dev' ? SHROOM.bigPick : 1); }
 export function pickInterval(p = G.player) { return PICK_TIERS[G.lvl.drill].interval * pickType(p).int * UPGRADES.swing.mult[G.lvl.swing]; }
 // kazı/kırma gürültü çarpanı: Sessiz Adım, Gölge rezonansı, Gürültü Tanrısı
-export function perkNoise() { return (1 - pv('sessizAdim')) * (resonance('golge') ? 0.65 : 1) * (hasPerk('gurultuTanrisi') ? 1.6 : 1); }
+export function perkNoise() { return (1 - pv('sessizAdim')) * (resonance('golge') ? 0.65 : 1) * (hasPerk('gurultuTanrisi') ? 1.6 : 1) * (G.meta.rescued && G.meta.rescued.includes('ilkim') ? 0.9 : 1); }
 export function hasMod(k) { return G.gear.owned.includes(k); }
 
 export function lampTiles() {
@@ -213,6 +217,8 @@ export function lampTiles() {
   // Işık Yiyen yakındayken ya da Kavurgan'ın kül bulutunda fener söner
   const lp = G.player, eaten = lp && G.enemies.some(e => !e.dead && e.d.eatLight && Math.hypot(e.x - lp.x, e.y - lp.y) < e.d.eatLight) || lp && lp.darkT > G.time;
   if (eaten) return 2;
+  // fener yağı: bitince tek blok; azalınca titrer
+  if (!G.tutorial) { if (G.oil <= 0) return OIL.dark; const m = (OIL.full + OIL.perLamp * G.lvl.lamp) * OIL.low; if (G.oil < m) return Math.max(2.5, r * (0.45 + 0.4 * G.oil / m + 0.08 * Math.sin(G.time * 11))); }
   return G.evt && G.evt.darkT > 0 && !G.lvl.inciFener ? Math.max(2, Math.ceil(r / 2)) : r;
 }
 export function bagCount(p = G.player) { let n = 0; for (const k of RES_KEYS) n += p.bag[k] || 0; return n; }
@@ -236,7 +242,7 @@ export function serialize() {
     offer: g.perkOffer, pend: g.gear.pend, beacons: g.beacons, stations: g.stations, selfRevive: g.selfRevive, startStratum: g.startStratum,
     stats: g.stats, maxStratum: g.maxStratum, tutorial: g.tutorial,
     player: { x: g.player.x, y: g.player.y, hp: g.player.hp, carrying: g.player.carrying, wpn: g.player.wpn, pk: g.player.pk, pet: g.player.pet },
-    satchels: g.satchels, journey: g.journey,
+    satchels: g.satchels, journey: g.journey, oil: g.oil,
   };
 }
 export function deserialize(d) {
@@ -290,6 +296,8 @@ export function deserialize(d) {
   g.player.hp = Math.max(1, Math.min(g.player.maxHp, d.player.hp));
   g.satchels = d.satchels || (d.satchel ? [d.satchel] : []);
   if (d.journey && d.journey.p) g.journey = d.journey;
+  if (d.oil !== undefined) g.oil = Math.max(0, +d.oil || 0);
+  g.cages = null;
   if (d.rng) g.rng = d.rng;
   g.mapVersion++;
   return g;

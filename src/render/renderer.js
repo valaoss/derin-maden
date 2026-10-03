@@ -4,7 +4,7 @@ import { COLS, ROWS, TILE, GROUND_Y, GROUND_ROW, WORLD_W, WORLD_H, BASE_X, CENTE
 import { T, TD } from '../data/tiles.js';
 import { P, RES_COL, ORE_RAMP, STRATA, MAT_RAMP, TIDE_COL } from '../data/palette.js';
 import { tideLevel } from '../game/biomes.js';
-import { PICK_TIERS, AFFIX, ELEVATOR, DEEP_ORES, MERCHANT, BUILDS } from '../data/balance.js';
+import { PICK_TIERS, AFFIX, ELEVATOR, DEEP_ORES, MERCHANT, BUILDS, MINERS } from '../data/balance.js';
 import { PERKS, SOY } from '../data/relics.js';
 import { WELL } from '../data/balance.js';
 import { WELL_X } from '../game/well.js';
@@ -723,7 +723,23 @@ function drawBase() {
 
 // Kandilli'nin kandilleri: yenilen her bekçi kampa kalıcı bir kandil daha yakar
 const LAMP_X = [20, 252, 36, 236, 52, 266, 6, 92];
+// kurtarılan madenciler kampta bekler
+const MINER_X = [58, 67, 76, 85, 101];
+function drawRescued() {
+  const got = (App.meta && App.meta.rescued) || [];
+  MINERS.forEach((m, i) => {
+    if (!got.includes(m.k)) return;
+    const x = MINER_X[i], y = GROUND_Y - (Math.sin(G.time * 2 + i * 2.1) > 0.92 ? 1 : 0);
+    ctx.fillStyle = P.ink; ctx.fillRect(x - 3, y - 10, 7, 10);
+    ctx.fillStyle = m.col; ctx.fillRect(x - 2, y - 5, 5, 4);
+    ctx.fillStyle = '#e8b890'; ctx.fillRect(x - 1, y - 7, 3, 2);
+    ctx.fillStyle = P.helm; ctx.fillRect(x - 2, y - 9, 5, 2);
+    ctx.fillStyle = '#fff4c0'; ctx.fillRect(x, y - 9, 1, 1);
+    ctx.fillStyle = '#3a2e3a'; ctx.fillRect(x - 2, y - 1, 2, 1); ctx.fillRect(x + 1, y - 1, 2, 1);
+  });
+}
 function drawTownLamps() {
+  drawRescued();
   const n = Math.min(LAMP_X.length, ((App.meta && App.meta.keepers) || []).length);
   for (let i = 0; i < n; i++) {
     const x = LAMP_X[i], y = GROUND_Y, f = 0.85 + 0.15 * Math.sin(G.time * 5 + i * 1.7);

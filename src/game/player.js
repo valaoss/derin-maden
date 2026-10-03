@@ -3,7 +3,7 @@
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y, GROUND_ROW, PLAYER_MIN_Y, WORLD_W, BASE_X, BASE_Y, stratumOfRow, depthOfY } from '../config.js';
 import { T, TD, isMineable, isPlain } from '../data/tiles.js';
-import { PLAYER, UPGRADES, PERKS, RES_KEYS, MATS, FORGE, PICK_TIERS, RELIC_OF_BIOME, DEEP_ORES, DIG_DEPTH, ADREN, KEHRIBAR, SHROOM, LIQUID } from '../data/balance.js';
+import { PLAYER, UPGRADES, PERKS, RES_KEYS, MATS, FORGE, OIL, PICK_TIERS, RELIC_OF_BIOME, DEEP_ORES, DIG_DEPTH, ADREN, KEHRIBAR, SHROOM, LIQUID } from '../data/balance.js';
 import { RES_COL } from '../data/palette.js';
 import { G, App, biomeOf } from './state.js';
 import { tileAt, solidAt, setTile, damageTile, matOf } from '../world/map.js';
@@ -15,6 +15,7 @@ import { openChest, itemMax } from './chests.js';
 import { onBreak, onSpecial, inWater } from './biomes.js';
 import { spawnGas } from './hazards.js';
 import { addNoise, nestDestroyed } from './threat.js';
+import { openCage } from './lantern.js';
 import { openStation, updateRide } from './elevator.js';
 import { THREAT } from '../data/balance.js';
 import { debris, dust, sparks, shake, kick, hitstop, flashLight, ring, particle } from './fx.js';
@@ -293,6 +294,7 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0, machine = false) {
   const x = c * TILE + 8, y = r * TILE + 8;
   if (d.gas) spawnGas(x, y);
   if (d.ember) { sparks(x, y, '#ff9a4a', 10, 90); flashLight(x, y, 4, 0.3); if (byPlayer && Math.hypot(byPlayer.x - x, byPlayer.y - y) < 22) { byPlayer.burnT = 2; damagePlayer(byPlayer, HAZARD.emberBurn, x, y); } }
+  if (d.cage) openCage(c, r, byPlayer);
   if (!byPlayer) { debris(x, y, mat, 5, 0.7); return; }
   const p = byPlayer, near = hear(p, x, y), local = isLocal(p), feel = !machine && local && Math.hypot(p.x - x, p.y - y) < 170; // uzaktaki sondaj sarsmasın
   G.stats.dug++;
@@ -545,6 +547,8 @@ export function damagePlayer(p, amount, sx, sy, chip = false) {
     return;
   }
   if (G.lvl.elmasDeri) amount *= 0.75;
+  // karanlık: fener sönükken yer altında her darbe daha sert
+  if (G.dark && p.y >= GROUND_Y) amount *= OIL.dmg;
   if (p.shroom && p.shroom.k === 'mini') amount *= SHROOM.miniDmg;
   // Aynalı Taç: hasarın yarısı en yakın saldırana yansır
   if (hasRelic('aynaTac')) { let best = null, bd = 40; for (const e of G.enemies) { if (e.dead || e.d.boss) continue; const d = Math.hypot(e.x - sx, e.y - sy); if (d < bd) { bd = d; best = e; } } if (best) { damageEnemyExt(best, amount * 0.5, 0, 0, 0.3); sparks(best.x, best.y, '#c8d0ff', 5, 60); } }

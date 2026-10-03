@@ -42,6 +42,19 @@ export const FORGE = {
     ['İkinci Deri', 'Canın %30’un altına inince 6 sn’lik kalkan açılır (60 sn’de bir).']] },
 };
 export const FORGE_KEYS = ['w', 'p', 'a'];
+// Fener yağı (saniye): yer altında azalır, kampta campFill sn'de dolar; her Fener seviyesi perLamp sn ekler.
+// low: uyarı eşiği; dark: yağ bitince görüş (blok), dmg: karanlıkta alınan hasar çarpanı, noise: karanlıkta saniyede biriken gürültü
+export const OIL = { full: 240, perLamp: 30, campFill: 2, low: 0.2, dark: 1, dmg: 1.3, noise: 1.2, ece: 1.25, cageHear: 7 };
+// Mahsur madenciler (Yedinci Ekip): st konumundaki biyomda bir kafeste bekler; kurtarılan kampa döner ve kalıcı bir fayda verir
+export const MINERS = [
+  { k: 'bora',  name: 'Bora',  st: 5,  col: '#e0603a', perk: 'Sefere bir Tamir Kiti ile başlarsın.' },
+  { k: 'ece',   name: 'Ece',   st: 13, col: '#5ae08a', perk: 'Fener yağı %25 daha uzun dayanır.' },
+  { k: 'tamer', name: 'Tamer', st: 17, col: '#6fd0ff', perk: 'Sefere 6 Kabuk ile başlarsın.' },
+  { k: 'doruk', name: 'Doruk', st: 22, col: '#e070ff', perk: 'Sefere fazladan bir Fener Yağı ile başlarsın.' },
+  { k: 'ilkim', name: 'İlkim', st: 25, col: '#ffd24a', perk: 'Kazı gürültüsü %10 azalır.' },
+];
+// elit geldiğinde kuşatma: dört yandan birer (derinde ikişer) yaratık sızar; cd: iki kuşatma arası en az süre
+export const SURROUND = { cd: 20, dist: 5, deep: 12 };
 
 export const PLAYER = {
   speed: 62, hp: 100, hitW: 8, hitH: 11, iframes: 0.55,
@@ -254,11 +267,12 @@ export const ITEMS = {
   zil:       { name: 'Yem Zili', icon: 'bell', cost: { iron: 5, water: 2 }, max: 3, desc: 'Fırlatırsın; düştüğü yerde 5 sn çalar, sesini duyan düşmanlar seni bırakıp ona koşar. Sonunda patlar.' },
   kalkan:    { name: 'Kalkan Hücresi', icon: 'shield', cost: { cobalt: 3, water: 3 }, max: 3, desc: '12 sn boyunca gelen 80 hasarı emer.' },
   burgu:     { name: 'Burgu Şarjı', icon: 'auger', cost: { iron: 6, gold: 1 }, max: 3, desc: 'Altındaki 8 bloğu anında deler; sandığa, kalbe ve kapıya dokunmaz.' },
+  yag:       { name: 'Fener Yağı', icon: 'lamp', cost: { water: 3, iron: 2 }, max: 3, desc: 'Feneri doldurur. Yağ biterken kemerdeki şişe kendiliğinden açılır; şişe de yoksa karanlıkta kalırsın.' },
   adren:     { name: 'Adrenalin', icon: 'adren', cost: { crystal: 2, gold: 2 }, max: 2, schematic: true, desc: '8 sn: %40 hızlı koşarsın, kazman ve silahın iki kat vurur.' },
 };
 // aletler de kemer eşyasıdır: üret, durduğun yere kur
 for (const k of BUILD_KEYS) ITEMS[k] = { name: BUILDS[k].name, icon: BUILDS[k].icon, cost: BUILDS[k].cost, scale: BUILDS[k].scale, max: BUILDS[k].max, build: true, schematic: !!BUILDS[k].schematic, desc: BUILDS[k].desc + (BUILDS[k].once ? ' Kemerden kur.' : ' Kemerden kur, dokunup geri al.') };
-export const ITEM_KEYS = ['dynamite', 'medkit', 'kalkan', 'sonar', 'can', 'zil', 'burgu', 'recall', 'adren', ...BUILD_KEYS];
+export const ITEM_KEYS = ['yag', 'dynamite', 'medkit', 'kalkan', 'sonar', 'can', 'zil', 'burgu', 'recall', 'adren', ...BUILD_KEYS];
 // üretim fiyatı ulaşılan derinlikle artar (biyom başına +%8): derinde de değerli kalır
 export const ITEM_SCALE = 0.08;
 // Yem Zili: range kadar uçar (ya da duvara çarpar), ring sn çalar; lure içindeki ve zili gören düşmanlar ona koşar. Patlama: dmg ya da azami canın frac'i (boss: dmg)

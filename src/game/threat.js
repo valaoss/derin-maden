@@ -6,7 +6,7 @@
 import { rnd } from '../core/rng.js';
 import { TILE, COLS, ROWS, GROUND_ROW, GROUND_Y, PLAY_MIN_COL, PLAY_MAX_COL, stratumOfRow } from '../config.js';
 import { T, TD } from '../data/tiles.js';
-import { THREAT, ENEMIES, WAVES, DIRECTOR } from '../data/balance.js';
+import { THREAT, ENEMIES, WAVES, DIRECTOR, SURROUND } from '../data/balance.js';
 import { G, biomeOf } from './state.js';
 import { STRATA } from '../data/palette.js';
 import { tileAt, setTile } from '../world/map.js';
@@ -103,7 +103,7 @@ function exitCell(n, p) {
   for (const [dc, dr] of dirs) if (tileAt(n.c + dc, n.r + dr) === T.AIR) return { c: n.c + dc, r: n.r + dr };
   for (const [dc, dr] of dirs) {
     const t = tileAt(n.c + dc, n.r + dr), d = TD[t];
-    if (n.r + dr < GROUND_ROW || !d.solid || d.unbreakable || d.chest || d.heart || d.nest || d.relic) continue;
+    if (n.r + dr < GROUND_ROW || !d.solid || d.unbreakable || d.chest || d.heart || d.nest || d.relic || d.cage) continue;
     setTile(n.c + dc, n.r + dr, T.AIR); debris((n.c + dc) * TILE + 8, (n.r + dr) * TILE + 8, 'stone', 8);
     return { c: n.c + dc, r: n.r + dr };
   }
@@ -113,7 +113,7 @@ function exitCell(n, p) {
 function emerge(type, x, y, lv, i, sid) {
   const e = spawnEnemy(type, x, y, lv);
   e.emergeT = 0.8 + i * 0.35; e.sq = sid;
-  if (lv >= 3 && rnd() < THREAT.eliteChance && !e.d.small && !e.d.timid) makeElite(e);
+  if (lv >= 3 && rnd() < THREAT.eliteChance && !e.d.small && !e.d.timid) { makeElite(e); surround(e, lv, sid); }
   // sürü türü: yanında birkaç kardeşiyle çıkar (hücrenin içinde, dörderli sıralar)
   for (let k = 1; k < (e.d.pack || 0); k++) { const o = spawnEnemy(type, x + ((k % 4) - 1.5) * 3, y + ((k >> 2) - 0.5) * 3, lv); o.emergeT = e.emergeT + k * 0.12; o.sq = sid; }
   return e;
@@ -135,7 +135,7 @@ function seepCell(p) {
     const c = pc + Math.round((rnd() - 0.5) * 12), r = pr + 2 + Math.floor(rnd() * 6);
     if (c < PLAY_MIN_COL || c > PLAY_MAX_COL || r < GROUND_ROW + 2 || r >= ROWS - 2) continue;
     const d = TD[tileAt(c, r)];
-    if (d.unbreakable || d.chest || d.heart || d.nest || d.relic) continue;
+    if (d.unbreakable || d.chest || d.heart || d.nest || d.relic || d.cage) continue;
     return { c, r };
   }
   return null;
@@ -143,7 +143,7 @@ function seepCell(p) {
 function seep(p, st, lv, types = [pickType(st, lv)], sid = 0, cell = seepCell(p)) {
   if (!cell) return false;
   const { c, r } = cell, d = TD[tileAt(c, r)];
-  if (d.unbreakable || d.chest || d.heart || d.nest || d.relic) return false;
+  if (d.unbreakable || d.chest || d.heart || d.nest || d.relic || d.cage) return false;
   if (d.solid) { setTile(c, r, T.AIR); debris(c * TILE + 8, r * TILE + 8, 'stone', 8); }
   tunnelTo(c, r, p);
   types.forEach((type, i) => emerge(type, c * TILE + 8, r * TILE + 8, lv, i, sid));
@@ -156,9 +156,27 @@ function tunnelTo(c, r, p) {
     if (Math.abs(pr - r) >= Math.abs(pc - c)) r += Math.sign(pr - r); else c += Math.sign(pc - c);
     const d = TD[tileAt(c, r)];
     if (!d.solid) return;
-    if (d.unbreakable || d.chest || d.heart || d.nest || d.relic || r < GROUND_ROW + 1) return;
+    if (d.unbreakable || d.chest || d.heart || d.nest || d.relic || d.cage || r < GROUND_ROW + 1) return;
     setTile(c, r, T.AIR); if (rnd() < 0.5) debris(c * TILE + 8, r * TILE + 8, 'stone', 3);
   }
+}
+
+// Elit kuşatması: elit çıktığında dört yandan da yaratık sızar (madenci tek yöne bakıp bekleyemesin)
+function surround(e, lv, sid) {
+  const th = G.threat;
+  if (th.surT > G.time || th.inSur) return;
+  const p = nearestUnder(e.x, e.y, 999); if (!p) return;
+  th.surT = G.time + SURROUND.cd; th.inSur = true;
+  const pc = Math.floor(p.x / TILE), pr = Math.floor(p.y / TILE), st = Math.max(0, stratumOfRow(pr)), D = SURROUND.dist;
+  let n = 0;
+  for (const [dc, dr] of [[-D, 0], [D, 0], [0, -D + 1], [0, D]]) {
+    const c = Math.max(PLAY_MIN_COL, Math.min(PLAY_MAX_COL, pc + dc)), r = pr + dr;
+    if (r < GROUND_ROW + 2 || r >= ROWS - 2 || (c === pc && r === pr)) continue;
+    const types = [pickType(st, lv)]; if (st >= SURROUND.deep) types.push(pickType(st, lv));
+    if (seep(p, st, Math.max(1, lv - 1), types, sid, { c, r })) n++;
+  }
+  th.inSur = false;
+  if (n) { emit('surround', n); sfx.elite(); shake(0.3); }
 }
 
 // Sürü olayı: oyuncunun altındaki kayadan birkaç yaratık sızar
@@ -188,7 +206,9 @@ function launchSquad(lv, types, at) {
 // şampiyon sürüsü: grubun birkaç üyesi birlikte elit olur
 function champions(sid, k) {
   let n = 0;
-  for (const e of G.enemies) if (!e.dead && e.sq === sid && !e.elite && !e.d.small && !e.d.timid && n < k) { makeElite(e); n++; }
+  let first = null;
+  for (const e of G.enemies) if (!e.dead && e.sq === sid && !e.elite && !e.d.small && !e.d.timid && n < k) { makeElite(e); first = first || e; n++; }
+  if (first) surround(first, G.threat.level, sid);
   if (n >= 2) { emit('toast', { text: `Şampiyon sürüsü: ${n} elit birlikte geliyor`, icon: 'elite', bad: true }); sfx.elite(); }
 }
 function squadAlive(sid) { let n = 0; for (const e of G.enemies) if (!e.dead && e.sq === sid) n++; return n; }
@@ -206,7 +226,7 @@ function spawnBoss(p) {
     const c = pc + Math.round((rnd() - 0.5) * 10), r = pr + 4 + Math.floor(rnd() * 5);
     if (c < PLAY_MIN_COL + 1 || c > PLAY_MAX_COL - 1 || r < GROUND_ROW + 3 || r >= ROWS - 3) continue;
     const d = TD[tileAt(c, r)];
-    if (d.unbreakable || d.chest || d.heart || d.nest || d.relic) continue;
+    if (d.unbreakable || d.chest || d.heart || d.nest || d.relic || d.cage) continue;
     if (d.solid) setTile(c, r, T.AIR);
     const type = G.threat.bossType || bossForY(p.y);
     const e = spawnEnemy(type, c * TILE + 8, r * TILE + 8, 4);
@@ -343,6 +363,7 @@ export function nestDestroyed(c, r, byPlayer) {
   const left = nestsInStratum(st);
   emit('nestDown', { c, r, st, left, pi: byPlayer ? byPlayer.i : -1 });
   if (left === 0 && !G.beacons.includes(st)) {
+    G.oil = 1e9; G.dark = false; G.oilWarn = false; // Fener yanınca yağ da tazelenir (updateLantern tavana çeker)
     G.beacons.push(st); G.stats.beacons++; markJourney('beacon', x, y, byPlayer ? byPlayer.i : -1);
     emit('beacon', st);
   }

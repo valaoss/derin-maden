@@ -2,7 +2,7 @@
 // Biyom sırası tohuma göre karışır: Toprak hep ilk, Yaratılış Çekirdeği 20., Sıfır Noktası hep son; aradakiler zorluk bantları içinde yer değiştirir.
 import { COLS, ROWS, GROUND_ROW, STRATUM_ROWS, STRATA_COUNT, PLAY_MIN_COL, PLAY_MAX_COL, CENTER_COL, sealRowOf } from '../config.js';
 import { T, TD, HOST_TILE, isPlain, DEEP_TILE, CHEST_TILE } from '../data/tiles.js';
-import { DEEP_ORES, chestWeights, SEAL } from '../data/balance.js';
+import { DEEP_ORES, chestWeights, SEAL, MINERS } from '../data/balance.js';
 import { STRATA } from '../data/palette.js';
 import { mulberry32, fbm, vnoise } from '../core/util.js';
 
@@ -369,6 +369,15 @@ export function generate(seed, opts = {}) {
       if (air || tries > 150) at = [c, r];
     }
     if (at) set(at[0], at[1], T.PAGE);
+  }
+  // mahsur madenciler: düz kayanın içinde, biyomun alt yarısında birer kafes
+  if (!opts.tutorial) for (const m of MINERS) {
+    const r0 = GROUND_ROW + m.st * STRATUM_ROWS;
+    for (let tries = 0; tries < 200; tries++) {
+      const c = PLAY_MIN_COL + 1 + Math.floor(rnd() * 11), r = r0 + 14 + Math.floor(rnd() * 14);
+      if (!plain(get(c, r)) || Math.abs(c - CENTER_COL) < 2) continue;
+      set(c, r, T.CAGE); break;
+    }
   }
   // mühürler: bölüm sonlarının son satırı kırılmaz; Kalp Kristali mühür taşından bir kafeste (öğreticide yok)
   if (!opts.tutorial) {

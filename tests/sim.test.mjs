@@ -28,6 +28,7 @@ import { updateHoard, PALACE_BIOME } from '../src/game/dragon.js';
 import { updatePoseidon, inTemple } from '../src/game/poseidon.js';
 import { updateSeals, bossLock, makeSeals } from '../src/game/seals.js';
 import { updateLairs, LAIRS, LAIR_KEYS } from '../src/game/lairs.js';
+import { updateLantern, oilMax } from '../src/game/lantern.js';
 import { CRITTERS } from '../src/data/critters.js';
 import { updateParticles, updateFlashes } from '../src/game/fx.js';
 import { updateFlow, forceFlow } from '../src/world/flow.js';
@@ -53,7 +54,7 @@ App.settings = { sfx: false, music: false, haptics: false, shake: false };
 App.meta = { lv: {}, tutorialDone: true };
 bindEnemyDamage(damageEnemy);
 let allDown = false; on('allDown', () => { allDown = true; });
-const events = {}; for (const n of ['heart', 'web', 'chill', 'relic', 'bossPhase', 'bossSpawn', 'stratum', 'modChanged', 'modUsed', 'perkOffer', 'toast', 'threat', 'nestDown', 'beacon', 'bossDown', 'revived', 'event', 'station', 'elevatorDone', 'critter', 'bossWarn', 'bossCalm']) on(n, () => { events[n] = (events[n] || 0) + 1; });
+const events = {}; for (const n of ['oilAuto', 'dark', 'rescued', 'surround', 'heart', 'web', 'chill', 'relic', 'bossPhase', 'bossSpawn', 'stratum', 'modChanged', 'modUsed', 'perkOffer', 'toast', 'threat', 'nestDown', 'beacon', 'bossDown', 'revived', 'event', 'station', 'elevatorDone', 'critter', 'bossWarn', 'bossCalm']) on(n, () => { events[n] = (events[n] || 0) + 1; });
 
 const STEP = 1 / 60;
 let fails = 0, checks = 0;
@@ -64,7 +65,7 @@ function step(dt = STEP) {
   G.time += dt; G.stats.time += dt; G.frame++;
   if (G.hitstop > 0) { G.hitstop -= dt; return; }
   updateFlow(dt); updatePlayer(dt); updatePlayerGun(dt); updateEnemies(dt); updateBullets(dt); updateStructures(dt);
-  updateItems(dt); updateHazards(dt); updateThreat(dt); updateEvents(dt); updateMerchant(dt); updateWell(dt); updateCritters(); updateWonders(dt); updateLiquids(dt); updateBalrog(dt); updateSerpent(dt); updateHoard(dt); updatePoseidon(dt); updateSeals(dt); updateLairs(dt); updateOrbs(dt); updateDeposit(dt); updateParticles(dt); updateFlashes(dt);
+  updateItems(dt); updateHazards(dt); updateThreat(dt); updateEvents(dt); updateMerchant(dt); updateWell(dt); updateCritters(); updateWonders(dt); updateLiquids(dt); updateBalrog(dt); updateSerpent(dt); updateHoard(dt); updatePoseidon(dt); updateSeals(dt); updateLairs(dt); updateLantern(dt); updateLantern(dt); updateOrbs(dt); updateDeposit(dt); updateParticles(dt); updateFlashes(dt);
 }
 const run = sec => { for (let i = 0, n = Math.round(sec / STEP); i < n; i++) step(); };
 const fresh = (seed = 1) => { const g = newRun({ seed, start: false }); allDown = false; g.player.inp = { x: 0, y: 0, mag: 0 }; return g; };
@@ -1189,7 +1190,7 @@ section('Poseidon');
   ok('dev hâli hatasız dövüşür', !threw, threw ? threw.stack.split('\n').slice(0, 2).join(' ') : '');
   ok('dev yeri döver, su mızrağı yağdırır, hortum çıkarır', ['slam', 'spear', 'spout'].every(k => seen.has(k)), [...seen].join(','));
   // madenci salona dönünce dev de zemine iner (yukarı kaçana tırmanarak yetişebilir, ama yere basarak dövüşür)
-  { const hold = sec => { for (let i = 0; i < 60 * sec; i++) { p.x = p.px = e.x + 30; p.y = p.py = S.r1 * TILE + 8; p.hp = 9999; step(); } }; hold(8);
+  { const hold = sec => { for (let i = 0; i < 60 * sec; i++) { p.x = p.px = e.x + 30; p.y = p.py = S.r1 * TILE + 8; p.hp = 9999; step(); } }; hold(14);
     ok('dev yere basar', Math.abs(e.y - (S.r1 * TILE + 8)) < 2, `${e.y} ${S.r1 * TILE + 8}`); }
   killEnemy(e); run(3.2);
   ok('öldükten sonra bir daha gelmez', S.st === 'done' && !G.enemies.some(o => o.type === 'poseidon' && !o.dead));
@@ -1612,7 +1613,7 @@ section('Tezgâh');
   const { forgeUp, forgeCost } = await import('../src/game/economy.js');
   const { forgeLv } = await import('../src/game/run.js');
   const { FORGE, MAT_DROP } = await import('../src/data/balance.js');
-  fresh(2601); const p = G.player;
+  App.meta.rescued = []; fresh(2601); const p = G.player;
   ok('malzeme yokken dövülmez', !forgeUp('w') && forgeLv('w') === 0);
   // düşüş: elit ve boss kesin; malzeme çantaya girmez
   for (let r = GROUND_ROW + 1; r <= GROUND_ROW + 8; r++) for (let c = 4; c <= 12; c++) setTile(c, r, T.AIR);
@@ -1649,6 +1650,45 @@ section('Tezgâh');
   p.iframes = 0; p.barrier = 0; damagePlayer(p, 1, t1.x, t1.y); ok('zırh 3: bekleme süresinde yeniden açılmaz', !(p.barrier > 0));
   const d = JSON.parse(JSON.stringify(serialize())); deserialize(d);
   ok('kayıt: dövme kademeleri ve malzeme korunur', forgeLv('w') === 3 && forgeLv('p') === 3 && forgeLv('a') === 3 && G.store.kabuk > 0);
+}
+
+section('Fener yağı, kuşatma, mahsur madenci');
+{
+  const { OIL, MINERS, SURROUND } = await import('../src/data/balance.js');
+  const { COLS } = await import('../src/config.js');
+  App.meta.rescued = []; fresh(2701); const p = G.player; const ev0 = Object.assign({ oilAuto: 0, dark: 0, rescued: 0, surround: 0 }, events), dv = k => (events[k] | 0) - (ev0[k] | 0);
+  ok('sefer dolu fener ve bir şişeyle başlar', G.oil === oilMax() && G.items.yag === 1 && lampTiles() > 5);
+  for (let r = GROUND_ROW; r <= GROUND_ROW + 8; r++) setTile(8, r, T.AIR);
+  p.x = p.px = 8 * TILE + 8; p.y = p.py = (GROUND_ROW + 6) * TILE + 8;
+  const o0 = G.oil; for (let i = 0; i < 600; i++) updateLantern(1 / 60);
+  ok('yer altında yağ azalır', Math.abs(o0 - G.oil - 10) < 0.1, `${o0 - G.oil}`);
+  G.oil = 0.05; for (let i = 0; i < 10; i++) updateLantern(1 / 60);
+  ok('yağ bitince kemerdeki şişe kendiliğinden açılır', G.items.yag === 0 && G.oil > oilMax() - 1 && !G.dark && dv('oilAuto') === 1);
+  G.oil = oilMax() * OIL.low - 1; ok('yağ azalınca fener kısılır', lampTiles() < UPGRADES.lamp.radius[0] * 0.9);
+  G.oil = 0.05; const n0 = G.threat.noise; for (let i = 0; i < 120; i++) updateLantern(1 / 60);
+  ok('şişe de yoksa karanlık: tek blok görüş, gürültü birikir', G.dark && lampTiles() === OIL.dark && G.threat.noise > n0 && dv('dark') === 1);
+  p.hp = p.maxHp; p.iframes = 0; damagePlayer(p, 10, p.x + 5, p.y); const lost = p.maxHp - p.hp;
+  ok('karanlıkta darbe daha sert', Math.abs(lost - 10 * OIL.dmg) < 0.01, `${lost}`);
+  G.items.yag = 1; ok('şişe elle de kullanılır', useItem('yag', p) && G.oil === oilMax() && !G.dark);
+  G.oil = 5; p.y = p.py = GROUND_ROW * TILE - 10; for (let i = 0; i < 60 * (OIL.campFill + 0.5); i++) updateLantern(1 / 60);
+  ok('kampta kendiliğinden dolar', G.oil === oilMax());
+  { const d = JSON.parse(JSON.stringify(serialize())); G.oil = 77; const d2 = JSON.parse(JSON.stringify(serialize())); deserialize(d2); ok('kayıt: yağ korunur', G.oil === 77); }
+  // mahsur madenci
+  fresh(2702);
+  const found = MINERS.map(m => { const r0 = GROUND_ROW + m.st * STRATUM_ROWS; for (let i = r0 * COLS; i < (r0 + STRATUM_ROWS) * COLS; i++) if (G.map[i] === T.CAGE) return [i % COLS, (i / COLS) | 0]; return null; });
+  ok('her madencinin biyomunda bir kafes var', found.every(Boolean), JSON.stringify(found));
+  { const q = G.player, [c, r] = found[0]; q.hp = 5; G.oil = 3; breakTile(c, r, q);
+    ok('kafes kırılınca madenci kurtulur (kalıcı), can ve yağ dolar', G.meta.rescued.includes(MINERS[0].k) && App.meta.rescued.includes(MINERS[0].k) && q.hp === q.maxHp && G.oil === oilMax() && dv('rescued') === 1); }
+  fresh(2702);
+  ok('kurtarılan Bora: sefere Tamir Kiti ile başlanır', G.items.medkit === 1);
+  { const q = G.player, [c, r] = found[0], y0 = G.items.yag; breakTile(c, r, q); ok('aynı kafes ikinci kez erzak verir', G.items.medkit === 2 && G.items.yag === y0 + 1 && App.meta.rescued.length === 1); }
+  App.meta.rescued = [];
+  // elit kuşatması
+  fresh(2703); { const q = G.player, r = GROUND_ROW + 60; for (let c = 6; c <= 10; c++) setTile(c, r, T.AIR);
+    q.x = q.px = 8 * TILE + 8; q.y = q.py = r * TILE + 8; q.hp = q.maxHp = 1e6; G.threat.noise = 100; let got = false;
+    for (let i = 0; i < 60 * 240 && !(dv('surround') > 0); i++) { G.threat.noise = Math.max(G.threat.noise, 95); G.oil = 99; step(); q.hp = 1e6; }
+    const E = G.enemies.filter(e => !e.dead), side = new Set(E.map(e => Math.abs(e.x - q.x) > Math.abs(e.y - q.y) ? (e.x < q.x ? 'L' : 'R') : (e.y < q.y ? 'U' : 'D')));
+    ok('elit gelince yaratıklar birden çok yönden sızar', dv('surround') > 0 && side.size >= 3, `${dv('surround')} ${[...side].join('')}`); }
 }
 
 console.log(`\n${checks - fails}/${checks} kontrol geçti${fails ? `, ${fails} HATA` : ''}`);

@@ -96,7 +96,7 @@ function keeperSpot(p, S) {
     const c = Math.max(PLAY_MIN_COL + 2, Math.min(PLAY_MAX_COL - 2, pc + side * (3 + Math.floor(rnd() * 4))));
     const r = Math.min(S.bot - 2, Math.max(S.top, pr + Math.floor(rnd() * 5) - 1));
     const d = TD[tileAt(c, r)];
-    if (d.unbreakable || d.chest || d.heart || d.nest || d.relic) continue;
+    if (d.unbreakable || d.chest || d.heart || d.nest || d.relic || d.cage) continue;
     return [c, r];
   }
   return [CENTER_COL, Math.min(S.bot - 2, pr)];

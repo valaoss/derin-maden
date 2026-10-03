@@ -33,7 +33,7 @@ function spot(p) {
   for (let tries = 0; tries < 40; tries++) {
     const c = Math.max(PLAY_MIN_COL + 2, Math.min(PLAY_MAX_COL - 2, pc + (rnd() < 0.5 ? -1 : 1) * (4 + Math.floor(rnd() * 3)))), r = pr + Math.floor(rnd() * 3) - 1;
     const d = TD[tileAt(c, r)];
-    if (d.unbreakable || d.chest || d.heart || d.nest || d.relic || d.seal) continue;
+    if (d.unbreakable || d.chest || d.heart || d.nest || d.relic || d.cage || d.seal) continue;
     return [c, r];
   }
   return [CENTER_COL, pr];

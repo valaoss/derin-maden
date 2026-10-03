@@ -13,6 +13,7 @@ import { updatePlayerGun, updateBullets, updateStructures } from './game/combat.
 import { updateItems } from './game/items.js';
 import { updateHazards } from './game/hazards.js';
 import { updateThreat, LEVEL_NAMES } from './game/threat.js';
+import { updateLantern } from './game/lantern.js';
 import { updatePings } from './game/pings.js';
 import { updateEvents } from './game/events.js';
 import { updateMerchant } from './game/merchant.js';
@@ -372,7 +373,7 @@ function step(dt) {
   updateEvents(dt);
   updateMerchant(dt);
   updateWell(dt);
-  updateCritters(); updateWonders(dt); updateLiquids(dt); updateBalrog(dt); updateSerpent(dt); updateHoard(dt); updatePoseidon(dt); updateSeals(dt); updateLairs(dt);
+  updateCritters(); updateWonders(dt); updateLiquids(dt); updateBalrog(dt); updateSerpent(dt); updateHoard(dt); updatePoseidon(dt); updateSeals(dt); updateLairs(dt); updateLantern(dt);
   updatePings(dt);
   updateOrbs(dt);
   updateDeposit(dt);

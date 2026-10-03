@@ -4,7 +4,7 @@ import { critterURL } from '../render/critters.js';
 import { nearWell, wellCost } from '../game/well.js';
 import { lakeAt } from '../game/wonders.js';
 import { TILE, GROUND_Y, stratumOfRow, STRATUM_ROWS } from '../config.js';
-import { UPGRADES, UPGRADE_KEYS, PICK_KEYS, MODS, MOD_KEYS, BUILDS, BUILD_KEYS, PERKS, META, META_KEYS, RES_KEYS, ENEMIES, ITEMS, ITEM_KEYS, CONTRACTS, RES, BASE_RES, MASTER_KEYS, KADEME, DEPLOY_MAX, EVENTS, RELICS, RELIC_KEYS, WEAPONS, WEAPON_KEYS, PICK_TYPES, PICK_TYPE_KEYS, FORGE, MATS, MAT_KEYS } from '../data/balance.js';
+import { UPGRADES, UPGRADE_KEYS, PICK_KEYS, MODS, MOD_KEYS, BUILDS, BUILD_KEYS, PERKS, META, META_KEYS, RES_KEYS, ENEMIES, ITEMS, ITEM_KEYS, CONTRACTS, RES, BASE_RES, MASTER_KEYS, KADEME, DEPLOY_MAX, EVENTS, RELICS, RELIC_KEYS, WEAPONS, WEAPON_KEYS, PICK_TYPES, PICK_TYPE_KEYS, FORGE, MATS, MAT_KEYS, MINERS, OIL } from '../data/balance.js';
 import { STRATA } from '../data/palette.js';
 import { G, App, biomeOf } from '../game/state.js';
 import { iconURL, HELMETS } from '../render/sprites.js';
@@ -23,6 +23,7 @@ import { PICK_TIERS } from '../data/balance.js';
 import { net } from '../net/lockstep.js';
 import { todayKey } from '../core/util.js';
 import { LEVEL_NAMES, nestsInStratum, nestTotalInStratum, wakeDelay } from '../game/threat.js';
+import { oilMax } from '../game/lantern.js';
 import { atShaft, destinations } from '../game/elevator.js';
 import { STRATA_COUNT } from '../config.js';
 import { worldToView, viewToWorld } from '../render/renderer.js';
@@ -192,6 +193,17 @@ export function initUI(root, h) {
   on('event', d => { const e = EVENTS[d.k]; if (!e) return; if (d.phase === 'warn') banner(e.name, e.sub, e.good ? 'gold' : true); else if (d.k === 'karanlik') toast('Fenerin kısıldı · ' + e.t + ' sn', 'lamp', true); });
   on('ping', d => { if (!G.mp) return; const p = G.players[d.pi]; if (d.pi !== G.localIdx) { toast((p && p.name || 'Partner') + ' işaret bıraktı', 'hand'); sfx.ping(); } else sfx.click(); });
   on('deployed', () => refreshHUD(true));
+  on('oilLow', n => toast(n ? 'Fener kısılıyor: kemerdeki yağ kendiliğinden açılacak' : 'Fener kısılıyor: yağın yok, kampa dön', 'lamp', !n));
+  on('oilAuto', n => toast('Fener Yağı açıldı · ' + n + ' şişe kaldı', 'lamp'));
+  on('dark', () => { banner('KARANLIK', 'FENER SÖNDÜ · KAMPA DÖN', 'bad'); });
+  on('surround', () => toast('Elit geliyor: dört yandan sarıldın', 'elite', true));
+  on('cageNear', () => toast('Yakında biri kayaya vuruyor… tık, tık', 'drill'));
+  on('rescued', d => {
+    const m = MINERS.find(q => q.k === d.k);
+    if (d.again || !m) { toast('Boş kafes: içinde erzak vardı (+1 Tamir Kiti, +1 Fener Yağı)', 'medkit'); return; }
+    saveMeta(App.meta);
+    banner('KURTARILDI', m.name.toUpperCase() + ' KAMPA DÖNÜYOR', 'gold'); setTimeout(() => toast(m.name + ': ' + m.perk, 'heart'), 2600);
+  });
   on('relic', d => {
     const R = RELICS[d.k];
     if (!R) return;
@@ -256,11 +268,12 @@ const bubbles = {};
 export function chatBubble(pi, k) { bubbles[pi] = { text: CHAT[k] || '…', t: performance.now() }; }
 export function bubbleFor(pi) { const b = bubbles[pi]; return b && performance.now() - b.t < 2600 ? b.text : ''; }
 // üst şeridin altı: silah seviyesi ve dolan çubuğu; Aşırı Yük sürerken parlar
+const oilFill = () => Math.ceil(Math.min(1, G.oil / oilMax()) * 20);
 const wlvFill = () => weaponMaxed() ? 20 : Math.floor(G.gear.xp / xpNeed(G.gear.lv) * 20);
 function renderMods() {
   const box = $('#mods'), p = G.player, g = G.gear;
   if (p.dead) { box.innerHTML = ''; return; }
-  box.innerHTML = `<div class="plate wlv ${(g.active.overdrive || 0) > 0 ? 'on' : ''}" aria-label="Silah seviyesi ${g.lv}">${ic(weaponOf(p).icon, 's')}<b>SV ${g.lv}</b><span class="xpb"><i style="width:${wlvFill() * 5}%"></i></span></div>`;
+  box.innerHTML = `<div class="plate wlv ${(g.active.overdrive || 0) > 0 ? 'on' : ''}" aria-label="Silah seviyesi ${g.lv}">${ic(weaponOf(p).icon, 's')}<b>SV ${g.lv}</b><span class="xpb"><i style="width:${wlvFill() * 5}%"></i></span></div>` + (G.tutorial ? '' : `<div class="plate wlv oil ${oilFill() <= 0 ? 'out' : oilFill() <= 4 ? 'low' : ''}" aria-label="Fener yağı">${ic('lamp', 's')}<b>${G.items.yag | 0}</b><span class="xpb"><i style="width:${oilFill() * 5}%"></i></span></div>`);
 }
 function renderBelt() {
   const b = $('#belt'), p = G.player;
@@ -352,7 +365,7 @@ export function refreshHUD(force = false) {
   if (!p.dead) for (const k of ITEM_KEYS) if (G.items[k] > 0) bk += k + G.items[k] + (itemUsable(k) ? '+' : '-') + (k === 'recall' && p.recallT > 0 ? 'r' : '');
   set(0, 'belt', bk, () => renderBelt());
   const g = G.gear;
-  const mk = p.dead ? '' : p.wpn + g.lv + ':' + wlvFill() + ((g.active.overdrive || 0) > 0 ? 'a' : '');
+  const mk = p.dead ? '' : p.wpn + g.lv + ':' + wlvFill() + ((g.active.overdrive || 0) > 0 ? 'a' : '') + ':' + oilFill() + ':' + (G.items.yag | 0);
   set(0, 'mods', mk, () => renderMods());
   set(0, 'lefty', App.settings.lefty, v => ui.parentElement.classList.toggle('lefty', v));
 }

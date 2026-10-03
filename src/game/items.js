@@ -11,6 +11,7 @@ import { placeBuild } from './economy.js';
 import { breakTile, damagePlayer, unbury } from './player.js';
 import { damageEnemy, hurtBarricade, losClear } from './enemies.js';
 import { isLocal, hear, hasPerk } from './run.js';
+import { oilMax, refillOil } from './lantern.js';
 import { igniteGas } from './hazards.js';
 import { sparks, ring, shake, hitstop, flashLight, dust, particle } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
@@ -40,6 +41,7 @@ export function itemUsable(k, p = G.player) {
     case 'kalkan': return !(p.barrierT > 0);
     case 'burgu': return augerOk(p);
     case 'adren': return !(p.adrenT > 0);
+    case 'yag': return G.oil < oilMax() * 0.9;
   }
   return false;
 }
@@ -97,6 +99,8 @@ export function useItem(k, p = G.player) {
     addNoise(THREAT.noise.boom * 0.5, p.x, p.y);
     sfx.explode(); shake(0.3); hitstop(0.04); flashLight(p.x, p.y + 20, 5, 0.3);
     if (local) haptic(40);
+  } else if (k === 'yag') {
+    refillOil(); ring(p.x, p.y, '#ffd890', 26); sparks(p.x, p.y - 6, '#ffe79a', 10, 80); flashLight(p.x, p.y, 6, 0.4); if (hear(p)) sfx.heal();
   } else if (k === 'adren') {
     p.adrenT = ADREN.t;
     ring(p.x, p.y, '#ff5a6a', 20); sparks(p.x, p.y, '#ff9aa0', 14, 90); flashLight(p.x, p.y, 4, 0.3);
