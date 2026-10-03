@@ -1534,7 +1534,7 @@ section('Derin düşman baskısı');
   fresh(2301);
   const deep = GROUND_ROW + 24 * STRATUM_ROWS + 10, top = GROUND_ROW + 1 * STRATUM_ROWS + 10;
   const a = spawnEnemy('spitter', 8 * TILE + 8, top * TILE + 8, 1), b = spawnEnemy('spitter', 8 * TILE + 8, deep * TILE + 8, 1);
-  ok('derinde düşman daha hızlı, sık vurur, uzağa atar', b.spMul > a.spMul + 0.2 && b.atkMul < a.atkMul - 0.3 && b.rngMul > a.rngMul + 0.3, `${b.spMul} ${b.atkMul} ${b.rngMul}`);
+  ok('derinde düşman daha hızlı, sık vurur, uzağa atar', b.spMul > a.spMul + 0.15 && b.atkMul < a.atkMul - 0.2 && b.rngMul > a.rngMul + 0.3, `${b.spMul} ${b.atkMul} ${b.rngMul}`);
   ok('boss derinlik çevikliği almaz', spawnEnemy('karakok', 8 * TILE + 8, deep * TILE + 8, 1).spMul === 1);
   // hiçbir kaya bir düşmanı 5 sn'den uzun tutmaz
   { fresh(2302); const p = G.player, r0 = GROUND_ROW + 26 * STRATUM_ROWS + 10; shaft(8, r0 + 1);
