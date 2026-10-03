@@ -65,7 +65,7 @@ export function bossLock() {
   if (!G) return false;
   if (G.enemies.some(e => e.d.boss && !e.dead)) return true;
   if ((G.seals || []).some(S => S.st === 'omen')) return true;
-  for (const S of [G.balrog, G.serpent, G.temple, G.hoard]) if (S && (S.st === 'dark' || S.st === 'omen' || S.st === 'wake')) return true;
+  for (const S of [G.balrog, G.serpent, G.temple, G.hoard, ...Object.values(G.lairs || {})]) if (S && (S.st === 'dark' || S.st === 'omen' || S.st === 'wake')) return true;
   return false;
 }
 export const sealOmen = () => (G.seals || []).some(S => S.st === 'omen');

@@ -5,6 +5,7 @@ import { placeLiquids } from './liquids.js';
 import { placeHoard } from './dragon.js';
 import { placeTemple, dropTemple } from './poseidon.js';
 import { makeSeals, syncSeals } from './seals.js';
+import { makeLairs, lairsDone, loadLairs } from './lairs.js';
 import { CRITTERS } from '../data/critters.js';
 import { COLS, ROWS, TILE, GROUND_ROW, BASE_X, BASE_Y, CENTER_COL, STRATUM_ROWS, stratumOfRow, PLAY_MIN_COL, PLAY_MAX_COL } from '../config.js';
 import { PERKS, RESONANCE } from '../data/relics.js';
@@ -150,6 +151,7 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
     }
   }
   g.seals = makeSeals(g);
+  g.lairs = tutorial ? null : makeLairs();
   if (!tutorial) g.contracts = pickContracts(seed);
   // yüzeyi baştan açığa çıkar
   for (let r = 0; r < GROUND_ROW + 1; r++) for (let c = 0; c < COLS; c++) g.rev[r * COLS + c] = 1;
@@ -224,7 +226,7 @@ export function serialize() {
   const g = G;
   return {
     v: 8, seed: g.seed, rng: g.rng, heartRow: g.heartRow, order: g.order, map: b64(g.map), rev: b64(g.rev), buried: b64(g.buried), bhp: g.bhp, gear: { owned: g.gear.owned, wOwn: g.gear.wOwn, pOwn: g.gear.pOwn, tLvl: g.gear.tLvl, lv: g.gear.lv, xp: g.gear.xp, cards: g.gear.cards, evo: g.gear.evo },
-    base: { hp: g.base.hp }, bag: g.player.bag, store: g.store, collected: g.collected, lvl: g.lvl, perks: g.perks, perkLv: g.perkLv, rerolls: g.rerolls, merchant: g.merchant, merchT: g.merchT, wishes: g.wishes, critters: g.critters, lakes: g.lakes, portals: g.portals, shrooms: g.shrooms, lq: g.lq ? b64(g.lq) : null, lk: g.lk ? b64(g.lk) : null, lqT: g.lqT, balrogDone: !!(g.balrog && g.balrog.st === 'done'), serpentDone: !!(g.serpent && g.serpent.st === 'done'), temple: g.temple ? { v: 1, st: g.temple.st === 'done' ? 'done' : 'wait' } : null, hoard: g.hoard ? { v: 2, st: g.hoard.st === 'done' ? 'done' : 'sleep', wake: g.hoard.st === 'sleep' ? g.hoard.wake : 0 } : null,
+    base: { hp: g.base.hp }, bag: g.player.bag, store: g.store, collected: g.collected, lvl: g.lvl, perks: g.perks, perkLv: g.perkLv, rerolls: g.rerolls, merchant: g.merchant, merchT: g.merchT, wishes: g.wishes, critters: g.critters, lakes: g.lakes, portals: g.portals, shrooms: g.shrooms, lq: g.lq ? b64(g.lq) : null, lk: g.lk ? b64(g.lk) : null, lqT: g.lqT, balrogDone: !!(g.balrog && g.balrog.st === 'done'), serpentDone: !!(g.serpent && g.serpent.st === 'done'), lairs: lairsDone(), temple: g.temple ? { v: 1, st: g.temple.st === 'done' ? 'done' : 'wait' } : null, hoard: g.hoard ? { v: 2, st: g.hoard.st === 'done' ? 'done' : 'sleep', wake: g.hoard.st === 'sleep' ? g.hoard.wake : 0 } : null,
     items: g.items, structures: g.structures.map(s => ({ type: s.type, c: s.c, r: s.r, hp: s.hp, left: s.left })),
     kademe: g.kademe, daily: g.daily, contracts: g.contracts,
     threat: { noise: g.threat.noise, woke: g.threat.woke | 0, bossCd: Math.max(0, g.threat.bossCd || 0) }, evt: { t: g.evt.t }, seenStratum: g.seenStratum | 0,
@@ -246,6 +248,7 @@ export function deserialize(d) {
   for (const k of ['lakes', 'portals', 'shrooms']) if (Array.isArray(d[k])) g[k] = d[k];
   if (d.balrogDone) g.balrog = { st: 'done', t: 99 };
   if (d.serpentDone) g.serpent = { st: 'done', t: 99 };
+  if (!d.tutorial) loadLairs(g, Array.isArray(d.lairs) ? d.lairs : []);
   if (!d.temple || d.temple.v !== 1) dropTemple(g); else if (g.temple) g.temple.st = d.temple.st === 'done' ? 'done' : 'wait'; // eski kayıt: haritada su tapınağı yok
   if (!d.hoard || d.hoard.v !== 2) g.hoard = null; // eski kayıt: haritada bu hazine salonu yok
   if (d.hoard && g.hoard) { g.hoard.st = d.hoard.st === 'done' ? 'done' : 'sleep'; g.hoard.wake = Math.max(0, Math.min(90, +d.hoard.wake || 0)); }

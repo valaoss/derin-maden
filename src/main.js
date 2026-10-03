@@ -25,6 +25,7 @@ import { updateSerpent } from './game/serpent.js';
 import { updateHoard } from './game/dragon.js';
 import { updatePoseidon } from './game/poseidon.js';
 import { updateSeals } from './game/seals.js';
+import { updateLairs } from './game/lairs.js';
 import { showIntro, radioAtStart, bindStory, storyRunEnd } from './ui/story.js';
 import { updateCanary } from './game/canary.js';
 import { snapshotJourney } from './ui/journey.js';
@@ -338,6 +339,7 @@ function endRun(reason) {
 on('bossWarn', k => preloadBossSfx(k));
 for (const [ev, k] of [['balrog', 'balrog'], ['serpent', 'dunyaYilani'], ['poseidon', 'poseidon'], ['hoard', 'ejder']]) on(ev, () => preloadBossSfx(k));
 on('keeperWarn', d => preloadBossSfx(d.type));
+on('lairOmen', d => preloadBossSfx(d.type));
 bindStory();
 on('allDown', () => endRun('down'));
 on('victory', () => endRun('victory'));
@@ -370,7 +372,7 @@ function step(dt) {
   updateEvents(dt);
   updateMerchant(dt);
   updateWell(dt);
-  updateCritters(); updateWonders(dt); updateLiquids(dt); updateBalrog(dt); updateSerpent(dt); updateHoard(dt); updatePoseidon(dt); updateSeals(dt);
+  updateCritters(); updateWonders(dt); updateLiquids(dt); updateBalrog(dt); updateSerpent(dt); updateHoard(dt); updatePoseidon(dt); updateSeals(dt); updateLairs(dt);
   updatePings(dt);
   updateOrbs(dt);
   updateDeposit(dt);

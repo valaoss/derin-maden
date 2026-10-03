@@ -24,7 +24,7 @@ const los = (e, p) => losClear(e.x, e.y, p.x, p.y);
 export const EXTRA = {
   // KARAKÖK: kök mızrakları -> diken çalısı -> toprağa dalış -> kök kafesi -> kökçük çağırma
   karakok: {
-    rot: ['spikes', 'bramble', 'burrow', 'cage', 'summon'], gap: 1.5,
+    rot: ['spikes', 'bramble', 'burrow', 'cage', 'summon'], gap: 0.8,
     can: { spikes: (e, p, dp) => dp < 150, bramble: (e, p, dp) => dp < 170, burrow: (e, p, dp) => dp < 200, cage: (e, p, dp) => dp < 150, summon: () => count('rodent') < 4 },
     start: {
       // tohum keseleri: düştükleri yerde bir süre yavaşlatıp yaralayan çalı biter
@@ -47,8 +47,8 @@ export const EXTRA = {
 
   // KAVURGAN: kül yağmuru -> kor nefesi -> omurga yarığı -> kemik halkası -> kül bulutu
   kavurgan: {
-    rot: ['embers', 'breath', 'spine', 'bones', 'ash'], gap: 1.5,
-    can: { embers: (e, p, dp) => dp < 170, breath: (e, p, dp) => dp < 80 && los(e, p), spine: (e, p, dp) => dp > 24 && dp < 150, bones: (e, p, dp) => dp < 160, ash: (e, p, dp) => dp < 140 },
+    rot: ['embers', 'breath', 'spine', 'bones', 'ash'], gap: 0.8,
+    can: { embers: (e, p, dp) => dp < 170, breath: (e, p, dp) => dp < 115 && los(e, p), spine: (e, p, dp) => dp > 24 && dp < 150, bones: (e, p, dp) => dp < 160, ash: (e, p, dp) => dp < 140 },
     start: {
       // yerden madenciye doğru sırayla çıkan kemik dikenleri; öfkede üç kol
       spine(e, p, B) {
@@ -80,7 +80,7 @@ export const EXTRA = {
 
   // ÖTEGÖZ: güdümlü küreler -> çekim -> boşluk sarmalı -> göz ışını -> taşlaştıran bakış
   otegoz: {
-    rot: ['orbs', 'pull', 'spiral', 'gaze', 'stare'], gap: 1.4,
+    rot: ['orbs', 'pull', 'spiral', 'gaze', 'stare'], gap: 0.8,
     can: { orbs: (e, p, dp) => dp < 170, pull: (e, p, dp) => dp < 115 && los(e, p), spiral: (e, p, dp) => dp < 150, gaze: (e, p, dp) => dp < 130 && los(e, p), stare: (e, p, dp) => dp < 150 && los(e, p) },
     start: {
       spiral(e, p, B) { const A = B.act; A.T = 2.5; A.a = rnd() * TAU; A.dir = rnd() < 0.5 ? 1 : -1; A.tick = 0; e.flashT = 0.4; sfx.arm(); },
@@ -114,8 +114,8 @@ export const EXTRA = {
 
   // KÖRDEŞEN: cevher yelpazesi -> matkap hücumu -> pençe darbesi -> kaya fırlatma -> matkap girdabı
   kordesen: {
-    rot: ['coins', 'charge', 'slam', 'boulder', 'drill'], gap: 1.4,
-    can: { coins: (e, p, dp) => dp < 150 && los(e, p), charge: (e, p, dp) => dp > 36 && dp < 160, slam: (e, p, dp) => dp < 60, boulder: (e, p, dp) => dp < 190, drill: (e, p, dp) => dp < 70 },
+    rot: ['coins', 'charge', 'slam', 'boulder', 'drill'], gap: 0.8,
+    can: { coins: (e, p, dp) => dp < 150 && los(e, p), charge: (e, p, dp) => dp > 36 && dp < 180, slam: (e, p, dp) => dp < 90, boulder: (e, p, dp) => dp < 200, drill: (e, p, dp) => dp < 110 },
     start: {
       boulder(e, p, B) { const A = B.act; A.T = 9; A.stage = 'lift'; A.st = 0.7; A.n = B.phase === 2 ? 2 : 1; A.tgt = p.i; e.face = p.x >= e.x ? 1 : -1; sfx.creak(); debris(e.x + e.face * 10, e.y + 6, 'stone', 6); },
       drill(e, p, B) { const A = B.act; A.T = 9; A.stage = 'wind'; A.st = 0.6; A.a = rnd() * TAU; A.tick = 0; sfx.arm(); },
@@ -149,6 +149,8 @@ export const EXTRA = {
           return;
         }
         if (A.stage === 'spin') {
+          // dönerek madenciye doğru ilerler, yoldaki kayayı oyar
+          if (p) { const d = Math.hypot(p.x - e.x, p.y - e.y) || 1, s = Math.min(d, 42 * dt), nx = e.x + (p.x - e.x) / d * s, ny = e.y + (p.y - e.y) / d * s, c = Math.floor(nx / TILE), r = Math.floor(ny / TILE); if (solidAt(c, r) && breakable(c, r)) breakTile(c, r, null); if (!solidAt(c, r)) { e.x = nx; e.y = Math.max(ny, e.y - 1); } }
           A.tick -= dt;
           if (A.tick <= 0) {
             A.tick = 0.18; A.a += 0.55;
@@ -159,7 +161,7 @@ export const EXTRA = {
             for (const s of G.structures) if (!s.dead && near(e, s, 30)) damageStructure(s, 5);
             shake(0.15); sfx.burrow();
           }
-          if (A.st <= 0) { A.stage = 'daze'; A.st = 0.8; A.fire = false; }
+          if (A.st <= 0) { A.stage = 'daze'; A.st = 0.4; A.fire = false; }
           return;
         }
         if (A.st <= 0) A.T = 0;
@@ -169,7 +171,7 @@ export const EXTRA = {
 
   // EZELÎ: yargı sütunları -> ufuk çizgisi -> ışık tohumları -> ışık çarkı -> kıyamet halkası
   ezeli: {
-    rot: ['pillars', 'horizon', 'seeds', 'wheel', 'doom'], gap: 1.5,
+    rot: ['pillars', 'horizon', 'seeds', 'wheel', 'doom'], gap: 0.8,
     can: { pillars: (e, p, dp) => dp < 170, horizon: (e, p, dp) => dp < 200, seeds: (e, p, dp) => dp < 170, wheel: (e, p, dp) => dp < 110, doom: (e, p, dp) => dp < 140 },
     start: {
       // madencinin hizasından geçen ışık çizgisi (kayadan geçer): kaçacak yer neredeyse ona göre yatay ya da dikey; öfkede ikincisi izler
@@ -205,14 +207,14 @@ export const EXTRA = {
         A.tick -= dt;
         if (A.tick > 0) return;
         A.tick = 0.15;
-        for (const q of live()) for (let i = 0; i < n; i++) if (onBeam(q, e.x, e.y, A.a + i * TAU / n, A.lens[i], 5)) { damagePlayer(q, 8 * e.dmgMul, e.x, e.y); sparks(q.x, q.y, '#fff4c0', 5, 60); break; }
+        for (const q of live()) for (let i = 0; i < n; i++) if (onBeam(q, e.x, e.y, A.a + i * TAU / n, A.lens[i], 5)) { damagePlayer(q, 8 * e.dmgMul, e.x, e.y, true); sparks(q.x, q.y, '#fff4c0', 5, 60); break; }
       },
     },
   },
 
   // AYNASIZ HÜKÜMDAR: silah yansıması -> ayna adımı -> yansımalar -> ayna kırıkları -> ayna kalkanı
   aynasiz: {
-    rot: ['mirror', 'step', 'images', 'shards', 'reflect'], gap: 1.2,
+    rot: ['mirror', 'step', 'images', 'shards', 'reflect'], gap: 0.8,
     can: { mirror: (e, p, dp) => dp < 150 && los(e, p), step: (e, p, dp) => dp > 30 && dp < 210, images: (e, p, dp) => dp < 170, shards: (e, p, dp) => dp < 170, reflect: (e, p, dp) => dp < 170 && los(e, p) },
     start: {
       // madencinin çevresinde yansımaları belirir; her biri sırayla kırık saçıp dağılır
@@ -239,14 +241,14 @@ export const EXTRA = {
 
   // KEHRİBAR ANA: yumurta yağmuru -> reçine yelpazesi -> arı sürüsü -> kehribar hapsi -> petek tuzakları
   kehribarAna: {
-    rot: ['eggs', 'resin', 'swarm', 'amber', 'comb'], gap: 1.5,
+    rot: ['eggs', 'resin', 'swarm', 'amber', 'comb'], gap: 0.8,
     can: { eggs: (e, p, dp) => dp < 180 && count('tozbocek') < 8, resin: (e, p, dp) => dp < 140 && los(e, p), swarm: (e, p, dp, B) => dp < 170 && !B.zones.some(z => z.kind === 'swarm'), amber: (e, p, dp) => dp < 150, comb: (e, p, dp) => dp < 170 },
     start: {
       // kesesinden bir sürü salar: en yakın madenciyi kovalar, dağılana kadar sokar
       swarm(e, p, B) {
         const t = B.phase === 2 ? 8 : 6;
         B.act.T = 0.6; e.lunge = 1; sfx.chirp(); said(B, 'swarm', 'Arı sürüsü peşinde: dağılana kadar kaç!');
-        B.zones.push({ kind: 'swarm', x: e.x, y: e.y - 6, r: 11, t, T: t, v: B.phase === 2 ? 46 : 38, tick: 0.5 });
+        B.zones.push({ kind: 'swarm', x: e.x, y: e.y - 6, r: 11, t, T: t, v: B.phase === 2 ? 70 : 58, tick: 0.5 });
       },
       // çevreye petek tuzakları bırakır: basan kehribara yapışır
       comb(e, p, B) {
@@ -262,7 +264,7 @@ export const EXTRA = {
 
   // MADENİN KALBİ: duvar dikenleri -> pıhtılar -> tavan çöküşü -> kapanan duvarlar -> nabız halkası
   madenKalbi: {
-    rot: ['spikes', 'clot', 'fall', 'grow', 'beat'], gap: 1.3,
+    rot: ['spikes', 'clot', 'fall', 'grow', 'beat'], gap: 0.8,
     can: { spikes: (e, p, dp) => dp < 210, clot: (e, p, dp) => dp < 200, fall: (e, p, dp) => dp < 210, grow: (e, p, dp) => dp < 210, beat: (e, p, dp) => dp < 150 },
     start: {
       // pıhtılar: düştükleri yerde patlar, her biri küçük bir halka yayar
@@ -311,9 +313,9 @@ export const POP = {
 
 // alanın içindeki madenciye her vuruşta ne olur
 const ZONE = {
-  bramble(e, z, q) { damagePlayer(q, 3 * e.dmgMul, z.x, z.y); q.slowT = Math.max(q.slowT, 0.7); },
-  ash(e, z, q) { damagePlayer(q, 2 * e.dmgMul, z.x, z.y); q.darkT = G.time + 0.8; },
-  swarm(e, z, q) { damagePlayer(q, 4 * e.dmgMul, z.x, z.y); },
+  bramble(e, z, q) { damagePlayer(q, 3 * e.dmgMul, z.x, z.y, true); q.slowT = Math.max(q.slowT, 0.7); },
+  ash(e, z, q) { damagePlayer(q, 2 * e.dmgMul, z.x, z.y, true); q.darkT = G.time + 0.8; },
+  swarm(e, z, q) { damagePlayer(q, 4 * e.dmgMul, z.x, z.y, true); },
   comb(e, z, q) { damagePlayer(q, 12 * e.dmgMul, z.x, z.y); webPlayer(q, 2.2); z.t = 0; sparks(z.x, z.y, '#ffb040', 12, 90); ring(z.x, z.y, '#ffb040', 14); sfx.web(); },
 };
 const TICK = { bramble: 0.4, ash: 0.5, swarm: 0.3, comb: 0 };

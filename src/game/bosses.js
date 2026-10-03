@@ -3,7 +3,7 @@
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y, PLAY_MIN_COL, PLAY_MAX_COL, stratumOfRow } from '../config.js';
 import { T, TD } from '../data/tiles.js';
-import { BOSS_BANDS, BALROG, BOSS_MELEE, SEAL } from '../data/balance.js';
+import { BOSS_BANDS, BALROG, BOSS_MELEE, SEAL, BOSS } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, solidAt, setTile, matOf } from '../world/map.js';
 import { breakTile, damagePlayer, blindPlayer, pullPlayer, webPlayer, scarePlayer } from './player.js';
@@ -24,7 +24,7 @@ export const live = () => G.players.filter(q => !q.dead);
 // başka bir boss uyanıksa ya da bir karşılaşma başlamışsa (karanlık / su kabarması / uyanış) yenisi beklesin: aynı anda iki boss olmaz
 export function bossBusy(self) {
   if (G.enemies.some(e => e.d.boss && !e.dead)) return true;
-  for (const S of [G.balrog, G.serpent, G.temple, G.hoard]) if (S && S !== self && (S.st === 'dark' || S.st === 'omen' || S.st === 'wake')) return true;
+  for (const S of [G.balrog, G.serpent, G.temple, G.hoard, ...Object.values(G.lairs || {})]) if (S && S !== self && (S.st === 'dark' || S.st === 'omen' || S.st === 'wake')) return true;
   // mühür bekçisi uyanıyor
   if ((G.seals || []).some(S => S.st === 'omen')) return true;
   return false;
@@ -74,11 +74,13 @@ export const KITS = {
         for (const q of live()) {
           if (Math.hypot(q.x - e.x, q.y - e.y) > 170) continue;
           mark(e, q.x, q.y, 10, 0.85, 18, 'root');
+          // kaçacağı yere de kök çıkar (öfkede iki kat)
+          const vx = (q.x - q.px) / dt, vy = (q.y - q.py) / dt;
+          const [ax, ay] = openSpot(q.x + vx * 0.6, q.y + vy * 0.6) ? [q.x + vx * 0.6, q.y + vy * 0.6] : spotNear(q.x, q.y, 30);
+          mark(e, ax, ay, 10, 1.0, 18, 'root');
           if (B.phase === 2) {
-            const vx = (q.x - q.px) / dt, vy = (q.y - q.py) / dt;
-            const [ax, ay] = openSpot(q.x + vx * 0.6, q.y + vy * 0.6) ? [q.x + vx * 0.6, q.y + vy * 0.6] : spotNear(q.x, q.y, 30);
-            mark(e, ax, ay, 10, 1.0, 18, 'root');
             const [bx, by] = spotNear(q.x, q.y, 34); mark(e, bx, by, 10, 1.15, 18, 'root');
+            const [cx, cy] = openSpot(q.x + vx * 1.1, q.y + vy * 1.1) ? [q.x + vx * 1.1, q.y + vy * 1.1] : spotNear(q.x, q.y, 50); mark(e, cx, cy, 10, 1.3, 18, 'root');
           }
         }
       },
@@ -130,14 +132,17 @@ export const KITS = {
       bones(e, p, B) {
         B.act.T = 0.4; e.lunge = 1; ring(e.x, e.y, '#e8dcc0', 20); sfx.spit();
         const a0 = rnd() * TAU;
-        for (let i = 0; i < 10; i++) bullet(e, a0 + i * TAU / 10, 78, 10, '#e8dcc0', { life: 2.2 });
+        // üç halka, aralıkları kaydırılmış: aradan sıyrılmak zor
+        const n = B.phase === 2 ? 14 : 10;
+        for (let w = 0; w < 3; w++) for (let i = 0; i < n; i++) bullet(e, a0 + (i + w * 0.5) * TAU / n, 105 - w * 18, 10, '#e8dcc0', { life: 2.6 });
       },
     },
     run: {
       breath(e, dt, p, B) {
         const A = B.act, t = 1.9 - A.T;
         if (t < 0.7) { e.wind = t / 0.7; return; }
-        if (B.phase === 2 && p) A.a += Math.max(-1.2 * dt, Math.min(1.2 * dt, angDiff(Math.atan2(p.y - e.y, p.x - e.x), A.a)));
+        const tr = B.phase === 2 ? 1.6 : 0.9;
+        if (p) A.a += Math.max(-tr * dt, Math.min(tr * dt, angDiff(Math.atan2(p.y - e.y, p.x - e.x), A.a)));
         A.fire = true;
         const mx = e.x + Math.cos(A.a) * 20, my = e.y - 4 + Math.sin(A.a) * 20;   // 3B modelin uzanan başı
         for (let i = 0; i < 3; i++) { const a = A.a + (rnd() - 0.5) * 0.8, s = 60 + rnd() * 70; particle(mx, my, Math.cos(a) * s, Math.sin(a) * s, 0.5, rnd() < 0.5 ? '#ffd060' : '#ff6a1a', rnd() < 0.3 ? 2 : 1, 1, -30); }
@@ -146,7 +151,7 @@ export const KITS = {
           A.tick = 0.2;
           for (const q of live()) {
             const dx = q.x - e.x, dy = q.y - e.y;
-            if (Math.hypot(dx, dy) < 78 && Math.abs(angDiff(Math.atan2(dy, dx), A.a)) < 0.42 && losClear(e.x, e.y, q.x, q.y)) damagePlayer(q, 7 * e.dmgMul, e.x, e.y);
+            if (Math.hypot(dx, dy) < 110 && Math.abs(angDiff(Math.atan2(dy, dx), A.a)) < 0.42 && losClear(e.x, e.y, q.x, q.y)) { damagePlayer(q, 7 * e.dmgMul, e.x, e.y, true); q.burnT = Math.max(q.burnT || 0, 1.5); }
           }
           for (const s of G.structures) if (!s.dead && Math.hypot(s.x - e.x, s.y - e.y) < 78 && Math.abs(angDiff(Math.atan2(s.y - e.y, s.x - e.x), A.a)) < 0.42) damageStructure(s, 6);
           igniteGas(e.x + Math.cos(A.a) * 40, e.y + Math.sin(A.a) * 40, 30);
@@ -162,7 +167,7 @@ export const KITS = {
       orbs(e, p, B) {
         B.act.T = 0.5; e.flashT = 0.5; sfx.blink();
         const n = B.phase === 2 ? 5 : 3, a0 = Math.atan2(p.y - e.y, p.x - e.x);
-        for (let i = 0; i < n; i++) bullet(e, a0 + (i - (n - 1) / 2) * 0.55, 55, 12, '#b080ff', { life: 3.4, home: 2.4, slow: 1.2, orb: true });
+        for (let i = 0; i < n; i++) bullet(e, a0 + (i - (n - 1) / 2) * 0.55, 74, 12, '#b080ff', { life: 5, home: 3.2, slow: 1.2, orb: true });
       },
       pull(e, p, B) { B.act.T = 2; sfx.tongue(); },
       gaze(e, p, B) {
@@ -198,7 +203,7 @@ export const KITS = {
     start: {
       charge(e, p, B) {
         B.act.T = 3; B.act.stage = 'aim'; B.act.st = B.phase === 2 ? 0.6 : 0.8;
-        B.act.a = Math.atan2(p.y - e.y, p.x - e.x); B.act.hit = []; B.act.chain = B.phase === 2 ? 1 : 0; e.face = p.x >= e.x ? 1 : -1; sfx.arm();
+        B.act.a = Math.atan2(p.y - e.y, p.x - e.x); B.act.hit = []; B.act.chain = B.phase === 2 ? 2 : 1; e.face = p.x >= e.x ? 1 : -1; sfx.arm();
       },
       slam(e, p, B) { B.act.T = 0.6; sfx.arm(); },
       coins(e, p, B) {
@@ -212,7 +217,9 @@ export const KITS = {
         const A = B.act; A.st -= dt;
         if (A.stage === 'aim') {
           e.wind = 1 - Math.max(0, A.st) / 0.8;
-          if (A.st <= 0) { A.stage = 'dash'; A.st = 0.8; A.fire = true; sfx.rumble(); }
+          // nişan sürerken hedefi izler, son anda kilitlenir
+          if (p && A.st > 0.2) { A.a += Math.max(-2 * dt, Math.min(2 * dt, angDiff(Math.atan2(p.y - e.y, p.x - e.x), A.a))); e.face = Math.cos(A.a) >= 0 ? 1 : -1; }
+          if (A.st <= 0) { A.stage = 'dash'; A.st = 1.0; A.fire = true; sfx.rumble(); }
           return;
         }
         if (A.stage === 'dash') {
@@ -229,7 +236,7 @@ export const KITS = {
           if (stop || A.st <= 0) {
             if (stop) { shake(0.5); debris(e.x, e.y, 'stone', 10); sfx.explode(); }
             if (A.chain > 0 && p) { A.chain--; A.stage = 'aim'; A.st = 0.45; A.a = Math.atan2(p.y - e.y, p.x - e.x); A.hit = []; A.fire = false; e.face = p.x >= e.x ? 1 : -1; return; }
-            A.stage = 'daze'; A.st = 1.1; A.fire = false;
+            A.stage = 'daze'; A.st = B.phase === 2 ? 0.3 : 0.6; A.fire = false;
           }
           return;
         }
@@ -239,7 +246,8 @@ export const KITS = {
         const A = B.act;
         e.wind = 1 - Math.max(0, A.T) / 0.6;
         if (A.T <= dt && !A.done) { A.done = true;
-          B.rings.push({ x: e.x, y: e.y + 4, r: 8, R: 76, v: 150, dmg: 16 * e.dmgMul, hit: [], col: '#ffd870', los: false });
+          B.rings.push({ x: e.x, y: e.y + 4, r: 8, R: 105, v: 150, dmg: 16 * e.dmgMul, hit: [], col: '#ffd870', los: false });
+          if (B.phase === 2) B.rings.push({ x: e.x, y: e.y + 4, r: -50, R: 105, v: 150, dmg: 16 * e.dmgMul, hit: [], col: '#ffd870', los: false });
           dust(e.x, e.y + 8, 8, 'rgba(255,216,112,0.4)'); shake(0.45); hitstop(0.04); sfx.rumble(); e.lunge = 1;
           for (const s of G.structures) if (!s.dead && Math.hypot(s.x - e.x, s.y - e.y) < 70) damageStructure(s, 10);
         }
@@ -271,7 +279,7 @@ export const KITS = {
         e.wind = 1 - Math.max(0, A.T) / 1.2;
         if (rnd() < dt * 40) { const a = rnd() * TAU, d = 30 + rnd() * 20; particle(e.x + Math.cos(a) * d, e.y + Math.sin(a) * d, -Math.cos(a) * 60, -Math.sin(a) * 60, 0.4, '#fff4c0', 1, 1, 0); }
         if (A.T <= dt && !A.done) { A.done = true;
-          B.rings.push({ x: e.x, y: e.y, r: 10, R: 160, v: 115, dmg: 24 * e.dmgMul, hit: [], col: '#fff4c0', los: true });
+          B.rings.push({ x: e.x, y: e.y, r: 10, R: 215, v: 140, dmg: 24 * e.dmgMul, hit: [], col: '#fff4c0', los: true });
           flashLight(e.x, e.y, 9, 0.5); shake(0.4); sfx.nova(); haptic(50);
         }
       },
@@ -291,10 +299,12 @@ Object.assign(KITS, {
         if (openSpot(x, y)) { e.x = e.px = x; e.y = e.py = y; }
         ring(e.x, e.y, '#c8d0ff', 30); flashLight(e.x, e.y, 5, 0.3); sfx.blink(); e.face = p.x >= e.x ? 1 : -1;
         B.cd.melee = 0; // arkasında belirir belirmez asasını kaldırır
+        // öfkede üç kez art arda: her vuruştan sonra yine arkanda belirir
+        if (B.phase === 2) { B.stepN = (B.stepN || 0) + 1; if (B.stepN < 3) B.q.unshift('step'); else B.stepN = 0; }
       },
       shards(e, p, B) {
         B.act.T = 0.4; e.lunge = 1; ring(e.x, e.y, '#e0e8ff', 26); sfx.shade();
-        const a0 = rnd() * TAU; for (let i = 0; i < 14; i++) bullet(e, a0 + i * TAU / 14, 90, 12, '#e0e8ff', { life: 2.4 });
+        const a0 = rnd() * TAU; for (let i = 0; i < 14; i++) { bullet(e, a0 + i * TAU / 14, 120, 12, '#e0e8ff', { life: 2.4 }); bullet(e, a0 + (i + 0.5) * TAU / 14, 72, 12, '#c8d0ff', { life: 3 }); }
       },
     },
     run: {
@@ -354,8 +364,9 @@ Object.assign(KITS, {
     run: {
       beat(e, dt, p, B) {
         const A = B.act; e.wind = 1 - Math.max(0, A.T) / 1;
-        const fire = () => { B.rings.push({ x: e.x, y: e.y, r: 10, R: 150, v: 120, dmg: 20 * e.dmgMul, hit: [], col: '#ff3a6a', los: true }); flashLight(e.x, e.y, 7, 0.4); shake(0.35); sfx.rumble(); haptic(40); };
-        if (A.T <= 0.5 && A.n === 0 && B.phase === 2) { A.n = 1; fire(); }
+        const fire = () => { B.rings.push({ x: e.x, y: e.y, r: 10, R: 200, v: 130, dmg: 20 * e.dmgMul, hit: [], col: '#ff3a6a', los: true }); flashLight(e.x, e.y, 7, 0.4); shake(0.35); sfx.rumble(); haptic(40); };
+        if (A.T <= 0.55 && A.n === 0 && B.phase === 2) { A.n = 1; fire(); }
+        if (A.T <= 0.1 && A.n === 1 && B.despair) { A.n = 2; fire(); }
         if (A.T <= dt && !A.done) { A.done = true; fire(); }
       },
     },
@@ -586,7 +597,7 @@ function initBoss(e) {
 }
 
 function enrage(e) {
-  const B = e.bs; B.phase = 2; B.act = null; e.under = false; e.sink = 0; e.wind = 0;
+  const B = e.bs; B.phase = 2; B.act = null; e.invT = BOSS.inv; // öfke kükremesi sırasında vurulmaz: evre atlanamaz e.under = false; e.sink = 0; e.wind = 0;
   e.flashT = 0.6; ring(e.x, e.y, e.d.col, 44); ring(e.x, e.y, '#ffffff', 26); sparks(e.x, e.y, e.d.col, 24, 140);
   shake(0.6); hitstop(0.12); flashLight(e.x, e.y, 8, 0.5); haptic([40, 60, 120]);
   // öfke gösterisi olan kit kükremesini gösterinin sonunda atar
@@ -597,6 +608,16 @@ function enrage(e) {
   // öfke gösterisi (Balrog alev alır, Poseidon dönüşür): o sırada yürümez ve saldırmaz
   if (KITS[e.type].rage) KITS[e.type].rage(e, B);
   emit('bossPhase', e.type);
+}
+
+// son çırpınış (%25 can): kükrer, yardımcılarını yeniden çağırır, daha da hızlanır
+function despair(e, B, K) {
+  B.despair = true; B.act = null; e.invT = BOSS.inv; e.wind = 0; e.under = false; e.sink = 0;
+  e.flashT = 0.8; ring(e.x, e.y, '#ffffff', 50); ring(e.x, e.y, e.d.col, 70); sparks(e.x, e.y, e.d.col, 30, 160);
+  shake(0.8); hitstop(0.14); flashLight(e.x, e.y, 10, 0.7); haptic([60, 40, 160]); sfx.howl(); bossSfx(e.type, 'rage', sfx.howl);
+  if (K.roar && K.rage) K.roar(e, B);
+  for (const k in B.cd) if (k !== 'melee') B.cd[k] = Math.min(B.cd[k], 0.3);
+  emit('bossDespair', e.type);
 }
 
 function tickMarks(e, dt) {
@@ -620,7 +641,7 @@ function tickMarks(e, dt) {
           const c0 = Math.floor(m.x / TILE), r0 = Math.floor(m.y / TILE); let n = 0;
           for (let r = r0 - 1; r >= r0 - 6 && n < 3; r--) for (let c = c0 - 1; c <= c0 + 1 && n < 3; c++) {
             const d = TD[tileAt(c, r)];
-            if (d.plain && !solidAt(c, r + 1)) { const mat = matOf(c, r); setTile(c, r, T.AIR); G.rocks.push({ x: c * TILE + 8, y: r * TILE + 8, vy: 30, mat }); n++; }
+            if (d.plain && !solidAt(c, r + 1)) { const mat = matOf(c, r); setTile(c, r, T.AIR); G.rocks.push({ x: c * TILE + 8, y: r * TILE + 8, vy: 30, mat, mul: e.dmgMul }); n++; }
           }
           shake(0.3); sfx.rockfall();
         } else if (POP[m.kind]) POP[m.kind](e, m, B);
@@ -635,7 +656,9 @@ function tickMarks(e, dt) {
     for (const q of live()) {
       if (R.hit.includes(q.i)) continue;
       const d = ringDist(q, R);
-      if (Math.abs(d - R.r) < 6 && (!R.los || losClear(R.x, R.y, q.x, q.y))) { R.hit.push(q.i); damagePlayer(q, R.dmg, R.x, R.y); sparks(q.x, q.y, R.col, 8, 80); if (R.los) blindPlayer(q, 0.5); }
+      // boşluklu halka: boşluktan geçen vurulmaz
+      if (R.gap !== undefined && Math.abs(angDiff(Math.atan2((q.y - R.y) / 0.8, q.x - R.x), R.gap)) < R.gw) continue;
+      if (R.r > 0 && Math.abs(d - R.r) < 6 && (!R.los || losClear(R.x, R.y, q.x, q.y))) { R.hit.push(q.i); damagePlayer(q, R.dmg, R.x, R.y); sparks(q.x, q.y, R.col, 8, 80); if (R.los) blindPlayer(q, 0.5); }
     }
     if (R.r < R.R) B.rings[j++] = R;
   }
@@ -646,7 +669,8 @@ function tickMarks(e, dt) {
 // sıradaki yetenek: döngüde kalanlardan ilk yapılabilir olan; hiçbiri olmuyorsa döngü baştan
 function nextSkill(e, p, dp, B, K) {
   if (B.cd.gap > 0) return null;
-  const ok = k => K.can[k](e, p, dp, B);
+  // erim: yetenekler kaçana biraz daha uzaktan yetişir
+  const ok = k => K.can[k](e, p, dp * BOSS.reach, B) || K.can[k](e, p, dp, B);
   let i = B.q.findIndex(ok);
   if (i < 0 && B.q.length < K.rot.length) { B.q = K.rot.slice(); i = B.q.findIndex(ok); }
   if (i < 0) return null;
@@ -669,8 +693,8 @@ export function mirrored(e) {
   return true;
 }
 
-// kendi arenası/yolu olan bosslar kovalamaz (yığınındaki ejder, duvardan duvara geçen yılan, tapınaktaki Poseidon)
-const NO_HUNT = { ejder: 1, dunyaYilani: 1, poseidon: 1 };
+// kendi arenası/yolu olan bosslar kovalamaz (yığınındaki ejder, duvardan duvara geçen yılan, tapınaktaki Poseidon, yalnız sesi izleyen Sağır Avcı)
+const NO_HUNT = { ejder: 1, dunyaYilani: 1, poseidon: 1, sagirAvci: 1 };
 function hunt(e, dt, p, dp) {
   const s = SEAL.hunt * dt, ux = (p.x - e.x) / dp, uy = (p.y - e.y) / dp, R = Math.max(6, Math.min(12, e.r * 0.7));
   const clear = (x, y) => {
@@ -700,13 +724,19 @@ export function updateBoss(e, dt, p, dp) {
   tickMarks(e, dt);
   if (e.intro > 0) { e.intro -= dt; return true; }
   if (K.tick) K.tick(e, dt, B);
-  if (B.phase === 1 && e.hp < e.maxHp * 0.5) enrage(e);
+  if (e.invT > 0) e.invT -= dt;
+  if (B.phase === 1 && e.hp < e.maxHp * BOSS.rage) enrage(e);
+  else if (B.phase === 2 && !B.despair && e.hp < e.maxHp * BOSS.despair) despair(e, B, K);
   if (B.rageT > 0) {
     B.rageT -= dt;
     if (!B.roared && B.rageT <= (K.roarAt || 1.3)) { B.roared = true; K.roar(e, B); }
     return true;
   }
   if (B.phase === 2) { e.slowT = Math.min(e.slowT, -0.1); if (rnd() < dt * 10) particle(e.x + (rnd() - 0.5) * 20, e.y + (rnd() - 0.5) * 14, 0, -20, 0.5, e.d.col, 1, 1, 0); }
+  // bekleme süreleri eylem sürerken de işler: bir saldırı biterken sıradaki hazır olur (saldırılar üst üste biner)
+  const rate = B.despair ? BOSS.despairRate : B.phase === 2 ? BOSS.rageRate : 1;
+  // (döngüsüz, kendi seçimini yapan kadim bosslar -Kor İblisi, Poseidon, Ejder- yalnız boştayken sayar)
+  if (K.rot || !B.act) for (const k in B.cd) B.cd[k] -= dt * rate;
   if (B.act) {
     B.act.T -= dt;
     const run = B.act.k === 'melee' ? runMelee : K.run[B.act.k];
@@ -714,8 +744,6 @@ export function updateBoss(e, dt, p, dp) {
     if (B.act.T <= 0) { B.act = null; e.wind = 0; }
     return true;
   }
-  const rate = B.phase === 2 ? 1.35 : 1;
-  for (const k in B.cd) B.cd[k] -= dt * rate;
   if (!p || p.dead) return false;
   // kaçan madencinin peşinden kayayı yararak gelir: kazıp kaçmak işe yaramaz
   if (dp > SEAL.far && !e.under && !NO_HUNT[e.type] && p.y >= GROUND_Y) { hunt(e, dt, p, dp); return true; }

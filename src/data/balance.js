@@ -281,7 +281,7 @@ export const ENEMIES = {
     loot: [['cobalt', 4], ['iron', 4], ['crystal', 2]], lore: 'Madenin ilk kökü. Toprağa dalar, altından çıkar; yerde kök çatlarsa kaç.' },
   kavurgan: { name: 'Kavurgan', title: 'Kül ve Kemik Ejderi', col: '#ff6a1a', hp: 540, speed: 23, dmg: 26, r: 11, armor: 0.35, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 1.8,
     loot: [['cobalt', 5], ['crystal', 3], ['gold', 2]], lore: 'Kor katmanında yanan kemik. Nefesi koni, küllü yer patlar; arkasında dur.' },
-  otegoz:   { name: 'Ötegöz', title: 'Boşluğa Bakan', col: '#b080ff', hp: 560, speed: 30, dmg: 22, r: 10, armor: 0.2, fly: true, dig: 99, digRate: 7, knockResist: 1, blink: true, blinkCd: 6, boss: true, cost: 0, dieT: 1.8,
+  otegoz:   { name: 'Ötegöz', title: 'Boşluğa Bakan', col: '#b080ff', hp: 560, speed: 30, dmg: 22, r: 10, armor: 0.2, fly: true, dig: 99, digRate: 7, knockResist: 1, blink: true, blinkCd: 3.5, boss: true, cost: 0, dieT: 1.8,
     loot: [['crystal', 5], ['gold', 3]], lore: 'Karanlığın ötesinden bakar. Küreleri seni kovalar, bakışı çeker; ışınını kayayla kes.' },
   kordesen: { name: 'Kördeşen', title: 'Derinlerin Kör Kazıcısı', col: '#ffd870', hp: 640, speed: 22, dmg: 30, r: 11, armor: 0.45, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 1.8,
     loot: [['gold', 8], ['crystal', 3]], lore: 'Madeni senden önce o kazdı. Kayayı matkap gibi yararak hücum eder; duvara çarpınca sersemler.' },
@@ -330,6 +330,15 @@ export const ENEMIES = {
     loot: [['crystal', 10], ['gold', 8], ['kehribar', 2]], lore: 'Yumurtaları yere düşünce çatlar; reçinesi seni yere yapıştırır.' },
   madenKalbi: { name: 'Madenin Kalbi', title: 'FALL', col: '#ff3a6a', hp: 1100, speed: 16, dmg: 30, r: 12, armor: 0.3, fly: true, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 1.8,
     loot: [['crystal', 14], ['gold', 12], ['kehribar', 3]], lore: 'Maden yaşıyor. Duvarlar ona ait: duvara yaslanma, yerinde durma.' },
+  // biyom bossları: kendi biyomlarında kesin karşılaşılır (lairs.js)
+  dev: { name: 'Uyuyan Dev', title: 'Kalbin Yankısı', col: '#ff5a6a', hp: 1000, speed: 15, dmg: 34, r: 15, armor: 0.4, dig: 99, digRate: 8, knockResist: 1, boss: true, cost: 0, dieT: 2.2,
+    loot: [['crystal', 12], ['gold', 10], ['akik', 2]], lore: 'Uyuyan Dev’in kendisi. Nabız halkasının boşluğundan geç, yumruğun gölgesinden kaç; göğsü açılınca kalbine vur.' },
+  ustabasi: { name: 'Ustabaşı', title: 'Birinci Ekibin Ustabaşısı', col: '#9af0c0', hp: 600, speed: 28, dmg: 26, r: 9, armor: 0.25, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 1.8,
+    loot: [['cobalt', 6], ['gold', 5], ['crystal', 2]], lore: 'Birinci Ekip’in ustabaşısı hâlâ vardiyada. Kazması geri döner; kemik kafesi kazarak kır, fener sönünce arkanı kolla.' },
+  sagirAvci: { name: 'Sağır Avcı', title: 'Sessizliğin Kulağı', col: '#c0c0e0', hp: 950, speed: 30, dmg: 32, r: 12, armor: 0.3, dig: 99, digRate: 8, knockResist: 1, boss: true, cost: 0, dieT: 1.8,
+    loot: [['crystal', 10], ['gold', 8], ['yildiz', 2]], lore: 'Görmez, yalnız duyar. Sessiz kal, tuzak taşıyla kandır; titreşim sırasında kıpırdarsan seni bulur.' },
+  pasGolem: { name: 'Pas Golemi', title: 'Mıknatısın Kalbi', col: '#e0603a', hp: 1100, speed: 18, dmg: 34, r: 13, armor: 0.45, dig: 99, digRate: 8, knockResist: 1, boss: true, cost: 0, dieT: 2,
+    loot: [['iron', 30], ['crystal', 10], ['kehribar', 2]], lore: 'Madenin demirinden yapılmış. Çekirdeği parlarken önden vurma; demir damarlarını önce sen kaz ki zırh yapamasın.' },
   balrog: { name: 'Kor İblisi', title: 'Külün ve Alevin Efendisi', col: '#ff5a1a', hp: 900, speed: 19, dmg: 32, r: 12, armor: 0.35, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 2.6, hpMul: 1.4,
     loot: [['crystal', 10], ['gold', 10], ['cobalt', 6]], lore: 'Kor Katmanının dibinde uyuyan alev iblisi. Kamçısı uzağa uzanır, kılıcı yeri yarar; gölgeye karışıp arkanda belirir.' },
   dunyaYilani: { name: 'Dünya Yılanı', title: 'Denizin Kuşağı', col: '#5ae0ff', hp: 520, speed: 0, dmg: 28, r: 12, armor: 0.3, fly: true, dig: 99, digRate: 7, knockResist: 1, boss: true, cost: 0, dieT: 2.5, hpMul: 1.5,
@@ -358,7 +367,7 @@ export const BOSS_BANDS = ['karakok', 'kavurgan', 'otegoz', 'kordesen', 'ezeli',
 // strata: mühürlü biyom konumları (bölüm sonları); zone: mührün kaç satır yukarısında bekçi uyanır; heartZone: kalbin kaç satır yukarısında.
 // rage: bu gürültünün üstünde gelene bekçi öfkeli uyanır (hasar/hız); ambush: sessiz gelenin ilk vuruşu kaç kat
 // far/hunt: kaçan madencinin peşinden kayayı yararak gelme eşiği (px) ve hızı (px/sn)
-export const SEAL = { strata: [3, 7, 11, 15, 19, 23, 27], zone: 9, heartZone: 11, omen: 2.6, rageNoise: 70, rage: { dmg: 1.2, sp: 1.15 }, ambush: 3, far: 170, hunt: 80, digMax: 6 };
+export const SEAL = { strata: [3, 7, 11, 15, 19, 23, 27], zone: 9, heartZone: 11, omen: 2.6, rageNoise: 70, rage: { dmg: 1.2, sp: 1.15 }, ambush: 3, far: 135, hunt: 100, digMax: 6 };
 
 // Elit: Öfke seviyesinde yuvalardan şansla çıkar (can ×2.2, boyut ×1.25, altın düşürür); derinde özellik kazanır
 export const ELITE = { hp: 2.2, dmg: 1.6, scale: 1.25, gold: 3, fromWave: 3, affixAt: [6, 14, 22] };
@@ -379,7 +388,7 @@ export function enemyHpMul(st, lv, boss) { return Math.pow(boss ? SCALE.bossHp :
 export function enemyDmgMul(st) { return 1 + SCALE.dmg * Math.max(0, st); }
 // Güç yönetmeni (power.js): ilk 'from' biyomda karışmaz; sonra ekibin hasar/sn'si beklenenin 'free' katını aşarsa düşman canı (oran^exp) katına çıkar, en çok max.
 // Elit ve boss canı en az 'ekip hasar/sn × ttk' olur. lvPerBiome: beklenen Silah Gücü ilerleyişi; cardPerBiome/cardMax: silah kartlarının beklenen katkısı
-export const POWER = { exp: 0.85, max: 10, from: 2, free: 1.25, eliteTtk: 2.6, bossTtk: 14.5, lvPerBiome: 0.5, cardPerBiome: 0.12, cardMax: 2.5 };
+export const POWER = { exp: 0.85, max: 10, from: 2, free: 1.25, eliteTtk: 2.6, bossTtk: 20, lvPerBiome: 0.5, cardPerBiome: 0.12, cardMax: 2.5 };
 
 // Yönetmen: tek ortak bütçe, karışık gruplar, duyurulan dalgalar ve sonrasında nefes arası
 export const DIRECTOR = {
@@ -552,6 +561,8 @@ export const POSEIDON = {
 // Vampir Mermi: saniyede en çok azami canın bu kadarı emilir (sürünün içinde ölümsüzlük olmasın)
 export const VAMP_CAP = 0.01;
 export const BOSS_MELEE = { range: 12, reach: 20, arc: 1.15, wind: 0.5, rest: 0.4, cd: 1.5, push: 170 };
+// bossların genel sertliği: hasar çarpanı, yürüyüş hızı (+derinlik), yetenek erimi (can() bu kadar yakın sayar), öfke ve son çırpınış eşikleri
+export const BOSS = { dmg: 1.5, speed: 1.3, speedDepth: 0.01, reach: 0.75, rage: 0.6, despair: 0.25, despairRate: 1.7, rageRate: 1.35, inv: 1 };
 // Balrog: Kor Katmanı'nın ortasına inen madenciyi bir kez karşılar. dark: sisin toplanma süresi (sn), intro: alevlenme
 export const BALROG = { depth: 16, dark: 7.5, intro: 2.6, drum: 1.15, aura: 28, auraDmg: 4, carve: 0.3 };
 // Dünya Yılanı: Sessiz Deniz'in ortasında bir kez; duvardan duvara geçer, yalnız başı vurulur

@@ -1,6 +1,10 @@
 // Boss animasyon sahneleri: oyun mantığındaki (bosses.js) zamanlamaları taklit eden sahte varlık durumu.
 // Hem önizleme betiği (boss-preview.mjs) hem tarayıcı vitrini (boss-viewer.html) kullanır.
 import { ENEMIES, BALROG, BOSS_MELEE, POSEIDON } from '../src/data/balance.js';
+import devScenes from './scenes/dev.mjs';
+import ustabasiScenes from './scenes/ustabasi.mjs';
+import sagirScenes from './scenes/sagiravci.mjs';
+import pasScenes from './scenes/pasgolem.mjs';
 
 export function makeBoss(type, x = 0, y = 0) {
   return { type, x, y, px: x, py: y, face: 1, d: ENEMIES[type], anim: 0, hitT: 0, hitDx: 0, hitDy: 0, wind: 0, lunge: 0, dieT: 0, dead: false, wob: 0.5, intro: 0, blinkT: 0, emergeT: 0, sink: 0, fade: 0, flashT: 0, under: false, x0: x, y0: y, bs: { phase: 1, act: null, marks: [], rings: [] } };
@@ -133,6 +137,9 @@ const SCENES = {
   },
 };
 
+// yeni bosslar: sahneleri kendi dosyalarında (ortak yardımcılar H ile verilir)
+const H = { act, aim, staged, total, timed, cl };
+Object.assign(SCENES, { dev: devScenes(H), ustabasi: ustabasiScenes(H), sagirAvci: sagirScenes(H), pasGolem: pasScenes(H) });
 export function sceneNames(type) { return [...Object.keys(COMMON), ...Object.keys(SCENES[type] || {})]; }
 export function getScene(type, name) {
   const s = (SCENES[type] && SCENES[type][name]) || COMMON[name]; if (!s) return null;

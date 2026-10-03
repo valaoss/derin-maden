@@ -513,7 +513,8 @@ export function updateDeposit(dt) {
 }
 
 // ---------- hasar / ölüm ----------
-export function damagePlayer(p, amount, sx, sy) {
+// chip: sürekli küçük hasar (alan, nefes, ışın tiki): dokunulmazlık vermez, savurmaz (alanda durmak büyük vuruşlara kalkan olmasın)
+export function damagePlayer(p, amount, sx, sy, chip = false) {
   if (p.dead || p.iframes > 0) return;
   // Akik Kalkan: darbeyi emer, sonra dolar
   if (G.lvl.akikKalkan && !(p.shieldT > 0)) {
@@ -541,6 +542,7 @@ export function damagePlayer(p, amount, sx, sy) {
     return;
   }
   p.hp -= amount;
+  if (chip) { p.hurtT = 0.12; if (isLocal(p)) emit('hurt', amount); if (p.hp <= 0) die(p); return; }
   p.iframes = hasPerk('hayaletDeri') ? pv('hayaletDeri') : PLAYER.iframes; p.hurtT = 0.2;
   const d = Math.hypot(p.x - sx, p.y - sy) || 1;
   moveAxis(p, (p.x - sx) / d * 5, 0); moveAxis(p, 0, (p.y - sy) / d * 5);

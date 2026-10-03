@@ -1181,6 +1181,16 @@ function ringPx(x, y, r, col, dash = 0) {
   ctx.fillStyle = col;
   for (let i = 0; i < n; i++) { if (dash && (i >> dash) % 2) continue; const a = i / n * Math.PI * 2; ctx.fillRect(Math.round(x + Math.cos(a) * r), Math.round(y + Math.sin(a) * r * 0.8), 1, 1); }
 }
+// boşluklu halka (Uyuyan Dev'in nabzı): boşluk açıkça okunsun diye kenarları parlak
+function gapRing(x, y, r, col, gap, gw) {
+  const n = Math.max(12, Math.round(r * 2.4));
+  for (let i = 0; i < n; i++) {
+    const a = i / n * Math.PI * 2; let d = (a - gap) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2;
+    if (Math.abs(d) < gw) continue;
+    ctx.fillStyle = Math.abs(d) < gw + 0.08 ? '#ffffff' : col;
+    ctx.fillRect(Math.round(x + Math.cos(a) * r), Math.round(y + Math.sin(a) * r * 0.8), 1, 1);
+  }
+}
 function dashLine(x0, y0, a, len, col, off = 0) {
   ctx.fillStyle = col;
   const o = ((off % 6) + 6) % 6;
@@ -1215,10 +1225,17 @@ function drawBossFx(e, alpha) {
     else if (m.kind === 'light') { ctx.globalAlpha = k; ctx.fillStyle = '#fff4c0'; ctx.fillRect(mx - 3, my - 90, 7, 90); ctx.fillStyle = '#ffffff'; ctx.fillRect(mx - 1, my - 90, 3, 90); ctx.globalAlpha = 1; glow(m.x, m.y, 'rgba(255,244,192,0.6)', 18, k); }
   }
   for (const R of B.rings) {
+    if (R.r <= 0) continue;
     ctx.globalAlpha = 1 - (R.r / R.R) * 0.6;
-    ringPx(R.x, R.y, R.r, R.col); ringPx(R.x, R.y, R.r - 2, '#ffffff', 2); ringPx(R.x, R.y, R.r - 4, R.col, 1);
+    if (R.gap !== undefined) { gapRing(R.x, R.y, R.r, R.col, R.gap, R.gw); gapRing(R.x, R.y, R.r - 2, '#ffffff', R.gap, R.gw); gapRing(R.x, R.y, R.r - 4, R.col, R.gap, R.gw); }
+    else { ringPx(R.x, R.y, R.r, R.col); ringPx(R.x, R.y, R.r - 2, '#ffffff', 2); ringPx(R.x, R.y, R.r - 4, R.col, 1); }
     ctx.globalAlpha = 1;
   }
+  // Ustabaşı'nın uçan kazması: dönen sap ve demir baş
+  if (B.pick) { const P = B.pick, a = P.spin, c = Math.cos(a), s2 = Math.sin(a), px = Math.round(P.x), py = Math.round(P.y);
+    for (let i = -6; i <= 6; i++) { ctx.fillStyle = '#7a5a2a'; ctx.fillRect(Math.round(px + c * i), Math.round(py + s2 * i), 1, 1); }
+    for (let i = -4; i <= 4; i++) { ctx.fillStyle = i ? '#a7b0c4' : '#dfe6f0'; ctx.fillRect(Math.round(px + c * 6 - s2 * i), Math.round(py + s2 * 6 + c * i), 2, 1); }
+    glow(P.x, P.y, 'rgba(154,240,192,0.4)', 10, 0.6); }
   if (e.type === 'poseidon') drawPoseidonFx(ctx, e, x, y, t, glow);
   drawKitFx(ctx, e, x, y, t, glow, alpha);
   const A = B.act;

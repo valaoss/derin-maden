@@ -27,6 +27,7 @@ import { updateSerpent, SEA_BIOME } from '../src/game/serpent.js';
 import { updateHoard, PALACE_BIOME } from '../src/game/dragon.js';
 import { updatePoseidon, inTemple } from '../src/game/poseidon.js';
 import { updateSeals, bossLock, makeSeals } from '../src/game/seals.js';
+import { updateLairs, LAIRS, LAIR_KEYS } from '../src/game/lairs.js';
 import { CRITTERS } from '../src/data/critters.js';
 import { updateParticles, updateFlashes } from '../src/game/fx.js';
 import { updateFlow, forceFlow } from '../src/world/flow.js';
@@ -63,7 +64,7 @@ function step(dt = STEP) {
   G.time += dt; G.stats.time += dt; G.frame++;
   if (G.hitstop > 0) { G.hitstop -= dt; return; }
   updateFlow(dt); updatePlayer(dt); updatePlayerGun(dt); updateEnemies(dt); updateBullets(dt); updateStructures(dt);
-  updateItems(dt); updateHazards(dt); updateThreat(dt); updateEvents(dt); updateMerchant(dt); updateWell(dt); updateCritters(); updateWonders(dt); updateLiquids(dt); updateBalrog(dt); updateSerpent(dt); updateHoard(dt); updatePoseidon(dt); updateSeals(dt); updateOrbs(dt); updateDeposit(dt); updateParticles(dt); updateFlashes(dt);
+  updateItems(dt); updateHazards(dt); updateThreat(dt); updateEvents(dt); updateMerchant(dt); updateWell(dt); updateCritters(); updateWonders(dt); updateLiquids(dt); updateBalrog(dt); updateSerpent(dt); updateHoard(dt); updatePoseidon(dt); updateSeals(dt); updateLairs(dt); updateOrbs(dt); updateDeposit(dt); updateParticles(dt); updateFlashes(dt);
 }
 const run = sec => { for (let i = 0, n = Math.round(sec / STEP); i < n; i++) step(); };
 const fresh = (seed = 1) => { const g = newRun({ seed, start: false }); allDown = false; g.player.inp = { x: 0, y: 0, mag: 0 }; return g; };
@@ -579,7 +580,7 @@ section('Bosslar');
     const e = spawnEnemy(k, 8 * TILE + 8, (GROUND_ROW + 4) * TILE + 8, 3); e.emergeT = 0; e.hp = e.maxHp = 1e6; return [p, e]; };
   for (const k of ['karakok', 'kavurgan', 'otegoz', 'kordesen', 'ezeli']) {
     const [p, e] = arena(710, k); const seen = new Set();
-    for (let i = 0; i < 60 * 40; i++) { step(); if (e.bs && e.bs.act) seen.add(e.bs.act.k); p.hp = Math.max(p.hp, 5000); }
+    for (let i = 0; i < 60 * 40; i++) { if (i % 360 === 180) p.x = p.px = (p.x < 8 * TILE ? 13 : 3) * TILE + 8; step(); if (e.bs && e.bs.act) seen.add(e.bs.act.k); p.hp = Math.max(p.hp, 5000); }
     ok(`${ENEMIES[k].name}: beş yetenekli döngü`, KITS[k].rot.length === 5 && KITS[k].rot.every(s => seen.has(s)) && p.hp < 9999, [...seen].join(','));
     for (let i = 0; i < 600 && e.under; i++) step(); // toprağın altındayken vurulamaz
     const ev = events.bossPhase | 0; damageEnemy(e, e.maxHp * 0.6 / (1 - ENEMIES[k].armor), 0, 0, 0); run(0.3);
@@ -593,7 +594,7 @@ section('Bosslar');
   // Ezelî halkası kayanın arkasına geçmez
   { const [p, e] = arena(730, 'ezeli'); step(); e.bs.q = ['doom']; e.bs.cd.gap = 0;
     for (let c = 3; c <= 13; c++) setTile(c, GROUND_ROW + 7, T.BEDROCK || T.STONE);
-    p.hp = 9999; e.px = e.x; for (let i = 0; i < 60 * 2.6; i++) { step(); e.x = e.px = 8 * TILE + 8; e.y = e.py = (GROUND_ROW + 4) * TILE + 8; }
+    p.hp = 9999; e.px = e.x; for (let i = 0; i < 60 * 2.6; i++) { step(); if (e.bs.act && e.bs.act.k === 'doom') e.bs.cd.gap = 99; e.x = e.px = 8 * TILE + 8; e.y = e.py = (GROUND_ROW + 4) * TILE + 8; }
     ok('Kıyamet Halkası siperde vurmaz', p.hp === 9999, `hp ${p.hp}`); }
   // düz vuruş: gövdeye değmek hasar vermez; dibine girene gerilir, sonra önüne vurur; yaydan çıkan kurtulur
   { const [p, e] = arena(750, 'kordesen'); step(); const B = e.bs, pin = dx => { p.x = p.px = e.x + dx; p.y = p.py = e.y; };
@@ -1536,7 +1537,7 @@ section('Derin düşman baskısı');
   const deep = GROUND_ROW + 24 * STRATUM_ROWS + 10, top = GROUND_ROW + 1 * STRATUM_ROWS + 10;
   const a = spawnEnemy('spitter', 8 * TILE + 8, top * TILE + 8, 1), b = spawnEnemy('spitter', 8 * TILE + 8, deep * TILE + 8, 1);
   ok('derinde düşman daha hızlı, sık vurur, uzağa atar', b.spMul > a.spMul + 0.15 && b.atkMul < a.atkMul - 0.2 && b.rngMul > a.rngMul + 0.3, `${b.spMul} ${b.atkMul} ${b.rngMul}`);
-  ok('boss derinlik çevikliği almaz', spawnEnemy('karakok', 8 * TILE + 8, deep * TILE + 8, 1).spMul === 1);
+  ok('boss derinlik çevikliği almaz (kendi hızı var)', spawnEnemy('karakok', 8 * TILE + 8, deep * TILE + 8, 1).atkMul === undefined);
   // hiçbir kaya bir düşmanı 5 sn'den uzun tutmaz
   { fresh(2302); const p = G.player, r0 = GROUND_ROW + 26 * STRATUM_ROWS + 10; shaft(8, r0 + 1);
     for (let c = 4; c <= 12; c++) setTile(c, r0, T.AIR);
@@ -1565,6 +1566,45 @@ section('Hikâye');
   ok('sayfa kırılınca okunur', got && got.s === 0 && got.pi === p.i);
   ok('telsiz ilerlemeye göre konuşur', STORY.radioLine({ runs: 3, sealMax: 2 })[1] !== STORY.radioLine({ runs: 3, sealMax: 0 })[1]);
   ok('öğreticide sayfa yok', (() => { const g = newRun({ tutorial: true, seed: 6, start: false }); const k = g.map.filter(t => t === T.PAGE).length; fresh(2401); return k === 0; })());
+}
+
+section('Biyom bossları');
+{
+  const arena5 = (seed, k) => { fresh(seed); const p = G.player; for (let r = GROUND_ROW + 1; r <= GROUND_ROW + 14; r++) for (let c = 3; c <= 13; c++) setTile(c, r, T.AIR);
+    p.x = p.px = 8 * TILE + 8; p.y = p.py = (GROUND_ROW + 11) * TILE + 8; p.hp = p.maxHp = 9999; forceFlow();
+    const e = spawnEnemy(k, 8 * TILE + 8, (GROUND_ROW + 5) * TILE + 8, 3); e.emergeT = 0; e.hp = e.maxHp = 1e6; return [p, e]; };
+  for (const k of LAIR_KEYS) {
+    const [p, e] = arena5(2501, k); const seen = new Set(); let threw = null;
+    try { for (let i = 0; i < 60 * 45; i++) { if (k === 'sagirAvci' && i % 90 === 0) { p.x = p.px = ((i / 90) % 2 ? 3 : 13) * TILE + 8; addNoise(4, p.x, p.y); } step(); if (e.bs && e.bs.act) seen.add(e.bs.act.k); p.hp = Math.max(p.hp, 5000); p.iframes = 0; } } catch (err) { threw = err; }
+    ok(`${ENEMIES[k].name}: hatasız dövüşür`, !threw, threw ? threw.stack.split('\n').slice(0, 2).join(' ') : '');
+    ok(`${ENEMIES[k].name}: beş yetenekli döngü`, KITS[k].rot.length === 5 && KITS[k].rot.every(s => seen.has(s)) && p.hp < 9999, [...seen].join(','));
+    const ev = events.bossPhase | 0; for (let i = 0; i < 600 && e.under; i++) step(); damageEnemy(e, e.maxHp * 0.6 / (1 - ENEMIES[k].armor), 0, 0, 0); run(0.3);
+    ok(`${ENEMIES[k].name}: %50 canda öfkelenir`, e.bs.phase === 2 && (events.bossPhase | 0) === ev + 1);
+    try { for (let i = 0; i < 60 * 20; i++) { if (k === 'sagirAvci' && i % 40 === 0) addNoise(4, p.x, p.y); step(); p.hp = Math.max(p.hp, 5000); p.iframes = 0; } threw = null; } catch (err) { threw = err; }
+    ok(`${ENEMIES[k].name}: öfkede hatasız`, !threw, threw ? threw.stack.split('\n').slice(0, 2).join(' ') : '');
+  }
+  // Dev: kalbi açıkken kat kat işler
+  { const [p, e] = arena5(2502, 'dev'); step(); const B = e.bs; B.q = ['heart']; B.cd.gap = 0; B.cd.melee = 99; run(0.6); const h = e.hp; damageEnemy(e, 100, 0, 0, 0); const open = h - e.hp;
+    run(3); const h2 = e.hp; damageEnemy(e, 100, 0, 0, 0); ok('Uyuyan Dev: kalbi açıkken iki buçuk kat', open > (h2 - e.hp) * 2.2, `${open} ${h2 - e.hp}`); }
+  // Golem: mıknatıs kalkanı önden gelen vuruşu keser, arkadan geçer
+  { const [p, e] = arena5(2503, 'pasGolem'); step(); const B = e.bs; B.q = ['magnet']; B.cd.gap = 0; B.cd.melee = 99; run(0.3); e.face = 1; const h = e.hp; damageEnemy(e, 100, -1, 0, 0); const front = h - e.hp; const h2 = e.hp; damageEnemy(e, 100, 1, 0, 0);
+    ok('Pas Golemi: kalkan önden keser, arkadan geçer', front < (h2 - e.hp) * 0.2, `${front} ${h2 - e.hp}`); }
+  // Ustabaşı: kazma gider ve geri döner
+  { const [p, e] = arena5(2504, 'ustabasi'); step(); const B = e.bs; B.q = ['throw']; B.cd.gap = 0; B.cd.melee = 99; let away = false, back = false; for (let i = 0; i < 60 * 4; i++) { step(); p.hp = 9999; if (B.pick) away = true; else if (away) back = true; }
+    ok('Ustabaşı: kazma fırlar ve ele döner', away && back); }
+  // Sağır Avcı: sessiz madenciyi bulamaz
+  { const [p, e] = arena5(2505, 'sagirAvci'); p.y = p.py = (GROUND_ROW + 13) * TILE + 8; e.x = e.px = 3 * TILE + 8; G.threat.quietT = 99; G.threat.last = null; for (let r = GROUND_ROW + 1; r <= GROUND_ROW + 14; r++) setTile(6, r, T.BEDROCK); step(); for (let i = 0; i < 60 * 4; i++) { G.threat.quietT = 99; e.bs.cd.gap = 99; step(); }
+    const d0 = Math.hypot(e.x - p.x, e.y - p.y); ok('Sağır Avcı: sessiz madenciyi bulamaz', e.listen === 1 && d0 > 60, `${e.listen} ${d0}`); }
+  // biyomuna inen madenciyi karşılar
+  for (const k of LAIR_KEYS) {
+    fresh(2510); const s = G.order.indexOf(LAIRS[k].biome), p = G.player, r = GROUND_ROW + s * STRATUM_ROWS + LAIRS[k].depth + 2;
+    for (let c = 3; c <= 13; c++) { setTile(c, r, T.AIR); setTile(c, r - 1, T.AIR); }
+    p.x = p.px = 8 * TILE + 8; p.y = p.py = r * TILE + 8; p.hp = p.maxHp = 1e5; G.maxStratum = s; G.threat.noise = 0;
+    for (let i = 0; i < 60 * (LAIRS[k].omen + 0.5); i++) { G.threat.noise = 0; step(); p.hp = 1e5; }
+    ok(`${ENEMIES[k].name} biyomunda sessiz gelene de uyanır`, G.enemies.some(e => e.type === k && !e.dead) && G.lairs[k].st === 'fight', G.lairs[k].st);
+    const e = G.enemies.find(o => o.type === k); killEnemy(e); run(2.5);
+    ok(`${ENEMIES[k].name} yenilince bir daha gelmez (kayıtta da)`, G.lairs[k].st === 'done' && (() => { const d = JSON.parse(JSON.stringify(serialize())); deserialize(d); return G.lairs[k].st === 'done'; })());
+  }
 }
 
 console.log(`\n${checks - fails}/${checks} kontrol geçti${fails ? `, ${fails} HATA` : ''}`);

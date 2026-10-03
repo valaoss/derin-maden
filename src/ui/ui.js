@@ -176,6 +176,7 @@ export function initUI(root, h) {
   // mühür bekçisi: gürültüden bağımsız gelir; gürültülü geleni öfkeli bulur, sessiz gelen pusu kurar
   on('keeperWarn', d => { const B = ENEMIES[d.type]; banner((B ? up(B.name) : 'BEKÇİ') + ' UYANIYOR', d.heart ? 'KALBİN BEKÇİSİ' : 'MÜHRÜN BEKÇİSİ', true);
     setTimeout(() => toast(d.loud ? 'Gürültün onu öfkelendirdi: daha sert vuruyor' : 'Sessiz geldin: ilk vuruşun pusu (üç kat)', d.loud ? 'skull' : 'hush', d.loud), 2200); });
+  on('lairOmen', d => { const B = ENEMIES[d.type]; banner((B ? up(B.name) : 'BİR ŞEY') + ' UYANIYOR', B ? up(B.title) : '', true); setTimeout(() => toast(d.text, 'skull', true), 2400); });
   on('sealBroken', d => setTimeout(() => banner('MÜHÜR KIRILDI', d.heart ? 'KALP KRİSTALİ AÇIKTA' : d.temple ? 'TAPINAĞIN YANLARI AÇILDI' : 'YOL AŞAĞI AÇIK', 'gold'), 1800));
   on('poseidon', k => { if (k === 'omen') toast('Salonun ortasında su kabarıyor… denizin sahibi geliyor', 'skull', true); });
   on('serpent', k => { if (k === 'omen') toast('Deniz sustu… duvarların ardında dev bir şey kıpırdıyor', 'skull', true); else if (k === 'crack') toast('Duvar çatlıyor!', 'skull', true); });

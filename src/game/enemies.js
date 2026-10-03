@@ -6,7 +6,7 @@ import { TILE, GROUND_Y, GROUND_ROW, PLAY_MIN_COL, PLAY_MAX_COL, stratumOfRow } 
 import { T, TD } from '../data/tiles.js';
 import { directorHp, ttkFloor } from './power.js';
 import { gainXp } from './weaponlevel.js';
-import { ENEMIES, BARRICADE, BUILDS, ELITE, BURN, AFFIX, AFFIX_KEYS, KNOCK, KILL_HEAL, SCALE, enemyHpMul, enemyDmgMul, enemyPace } from '../data/balance.js';
+import { ENEMIES, BARRICADE, BUILDS, ELITE, BURN, AFFIX, AFFIX_KEYS, KNOCK, KILL_HEAL, SCALE, BOSS, enemyHpMul, enemyDmgMul, enemyPace } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, solidAt, damageTile, idx, matOf } from '../world/map.js';
 import { FIELD, flowAt, nextStep, FLOW_INF } from '../world/flow.js';
@@ -42,7 +42,7 @@ export { ENEMY_COL };
 export function spawnEnemy(type, x, y, lv = 0) {
   const d = ENEMIES[type], st = Math.max(0, stratumOfRow(Math.floor(y / TILE)));
   let hp = d.hp * enemyHpMul(st, lv, d.boss) * (G.mods ? G.mods.hp : 1);
-  hp = d.boss ? Math.max(hp, ttkFloor(true)) * (d.hpMul || 1) : hp * directorHp(st);
+  hp = d.boss ? Math.max(hp, ttkFloor(true) * (G.mods ? G.mods.hp : 1)) * (d.hpMul || 1) : hp * directorHp(st);
   const e = {
     type, d, bio: biomeOf(st), x, y, px: x, py: y, hp, maxHp: hp, r: d.r, face: 1, anim: rnd() * 4,
     hitT: 0, kx: 0, ky: 0, kn: 0, atkCd: 0.6, fireCd: 1 + rnd(), emergeT: 0.9, wob: rnd() * 6,
@@ -54,6 +54,8 @@ export function spawnEnemy(type, x, y, lv = 0) {
   };
   // derinde daha çevik: hız, saldırı sıklığı, menzil (boss kendi döngüsüyle dövüşür)
   if (!d.boss) { const P = enemyPace(st); e.spMul = P.sp; e.atkMul = P.atk; e.rngMul = P.rng; e.shotMul = P.shot; }
+  // bosslar: daha sert vurur, daha hızlı yürür (derinlikle artar)
+  else { e.dmgMul *= BOSS.dmg; e.spMul = BOSS.speed * (1 + BOSS.speedDepth * st); }
   G.enemies.push(e);
   return e;
 }
@@ -96,7 +98,7 @@ export function losClear(x0, y0, x1, y1, ignoreBarricade = false) {
 }
 
 export function damageEnemy(e, dmg, dx = 0, dy = 0, knock = 1, silent = false, crit = false) {
-  if (e.hp <= 0 || e.dead || e.emergeT > 0.3 || e.under || e.intro > 0) return;
+  if (e.hp <= 0 || e.dead || e.emergeT > 0.3 || e.under || e.intro > 0 || e.invT > 0) return;
   const full = e.hp >= e.maxHp;
   let real = dmg * (1 - (e.d.armor || 0)) * (e.elite || e.d.boss ? 1 + pv('devAvcisi') : 1);
   // kalıntılar: yavaşlamışa Kırılgan, yanana Ateş rezonansı, tam canlıya Suikastçi
@@ -105,6 +107,13 @@ export function damageEnemy(e, dmg, dx = 0, dy = 0, knock = 1, silent = false, c
   if (e.slowT > 0) real *= 1 + pv('kirilgan');
   if (e.burnT > 0 && resonance('ates')) real *= 1.3;
   if (full && hasPerk('suikast') && !silent) real *= pv('suikast');
+  // açıkta kalan zayıf nokta (Dev'in kalbi, sersemlemiş Avcı, raydan çıkmış Golem)
+  if (e.exposed > 0) { real *= e.exposed; if (rnd() < 0.4) sparks(e.x, e.y - 14, '#ffd0d0', 3, 70); }
+  // Pas Golemi'nin mıknatıs kalkanı: önden gelen doğrudan vuruş işlemez, kırık demir olup madenciye döner
+  if (e.frontT > 0 && !silent && dx * e.face < -0.3) {
+    real *= 0.1; sparks(e.x + e.face * 10, e.y - 14, '#ff8a6a', 4, 90);
+    if (!(e.reflAt > G.time)) { e.reflAt = G.time + 0.2; const q = nearestPlayer(e.x, e.y); if (q) { const a = Math.atan2(q.y - 3 - e.y, q.x - e.x); G.ebullets.push({ x: e.x + e.face * 10, y: e.y - 14, vx: Math.cos(a) * 170, vy: Math.sin(a) * 170, life: 1.2, dmg: 10 * e.dmgMul, col: '#ff8a6a' }); } }
+  }
   // sessiz gelenin pususu: bekçiye ilk doğrudan vuruş kat kat işler
   if (e.ambush && !silent) { real *= e.ambush; e.ambush = 0; sparks(e.x, e.y - 6, '#ffe79a', 18, 140); ring(e.x, e.y, '#ffe79a', 30); flashLight(e.x, e.y, 6, 0.4); emit('toast', { text: 'PUSU: sessiz geldin, ilk vuruş üç kat', icon: 'hush' }); }
   e.sinceHit = 0;
@@ -332,7 +341,7 @@ export function updateEnemies(dt) {
     if (e.openT > 0) e.openT -= dt;
     if (e.d.fish) e.wet = wetAt(e.x, e.y);
     const deaf = !e.d.boss && (e.d.deaf || isDeafAt(e.y)), quiet = G.threat.quietT > 1.2;
-    const sp = e.d.speed * e.spMul * (e.slowT > 0 ? 0.5 : e.slowT < 0 ? 1.35 : 1) * (e.d.swim ? (inWater(e.x, e.y) ? 2 : 0.45) : 1) * (e.d.fish ? (e.wet ? 2.4 : 0.4) : 1) * (e.d.dash && !quiet ? e.d.dash : 1);
+    const sp = e.d.speed * e.spMul * (e.slowT > 0 ? (e.d.boss ? 0.75 : 0.5) : e.slowT < 0 ? 1.35 : 1) * (e.d.swim ? (inWater(e.x, e.y) ? 2 : 0.45) : 1) * (e.d.fish ? (e.wet ? 2.4 : 0.4) : 1) * (e.d.dash && !quiet ? e.d.dash : 1);
     const p = nearestPlayer(e.x, e.y);
     const dp = p ? Math.hypot(p.x - e.x, p.y - e.y) : 1e9;
     // yeraltında oyuncu yok ya da çok uzak: izi kaybeder, geri çekilir

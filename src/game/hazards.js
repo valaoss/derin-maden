@@ -94,7 +94,7 @@ export function updateHazards(dt) {
     const c = Math.floor(k.x / TILE), rb = Math.floor((ny + 7) / TILE);
     const tb = tileAt(c, rb);
     let hit = false;
-    for (const p of G.players) if (!p.dead && Math.abs(p.x - k.x) < 9 && Math.abs(p.y - ny) < 11) { damagePlayer(p, HAZARD.fallDmg, k.x, k.y - 8); hit = true; break; }
+    for (const p of G.players) if (!p.dead && Math.abs(p.x - k.x) < 9 && Math.abs(p.y - ny) < 11) { damagePlayer(p, HAZARD.fallDmg * (k.mul || 1), k.x, k.y - 8); hit = true; break; }
     for (const e of G.enemies) if (!e.dead && e.emergeT <= 0 && Math.abs(e.x - k.x) < e.r + 6 && Math.abs(e.y - ny) < e.r + 6) {
       damageEnemy(e, HAZARD.fallEnemyDmg, 0, 1, 0.5); hit = true; break;
     }
