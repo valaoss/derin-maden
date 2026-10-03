@@ -648,8 +648,6 @@ export function showRoom(L) {
 // ---------------- menü ----------------
 const up = s => s.toLocaleUpperCase('tr-TR');
 
-// ortak mod uygulamada kapalı (bağlantı TURN olmadan mobil ağlarda güvenilir değil); web'de açık
-const COOP = !isNative;
 export function showMenu(hasSave) {
   const m = App.meta, S = App.settings;
   const s = $('#menu');
@@ -663,11 +661,11 @@ export function showMenu(hasSave) {
       ${hasSave ? `<button class="btn big" id="mCont">DEVAM ET</button><button class="btn dark" id="mNew">YENİ SEFER</button>` : `<button class="btn big" id="mNew">KAZMAYA BAŞLA</button>`}
       ${m.maxKademe ? `<button class="plate mline" id="mK"><span>${ic('kademe', 's')}<b id="kName"></b><small id="kDesc"></small></span><span class="chev">›</span></button>` : ''}
       ${(m.pets || []).some(q => CRITTERS[q]) ? `<div class="mpets"><span class="lb">YOLDAŞ<b id="petName"></b></span>${CRITTER_KEYS.filter(q => m.pets.includes(q)).map(q => `<button class="mpet" data-pet="${q}" aria-label="${CRITTERS[q].name}"><img src="${critterURL(q)}" alt=""></button>`).join('')}</div>` : ''}
-      ${m.tutorialDone ? `<div class="mrow three">
-        ${COOP ? `<button class="plate mtile" id="mCoop">${ic('hand', 'l')}<span>BİRLİKTE</span>${m.coopWins ? `<small class="dline">${m.coopWins} ZAFER</small>` : ''}</button>` : ''}
-        <button class="plate mtile" id="mDaily">${ic('daily', 'l')}<span>GÜNÜN MADENİ</span>${dailyLine()}</button>
-        <button class="plate mtile" id="mCamp">${ic('oz', 'l')}<span>KAMP</span></button>
-      </div>` : ''}
+      <div class="mrow three">
+        <button class="plate mtile" id="mCoop">${ic('hand', 'l')}<span>BİRLİKTE</span>${m.coopWins ? `<small class="dline">${m.coopWins} ZAFER</small>` : ''}</button>
+        ${m.tutorialDone ? `<button class="plate mtile" id="mDaily">${ic('daily', 'l')}<span>GÜNÜN MADENİ</span>${dailyLine()}</button>
+        <button class="plate mtile" id="mCamp">${ic('oz', 'l')}<span>KAMP</span></button>` : ''}
+      </div>
       <div class="foot">${m.tutorialDone ? relicShelf() : ''}${m.runs ? `Rekor <b>${m.bestDepth}m</b> · ${m.runs} sefer${m.wins ? ' · ' + m.wins + ' zafer' : ''} · <span class="ozline">${ic('oz', 's')}${m.oz}</span>` : 'Yuvaları yık, fenerleri dik, çekirdeğe in.'}</div>
     </div>`;
   s.classList.add('on');

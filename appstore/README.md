@@ -105,7 +105,7 @@ fastlane deliver --username APPLE_KIMLIGIN
 
 1. **Uygulama adı.** Mağazada adlar tekildir; yalın "FALL" büyük olasılıkla alınmış, bu yüzden "FALL: Derin Maden" yazdım. Ana ekrandaki ikon adı yine FALL.
 2. **Tolkien adları.** Balrog → Kor İblisi, Arkentaş → Işıltaş olarak değiştirildi (build 3).
-3. **Ortak mod bağlantısı.** Uygulamada şimdilik gizli (web sürümünde açık); TURN eklenip mobil ağda test edilince açılacak. Herkese açık PeerJS sunucusu kullanılıyor ve TURN yok; bazı mobil ağlarda iki cihaz bağlanamayabilir. Ayrıntı: `docs/ios.md`.
+3. **Ortak mod bağlantısı.** Uygulamada ve web'de açık (yeni build ile uygulamaya gelir). Herkese açık PeerJS sunucusu kullanılıyor ve TURN yok; bazı mobil ağlarda iki cihaz bağlanamayabilir. Ayrıntı: `docs/ios.md`.
 4. **iPad.** Uygulama şimdilik yalnız iPhone (TARGETED_DEVICE_FAMILY = 1); iPad'de iPhone modunda açılır, iPad görüntüleri gerekmez. iPad desteği sonradan eklenebilir.
 5. **Fotoğraf modu.** Uygulamada gizli (web'de açık); fotoğraf arşivi izni gerektirmesin diye.
 
