@@ -13,6 +13,7 @@ import { KITS, live, breakable, bullet, mark, hitPlayers, angDiff, spotNear, bos
 import { shake, flashLight, debris, dust, ring, sparks, hitstop, particle } from './fx.js';
 import { igniteGas } from './hazards.js';
 import { sfx, haptic } from '../audio/audio.js';
+import { bossSfx } from '../audio/samples.js';
 import { emit } from '../core/events.js';
 import { isLocal } from './run.js';
 
@@ -96,7 +97,7 @@ export function updateHoard(dt) {
       dust(x, y, 14, 'rgba(255,220,140,0.45)'); shake(1); hitstop(0.1); flashLight(x, y - 10, 6, 0.4); sfx.coins(); sfx.explode(); haptic([60, 40, 120]);
     }
     if (H.t > 0.3 && rnd() < dt * 40) particle(x + (rnd() - 0.5) * 60, y - 10 - rnd() * 24, (rnd() - 0.5) * 60, -10, 0.9, rnd() < 0.5 ? '#ffd24a' : '#ffe79a', 1, 0, 300);
-    if (H.t > 1.45 && !H.roar) { H.roar = true; sfx.roar(); shake(0.9); flashLight(x, y - 20, 8, 0.6); haptic([80, 40, 160]); }
+    if (H.t > 1.45 && !H.roar) { H.roar = true; bossSfx('ejder', 'spawn', sfx.roar); shake(0.9); flashLight(x, y - 20, 8, 0.6); haptic([80, 40, 160]); }
     if (H.t >= HOARD.intro) {
       const e = spawnEnemy('ejder', x, y, 4);
       e.emergeT = 0; e.face = -1;

@@ -28,6 +28,7 @@ export function applyAudioSettings() {
   sfxBus.gain.value = App.settings.sfx ? 1 : 0;
   musBus.gain.value = App.settings.music ? 0.5 : 0;
 }
+export const audioBus = () => ({ ctx, sfxBus });
 export function suspendAudio(s) { if (!ctx) return; if (s) ctx.suspend(); else ctx.resume(); }
 
 function ok(id, gap) {

@@ -10,6 +10,7 @@ import { breakTile, damagePlayer, blindPlayer, pullPlayer, webPlayer, scarePlaye
 import { spawnEnemy, losClear, damageStructure } from './enemies.js';
 import { sparks, debris, shake, ring, flashLight, dust, hitstop, particle } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
+import { bossSfx } from '../audio/samples.js';
 import { emit } from '../core/events.js';
 import { igniteGas } from './hazards.js';
 import { EXTRA, POP, tickExtras } from './bosskits.js';
@@ -530,7 +531,7 @@ KITS.balrog = {
   },
   // önce gerilir, sonra kükremeyle alev alır
   rage(e, B) { B.rageT = 2; B.roared = false; },
-  roar(e) { sfx.roar(); sfx.flame(); shake(0.8); ring(e.x, e.y - 8, '#ff6a1a', 60); sparks(e.x, e.y - 12, '#ffd060', 26, 160); sparks(e.x, e.y - 12, '#ff5a1a', 20, 110); flashLight(e.x, e.y - 10, 9, 0.6); haptic([80, 40, 160]); },
+  roar(e) { bossSfx('balrog', 'rage', sfx.roar); sfx.flame(); shake(0.8); ring(e.x, e.y - 8, '#ff6a1a', 60); sparks(e.x, e.y - 12, '#ffd060', 26, 160); sparks(e.x, e.y - 12, '#ff5a1a', 20, 110); flashLight(e.x, e.y - 10, 9, 0.6); haptic([80, 40, 160]); },
   // her kare: yürürken kayayı parçalar; öfkede yakın madencileri kavurur
   tick(e, dt, B) {
     B.carve = (B.carve || 0) - dt;
@@ -585,7 +586,9 @@ function initBoss(e) {
 function enrage(e) {
   const B = e.bs; B.phase = 2; B.act = null; e.under = false; e.sink = 0; e.wind = 0;
   e.flashT = 0.6; ring(e.x, e.y, e.d.col, 44); ring(e.x, e.y, '#ffffff', 26); sparks(e.x, e.y, e.d.col, 24, 140);
-  shake(0.6); hitstop(0.12); flashLight(e.x, e.y, 8, 0.5); sfx.howl(); haptic([40, 60, 120]);
+  shake(0.6); hitstop(0.12); flashLight(e.x, e.y, 8, 0.5); haptic([40, 60, 120]);
+  // öfke gösterisi olan kit kükremesini gösterinin sonunda atar
+  if (KITS[e.type].rage) sfx.howl(); else bossSfx(e.type, 'rage', sfx.howl);
   if (e.type === 'ezeli') for (let k = 0; k < 2; k++) { const s = spawnEnemy('seraph', e.x + (k ? 18 : -18), e.y - 6, G.wave.num); s.emergeT = 0.3; }
   const call = { balrog: ['magmite', 'magmite', 'magmite'], dunyaYilani: ['isikYiyen', 'isikYiyen'], ejder: ['gilded'], aynasiz: ['kalkanli', 'kalkanli'], kehribarAna: ['yumurtaci', 'diriltici'], madenKalbi: ['korAvci', 'kalkanli', 'isikYiyen'] }[e.type];
   if (call) call.forEach((t, k) => { const s = spawnEnemy(t, e.x + (k - (call.length - 1) / 2) * 20, e.y - 4, G.wave.num); s.emergeT = 0.4; });
@@ -693,6 +696,7 @@ export function updateBoss(e, dt, p, dp) {
   // kendi yürüyüşü olan kit (yere basan dev) hareketi üstlenir
   if (!k) return K.move ? K.move(e, dt, p, dp, B) : false;
   B.act = { k, T: 1 };
+  bossSfx(e.type, 'cast');
   K.start[k](e, p, B, dt);
   return true;
 }

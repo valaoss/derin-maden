@@ -14,6 +14,7 @@ import { breakTile, damagePlayer, spawnOrb, nearestPlayer, blindPlayer, scarePla
 import { hasPerk, hasRelic, hear, pv, resonance } from './run.js';
 import { sparks, debris, shake, ring, flashLight, dust, hitstop, particle } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
+import { bossSfx } from '../audio/samples.js';
 import { emit } from '../core/events.js';
 import { setTile } from '../world/map.js';
 import { igniteGas } from './hazards.js';
@@ -179,6 +180,7 @@ export function killEnemy(e) {
   sparks(e.x, e.y, '#ff5a4a', 3, 50);
   dust(e.x, e.y, e.d.boss ? 6 : 2, 'rgba(120,90,110,0.5)');
   if (nearLocal(e) || e.d.boss) sfx.enemyDie(e.d.boss || e.type === 'brute');
+  if (e.d.boss) bossSfx(e.type, 'down');
   G.stats.kills++;
   gainXp(e);
   if (e.elite) {

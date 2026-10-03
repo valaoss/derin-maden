@@ -14,6 +14,7 @@ import { KITS, live, breakable, hitPlayers, angDiff, beamLen, bossBusy } from '.
 import { FALLS_BIOME } from './liquids.js';
 import { shake, flashLight, debris, dust, ring, sparks, hitstop, particle } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
+import { bossSfx } from '../audio/samples.js';
 import { emit } from '../core/events.js';
 
 const WATER = ['#e8fbff', '#8ad8ff', '#3a9ad8', '#6fd8ff'];
@@ -165,7 +166,7 @@ KITS.poseidon = {
     B.rings.push({ x: e.x, y: e.y - 14, r: 10, R: 96, v: 150, dmg: 14 * e.dmgMul, hit: [], col: '#8ad8ff', los: false });
     for (const q of live()) { const d = Math.hypot(q.x - e.x, q.y - e.y) || 1; if (d < 70) pullPlayer(q, (q.x - e.x) / d * 200, (q.y - e.y) / d * 120 - 40); }
     spray(e.x, e.y - 20, 50, 260, 200); ring(e.x, e.y - 20, '#e8fbff', 70); ring(e.x, e.y - 20, '#3a9ad8', 50); flashLight(e.x, e.y - 20, 10, 0.7);
-    shake(1); hitstop(0.12); sfx.roar(); sfx.explode(); sfx.splash(); haptic([80, 40, 160]);
+    shake(1); hitstop(0.12); bossSfx('poseidon', 'rage', sfx.roar); sfx.explode(); sfx.splash(); haptic([80, 40, 160]);
   },
   // dev yere basar: altındaki zemine iner, yalnız yana yürür; önündeki kayayı ezer
   move(e, dt, p, dp, B) {
@@ -277,7 +278,7 @@ export function updatePoseidon(dt) {
       e.emergeT = 0; e.intro = e.introT = POSEIDON.intro; e.face = p && p.x < x ? -1 : 1;
       G.threat.bossUp = true; G.threat.bossType = 'poseidon'; G.threat.bossCd = 0;
       Object.assign(S, { st: 'fight', t: 0 });
-      spray(x, y + 6, 40, 200, 220); ring(x, y - 6, '#8ad8ff', 56); flashLight(x, y - 10, 9, 0.7); shake(0.8); hitstop(0.08); sfx.splash(); sfx.explode(); haptic([60, 40, 120]);
+      spray(x, y + 6, 40, 200, 220); ring(x, y - 6, '#8ad8ff', 56); flashLight(x, y - 10, 9, 0.7); shake(0.8); hitstop(0.08); sfx.splash(); sfx.explode(); bossSfx('poseidon', 'spawn'); haptic([60, 40, 120]);
       emit('bossSpawn', 'poseidon');
     }
     return;

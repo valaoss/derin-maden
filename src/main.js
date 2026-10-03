@@ -35,6 +35,7 @@ import { initRenderer, resize, render, updateCamera, view, viewToWorld } from '.
 import { initInput, input, cancelStick, keyPressed, setStickVisible, setStickMode, readMove } from './input/input.js';
 import { initAudio, sfx, setAmbience, stopAmbience, suspendAudio, haptic } from './audio/audio.js';
 import { on, emit } from './core/events.js';
+import { bossSfx, preloadBossSfx } from './audio/samples.js';
 import { ozForRun, CONTRACTS, ITEM_KEYS, PERKS } from './data/balance.js';
 import { STRATA } from './data/palette.js';
 import { todayKey } from './core/util.js';
@@ -326,6 +327,9 @@ function endRun(reason) {
   }, victory ? 400 : 900);
 }
 
+// boss sesleri uyarıda/alamette önden yüklenir; çalma yerleri oyun kodunda (bossSfx)
+on('bossWarn', k => preloadBossSfx(k));
+for (const [ev, k] of [['balrog', 'balrog'], ['serpent', 'dunyaYilani'], ['poseidon', 'poseidon'], ['hoard', 'ejder']]) on(ev, () => preloadBossSfx(k));
 on('allDown', () => endRun('down'));
 on('victory', () => endRun('victory'));
 bindEnemyDamage(damageEnemy);
@@ -586,7 +590,7 @@ function devArena(type) {
 
 // geliştirme/test erişimi
 if (import.meta.env.DEV) window.__dm = {
-  get G() { return G; }, App, UI, hooks, step, render, view, input, net, link, pred,
+  get G() { return G; }, App, UI, hooks, step, render, view, input, net, link, pred, bossSfx,
   spawn(type, c, r) { const e = spawnEnemy(type, c * TILE + 8, r * TILE + 8, 1); e.emergeT = 0; return e; },
   noise(v) { G.threat.noise = v; },
   dropLink() { try { link.conn && link.conn.close(); } catch (e) { /* yok */ } },

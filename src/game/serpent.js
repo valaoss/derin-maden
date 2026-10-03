@@ -12,6 +12,7 @@ import { spawnEnemy } from './enemies.js';
 import { KITS, live, breakable, bullet, mark, bossBusy } from './bosses.js';
 import { shake, flashLight, debris, dust, ring, hitstop } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
+import { bossSfx } from '../audio/samples.js';
 import { emit } from '../core/events.js';
 
 export const SEA_BIOME = 28;
@@ -55,7 +56,7 @@ KITS.dunyaYilani = {
       if (S.m === 'tell') {
         // duvar parlar ve titrer: nereden çıkacağı belli
         S.tell -= dt; if (rnd() < dt * 20) { const [x, y] = S.P[0]; debris(Math.max(X0 + 2, Math.min(X1 - 2, x)), y, 'stone', 1, 0.6); }
-        if (S.tell <= 0) { S.m = 'go'; S.u = 0; S.hold = 0; S.done = false; B.body.length = 0; sfx.roar(); shake(0.35); }
+        if (S.tell <= 0) { S.m = 'go'; S.u = 0; S.hold = 0; S.done = false; B.body.length = 0; bossSfx('dunyaYilani', 'cast', sfx.roar); shake(0.35); }
         return;
       }
       if (S.m === 'rear') {
@@ -65,7 +66,7 @@ KITS.dunyaYilani = {
         if (p) e.face = p.x >= e.x ? 1 : -1;
         if (!S.spat && S.hold < SERPENT.rear * 0.55) {
           S.spat = true;
-          if (S.first) { S.first = false; ring(e.x, e.y, '#5ae0ff', 60); flashLight(e.x, e.y, 9, 0.6); shake(1); hitstop(0.12); sfx.roar(); haptic([80, 40, 160]); emit('serpent', 'roar'); }
+          if (S.first) { S.first = false; ring(e.x, e.y, '#5ae0ff', 60); flashLight(e.x, e.y, 9, 0.6); shake(1); hitstop(0.12); bossSfx('dunyaYilani', 'spawn', sfx.roar); haptic([80, 40, 160]); emit('serpent', 'roar'); }
           else if (p) {
             const a0 = Math.atan2(p.y - e.y, p.x - e.x), n = B.phase === 2 ? 7 : 5;
             for (let i = 0; i < n; i++) bullet(e, a0 + (i - (n - 1) / 2) * 0.2, 115, 11, '#5ae0c8', { life: 1.8, slow: 1.4 });

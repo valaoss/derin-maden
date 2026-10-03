@@ -12,6 +12,7 @@ import { bossBusy } from './bosses.js';
 import { LAVA_BIOME } from './liquids.js';
 import { shake, flashLight, debris, dust, ring, sparks, hitstop } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
+import { bossSfx } from '../audio/samples.js';
 import { emit } from '../core/events.js';
 
 const breakable = (c, r) => { if (c < PLAY_MIN_COL || c > PLAY_MAX_COL) return false; const d = TD[tileAt(c, r)]; return d.solid && !(d.unbreakable || d.heart || d.chest || d.nest || d.relic); };
@@ -56,7 +57,7 @@ export function updateBalrog(dt) {
       G.threat.bossUp = true; G.threat.bossType = 'balrog'; G.threat.bossCd = 0;
       Object.assign(S, { st: 'fight', t: 0 });
       ring(x, y - 10, '#ff5a1a', 60); sparks(x, y - 10, '#ffd060', 30, 170); sparks(x, y - 10, '#ff5a1a', 24, 110);
-      flashLight(x, y - 10, 10, 0.9); shake(1); hitstop(0.12); sfx.roar(); sfx.explode(); haptic([80, 40, 160]);
+      flashLight(x, y - 10, 10, 0.9); shake(1); hitstop(0.12); bossSfx('balrog', 'spawn', sfx.roar); sfx.explode(); haptic([80, 40, 160]);
       emit('bossSpawn', 'balrog'); emit('balrog', 'rise');
     }
     return;

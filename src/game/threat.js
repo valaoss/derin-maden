@@ -15,6 +15,7 @@ import { bossForY } from './bosses.js';
 import { spawnOrb } from './player.js';
 import { debris, dust, ring, sparks, shake, flashLight } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
+import { bossSfx } from '../audio/samples.js';
 import { emit } from '../core/events.js';
 import { markJourney } from './journey.js';
 import { seaFloor } from './biomes.js';
@@ -191,7 +192,7 @@ function spawnBoss(p) {
     e.emergeT = 1.4; G.threat.bossType = type;
     debris(e.x, e.y, 'stone', 16); ring(e.x, e.y, e.d.col, 30); shake(0.5); flashLight(e.x, e.y, 6, 0.6);
     emit('bossSpawn', type);
-    sfx.alarm(); haptic([40, 60, 40, 60, 80]);
+    sfx.alarm(); bossSfx(type, 'spawn'); haptic([40, 60, 40, 60, 80]);
     return true;
   }
   return false;
