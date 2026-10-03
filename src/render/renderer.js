@@ -24,7 +24,7 @@ import { inHall } from '../game/dragon.js';
 import { SHROOM, BOSS_MELEE } from '../data/balance.js';
 import { CRITTERS } from '../data/critters.js';
 import { on as onEvt } from '../core/events.js';
-import { G, biomeOf } from '../game/state.js';
+import { G, App, biomeOf } from '../game/state.js';
 import { SPR, sprCanvas, sprEm, glowSprite, playerSprites, HELMETS } from './sprites.js';
 import { drawTiles, flushDirty } from './tiles.js';
 import { computeLight, lightWin, lightSourcesFor, glowTileSources } from '../world/light.js';
@@ -218,6 +218,7 @@ export function render(alpha, opts = {}) {
   // maden kulesi makarası: biri derindeyken döner
   if (G.players.some(p => !p.dead && p.y > GROUND_Y + 32)) wheelA += dtR * 4;
   drawBase();
+  drawTownLamps();
   drawShelf();
   drawWell();
   if (G.merchant) drawMerchant(G.merchant);
@@ -717,6 +718,20 @@ function drawBase() {
     ctx.fillStyle = i > 5 ? '#e0b040' : '#f2c14e'; ctx.fillRect(fx + i, fy + off, 1, 5);
     ctx.fillStyle = '#a8701e'; ctx.fillRect(fx + i, fy + 4 + off, 1, 1);
     ctx.fillStyle = '#ffe79a'; ctx.fillRect(fx + i, fy + off, 1, 1);
+  }
+}
+
+// Kandilli'nin kandilleri: yenilen her bekçi kampa kalıcı bir kandil daha yakar
+const LAMP_X = [20, 252, 36, 236, 52, 266, 6, 92];
+function drawTownLamps() {
+  const n = Math.min(LAMP_X.length, ((App.meta && App.meta.keepers) || []).length);
+  for (let i = 0; i < n; i++) {
+    const x = LAMP_X[i], y = GROUND_Y, f = 0.85 + 0.15 * Math.sin(G.time * 5 + i * 1.7);
+    ctx.fillStyle = P.ink; ctx.fillRect(x - 1, y - 17, 3, 17); ctx.fillRect(x - 3, y - 23, 7, 7);
+    ctx.fillStyle = '#6a5440'; ctx.fillRect(x, y - 16, 1, 16);
+    ctx.fillStyle = '#ffb040'; ctx.fillRect(x - 2, y - 22, 5, 5);
+    ctx.fillStyle = '#fff4c0'; ctx.fillRect(x - 1, y - 21, 3, 3);
+    glow(x + 0.5, y - 19, 'rgba(255,200,110,0.6)', 16, f);
   }
 }
 

@@ -304,6 +304,8 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0, machine = false) {
   if (hasPerk('kristalKabuk') && (p.shellN = (p.shellN | 0) + 1) >= 15) { p.shellN = 0; p.barrier = Math.max(p.barrier || 0, p.maxHp * 0.3); p.barrierT = 12; ring(p.x, p.y, '#e070ff', 14); sparks(p.x, p.y, '#f0c0ff', 6, 50); }
   // Magma Kazma: kırılan blok yakındaki düşmanları tutuşturur
   if (hasPerk('magmaKazma')) for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - x, e.y - y) < 40) { burnEnemy(e, 3, gunDmg(p) * 0.3); sparks(e.x, e.y, '#ff9a4a', 3, 40); }
+  // günlük sayfası: okunur (kalıcı, arayüz kaydeder) ve birkaç altın düşer
+  if (d.page) { for (let k = 0; k < 2; k++) spawnOrb(x, y, 'gold'); sparks(x, y, '#f0dca0', 12, 90); ring(x, y, '#f0dca0', 18); emit('page', { s: Math.max(0, stratumOfRow(r)), pi: p.i }); }
   if (d.nest) { nestDestroyed(c, r, p); if (hasPerk('yuvaAvcisi')) G.threat.noise = Math.max(0, G.threat.noise - 25); }
   if (hasPerk('deprem') && !p.quake && (p.quakeN = (p.quakeN | 0) + 1) >= pv('deprem')) { p.quakeN = 0; quake(c, r, p); }
   debris(x, y, mat, 9);

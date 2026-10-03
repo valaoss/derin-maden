@@ -25,6 +25,7 @@ import { updateSerpent } from './game/serpent.js';
 import { updateHoard } from './game/dragon.js';
 import { updatePoseidon } from './game/poseidon.js';
 import { updateSeals } from './game/seals.js';
+import { showIntro, radioAtStart, bindStory, storyRunEnd } from './ui/story.js';
 import { updateCanary } from './game/canary.js';
 import { snapshotJourney } from './ui/journey.js';
 import { updatePrediction, pred } from './net/predict.js';
@@ -37,7 +38,7 @@ import { initInput, input, cancelStick, keyPressed, setStickVisible, setStickMod
 import { initAudio, sfx, setAmbience, stopAmbience, suspendAudio, haptic } from './audio/audio.js';
 import { on, emit } from './core/events.js';
 import { bossSfx, preloadBossSfx } from './audio/samples.js';
-import { ozForRun, CONTRACTS, ITEM_KEYS, PERKS } from './data/balance.js';
+import { ozForRun, CONTRACTS, ITEM_KEYS, PERKS, ENEMIES } from './data/balance.js';
 import { STRATA } from './data/palette.js';
 import { todayKey } from './core/util.js';
 import { dispatch, CMD } from './game/commands.js';
@@ -85,7 +86,8 @@ const hooks = {
     if (showMenu) UI.showPause();
   },
   resume() { if (G) { G.paused = false; last = performance.now(); } },
-  newRun(opts) { startRun(false, Object.assign({ startStratum: elevatorStratum(App.meta) }, opts)); },
+  // ilk sefer: önce hikâyenin dört kartı (atlanabilir)
+  newRun(opts) { const go = () => startRun(false, Object.assign({ startStratum: elevatorStratum(App.meta) }, opts)); if (!App.meta.introSeen && !(opts && (opts.mp || opts.daily))) showIntro(go); else go(); },
   continueRun() { startRun(true); },
   endRun(reason) { endRun(reason); },
   // ---------- çok oyunculu lobi ----------
@@ -259,6 +261,7 @@ function startRun(cont, opts = {}) {
     if (!saved && !G.tutorial) {
       UI.banner(G.mp ? 'BİRLİKTE KAZ' : G.daily ? 'GÜNÜN MADENİ' : G.kademe ? 'KADEME ' + G.kademe : 'SEFER ' + (App.meta.runs + 1), G.mp ? G.players.map(p => p.name || 'MADENCİ').join(' & ').toUpperCase() : STRATA[0].name.toUpperCase());
       setTimeout(() => UI.showContractsToast(), 2600);
+      radioAtStart();
     }
   });
 }
@@ -292,6 +295,7 @@ function endRun(reason) {
     d.depth = Math.max(d.depth, s.maxDepth); d.nests = Math.max(d.nests | 0, s.nests); d.win = d.win || victory;
     m.daily = d;
   }
+  storyRunEnd(m, victory);
   m.tutorialDone = true;
   // ölüm yankısı: bayılınca düşen çanta sonraki seferde aynı derinlikte bekler
   let echo = null;
@@ -307,7 +311,9 @@ function endRun(reason) {
   const ores = Object.values(collected).reduce((a, b) => a + b, 0);
   let goal;
   const nextBeacon = [...Array(STRATA_COUNT).keys()].find(i => !m.beacons.includes(i));
+  const nextSeal = (G.seals || []).filter(o => o.st !== 'done' && !o.temple).sort((a, b) => a.bot - b.bot)[0];
   if (victory) goal = 'Kalp Kristali senin. Şimdi daha hızlı yapabilir misin?';
+  else if (nextSeal && G.maxStratum >= stratumOfRow(nextSeal.bot) - 1) goal = `Sonraki hedef: <b>${ENEMIES[nextSeal.by] ? ENEMIES[nextSeal.by].name : 'bekçi'}</b> ${nextSeal.heart ? 'kalbin kafesini' : 'mührü'} tutuyor (${nextSeal.bot - GROUND_ROW}m).`;
   else if (nextBeacon !== undefined && nextBeacon <= G.maxStratum) goal = `Sonraki hedef: <b>${STRATA[biomeOf(nextBeacon)].name}</b> yuvalarını yık, Fener dik.`;
   else if (G.maxStratum < STRATA_COUNT - 1) goal = `Sonraki hedef: <b>${STRATA[biomeOf(G.maxStratum + 1)].name}</b> (${(G.maxStratum + 1) * STRATUM_ROWS}m)`;
   else goal = 'Çekirdek çok yakın. Kalp Kristali\'ni yüzeye taşı!';
@@ -331,6 +337,8 @@ function endRun(reason) {
 // boss sesleri uyarıda/alamette önden yüklenir; çalma yerleri oyun kodunda (bossSfx)
 on('bossWarn', k => preloadBossSfx(k));
 for (const [ev, k] of [['balrog', 'balrog'], ['serpent', 'dunyaYilani'], ['poseidon', 'poseidon'], ['hoard', 'ejder']]) on(ev, () => preloadBossSfx(k));
+on('keeperWarn', d => preloadBossSfx(d.type));
+bindStory();
 on('allDown', () => endRun('down'));
 on('victory', () => endRun('victory'));
 bindEnemyDamage(damageEnemy);

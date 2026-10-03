@@ -115,6 +115,25 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 #wave.boss { background: #3a1440; animation: blink 1s steps(2) infinite; }
 #goal { align-self: center; display: flex; align-items: center; gap: 6px; padding: 3px 10px 5px; font-size: 12px; letter-spacing: 1px; color: var(--dim); }
 #goal.done { color: var(--good); }
+#goal .gm { color: var(--text); }
+#goal .gm:not(:empty) + .g::before { content: '·'; margin-right: 6px; color: var(--dim); }
+#goal.hot .g { color: #ff8a6a; }
+/* defter sayfası ve telsiz: oyunu durdurmayan alt kart */
+#note { position: absolute; left: 50%; bottom: calc(var(--sab) + 150px); transform: translateX(-50%); width: min(88%, 360px); padding: 8px 12px 10px;
+  display: none; flex-direction: column; gap: 4px; pointer-events: none; z-index: 4; }
+#note.on { display: flex; animation: noteIn .25s ease-out; }
+@keyframes noteIn { from { transform: translate(-50%, 8px); opacity: 0; } }
+#note .nh { font-size: 11px; letter-spacing: 1.5px; color: var(--helm); }
+#note .nt { font-size: 13px; line-height: 1.3; color: var(--text); }
+.intro { gap: 14px; }
+.intro .ik { font-size: 11px; letter-spacing: 2px; color: var(--dim); text-align: center; }
+.intro p { font-size: 16px; line-height: 1.4; text-align: center; color: var(--text); min-height: 4.2em; }
+.jlist { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; max-height: 60dvh; }
+.jpage { display: flex; gap: 10px; padding: 7px 10px 8px; font-size: 13px; line-height: 1.3; }
+.jpage b { color: var(--helm); min-width: 46px; font-size: 12px; }
+.jpage.lock { opacity: .45; }
+.jpage.end span { color: #ffd870; }
+.row .cn { color: var(--dim); font-size: 11px; }
 .meter.noise .bar.base > i { background: #c8a04a; }
 .meter.noise #wakeN { min-width: 0; color: #ff6a6a; animation: blink .5s steps(2) infinite; }
 .meter.noise #wakeN:empty { display: none; }

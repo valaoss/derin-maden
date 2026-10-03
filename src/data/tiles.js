@@ -21,6 +21,8 @@ export const T = {
   LAKEBED: 83,
   // mühür: bölüm sonundaki kırılmaz katman; bekçi yenilince kırılır
   SEAL: 84,
+  // Kayıp Ekip Günlüğü sayfası: her biyomda bir tane
+  PAGE: 85,
 };
 
 // mat: doku/ses/parçacık malzemesi ('host' => katmanın ana kayası); plain: sıradan kaya (damar/tehlike/dönüşüm yerleşebilir)
@@ -116,6 +118,7 @@ TD[T.SPRING]   = { solid: true, hp: Infinity, mat: 'host', unbreakable: true, sp
 TD[T.LAVAVENT] = { solid: true, hp: Infinity, mat: 'host', unbreakable: true, spring: 'lava', glow: 2.6, gem: ['#4a0a04', '#c0301a', '#ff8a3a', '#fff0a0'] };  // lav ağzı
 TD[T.SINK]     = { solid: true, hp: Infinity, mat: 'host', unbreakable: true, sink: true, gem: ['#060608', '#1a1a22', '#34343e', '#5a5a66'] };                 // gider: havuzun dibinde sıvıyı yutar
 TD[T.LAKEBED]  = { solid: true, hp: Infinity, mat: 'falls', unbreakable: true };                                                     // göl yatağı: kırılırsa su havada kalırdı
+TD[T.PAGE]     = { solid: true, hp: 6, mat: 'host', page: true, glow: 1.4, gem: ['#5a4020', '#b08a50', '#f0dca0', '#fffaf0'] }; // günlük sayfası: kırınca okunur
 TD[T.SEAL]     = { solid: true, hp: Infinity, mat: 'seal', unbreakable: true, seal: true, glow: 1.8, gem: ['#3a0a2a', '#a02a6a', '#ff6ab0', '#ffe0f0'] }; // mühür: bekçi yenilince kırılır
 export const CHEST_TILE = { wood: T.CHEST, iron: T.CHEST_IRON, gold: T.CHEST_GOLD, arms: T.CHEST_ARMS, ore: T.CHEST_ORE, supply: T.CHEST_SUPPLY, cursed: T.CHEST_CURSED, ancient: T.CHEST_ANCIENT, mimic: T.MIMIC };
 export const DEEP_TILE = [T.YESIM, T.OPAL, T.INCI, T.AKIK, T.YILDIZ, T.ELMAS, T.KEHRIBAR];

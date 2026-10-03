@@ -358,6 +358,18 @@ export function generate(seed, opts = {}) {
     set(tc, GROUND_ROW + 5, T.IRON);
     set(tc + 1, GROUND_ROW + 5, T.IRON);
   }
+  // Kayıp Ekip Günlüğü: her biyomda bir sayfa, bir mağara kenarındaki düz kayada (öğreticide yok)
+  if (!opts.tutorial) for (let s = 0; s < STRATA_COUNT; s++) {
+    const r0 = GROUND_ROW + s * STRATUM_ROWS;
+    let at = null;
+    for (let tries = 0; tries < 200 && !at; tries++) {
+      const c = PLAY_MIN_COL + 1 + Math.floor(rnd() * 11), r = r0 + 6 + Math.floor(rnd() * 20); // tapınak ve hazine salonunun üstünde kalsın
+      if (!plain(get(c, r)) || Math.abs(c - CENTER_COL) < 1) continue;
+      const air = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dc, dr]) => get(c + dc, r + dr) === T.AIR);
+      if (air || tries > 150) at = [c, r];
+    }
+    if (at) set(at[0], at[1], T.PAGE);
+  }
   // mühürler: bölüm sonlarının son satırı kırılmaz; Kalp Kristali mühür taşından bir kafeste (öğreticide yok)
   if (!opts.tutorial) {
     for (const s of SEAL.strata) { const r = sealRowOf(s); for (let c = PLAY_MIN_COL; c <= PLAY_MAX_COL; c++) set(c, r, T.SEAL); }

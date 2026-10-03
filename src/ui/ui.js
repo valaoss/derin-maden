@@ -32,9 +32,10 @@ import { mountJourney, glyphURL, MARK_NAMES } from './journey.js';
 import { cancelStick, setStickMode } from '../input/input.js';
 import { isNative, WEB_URL } from '../core/native.js';
 import { SHOP_TABS, renderShop, statsHTML, tabCounts } from './shop.js';
+import { goalLines, showJournal, showCodex, epilogueFor } from './story.js';
 
 const $ = (s, r = document) => r.querySelector(s);
-const ic = (name, cls = '') => `<i class="icon ${cls}" style="background-image:url(${iconURL(name)})"></i>`;
+export const ic = (name, cls = '') => `<i class="icon ${cls}" style="background-image:url(${iconURL(name)})"></i>`;
 let ui, hooks = {};
 
 export function initUI(root, h) {
@@ -52,7 +53,7 @@ export function initUI(root, h) {
       <div class="plate res" id="resBox">${BASE_RES.map(k => `<span class="chip" id="r_${k}">${ic(k, 's')}<span>0</span></span>`).join('')}</div>
     </div>
     <div class="plate" id="wave">${ic('wave', 's')}<span class="l">SESSİZ</span><span class="t"></span></div>
-    <div class="plate" id="goal">${ic('base', 's')}<span class="g"></span></div>
+    <div class="plate" id="goal">${ic('heart', 's')}<span class="gm"></span><span class="g"></span></div>
     <div class="plate" id="boss">${ic('skull', 's')}<span class="bn"></span><div class="bar"><i></i></div></div>
     <div class="plate" id="partner">${ic('heart', 's')}<span class="pn">PARTNER</span><div class="bar"><i></i></div><span class="d"></span><span class="ping"></span></div>
   </div>
@@ -60,6 +61,7 @@ export function initUI(root, h) {
   <div id="indicator">${ic('heart', 's')} PARTNER BAYGIN</div>
   <div id="toasts"></div>
   <div id="coach"><div class="hand" style="background-image:url(${iconURL('hand')})"></div><div class="plate msg"></div></div>
+  <div class="plate" id="note"></div>
   <div id="banner"><div class="k"></div><div class="n"></div><div class="rule"></div></div>
   <button class="btn hide" id="workshopBtn">${ic('drill', 'l')}<span>ATÖLYE</span><span class="badge"></span></button>
   <button class="btn hide" id="fishBtn">${ic('fish', 'l')}<span>OLTA · <b id="fishC"></b></span></button>
@@ -85,6 +87,7 @@ export function initUI(root, h) {
   <div class="screen dim" id="camp"></div>
   <div class="screen dim" id="settings"></div>
   <div class="screen dim" id="room"></div>
+  <div class="screen dim" id="story"></div>
   <div id="fade"></div>`;
 
   tap($('#pauseBtn'), () => hooks.pause(true));
@@ -222,7 +225,7 @@ export function initUI(root, h) {
   $('#coach').addEventListener('click', () => {});
 }
 
-function tap(el, fn) {
+export function tap(el, fn) {
   el.addEventListener('pointerdown', e => e.stopPropagation());
   el.addEventListener('click', e => { e.stopPropagation(); initAudio(); sfx.click(); fn(e); });
 }
@@ -299,10 +302,13 @@ export function refreshHUD(force = false) {
   set(0, 'wc', wc, v => { $('#wave').className = 'plate ' + v; });
   set(0, 'wl', LEVEL_NAMES[lv], v => { $('#wave .l').textContent = v; });
   set(0, 'wt', lv >= 1 && alive ? alive + ' düşman' : '', v => { $('#wave .t').textContent = v; });
-  // hedef: bulunduğun biyomun yuvaları
-  const gs = Math.max(0, st), left = nestsInStratum(gs), tot = nestTotalInStratum(gs);
-  const gtxt = st < 0 ? (G.beacons.length ? `FENER ${G.beacons.length}/${STRATA_COUNT}` : 'DERİNE İN') : G.beacons.includes(gs) ? 'BİYOM TEMİZ' : tot ? `YUVA ${tot - left}/${tot}` : 'YUVA ARA';
-  set(0, 'goal', gtxt + '|' + (st >= 0 && !G.beacons.includes(gs) && left === 0 && tot === 0 ? 'x' : ''), () => { $('#goal .g').textContent = gtxt; $('#goal').classList.toggle('done', st >= 0 && G.beacons.includes(gs)); });
+  // hedef: üstte kalbe kalan yol, altta sıradaki adım (mühür, yuva, fener)
+  const gl = goalLines(), gs = Math.max(0, st), left = nestsInStratum(gs), tot = nestTotalInStratum(gs);
+  const gtxt = gl ? gl.sub : st < 0 ? 'DERİNE İN' : G.beacons.includes(gs) ? 'BİYOM TEMİZ' : tot ? `YUVA ${tot - left}/${tot}` : 'YUVA ARA';
+  set(0, 'goal', (gl ? gl.main + (gl.hot ? '!' : '') + (gl.done ? '+' : '') : '') + '|' + gtxt, () => {
+    $('#goal .gm').textContent = gl ? gl.main : ''; $('#goal .g').textContent = gtxt;
+    $('#goal').classList.toggle('done', !!(gl ? gl.done : st >= 0 && G.beacons.includes(gs))); $('#goal').classList.toggle('hot', !!(gl && gl.hot));
+  });
   const boss = G.enemies.find(e => e.d.boss && !e.dead);
   set(0, 'boss', boss ? boss.type + Math.ceil(boss.hp) : -1, v => {
     $('#boss').classList.toggle('on', v !== -1);
@@ -673,7 +679,7 @@ export function showMenu(hasSave) {
         ${m.tutorialDone ? `<button class="plate mtile" id="mDaily">${ic('daily', 'l')}<span>GÜNÜN MADENİ</span>${dailyLine()}</button>
         <button class="plate mtile" id="mCamp">${ic('oz', 'l')}<span>KAMP</span></button>` : ''}
       </div>
-      <div class="foot">${m.tutorialDone ? relicShelf() : ''}${m.runs ? `Rekor <b>${m.bestDepth}m</b> · ${m.runs} sefer${m.wins ? ' · ' + m.wins + ' zafer' : ''} · <span class="ozline">${ic('oz', 's')}${m.oz}</span>` : 'Yuvaları yık, fenerleri dik, çekirdeğe in.'}</div>
+      <div class="foot">${m.tutorialDone ? relicShelf() : ''}${m.runs ? `Rekor <b>${m.bestDepth}m</b> · ${m.runs} sefer${m.wins ? ' · ' + m.wins + ' zafer' : ''} · <span class="ozline">${ic('oz', 's')}${m.oz}</span>` : 'Mühürleri kır, Kalp Kristali’ni yüzeye taşı.'}</div>
     </div>`;
   s.classList.add('on');
   const showK = () => { if (!$('#kName')) return; $('#kName').textContent = KADEME[k].name.toUpperCase(); $('#kDesc').textContent = k ? KADEME[k].desc.replace(/^\+ /, '') : 'Standart sefer'; };
@@ -758,6 +764,8 @@ export function showCamp(back) {
   const render = () => {
     s.innerHTML = `<div class="plate rivets panel" style="max-height:100%;">
       <h2>KAMP</h2><div class="sub">Öz kalıcıdır. Her seferi güçlendirir.</div>
+      <div style="display:flex;gap:8px"><button class="btn dark" id="cJour" style="flex:1">${ic('contract', 's')} DEFTER ${(m.pages || []).length}/31</button><button class="btn dark" id="cCodex" style="flex:1">${ic('skull', 's')} ANSİKLOPEDİ</button></div>
+      ${(m.keepers || []).length ? `<div class="sub" style="margin-top:0">Kandilli’de ${(m.keepers || []).length} kandil yeniden yanıyor.</div>` : ''}
       <div class="ozgain" style="font-size:24px">${ic('oz', 'l')}${m.oz}</div>
       <div style="overflow-y:auto;display:flex;flex-direction:column;gap:8px;max-height:52dvh">
       ${META_KEYS.map(k => { const d = META[k], l = m.lv[k] | 0, max = l >= d.max, c = d.costs[l];
@@ -779,6 +787,8 @@ export function showCamp(back) {
     }));
     s.querySelectorAll('.pet.own').forEach(b => tap(b, () => { const k = b.dataset.pet; m.pet = m.pet === k ? null : k; saveMeta(m); sfx.click(); render(); }));
     tap($('#cBack'), () => { s.classList.remove('on'); back(); });
+    tap($('#cJour'), () => showJournal(() => showCamp(back)));
+    tap($('#cCodex'), () => showCodex(() => showCamp(back)));
   };
   hideScreens(); render(); s.classList.add('on');
 }
@@ -815,7 +825,7 @@ export function showResults(r) {
   ];
   s.innerHTML = `<div class="plate rivets panel">
     <h2 style="font-size:30px;color:${win ? 'var(--helm)' : 'var(--bad)'}">${title}</h2>
-    <div class="sub">${win ? 'Kalp Kristali yüzeye ulaştı.' : r.mp && r.names ? esc(r.names.join(' & ')) + ' · madenin derinlikleri sizi bekliyor.' : 'Madenin derinlikleri seni bekliyor.'}</div>
+    <div class="sub">${win ? 'Kalp Kristali yüzeye ulaştı.<br>' + epilogueFor(r.kademe).map(t => `<i>${t}</i>`).join('<br>') : r.mp && r.names ? esc(r.names.join(' & ')) + ' · madenin derinlikleri sizi bekliyor.' : 'Madenin derinlikleri seni bekliyor.'}</div>
     <div class="stats">${rows.map(([n, v, nw]) => `<div class="stat"><span>${n}</span><b data-v="${parseInt(v) || 0}" data-s="${String(v).replace(/[\d]/g, '')}">0</b>${nw ? '<span class="new">YENİ REKOR</span>' : ''}</div>`).join('')}</div>
     ${r.contracts && r.contracts.length ? '<div class="clist">' + r.contracts.map(c => `<div class="cline ${c.done ? 'done' : ''}">${ic(c.done ? 'check' : 'contract', 's')}<span>${CONTRACTS[c.k].text(c.n)}</span>${c.done ? `<b>+${Math.round(CONTRACTS[c.k].oz * (r.ozMul || 1))}</b>` : ''}</div>`).join('') + '</div>' : ''}
     <div class="ozgain">${ic('oz', 'l')}<span id="ozN">+0</span>${r.kademe ? `<small>×${(1 + 0.25 * r.kademe).toFixed(2)}</small>` : ''}</div>

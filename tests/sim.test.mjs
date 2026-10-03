@@ -40,6 +40,7 @@ import { WEAPON_KEYS, PICK_TYPE_KEYS, SHIELD, AUGER, DIRECTOR, AFFIX, enemyHpMul
 import { playerSpeed } from '../src/game/player.js';
 import { STRATA } from '../src/data/palette.js';
 import { COLS, ROWS, GROUND_ROW, GROUND_Y, STRATUM_ROWS, STRATA_COUNT, TILE, PLAY_MIN_COL, PLAY_MAX_COL, CENTER_COL, sealRowOf } from '../src/config.js';
+import * as STORY from '../src/data/story.js';
 import { SEAL, KILL_HEAL, kademeMods as kademeModsT } from '../src/data/balance.js';
 import { stunEnemy as stunEnemyT, frostEnemy as frostEnemyT } from '../src/game/combat.js';
 import { on } from '../src/core/events.js';
@@ -1552,6 +1553,18 @@ section('Derin düşman baskısı');
   { fresh(2304); const p = G.player, r0 = GROUND_ROW + 22 * STRATUM_ROWS + 10; shaft(8, r0 + 1); p.x = p.px = 8 * TILE + 8; p.y = p.py = r0 * TILE + 8; p.hp = p.maxHp = 1e6; G.maxStratum = 22;
     let mx = 0; for (let i = 0; i < 60 * 20; i++) { G.threat.noise = 85; G.threat.dir.capT = 99; step(); p.hp = 1e6; mx = Math.max(mx, G.threat.dir.cap); }
     ok('derinde sahadaki düşman sınırı yükselir', mx > THREAT.cap[3] * 1.3, `${mx}`); }
+}
+
+section('Hikâye');
+{
+  ok('her biyoma bir defter sayfası yazılı', STORY.PAGES.length === STRATA_COUNT && STORY.ACTS.length === 4 && STORY.EPILOGUE.length === 6);
+  fresh(2401); let n = 0; for (let s = 0; s < STRATA_COUNT; s++) { const r0 = GROUND_ROW + s * STRATUM_ROWS; let f = 0; for (let r = r0; r < r0 + STRATUM_ROWS; r++) for (let c = PLAY_MIN_COL; c <= PLAY_MAX_COL; c++) if (tileAt(c, r) === T.PAGE) f++; if (f === 1) n++; }
+  ok('sayfalar haritada (biyom başı bir)', n >= STRATA_COUNT - 2, `${n}`);
+  const p = G.player; let at = null; for (let r = GROUND_ROW; r < GROUND_ROW + STRATUM_ROWS && !at; r++) for (let c = PLAY_MIN_COL; c <= PLAY_MAX_COL; c++) if (tileAt(c, r) === T.PAGE) at = [c, r];
+  let got = null; const off = on('page', d => { got = d; }); breakTile(at[0], at[1], p);
+  ok('sayfa kırılınca okunur', got && got.s === 0 && got.pi === p.i);
+  ok('telsiz ilerlemeye göre konuşur', STORY.radioLine({ runs: 3, sealMax: 2 })[1] !== STORY.radioLine({ runs: 3, sealMax: 0 })[1]);
+  ok('öğreticide sayfa yok', (() => { const g = newRun({ tutorial: true, seed: 6, start: false }); const k = g.map.filter(t => t === T.PAGE).length; fresh(2401); return k === 0; })());
 }
 
 console.log(`\n${checks - fails}/${checks} kontrol geçti${fails ? `, ${fails} HATA` : ''}`);
