@@ -1,8 +1,8 @@
 // Atölye (market): üstte güç göstergeleri; her sekmede ana yükseltmeler büyük kart, türler/eklentiler/eşyalar ızgara + seçili detay.
-import { UPGRADES, BAG_CAPS, PICK_TIERS, PICK_TYPES, PICK_TYPE_KEYS, WEAPONS, WEAPON_KEYS, MODS, MOD_KEYS, ITEMS, ITEM_KEYS, BUILD_KEYS, MASTER_KEYS, RES, RES_KEYS, TOOL_UP, CARDS, CARD_KEYS, WXP, beaconReq } from '../data/balance.js';
+import { UPGRADES, BAG_CAPS, PICK_TIERS, PICK_TYPES, PICK_TYPE_KEYS, WEAPONS, WEAPON_KEYS, MODS, MOD_KEYS, ITEMS, ITEM_KEYS, BUILD_KEYS, MASTER_KEYS, RES, RES_KEYS, TOOL_UP, CARDS, CARD_KEYS, WXP, beaconReq, FORGE, FORGE_KEYS, MATS, MAT_KEYS, MAT_DROP } from '../data/balance.js';
 import { G } from '../game/state.js';
-import { canAfford, upgradeCost, beaconLack, toolUpCost, itemCost, craftState, deployLimit } from '../game/economy.js';
-import { pickDmg, toolLvl, perkLv, soyCount, cardLv, weaponOf } from '../game/run.js';
+import { canAfford, upgradeCost, beaconLack, toolUpCost, itemCost, craftState, deployLimit, forgeCost } from '../game/economy.js';
+import { pickDmg, toolLvl, perkLv, soyCount, cardLv, weaponOf, forgeLv } from '../game/run.js';
 import { xpNeed, weaponMaxed } from '../game/weaponlevel.js';
 import { PERKS, SOY, SOY_KEYS, RESONANCE, perkDesc, maxLv } from '../data/relics.js';
 import { offerInfo, ROMAN } from '../game/chests.js';
@@ -10,7 +10,7 @@ import { gunDps } from '../game/power.js';
 import { dispatch, CMD } from '../game/commands.js';
 import { goodInfo } from '../game/merchant.js';
 
-export const SHOP_TABS = [['pick', 'KAZMA'], ['mods', 'SİLAH'], ['up', 'DONANIM'], ['craft', 'KEMER'], ['merch', 'TÜCCAR']];
+export const SHOP_TABS = [['pick', 'KAZMA'], ['mods', 'SİLAH'], ['up', 'DONANIM'], ['craft', 'KEMER'], ['forge', 'TEZGÂH'], ['merch', 'TÜCCAR']];
 const sel = {};
 let lastStats = null;
 
@@ -28,7 +28,8 @@ const masterSeen = k => G.lvl[k] || G.store[masterOre(k)] > 0 || G.player.bag[ma
 
 // sekme başına alınabilir iş sayısı (rozet)
 export function tabCounts() {
-  const n = { pick: 0, mods: 0, up: 0, craft: 0, merch: 0 };
+  const n = { pick: 0, mods: 0, up: 0, craft: 0, merch: 0, forge: 0 };
+  for (const k of FORGE_KEYS) { const c = forgeCost(k); n.forge += !!c && canAfford(c); }
   if (G.merchant) for (const g of G.merchant.goods) n.merch += !g.sold && (G.store.gold | 0) >= g.cost;
   for (const k of ['drill', 'sharp', 'swing']) n.pick += upOk(k);
   for (const k of PICK_TYPE_KEYS) n.pick += !G.gear.pOwn.includes(k) && !!PICK_TYPES[k].cost && canAfford(PICK_TYPES[k].cost);
@@ -104,8 +105,20 @@ export function renderShop(body, tab, justKey, x) {
     return detRow(`data-gear="${g}:${k}"`, ic(d.icon, 'l'), d.name, d.desc, own ? null : d.cost, btn, on ? ' <span class="have">ELİNDE</span>' : '') + (g === 'w' ? evoLine(k) : '');
   };
 
+  // Tezgâh kartı: üç kademe, sıradaki vurgulu
+  const forgeCard = k => {
+    const F = FORGE[k], l = forgeLv(k), c = forgeCost(k), ok = !!c && canAfford(c);
+    const steps = F.steps.map(([n, d], i) => `<div class="eff fs ${i < l ? 'got' : i === l ? 'nx' : ''}"><b>${i < l ? '★' : '☆'} ${n}</b> ${d}</div>`).join('');
+    return `<div class="plate trk forge ${ok ? 'ok' : ''} ${c ? '' : 'max'} ${justKey === 'f' + k ? 'just' : ''}" data-forge="${k}"><div class="ti">${ic(F.icon, 'xl')}</div>
+      <div class="main"><div class="name">${F.name}<span class="lv">${l}/${F.steps.length}</span></div>${bar(l, F.steps.length)}${steps}${c ? cost(c) : ''}</div>${c ? `<button class="btn buy" ${ok ? '' : 'disabled'}>DÖV</button>` : '<span class="maxb">MAKS</span>'}</div>`;
+  };
+
   let h = '';
-  if (tab === 'merch') {
+  if (tab === 'forge') {
+    h += `<div class="sec">MALZEME · ${MAT_KEYS.map(k => `${ic(k, 's')}${MATS[k].label} ${G.store[k] | 0}`).join(' · ')}</div>`;
+    h += FORGE_KEYS.map(forgeCard).join('');
+    h += `<div class="note">Kabuk sıradan düşmandan arada düşer; Çekirdek elit ve bosslardan. Malzeme çantada yer tutmaz, toplayınca doğrudan depoya gelir. Dövülen her şey bütün ekibe işler.</div>`;
+  } else if (tab === 'merch') {
     const M = G.merchant;
     if (!M) h += '<div class="note">Tüccar gitti. Arada yine uğrar.</div>';
     else {
@@ -188,5 +201,6 @@ function bind(body, x) {
   q('[data-gear] .buy', b => { const [g, k] = b.closest('[data-gear]').dataset.gear.split(':'); if (dispatch({ t: CMD.GEAR, g, k })) after(k); });
   q('[data-lvup] .buy', b => { const k = b.closest('[data-lvup]').dataset.lvup; if (dispatch({ t: CMD.LVUP, k })) after('t' + k); });
   q('[data-merch] .buy', b => { const i = +b.closest('[data-merch]').dataset.merch; if (dispatch({ t: CMD.MERCH, i })) after('m' + i, true); });
+  q('[data-forge] .buy', b => { const k = b.closest('[data-forge]').dataset.forge; if (dispatch({ t: CMD.FORGE, k })) after('f' + k, true); });
   q('[data-craft] .buy', b => { const k = b.closest('[data-craft]').dataset.craft; if (dispatch({ t: CMD.CRAFT, k })) after(k); });
 }

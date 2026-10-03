@@ -115,9 +115,11 @@ export const ORE_RAMP = {
   yildiz:   ['#104840', '#30b0a0', '#b8fff4', '#ffffff'],
   elmas:    ['#0a0a12', '#3a3a50', '#b0b8d0', '#ffffff'],
   kehribar: ['#4a2008', '#b0601a', '#ffb040', '#fff0c0'],
+  kabuk:    ['#2a3a1a', '#6a8a3a', '#b8d868', '#f0ffc0'],
+  cekirdek: ['#4a0a1a', '#b01a3a', '#ff5a6a', '#ffd8d8'],
 };
 
-export const RES_COL = { iron: '#e8a060', water: '#6fd0ff', cobalt: '#5a86ff', crystal: '#e070ff', gold: '#ffd24a', yesim: '#5ae08a', opal: '#ff4a3a', inci: '#eeeef8', akik: '#ff5ab0', yildiz: '#b8fff4', elmas: '#c8d0ff', kehribar: '#ffb040' };
+export const RES_COL = { iron: '#e8a060', water: '#6fd0ff', cobalt: '#5a86ff', crystal: '#e070ff', gold: '#ffd24a', yesim: '#5ae08a', opal: '#ff4a3a', inci: '#eeeef8', akik: '#ff5ab0', yildiz: '#b8fff4', elmas: '#c8d0ff', kehribar: '#ffb040', kabuk: '#b8d868', cekirdek: '#ff5a6a' };
 export const TIDE_COL = 'rgba(40,120,190,0.32)';
 
 // Biyomlar (30): isim, HUD kısaltması, karanlık rengi, süs türü, parçacık efekti, ton

@@ -1578,8 +1578,8 @@ section('Biyom bossları');
     try { for (let i = 0; i < 60 * 45; i++) { if (k === 'sagirAvci' && i % 90 === 0) { p.x = p.px = ((i / 90) % 2 ? 3 : 13) * TILE + 8; addNoise(4, p.x, p.y); } step(); if (e.bs && e.bs.act) seen.add(e.bs.act.k); p.hp = Math.max(p.hp, 5000); p.iframes = 0; } } catch (err) { threw = err; }
     ok(`${ENEMIES[k].name}: hatasız dövüşür`, !threw, threw ? threw.stack.split('\n').slice(0, 2).join(' ') : '');
     ok(`${ENEMIES[k].name}: beş yetenekli döngü`, KITS[k].rot.length === 5 && KITS[k].rot.every(s => seen.has(s)) && p.hp < 9999, [...seen].join(','));
-    const ev = events.bossPhase | 0; for (let i = 0; i < 600 && e.under; i++) step(); damageEnemy(e, e.maxHp * 0.6 / (1 - ENEMIES[k].armor), 0, 0, 0); run(0.3);
-    ok(`${ENEMIES[k].name}: %50 canda öfkelenir`, e.bs.phase === 2 && (events.bossPhase | 0) === ev + 1);
+    const ev = events.bossPhase | 0; for (let i = 0; i < 600 && e.under; i++) step(); e.exposed = 0; damageEnemy(e, e.maxHp * 0.6 / (1 - ENEMIES[k].armor), 0, 0, 0); run(0.3);
+    ok(`${ENEMIES[k].name}: %50 canda öfkelenir`, e.bs.phase === 2 && (events.bossPhase | 0) === ev + 1, `${e.bs.phase} ${events.bossPhase} ${ev} ${e.hp / e.maxHp} ${e.under} ${e.invT} ${e.exposed}`);
     try { for (let i = 0; i < 60 * 20; i++) { if (k === 'sagirAvci' && i % 40 === 0) addNoise(4, p.x, p.y); step(); p.hp = Math.max(p.hp, 5000); p.iframes = 0; } threw = null; } catch (err) { threw = err; }
     ok(`${ENEMIES[k].name}: öfkede hatasız`, !threw, threw ? threw.stack.split('\n').slice(0, 2).join(' ') : '');
   }
@@ -1605,6 +1605,50 @@ section('Biyom bossları');
     const e = G.enemies.find(o => o.type === k); killEnemy(e); run(2.5);
     ok(`${ENEMIES[k].name} yenilince bir daha gelmez (kayıtta da)`, G.lairs[k].st === 'done' && (() => { const d = JSON.parse(JSON.stringify(serialize())); deserialize(d); return G.lairs[k].st === 'done'; })());
   }
+}
+
+section('Tezgâh');
+{
+  const { forgeUp, forgeCost } = await import('../src/game/economy.js');
+  const { forgeLv } = await import('../src/game/run.js');
+  const { FORGE, MAT_DROP } = await import('../src/data/balance.js');
+  fresh(2601); const p = G.player;
+  ok('malzeme yokken dövülmez', !forgeUp('w') && forgeLv('w') === 0);
+  // düşüş: elit ve boss kesin; malzeme çantaya girmez
+  for (let r = GROUND_ROW + 1; r <= GROUND_ROW + 8; r++) for (let c = 4; c <= 12; c++) setTile(c, r, T.AIR);
+  p.x = p.px = 8 * TILE + 8; p.y = p.py = (GROUND_ROW + 6) * TILE + 8;
+  const el = spawnEnemy('rodent', p.x + 4, p.y, 3); el.elite = true; const bag0 = bagCount(p); G.bagCap = bag0; killEnemy(el);
+  for (let i = 0; i < 180; i++) updateOrbs(1 / 60);
+  ok('elit Kabuk ve Çekirdek düşürür; çanta dolu olsa da depoya gelir', G.store.kabuk === MAT_DROP.elite[0] && G.store.cekirdek === MAT_DROP.elite[1] && bagCount(p) === bag0, `${G.store.kabuk} ${G.store.cekirdek}`);
+  recompute(); G.orbs.length = 0;
+  // silah
+  G.store.kabuk = 99; G.store.cekirdek = 99; G.store.iron = 999; G.store.cobalt = 999; G.store.crystal = 999;
+  const d0 = gunDmg(p), dps0 = gunDps(p); ok('silah 1: hasar artar', forgeUp('w') && Math.abs(gunDmg(p) / d0 - FORGE.w.dmg) < 1e-6 && G.store.kabuk === 99 - FORGE.costs[0].kabuk);
+  forgeUp('w'); ok('silah 2: yönetmen Dolu Atış’ı görür', gunDps(p) / dps0 > FORGE.w.dmg * 1.3);
+  const e = spawnEnemy('brute', p.x + 40, p.y, 3); e.emergeT = 0; e.hp = e.maxHp = 1e6; G.bullets.length = 0; p.fireCd = 0; p.shotN = 0; G.perkOffer = null; G.gear.pend.length = 0;
+  let full = 0, shots = 0; const seenB = new Set();
+  for (let i = 0; i < 60 * 12; i++) { updatePlayerGun(1 / 60); for (const b of G.bullets) if (!seenB.has(b)) { seenB.add(b); shots++; if (b.full) full++; } updateBullets(1 / 60); e.x = p.x + 40; e.kx = 0; }
+  ok('silah 2: her 6 atışta bir Dolu Atış', full > 0 && Math.abs(shots / full - FORGE.w.every) < 1.5, `${shots} ${full}`);
+  forgeUp('w'); ok('silah 3: tavan, daha dövülmez', forgeLv('w') === 3 && !forgeCost('w') && !forgeUp('w'));
+  const e2 = spawnEnemy('rodent', e.x + 10, e.y, 3); e2.emergeT = 0; e2.hp = e2.maxHp = 1e6; G.bullets.length = 0;
+  for (let i = 0; i < 60 * 12 && e2.hp === e2.maxHp; i++) { updatePlayerGun(1 / 60); updateBullets(1 / 60); e.x = p.x + 40; e2.x = e.x + 10; e2.y = e.y; }
+  ok('silah 3: Yankı yandaki düşmanı da vurur', e2.hp < e2.maxHp);
+  G.enemies.length = 0; G.bullets.length = 0;
+  // kazma
+  const k0 = pickDmg(p); forgeUp('p'); ok('kazma 1: kazı gücü artar', Math.abs(pickDmg(p) / k0 - FORGE.p.dmg) < 1e-6);
+  forgeUp('p'); const r = GROUND_ROW + 12; for (let c = 4; c <= 13; c++) for (const q of [r - 1, r, r + 1]) setTile(c, q, T.STONE); for (let c = 5; c <= 10; c++) setTile(c, r, T.IRON); G.buried.fill(0);
+  breakTile(5, r, p); ok('kazma 2: iki komşu cevher de kırılır', tileAt(6, r) === T.AIR && tileAt(7, r) === T.AIR && tileAt(8, r) === T.IRON);
+  forgeUp('p'); for (let c = 5; c <= 12; c++) setTile(c, r, T.IRON); breakTile(5, r, p);
+  ok('kazma 3: bütün damar (en çok 6)', tileAt(11, r) === T.AIR && tileAt(12, r) === T.IRON);
+  // zırh
+  G.store.kabuk = 99; const h0 = p.maxHp; forgeUp('a'); ok('zırh 1: azami can artar', Math.abs(p.maxHp / h0 - FORGE.a.hp) < 0.01);
+  forgeUp('a'); G.orbs.length = 0; const t1 = spawnEnemy('rodent', p.x + 10, p.y, 3); t1.emergeT = 0; t1.hp = t1.maxHp = 1000; p.iframes = 0; p.hp = p.maxHp;
+  damagePlayer(p, 5, t1.x, t1.y); ok('zırh 2: Diken vuranı yaralar', t1.hp < 1000 * (1 - FORGE.a.thorn * 0.5), `${t1.hp}`);
+  forgeUp('a'); p.iframes = 0; p.barrier = 0; p.hp = p.maxHp; damagePlayer(p, p.maxHp * 0.8, t1.x, t1.y);
+  ok('zırh 3: İkinci Deri kalkan açar', p.barrier > 0 && p.hp > 0);
+  p.iframes = 0; p.barrier = 0; damagePlayer(p, 1, t1.x, t1.y); ok('zırh 3: bekleme süresinde yeniden açılmaz', !(p.barrier > 0));
+  const d = JSON.parse(JSON.stringify(serialize())); deserialize(d);
+  ok('kayıt: dövme kademeleri ve malzeme korunur', forgeLv('w') === 3 && forgeLv('p') === 3 && forgeLv('a') === 3 && G.store.kabuk > 0);
 }
 
 console.log(`\n${checks - fails}/${checks} kontrol geçti${fails ? `, ${fails} HATA` : ''}`);

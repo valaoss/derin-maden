@@ -1,12 +1,12 @@
 // Güç ölçümü: yönetmen ekibin silahına, kartlarına, eklentilerine ve kalıntılarına bakıp düşman canını ayarlar.
-import { UPGRADES, MODS, CARDS, CRIT, POWER } from '../data/balance.js';
+import { UPGRADES, MODS, CARDS, CRIT, POWER, FORGE } from '../data/balance.js';
 import { G } from './state.js';
-import { hasPerk, hasRelic, hasMod, weaponOf, cardLv, pv, resonance } from './run.js';
+import { hasPerk, hasRelic, hasMod, weaponOf, cardLv, pv, resonance, forgeLv } from './run.js';
 
 // mermi başına hasar (anlık etkiler hariç: son direniş, adrenalin, kritik)
 export function gunDmg(p) {
   const W = weaponOf(p);
-  return UPGRADES.blaster.dmg[G.lvl.blaster] * W.dmg * (1 + CARDS.dmg.v * cardLv('dmg')) * (1 + pv('kalibre')) * (hasPerk('camTop') ? 1.8 : 1) * (hasPerk('gurultuTanrisi') ? 1.7 : 1) * (hasRelic('aynaTac') ? 1.15 : 1) * (hasRelic('sifirTasi') ? 1.4 : 1) * (G.lvl.yildizCekirdek ? 1.4 : 1);
+  return (forgeLv('w') ? FORGE.w.dmg : 1) * UPGRADES.blaster.dmg[G.lvl.blaster] * W.dmg * (1 + CARDS.dmg.v * cardLv('dmg')) * (1 + pv('kalibre')) * (hasPerk('camTop') ? 1.8 : 1) * (hasPerk('gurultuTanrisi') ? 1.7 : 1) * (hasRelic('aynaTac') ? 1.15 : 1) * (hasRelic('sifirTasi') ? 1.4 : 1) * (G.lvl.yildizCekirdek ? 1.4 : 1);
 }
 // atış aralığı (anlık etkiler hariç: öfke, aşırı yük)
 export function gunCd(p) {
@@ -41,6 +41,9 @@ export function gunDps(p, single = false) {
 export function hiddenMul(p, single = false) {
   const W = weaponOf(p);
   let m = 1;
+  // Tezgâh: Dolu Atış'ın ortalaması; Yankı kalabalıkta biraz daha
+  const fw = forgeLv('w'), F = FORGE.w;
+  if (fw >= 2) m *= (F.every - 1 + F.mul) / F.every * (fw >= 3 && !single ? 1.1 : 1);
   if (G.mp && hasPerk('kanBagi')) m *= 1 + pv('kanBagi') * 0.7;
   if (resonance('golge')) m *= 1.15;
   if (single) return m;

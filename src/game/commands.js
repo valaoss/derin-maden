@@ -2,7 +2,7 @@
 // UI komutu dispatch() ile verir; tek oyunculuda hemen, çok oyunculuda lockstep karesinde çalışır.
 import { G } from './state.js';
 import { useItem } from './items.js';
-import { buyUpgrade, craftItem, pickupBuild, applyPerk, buyMod, gearPick, testFunds, levelUp } from './economy.js';
+import { buyUpgrade, craftItem, pickupBuild, applyPerk, buyMod, gearPick, testFunds, levelUp, forgeUp } from './economy.js';
 import { addPing } from './pings.js';
 import { callElevator } from './elevator.js';
 import { rerollOffer } from './chests.js';
@@ -11,7 +11,7 @@ import { wish } from './well.js';
 import { castLine } from './wonders.js';
 import { emit } from '../core/events.js';
 
-export const CMD = { USE: 'u', BUY: 'b', CRAFT: 'c', PICKUP: 'k', PERK: 'p', MODBUY: 'mb', PING: 'g', ELEV: 'el', GEAR: 'gr', TEST: 'tx', LVUP: 'lu', REROLL: 'rr', MERCH: 'mc', WISH: 'wi', FISH: 'fi' };
+export const CMD = { USE: 'u', BUY: 'b', CRAFT: 'c', PICKUP: 'k', PERK: 'p', MODBUY: 'mb', PING: 'g', ELEV: 'el', GEAR: 'gr', TEST: 'tx', LVUP: 'lu', REROLL: 'rr', MERCH: 'mc', WISH: 'wi', FISH: 'fi', FORGE: 'fg' };
 
 // Simülasyon içinde çalışır: pi = komutu veren oyuncu indeksi
 export function execCmd(pi, cmd) {
@@ -27,6 +27,7 @@ export function execCmd(pi, cmd) {
     case CMD.MODBUY: return buyMod(cmd.k, p);
     case CMD.GEAR: return gearPick(cmd.g === 'w' ? 'w' : 'p', String(cmd.k), p);
     case CMD.TEST: return testFunds(p);
+    case CMD.FORGE: return forgeUp(String(cmd.k), p);
     case CMD.LVUP: return levelUp(String(cmd.k), p);
     case CMD.REROLL: return rerollOffer(p);
     case CMD.MERCH: return buyMerch(p, cmd.i | 0);

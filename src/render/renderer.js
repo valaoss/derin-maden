@@ -1728,8 +1728,10 @@ function drawEmissive(r0, r1, alpha, opts) {
   for (const bl of G.bullets) {
     if (bl.blast) { const c = bl.freeze ? '#bff4ff' : '#ffb050'; pline(bl.px, bl.py, bl.x, bl.y, c); ctx.fillStyle = P.ink; ctx.fillRect(Math.round(bl.x) - 2, Math.round(bl.y) - 2, 4, 4); ctx.fillStyle = bl.freeze ? '#ffffff' : '#ffe79a'; ctx.fillRect(Math.round(bl.x) - 1, Math.round(bl.y) - 1, 2, 2); glow(bl.x, bl.y, bl.freeze ? 'rgba(190,240,255,0.5)' : 'rgba(255,170,80,0.5)', 7); continue; }
     const col = bl.fire ? '#ff9a4a' : bl.frost ? '#bff4ff' : bl.chain ? '#c8f0ff' : '#ffe79a';
-    pline(bl.px, bl.py, bl.x, bl.y, 'rgba(255,220,140,0.6)');
-    ctx.fillStyle = col; ctx.fillRect(Math.round(bl.x) - 1, Math.round(bl.y) - 1, 2, 2);
+    pline(bl.px, bl.py, bl.x, bl.y, bl.full ? '#fff4c0' : 'rgba(255,220,140,0.6)');
+    // Tezgâh: dövülmüş silahın mermisi iri, Dolu Atış daha da iri ve parlak
+    if (bl.full) { ctx.fillStyle = '#ffd24a'; ctx.fillRect(Math.round(bl.x) - 2, Math.round(bl.y) - 2, 5, 5); ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(bl.x) - 1, Math.round(bl.y) - 1, 3, 3); glow(bl.x, bl.y, 'rgba(255,230,160,0.55)', 9); continue; }
+    ctx.fillStyle = col; if (bl.big) ctx.fillRect(Math.round(bl.x) - 1, Math.round(bl.y) - 1, 3, 3); else ctx.fillRect(Math.round(bl.x) - 1, Math.round(bl.y) - 1, 2, 2);
   }
   for (const bl of G.ebullets) {
     const bx = Math.round(bl.x), by = Math.round(bl.y);

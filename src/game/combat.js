@@ -2,13 +2,13 @@
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y, ROWS } from '../config.js';
 import { T, TD, isMineable } from '../data/tiles.js';
-import { UPGRADES, BUILDS, MODS, BURN, THREAT, CRIT, VAMP_CAP, FIRE } from '../data/balance.js';
+import { UPGRADES, BUILDS, MODS, BURN, THREAT, CRIT, VAMP_CAP, FIRE, FORGE } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, damageTile } from '../world/map.js';
 import { damageEnemy, losClear, damageStructure, burnEnemy } from './enemies.js';
 import { damagePlayer, webPlayer, chillPlayer, breakTile, nearestPlayer } from './player.js';
 import { addNoise } from './threat.js';
-import { hasPerk, hear, hasMod, lastStand, weaponOf, cardLv, toolPow, pv, resonance } from './run.js';
+import { hasPerk, hear, hasMod, lastStand, weaponOf, cardLv, toolPow, pv, resonance, forgeLv } from './run.js';
 import { gunDmg, gunCd, critChance } from './power.js';
 import { updateWeaponOffers } from './weaponlevel.js';
 import { inWater } from './biomes.js';
@@ -60,6 +60,7 @@ function thermal(e, dmg) {
 }
 // mermiye eklenti ve kalıntı etkilerini işle
 function tagBullet(b, W) {
+  if (forgeLv('w')) b.big = true;
   if (hasMod('ricochet')) b.bounce = 2;
   if (hasPerk('kor')) b.kor = pv('kor');
   if (G.lvl.opalNamlu) b.kor = Math.max(b.kor || 0, 0.25);
@@ -83,6 +84,17 @@ export function frostEnemy(e) {
 export function stunEnemy(e, t) {
   if (e.d.boss || e.stunAt > G.time) return;
   e.stunAt = G.time + MODS.stun.cd; e.atkCd = Math.max(e.atkCd, t * (e.elite ? 0.5 : 1));
+}
+// Tezgâh (silah): Yankı: Dolu Atış'ın çarptığı yerde patlama
+function echoAt(x, y, dmg, skip) {
+  const R = FORGE.w.echoR;
+  for (const o of G.enemies) {
+    if (o === skip || o.dead || o.emergeT > 0.3 || o.under) continue;
+    const d = Math.hypot(o.x - x, o.y - y);
+    if (d < R + o.r) damageEnemy(o, dmg, (o.x - x) / (d || 1), (o.y - y) / (d || 1), 1, true);
+  }
+  ring(x, y, '#ffe79a', R); ring(x, y, '#ffffff', R * 0.6); sparks(x, y, '#ffd24a', 10, 110); flashLight(x, y, 4, 0.2);
+  if (hear(G.player, x, y)) sfx.explode();
 }
 // silahla öldürme: Can Çalan ve Saçılma eklentileri
 function gunKill(e, p) {
@@ -135,10 +147,14 @@ function updateGun(p, dt) {
   // sınırın altına inen atış aralığı hasara çevrilir (kare başına bir atıştan hızlısı zaten boşa giderdi)
   let over = 1; if (cd < FIRE.minCd) { over = FIRE.minCd / cd; cd = FIRE.minCd; }
   p.fireCd = cd;
-  const dmg = gunDmg(p) * lastStand(p) * over, cc = critChance(p), cok = cardLv('cok');
+  // Tezgâh (silah): her 'every' atışta bir Dolu Atış (alevde aynı ortalamayla daha seyrek ve daha sert)
+  const F = FORGE.w, fw = forgeLv('w'), fn = W.flame ? 4 : 1;
+  const full = fw >= 2 && (p.shotN = (p.shotN | 0) + 1) >= F.every * fn;
+  if (full) { p.shotN = 0; ring(sp.x, sp.y, '#ffe79a', 10); flashLight(sp.x, sp.y, 4, 0.14); if (hear(p)) sfx.mortar(); }
+  const dmg = gunDmg(p) * lastStand(p) * over * (full ? 1 + (F.mul - 1) * fn : 1), cc = critChance(p), cok = cardLv('cok');
   if ((g.active.overdrive || 0) > 0) sparks(sp.x, sp.y, '#ffe79a', 1, 30);
-  if (W.flame) { flameCone(p, sp, ang, range, dmg, W, rnd() < cc); return; }
-  if (W.zap) { zapChain(p, sp, tgt, dmg, W.zap + cok, W, rnd() < cc); return; }
+  if (W.flame) { flameCone(p, sp, ang, range, dmg, W, rnd() < cc); if (full && fw >= 3 && !tgt.dead) echoAt(tgt.x, tgt.y, dmg * F.echo / fn, null); return; }
+  if (W.zap) { zapChain(p, sp, tgt, dmg, W.zap + cok, W, rnd() < cc); if (full && fw >= 3) echoAt(tgt.x, tgt.y, dmg * F.echo, tgt); return; }
   const shots = hasPerk('ciftNamlu') ? [-0.09, 0.09] : [0];
   const pierce = (hasPerk('deliciIsin') ? 3 : 0) + (W.pierce || 0) + cardLv('del'), n = W.pellets ? W.pellets + cok : 1;
   const mx = sp.x + Math.cos(ang) * 6, my = sp.y + Math.sin(ang) * 6;
@@ -146,8 +162,9 @@ function updateGun(p, dt) {
   const shoot = (a, speed, d) => {
     const crit = rnd() < cc, b = tagBullet(fire(mx, my, a, speed, d * (crit ? CRIT.mul : 1), 'p', pierce, p.i), W);
     b.crit = crit;
+    if (full) { b.full = true; b.pierce += F.pierce; b.knock = 2.4; if (fw >= 3) b.echo = true; }
     if (W.life) b.life = W.life;
-    if (W.knock) b.knock = W.knock;
+    if (W.knock) b.knock = Math.max(b.knock || 0, W.knock);
     if (W.blast) { b.blast = W.blast; b.freeze = W.freeze || 0; b.rocket = !W.freeze && !W.quiet; }
   };
   for (const o of shots) {
@@ -306,6 +323,7 @@ export function updateBullets(dt) {
           for (const o of G.enemies) { if (o === e || o.dead || o.emergeT > 0.3 || o.under) continue; const d = Math.hypot(o.x - b.x, o.y - b.y); if (d < 14 + o.r) damageEnemy(o, b.dmg * 0.6, (o.x - b.x) / (d || 1), (o.y - b.y) / (d || 1), 0.5, true); }
           igniteGas(b.x, b.y, 14);
         }
+        if (b.echo) echoAt(b.x, b.y, b.dmg * FORGE.w.echo, e);
         if (b.from === 'p' && b.pi >= 0) gunKill(e, G.players[b.pi]);
         if (b.pierce > 0) { b.pierce--; b.hit = e; } else dead = true;
         break;

@@ -4,7 +4,7 @@ import { critterURL } from '../render/critters.js';
 import { nearWell, wellCost } from '../game/well.js';
 import { lakeAt } from '../game/wonders.js';
 import { TILE, GROUND_Y, stratumOfRow, STRATUM_ROWS } from '../config.js';
-import { UPGRADES, UPGRADE_KEYS, PICK_KEYS, MODS, MOD_KEYS, BUILDS, BUILD_KEYS, PERKS, META, META_KEYS, RES_KEYS, ENEMIES, ITEMS, ITEM_KEYS, CONTRACTS, RES, BASE_RES, MASTER_KEYS, KADEME, DEPLOY_MAX, EVENTS, RELICS, RELIC_KEYS, WEAPONS, WEAPON_KEYS, PICK_TYPES, PICK_TYPE_KEYS } from '../data/balance.js';
+import { UPGRADES, UPGRADE_KEYS, PICK_KEYS, MODS, MOD_KEYS, BUILDS, BUILD_KEYS, PERKS, META, META_KEYS, RES_KEYS, ENEMIES, ITEMS, ITEM_KEYS, CONTRACTS, RES, BASE_RES, MASTER_KEYS, KADEME, DEPLOY_MAX, EVENTS, RELICS, RELIC_KEYS, WEAPONS, WEAPON_KEYS, PICK_TYPES, PICK_TYPE_KEYS, FORGE, MATS, MAT_KEYS } from '../data/balance.js';
 import { STRATA } from '../data/palette.js';
 import { G, App, biomeOf } from '../game/state.js';
 import { iconURL, HELMETS } from '../render/sprites.js';
@@ -151,6 +151,8 @@ export function initUI(root, h) {
   });
   on('modChanged', () => { if (sheetOpen()) refreshSheet(); refreshHUD(true); });
   on('gearChanged', () => { if (sheetOpen()) refreshSheet(); refreshHUD(true); });
+  on('forged', d => { if (sheetOpen()) refreshSheet(); refreshHUD(true); toast(FORGE[d.k].name + ' dövüldü: ' + FORGE[d.k].steps[d.lv - 1][0], FORGE[d.k].icon); });
+  on('matPop', k => { if (once('m' + k)) toast(MATS[k].label + ' · Atölye > TEZGÂH’ta silah, kazma ve zırh dövmeye yarar', k); });
   on('modUsed', () => refreshHUD(true));
   on('chill', () => { const v = $('#vignette'); v.classList.add('cold'); setTimeout(() => v.classList.remove('cold'), 1800); });
   on('threat', d => {
@@ -457,7 +459,7 @@ const TEST_MODE = import.meta.env.DEV || /[?&]test/.test(location.search);
 let sheetTab = 'pick';
 function refreshSheet(justKey) {
   if (!G) return;
-  $('#sheetStore').innerHTML = RES_KEYS.filter(k => BASE_RES.includes(k) || G.store[k] > 0).map(k => `<span class="chip">${ic(k, 's')}<span>${G.store[k]}</span></span>`).join('');
+  $('#sheetStore').innerHTML = RES_KEYS.concat(MAT_KEYS).filter(k => BASE_RES.includes(k) || G.store[k] > 0).map(k => `<span class="chip">${ic(k, 's')}<span>${G.store[k]}</span></span>`).join('');
   $('#sheetStats').innerHTML = statsHTML(ic);
   const n = tabCounts();
   if (sheetTab === 'merch' && !G.merchant) sheetTab = 'pick';

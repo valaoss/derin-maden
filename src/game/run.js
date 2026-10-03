@@ -9,7 +9,7 @@ import { makeLairs, lairsDone, loadLairs } from './lairs.js';
 import { CRITTERS } from '../data/critters.js';
 import { COLS, ROWS, TILE, GROUND_ROW, BASE_X, BASE_Y, CENTER_COL, STRATUM_ROWS, stratumOfRow, PLAY_MIN_COL, PLAY_MAX_COL } from '../config.js';
 import { PERKS, RESONANCE } from '../data/relics.js';
-import { MERCHANT, SHROOM, UPGRADES, PLAYER, BUILDS, ITEMS, ITEM_KEYS, SCHEMATICS, CONTRACTS, kademeMods, PICK_TIERS, RES_KEYS, MASTER_KEYS, PICK_TYPES, WEAPONS, EVOLVED, CARDS, CARD_KEYS, MODS, ADREN, TOOL_UP, BUILD_KEYS } from '../data/balance.js';
+import { MERCHANT, SHROOM, UPGRADES, PLAYER, BUILDS, ITEMS, ITEM_KEYS, SCHEMATICS, CONTRACTS, kademeMods, PICK_TIERS, RES_KEYS, MAT_KEYS, FORGE, FORGE_KEYS, MASTER_KEYS, PICK_TYPES, WEAPONS, EVOLVED, CARDS, CARD_KEYS, MODS, ADREN, TOOL_UP, BUILD_KEYS } from '../data/balance.js';
 import { T, TD } from '../data/tiles.js';
 import { makeThreat, scanNests } from './threat.js';
 import { makeEvents } from './events.js';
@@ -89,11 +89,11 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
     time: 0, frame: 0, hitstop: 0,
     player: null, players: [],
     base: { x: BASE_X, y: BASE_Y, hp: 0, maxHp: 0, hurtT: 0 },
-    store: emptyRes(), collected: emptyRes(),
+    store: Object.assign(emptyRes(), Object.fromEntries(MAT_KEYS.map(k => [k, 0]))), collected: emptyRes(),
     lvl: { drill: Math.min(2, ml.keskinUc | 0), sharp: 0, swing: 0, bag: 0, armor: 0, blaster: Math.min(2, ml.ayarliBl | 0), lamp: 0, ...Object.fromEntries(MASTER_KEYS.map(k => [k, 0])) },
     perks: [], perkLv: {}, rerolls: 0, items: emptyItems(), perkOffer: null, merchant: null, merchT: MERCHANT.first, wish: null, wishes: 0, balrog: null, serpent: null, hoard: null, temple: null,
     // owned: alınan eklentiler (hepsi çalışır); lv/xp/cards/evo: silah seviyesi, kartlar ve evrimler; pend: sıradaki kart teklifleri
-    gear: { owned: [], cd: {}, active: {}, wOwn: ['blaster'], pOwn: ['std'], tLvl: {}, lv: 0, xp: 0, cards: {}, evo: {}, pend: [] },
+    gear: { owned: [], cd: {}, active: {}, wOwn: ['blaster'], pOwn: ['std'], tLvl: {}, lv: 0, xp: 0, cards: {}, evo: {}, pend: [], forge: { w: 0, p: 0, a: 0 } },
     kademe, mods, daily, contracts: [],
     bombs: [], bells: [], slimes: [], fishT: 6, rocks: [], falls: [], gas: [], hazT: 0,
     structures: [], enemies: [], bullets: [], ebullets: [], orbs: [], particles: [], pIdx: 0, flashes: [], lightSrc: [],
@@ -182,6 +182,8 @@ export function pickType(p = G.player) { return PICK_TYPES[p && p.pk] || PICK_TY
 // elindeki silah: evrim seçildiyse evrimli tanım
 export function weaponOf(p = G.player) { const k = p && WEAPONS[p.wpn] ? p.wpn : 'blaster', e = G.gear.evo[k]; return e === 0 || e === 1 ? EVOLVED[k][e] : WEAPONS[k]; }
 export function cardLv(k) { return Math.min(CARDS[k].max, G.gear.cards[k] | 0); }
+// Tezgâh kademesi (0..3): w silah, p kazma, a zırh
+export function forgeLv(k) { return Math.min(FORGE.costs.length, (G.gear.forge && G.gear.forge[k]) | 0); }
 export function toolLvl(k) { return Math.min(TOOL_UP.max, (G.gear.tLvl && G.gear.tLvl[k]) | 0); }
 // alet gücü (şifa hızı, delinen blok): kendi seviyesi + Alet Ustası
 export function toolPow(k) { return (1 + TOOL_UP.pow * toolLvl(k)) * (hasPerk('aletUstasi') ? 1.5 : 1); }
@@ -190,7 +192,7 @@ export function toolPow(k) { return (1 + TOOL_UP.pow * toolLvl(k)) * (hasPerk('a
 export function recompute(fill = false) {
   const ml = G.meta.lv || {};
   G.bagCap = Math.round((UPGRADES.bag.cap[G.lvl.bag] + 10 * (ml.genisCanta | 0)) * (1 + pv('derinCep')) * (hasPerk('acKazma') ? 0.65 : 1));
-  const maxHp = Math.round((UPGRADES.armor.hp[G.lvl.armor] + (hasRelic('kalp') ? 40 : 0) + (G.lvl.muska ? 30 : 0)) * (1 + pv('kalinKan')) * (hasPerk('camTop') ? 0.6 : 1));
+  const maxHp = Math.round((UPGRADES.armor.hp[G.lvl.armor] + (hasRelic('kalp') ? 40 : 0) + (G.lvl.muska ? 30 : 0)) * (forgeLv('a') ? FORGE.a.hp : 1) * (1 + pv('kalinKan')) * (hasPerk('camTop') ? 0.6 : 1));
   for (const p of G.players) {
     const d = maxHp - p.maxHp;
     p.maxHp = maxHp;
@@ -200,7 +202,7 @@ export function recompute(fill = false) {
 }
 
 // kazma: kademe + tür + keskinlik + hızlı sallama
-export function pickDmg(p = G.player) { return PICK_TIERS[G.lvl.drill].dmg * pickType(p).dmg * UPGRADES.sharp.mult[G.lvl.sharp] * (hasRelic('kivilcim') ? 2 : 1) * (G.lvl.yildizCekirdek ? 1.4 : 1) * (hasRelic('sifirTasi') ? 1.4 : 1) * (resonance('toprak') ? 1.5 : 1) * (hasPerk('camTop') ? 1.8 : 1) * (hasPerk('acKazma') ? 2.2 : 1) * (p && p.shroom && p.shroom.k === 'dev' ? SHROOM.bigPick : 1); }
+export function pickDmg(p = G.player) { return (forgeLv('p') ? FORGE.p.dmg : 1) * PICK_TIERS[G.lvl.drill].dmg * pickType(p).dmg * UPGRADES.sharp.mult[G.lvl.sharp] * (hasRelic('kivilcim') ? 2 : 1) * (G.lvl.yildizCekirdek ? 1.4 : 1) * (hasRelic('sifirTasi') ? 1.4 : 1) * (resonance('toprak') ? 1.5 : 1) * (hasPerk('camTop') ? 1.8 : 1) * (hasPerk('acKazma') ? 2.2 : 1) * (p && p.shroom && p.shroom.k === 'dev' ? SHROOM.bigPick : 1); }
 export function pickInterval(p = G.player) { return PICK_TIERS[G.lvl.drill].interval * pickType(p).int * UPGRADES.swing.mult[G.lvl.swing]; }
 // kazı/kırma gürültü çarpanı: Sessiz Adım, Gölge rezonansı, Gürültü Tanrısı
 export function perkNoise() { return (1 - pv('sessizAdim')) * (resonance('golge') ? 0.65 : 1) * (hasPerk('gurultuTanrisi') ? 1.6 : 1); }
@@ -225,7 +227,7 @@ function unb64(s) { const b = atob(s), u = new Uint8Array(b.length); for (let i 
 export function serialize() {
   const g = G;
   return {
-    v: 8, seed: g.seed, rng: g.rng, heartRow: g.heartRow, order: g.order, map: b64(g.map), rev: b64(g.rev), buried: b64(g.buried), bhp: g.bhp, gear: { owned: g.gear.owned, wOwn: g.gear.wOwn, pOwn: g.gear.pOwn, tLvl: g.gear.tLvl, lv: g.gear.lv, xp: g.gear.xp, cards: g.gear.cards, evo: g.gear.evo },
+    v: 8, seed: g.seed, rng: g.rng, heartRow: g.heartRow, order: g.order, map: b64(g.map), rev: b64(g.rev), buried: b64(g.buried), bhp: g.bhp, gear: { owned: g.gear.owned, wOwn: g.gear.wOwn, pOwn: g.gear.pOwn, tLvl: g.gear.tLvl, lv: g.gear.lv, xp: g.gear.xp, cards: g.gear.cards, evo: g.gear.evo, forge: g.gear.forge },
     base: { hp: g.base.hp }, bag: g.player.bag, store: g.store, collected: g.collected, lvl: g.lvl, perks: g.perks, perkLv: g.perkLv, rerolls: g.rerolls, merchant: g.merchant, merchT: g.merchT, wishes: g.wishes, critters: g.critters, lakes: g.lakes, portals: g.portals, shrooms: g.shrooms, lq: g.lq ? b64(g.lq) : null, lk: g.lk ? b64(g.lk) : null, lqT: g.lqT, balrogDone: !!(g.balrog && g.balrog.st === 'done'), serpentDone: !!(g.serpent && g.serpent.st === 'done'), lairs: lairsDone(), temple: g.temple ? { v: 1, st: g.temple.st === 'done' ? 'done' : 'wait' } : null, hoard: g.hoard ? { v: 2, st: g.hoard.st === 'done' ? 'done' : 'sleep', wake: g.hoard.st === 'sleep' ? g.hoard.wake : 0 } : null,
     items: g.items, structures: g.structures.map(s => ({ type: s.type, c: s.c, r: s.r, hp: s.hp, left: s.left })),
     kademe: g.kademe, daily: g.daily, contracts: g.contracts,
@@ -257,6 +259,7 @@ export function deserialize(d) {
     g.gear.lv = Math.max(0, d.gear.lv | 0); g.gear.xp = Math.max(0, +d.gear.xp || 0);
     for (const k of CARD_KEYS) if (d.gear.cards && d.gear.cards[k]) g.gear.cards[k] = Math.min(CARDS[k].max, d.gear.cards[k] | 0);
     for (const k in d.gear.evo || {}) if (WEAPONS[k] && (d.gear.evo[k] === 0 || d.gear.evo[k] === 1)) g.gear.evo[k] = d.gear.evo[k];
+    for (const k of FORGE_KEYS) g.gear.forge[k] = Math.max(0, Math.min(FORGE.costs.length, (d.gear.forge && d.gear.forge[k]) | 0));
     for (const k in d.gear.tLvl || {}) if (BUILD_KEYS.includes(k)) g.gear.tLvl[k] = Math.min(TOOL_UP.max, d.gear.tLvl[k] | 0); }
   for (const k of ITEM_KEYS) if (d.items && k in d.items) g.items[k] = Math.max(0, d.items[k] | 0);
   // kaldırılan aletler (Nöbetçi, Alev Kulesi, Havan): eski kayıttaki kemer ve kurulu olanların bedeli depoya iade edilir

@@ -3,12 +3,12 @@ import { rnd } from '../core/rng.js';
 import { TILE, GROUND_ROW } from '../config.js';
 import { T, TD } from '../data/tiles.js';
 import { applyOffer, itemMax } from './chests.js';
-import { UPGRADES, BUILDS, PERKS, ITEMS, MODS, DEPLOY_MAX, WEAPONS, PICK_TYPES, RES_KEYS, SCHEMATICS, TOOL_UP, ITEM_SCALE, beaconReq, ITEM_KEYS } from '../data/balance.js';
+import { UPGRADES, BUILDS, PERKS, ITEMS, MODS, DEPLOY_MAX, WEAPONS, PICK_TYPES, RES_KEYS, MAT_KEYS, FORGE, SCHEMATICS, TOOL_UP, ITEM_SCALE, beaconReq, ITEM_KEYS } from '../data/balance.js';
 import { G, App } from './state.js';
 import { tileAt } from '../world/map.js';
-import { makeStructure, recompute, hasPerk, isUnlocked, isLocal, toolLvl, perkLv, resonance } from './run.js';
+import { makeStructure, recompute, hasPerk, isUnlocked, isLocal, toolLvl, perkLv, resonance, forgeLv } from './run.js';
 import { maxLv } from '../data/relics.js';
-import { sparks, ring, dust } from './fx.js';
+import { sparks, ring, dust, flashLight } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
 import { emit } from '../core/events.js';
 
@@ -57,6 +57,18 @@ export function levelUp(k, p = G.player) {
   return true;
 }
 
+// Tezgâh: silah (w), kazma (p) ya da zırhı (a) bir kademe döv
+export function forgeCost(k) { return FORGE[k] && FORGE[k].steps && forgeLv(k) < FORGE.costs.length ? FORGE.costs[forgeLv(k)] : null; }
+export function forgeUp(k, p = G.player) {
+  const c = forgeCost(k);
+  if (!c || !canAfford(c)) { if (isLocal(p)) sfx.deny(); return false; }
+  pay(c); G.gear.forge[k] = forgeLv(k) + 1; recompute();
+  sfx.craft(); sfx.buy(); if (isLocal(p)) haptic([20, 40, 30]);
+  ring(p.x, p.y, '#ffd24a', 30); ring(p.x, p.y, '#ffffff', 18); sparks(p.x, p.y - 4, '#ffe79a', 22, 120); flashLight(p.x, p.y, 6, 0.5);
+  emit('forged', { k, lv: G.gear.forge[k], pi: p.i });
+  return true;
+}
+
 export function gearPick(kind, k, p = G.player) {
   const w = kind === 'w', D = w ? WEAPONS : PICK_TYPES, own = w ? G.gear.wOwn : G.gear.pOwn, d = D[k];
   if (!d) return false;
@@ -74,7 +86,7 @@ export function gearPick(kind, k, p = G.player) {
 // test: sınırsız cevher + tüm şemalar (yalnız bu sefer)
 export const TEST_FUNDS = 99999;
 export function testFunds(p = G.player) {
-  for (const k of RES_KEYS) G.store[k] = TEST_FUNDS;
+  for (const k of RES_KEYS.concat(MAT_KEYS)) G.store[k] = TEST_FUNDS;
   G.testUnlock = true;
   G.meta.schem = SCHEMATICS.map(s => s.key);
   sfx.buy(); ring(p.x, p.y, '#f2c14e', 22);

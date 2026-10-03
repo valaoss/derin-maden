@@ -3,11 +3,11 @@
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y, GROUND_ROW, PLAYER_MIN_Y, WORLD_W, BASE_X, BASE_Y, stratumOfRow, depthOfY } from '../config.js';
 import { T, TD, isMineable, isPlain } from '../data/tiles.js';
-import { PLAYER, UPGRADES, PERKS, RES_KEYS, PICK_TIERS, RELIC_OF_BIOME, DEEP_ORES, DIG_DEPTH, ADREN, KEHRIBAR, SHROOM, LIQUID } from '../data/balance.js';
+import { PLAYER, UPGRADES, PERKS, RES_KEYS, MATS, FORGE, PICK_TIERS, RELIC_OF_BIOME, DEEP_ORES, DIG_DEPTH, ADREN, KEHRIBAR, SHROOM, LIQUID } from '../data/balance.js';
 import { RES_COL } from '../data/palette.js';
 import { G, App, biomeOf } from './state.js';
 import { tileAt, solidAt, setTile, damageTile, matOf } from '../world/map.js';
-import { hasPerk, hasRelic, bagCount, recompute, unlockSchematic, hear, isLocal, pickDmg, pickInterval, lastStand, pickType, pv, resonance, perkNoise } from './run.js';
+import { hasPerk, hasRelic, bagCount, recompute, unlockSchematic, hear, isLocal, pickDmg, pickInterval, lastStand, pickType, pv, resonance, perkNoise, forgeLv } from './run.js';
 import { gunDmg } from './power.js';
 import { burnEnemy } from './enemies.js';
 import { HAZARD } from '../data/balance.js';
@@ -379,6 +379,20 @@ export function breakTile(c, r, byPlayer, dx = 0, dy = 0, machine = false) {
     for (let i = 0; i < n; i++) spawnOrb(x, y, res);
     sparks(x, y, RES_COL[d.ore], 6, 70);
     flashLight(x, y, 3, 0.25);
+    // Tezgâh (kazma): Damar Kıran: bitişik aynı cevher de dökülür
+    const vein = FORGE.p.vein[forgeLv('p')];
+    if (vein && !machine && !p.vein) {
+      p.vein = true;
+      const q = [[c, r]], seen = [c + ',' + r]; let n = 0;
+      for (let i = 0; i < q.length && n < vein; i++) for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nc = q[i][0] + dc, nr = q[i][1] + dr;
+        if (n >= vein || seen.includes(nc + ',' + nr) || nr <= GROUND_ROW || tileAt(nc, nr) !== t || (G.buried && G.buried[nr * 17 + nc])) continue;
+        seen.push(nc + ',' + nr); q.push([nc, nr]); n++;
+        breakTile(nc, nr, p, 0, 0, true);
+      }
+      p.vein = false;
+      if (n) { ring(x, y, RES_COL[d.ore], 22); if (local) shake(0.18); }
+    }
   }
   if (d.chest) {
     markJourney('chest', x, y, p.i);
@@ -453,7 +467,7 @@ export function updateOrbs(dt) {
       if (q.dead) continue;
       const qd = Math.hypot(q.x - o.x, q.y - 2 - o.y);
       if (qd >= pick) continue;
-      if (bagCount(q) >= G.bagCap) { fullNear = q; continue; }
+      if (!MATS[o.res] && bagCount(q) >= G.bagCap) { fullNear = q; continue; }
       if (qd < d) { d = qd; p = q; }
     }
     if (p) {
@@ -461,6 +475,13 @@ export function updateOrbs(dt) {
       const sp = Math.min(260, 90 + (pick - d) * 6 + o.t * 60);
       o.x += dx / d * sp * dt; o.y += dy / d * sp * dt;
       if (d < 7) {
+        // malzeme çantaya girmez: doğrudan ekip deposuna
+        if (MATS[o.res]) {
+          G.store[o.res] = (G.store[o.res] | 0) + 1; emit('store');
+          if (isLocal(p)) { sfx.pickup(3); emit('matPop', o.res); } else if (hear(p)) sfx.pickup(0);
+          particle(p.x, p.y - 4, 0, -20, 0.25, RES_COL[o.res], 1, 1, 0);
+          continue;
+        }
         p.bag[o.res]++;
         if (isLocal(p)) {
           G.combo.n++; G.combo.t = 0.9;
@@ -542,6 +563,14 @@ export function damagePlayer(p, amount, sx, sy, chip = false) {
     return;
   }
   p.hp -= amount;
+  // Tezgâh (zırh): İkinci Deri: can azalınca kısa bir kalkan
+  const FA = FORGE.a, fa = forgeLv('a');
+  if (fa >= 3 && p.hp > 0 && p.hp < p.maxHp * FA.skinAt && G.time >= (p.skinAt || 0)) {
+    p.skinAt = G.time + FA.skinCd; p.barrier = Math.max(p.barrier || 0, p.maxHp * FA.skin); p.barrierT = Math.max(p.barrierT || 0, FA.skinT); p.iframes = Math.max(p.iframes, 0.8);
+    ring(p.x, p.y, '#b8d868', 30); ring(p.x, p.y, '#ffffff', 18); sparks(p.x, p.y, '#e0ffb0', 14, 100); flashLight(p.x, p.y, 5, 0.4);
+    if (hear(p)) sfx.chirp();
+    if (isLocal(p)) emit('toast', { text: 'İkinci Deri: kalkan açıldı', icon: 'shield' });
+  }
   if (chip) { p.hurtT = 0.12; if (isLocal(p)) emit('hurt', amount); if (p.hp <= 0) die(p); return; }
   p.iframes = hasPerk('hayaletDeri') ? pv('hayaletDeri') : PLAYER.iframes; p.hurtT = 0.2;
   const d = Math.hypot(p.x - sx, p.y - sy) || 1;
@@ -549,6 +578,16 @@ export function damagePlayer(p, amount, sx, sy, chip = false) {
   if (hear(p)) sfx.playerHurt();
   hitstop(0.04);
   if (isLocal(p)) { haptic(30); shake(0.28); emit('hurt', amount); }
+  // Tezgâh (zırh): Diken: çevredeki düşmanlar savrulur ve can yitirir
+  if (fa >= 2) {
+    let n = 0;
+    for (const e of G.enemies) {
+      if (e.dead || e.d.boss || e.emergeT > 0.2 || e.under) continue;
+      const ed = Math.hypot(e.x - p.x, e.y - p.y);
+      if (ed < FA.thornR + e.r) { damageEnemyExt(e, e.maxHp * (e.elite ? FA.thornElite : FA.thorn), (e.x - p.x) / (ed || 1), (e.y - p.y) / (ed || 1), 3); sparks(e.x, e.y, '#b8d868', 5, 70); n++; }
+    }
+    if (n) ring(p.x, p.y, '#b8d868', FA.thornR);
+  }
   if (hasPerk('simsekAdim')) p.hasteT = Math.max(p.hasteT || 0, 2);
   if (hasPerk('dikenZirh')) for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - p.x, e.y - p.y) < e.r + 16) { damageEnemyExt(e, p.maxHp * pv('dikenZirh'), (e.x - p.x) / 16, (e.y - p.y) / 16, 1); sparks(e.x, e.y, '#dfe6f0', 4, 60); }
   if (hasPerk('buzPatlama') && p.shockCd <= 0) {

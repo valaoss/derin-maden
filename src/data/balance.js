@@ -18,6 +18,30 @@ export const RES = {
 export const BASE_RES = ['iron', 'water', 'cobalt', 'crystal', 'gold'];
 export const DEEP_ORES = ['yesim', 'opal', 'inci', 'akik', 'yildiz', 'elmas', 'kehribar'];
 export const RES_KEYS = BASE_RES.concat(DEEP_ORES);
+// Tezgâh malzemeleri: düşmandan düşer, çantada yer tutmaz; toplandığı an ekip deposuna yazılır
+export const MATS = { kabuk: { label: 'Kabuk' }, cekirdek: { label: 'Çekirdek' } };
+export const MAT_KEYS = Object.keys(MATS);
+// chance: sıradan düşmanın Kabuk düşürme şansı; elite/boss: [kabuk, çekirdek]
+export const MAT_DROP = { chance: 0.2, elite: [2, 1], boss: [5, 3] };
+// Tezgâh: silah, kazma ve zırh üçer kademe dövülür (ekip ortak). Her kademe oynanışta görünen bir şey ekler.
+// w: every atışta bir Dolu Atış (mul kat hasar, pierce düşman deler); echo: Yankı patlamasının hasar payı ve yarıçapı
+// p: vein = kademeye göre birlikte kırılan komşu cevher sayısı. a: thorn = Diken (azami canın payı), skin = İkinci Deri
+export const FORGE = {
+  costs: [{ kabuk: 5, iron: 20 }, { kabuk: 12, cekirdek: 2, cobalt: 30 }, { kabuk: 24, cekirdek: 6, crystal: 60 }],
+  w: { name: 'Silah', icon: 'blaster', dmg: 1.15, every: 6, mul: 3, pierce: 2, echo: 0.5, echoR: 26, steps: [
+    ['Büyük Kalibre', 'Silah hasarı +%15; mermiler irileşir.'],
+    ['Dolu Atış', 'Her 6. atış üç kat vurur, 2 düşmanı deler ve savurur.'],
+    ['Yankı', 'Dolu Atış çarptığı yerde patlar.']] },
+  p: { name: 'Kazma', icon: 'drill', dmg: 1.2, vein: [0, 0, 2, 6], steps: [
+    ['Bilenmiş Ağız', 'Kazı gücü +%20.'],
+    ['Damar Kıran', 'Cevher kırınca yanındaki aynı cevherden 2 blok da kırılır.'],
+    ['Damar Ustası', 'Bütün damar (en çok 6 blok) tek vuruşta dökülür.']] },
+  a: { name: 'Zırh', icon: 'armor', hp: 1.15, thornR: 34, thorn: 0.12, thornElite: 0.06, skinAt: 0.3, skin: 0.3, skinT: 6, skinCd: 60, steps: [
+    ['Kabuk Kaplama', 'Azami can +%15.'],
+    ['Diken', 'Darbe alınca çevrendeki düşmanlar savrulur ve canlarının %12’sini yitirir (elit %6, boss etkilenmez).'],
+    ['İkinci Deri', 'Canın %30’un altına inince 6 sn’lik kalkan açılır (60 sn’de bir).']] },
+};
+export const FORGE_KEYS = ['w', 'p', 'a'];
 
 export const PLAYER = {
   speed: 62, hp: 100, hitW: 8, hitH: 11, iframes: 0.55,

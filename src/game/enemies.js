@@ -6,7 +6,7 @@ import { TILE, GROUND_Y, GROUND_ROW, PLAY_MIN_COL, PLAY_MAX_COL, stratumOfRow } 
 import { T, TD } from '../data/tiles.js';
 import { directorHp, ttkFloor } from './power.js';
 import { gainXp } from './weaponlevel.js';
-import { ENEMIES, BARRICADE, BUILDS, ELITE, BURN, AFFIX, AFFIX_KEYS, KNOCK, KILL_HEAL, SCALE, BOSS, enemyHpMul, enemyDmgMul, enemyPace } from '../data/balance.js';
+import { ENEMIES, BARRICADE, BUILDS, ELITE, BURN, AFFIX, AFFIX_KEYS, KNOCK, KILL_HEAL, SCALE, BOSS, enemyHpMul, enemyDmgMul, enemyPace, MAT_DROP } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, solidAt, damageTile, idx, matOf } from '../world/map.js';
 import { FIELD, flowAt, nextStep, FLOW_INF } from '../world/flow.js';
@@ -203,6 +203,12 @@ export function killEnemy(e) {
   if (e.d.boss) bossSfx(e.type, 'down');
   G.stats.kills++;
   gainXp(e);
+  // Tezgâh malzemesi: sıradan düşmandan arada Kabuk; elit ve bosstan Kabuk + Çekirdek
+  if (!G.tutorial) {
+    const [nk, nc] = e.d.boss ? MAT_DROP.boss : e.elite ? MAT_DROP.elite : [(e.d.cost || 0) > 0 && rnd() < MAT_DROP.chance ? 1 : 0, 0];
+    for (let i = 0; i < nk; i++) spawnOrb(e.x, e.y, 'kabuk', true);
+    for (let i = 0; i < nc; i++) spawnOrb(e.x, e.y, 'cekirdek', true);
+  }
   if (e.elite) {
     G.stats.elites++;
     const n = ELITE.gold + (hasPerk('altinDokunus') ? 5 : 0);

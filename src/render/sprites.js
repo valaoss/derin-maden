@@ -1401,7 +1401,8 @@ const ORE_ICON_SHAPES = {
     '.kdcbbakak', '.kcbbaak..', '..kbaak...', '...kkk....', '..........'],
 };
 
-Object.assign(ORE_ICON_SHAPES, { yesim: ORE_ICON_SHAPES.water, opal: ORE_ICON_SHAPES.gold, inci: ORE_ICON_SHAPES.iron, akik: ORE_ICON_SHAPES.cobalt, yildiz: ORE_ICON_SHAPES.crystal, elmas: ORE_ICON_SHAPES.crystal, kehribar: ORE_ICON_SHAPES.water });
+Object.assign(ORE_ICON_SHAPES, { yesim: ORE_ICON_SHAPES.water, opal: ORE_ICON_SHAPES.gold, inci: ORE_ICON_SHAPES.iron, akik: ORE_ICON_SHAPES.cobalt, yildiz: ORE_ICON_SHAPES.crystal, elmas: ORE_ICON_SHAPES.crystal, kehribar: ORE_ICON_SHAPES.water, cekirdek: ORE_ICON_SHAPES.crystal,
+  kabuk: ['..........', '...kkkk...', '..kddcck..', '.kdcckcbk.', '.kcckcbbk.', 'kcckcbkbak', 'kckcbkbaak', 'kkbbkbaakk', '.kkkkkkkk.', '..........'] });
 
 const iconCache = {};
 export function iconURL(name, scale = 1) {
