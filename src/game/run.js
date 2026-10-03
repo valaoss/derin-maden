@@ -56,7 +56,7 @@ function pickContracts(seed) {
 }
 export function contractProgress(c) { return Math.min(c.n, CONTRACTS[c.k].stat(G)); }
 
-export const MP_MODS = { hp: 1.3, noise: 1.15, oz: 1.5 };
+export const MP_MODS = { hp: 1.3, dmg: 1.15, noise: 1.15, oz: 1.5 };
 export const SP_MODS = { hp: 1.15, dmg: 1.2, noise: 1.15 }; // tek başına da madenin dişi olsun
 
 export function makePlayer(i, helm = i, name = '') {
@@ -78,7 +78,7 @@ export function metaSnapshot(m = App.meta) {
 export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kademe = 0, daily = null, mp = false, meta = null, localIdx = 0, helms = null, names = null, startStratum = 0, start = true } = {}) {
   const gm = meta || metaSnapshot(), ml = gm.lv;
   const mods = kademeMods(kademe);
-  if (mp) { mods.hp *= MP_MODS.hp; mods.noise *= MP_MODS.noise; mods.oz *= MP_MODS.oz; }
+  if (mp) { mods.hp *= MP_MODS.hp; mods.dmg *= MP_MODS.dmg; mods.noise *= MP_MODS.noise; mods.oz *= MP_MODS.oz; }
   else if (!tutorial) { mods.hp *= SP_MODS.hp; mods.dmg *= SP_MODS.dmg; mods.noise *= SP_MODS.noise; }
   const gen = generate(seed, { tutorial, hazard: mods.hazard });
   const g = {

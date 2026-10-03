@@ -1,7 +1,7 @@
 // Güç ölçümü: yönetmen ekibin silahına, kartlarına, eklentilerine ve kalıntılarına bakıp düşman canını ayarlar.
 import { UPGRADES, MODS, CARDS, CRIT, POWER } from '../data/balance.js';
 import { G } from './state.js';
-import { hasPerk, hasRelic, hasMod, weaponOf, cardLv, pv } from './run.js';
+import { hasPerk, hasRelic, hasMod, weaponOf, cardLv, pv, resonance } from './run.js';
 
 // mermi başına hasar (anlık etkiler hariç: son direniş, adrenalin, kritik)
 export function gunDmg(p) {
@@ -34,7 +34,25 @@ export function gunDps(p, single = false) {
   if (hasPerk('ofke') && !single) k *= 1 + pv('ofke') * 3;
   if (hasPerk('kor')) k *= 1 + pv('kor') * 2;
   if (hasPerk('zincirSimsek') && !single) k *= 1 + pv('zincirSimsek') * 0.5;
-  return gunDmg(p) * k * (1 + critChance(p) * (CRIT.mul - 1)) / gunCd(p);
+  return gunDmg(p) * k * (1 + critChance(p) * (CRIT.mul - 1)) / gunCd(p) * hiddenMul(p, single);
+}
+// koşullu ama sık devreye giren çarpanlar (yavaşlamışa Kırılgan, Cellat, Suikastçi, Leş Bombası, Son Direniş, rezonanslar):
+// yönetmen bunları görmezse geç oyunda düşman kâğıttan olur. Tek hedefte (elit/boss tabanı) yalnız sürekli olanlar sayılır
+export function hiddenMul(p, single = false) {
+  const W = weaponOf(p);
+  let m = 1;
+  if (G.mp && hasPerk('kanBagi')) m *= 1 + pv('kanBagi') * 0.7;
+  if (resonance('golge')) m *= 1.15;
+  if (single) return m;
+  if (hasPerk('kirilgan') && (hasMod('frost') || W.freeze || hasPerk('buzMermi') || hasRelic('arken'))) m *= 1 + pv('kirilgan') * 0.8;
+  if (hasPerk('cellat')) m /= 1 - pv('cellat');
+  if (hasPerk('suikast')) m *= 1 + (pv('suikast') - 1) * 0.35;
+  if (hasPerk('lesBombasi')) m *= 1 + pv('lesBombasi') * 0.6;
+  if (hasPerk('sonDirenis')) m *= 1 + (pv('sonDirenis') - 1) * 0.25;
+  if (resonance('ates') && (hasMod('fire') || W.flame || W.burn || hasPerk('kor') || G.lvl.opalNamlu)) m *= 1.3;
+  if (resonance('simsek')) m *= 1.15;
+  if (resonance('buz') && (hasMod('frost') || W.freeze || hasPerk('buzMermi'))) m *= 1.15;
+  return m;
 }
 // ekibin toplam gücü (ayakta olan madenciler). single: tek hedefe karşı
 export function teamDps(single = false) {

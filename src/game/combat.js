@@ -73,6 +73,17 @@ function tagBullet(b, W) {
   if (hasMod('stun')) b.stun = MODS.stun.v;
   return b;
 }
+// Buz Ucu: aynı düşman ancak aralıkla donar; boss etkilenmez, elit yarı süre
+export function frostEnemy(e) {
+  if (e.d.boss || e.frostAt > G.time) return false;
+  e.frostAt = G.time + MODS.frost.cd; e.slowT = Math.max(e.slowT, MODS.frost.t * (e.elite ? 0.5 : 1));
+  return true;
+}
+// sersemletme: aynı düşman ancak aralıkla sersemler (sürekli kilit olmasın); boss etkilenmez, elit yarı süre
+export function stunEnemy(e, t) {
+  if (e.d.boss || e.stunAt > G.time) return;
+  e.stunAt = G.time + MODS.stun.cd; e.atkCd = Math.max(e.atkCd, t * (e.elite ? 0.5 : 1));
+}
 // silahla öldürme: Can Çalan ve Saçılma eklentileri
 function gunKill(e, p) {
   if (!e.dead || e.fragged) return;
@@ -164,8 +175,8 @@ function flameCone(p, sp, ang, range, dmg, W, crit) {
     if (Math.abs(Math.atan2(Math.sin(ea - ang), Math.cos(ea - ang))) > cone || !losClear(sp.x, sp.y, e.x, e.y, true)) continue;
     const h0 = e.hp; damageEnemy(e, dmg, Math.cos(ea), Math.sin(ea), 0.15, true, crit); vamp(p, h0 - Math.max(0, e.hp));
     burnEnemy(e, BURN.t, W.burnMul ? dmg * W.burnMul : 0);
-    if (hasMod('frost')) e.slowT = Math.max(e.slowT, 1.5);
-    if (hasMod('stun') && !e.d.boss) e.atkCd = Math.max(e.atkCd, MODS.stun.v);
+    if (hasMod('frost')) frostEnemy(e);
+    if (hasMod('stun')) stunEnemy(e, MODS.stun.v);
     gunKill(e, p);
   }
   for (let i = 0; i < 3; i++) {
@@ -185,9 +196,9 @@ function zapChain(p, sp, tgt, dmg, n, W, crit) {
   let cur = tgt, x0 = sp.x, y0 = sp.y;
   for (let i = 0; i <= n && cur; i++) {
     const h0 = cur.hp; damageEnemy(cur, dmg * (i ? 0.75 : 1), (cur.x - x0) / 40, (cur.y - y0) / 40, 0.4, i > 0, crit); vamp(p, h0 - Math.max(0, cur.hp));
-    if (hasMod('frost')) cur.slowT = Math.max(cur.slowT, 1.5);
+    if (hasMod('frost')) frostEnemy(cur);
     if (hasMod('fire') || G.lvl.opalNamlu) burnEnemy(cur, BURN.t, G.lvl.opalNamlu ? dmg * 0.25 : 0);
-    if (stun && !cur.d.boss) cur.atkCd = Math.max(cur.atkCd, stun);
+    if (stun) stunEnemy(cur, stun);
     gunKill(cur, p);
     G.zaps.push({ x0, y0, x1: cur.x, y1: cur.y - 2, t: 0.14 });
     sparks(cur.x, cur.y, '#bff4ff', 4, 60);
@@ -276,11 +287,12 @@ export function updateBullets(dt) {
         const bd = b.dmg * (b.far && Math.hypot(e.x - b.ox, e.y - b.oy) > b.far ? 1.5 : 1) * (e.d.bulletArmor ? 1 - e.d.bulletArmor : 1), hp0 = e.hp;
         damageEnemy(e, bd, b.vx / s, b.vy / s, b.knock || (b.from === 'p' ? 1 : 0.6), false, b.crit);
         if (b.crit) sparks(b.x, b.y, '#ffd24a', 5, 90);
-        if (b.stun && !e.d.boss) e.atkCd = Math.max(e.atkCd, b.stun);
+        if (b.stun) stunEnemy(e, b.stun);
         if (b.from === 'p' && b.pi >= 0) vamp(G.players[b.pi], hp0 - Math.max(0, e.hp));
         if (b.blast) { if (b.freeze) e.slowT = Math.max(e.slowT, b.freeze); blastAt(b, b.x, b.y, e); }
         sparks(b.x, b.y, '#fff4c2', 3, 60);
-        if (b.frost || b.frostT) { e.slowT = Math.max(e.slowT, b.frostT || 0, b.frost ? 1.5 : 0); sparks(b.x, b.y, '#bff4ff', 3, 40); }
+        if (b.frostT) { e.slowT = Math.max(e.slowT, b.frostT); sparks(b.x, b.y, '#bff4ff', 3, 40); }
+        if (b.frost && frostEnemy(e)) sparks(b.x, b.y, '#bff4ff', 3, 40);
         if (b.fire) { burnEnemy(e, BURN.t); sparks(b.x, b.y, '#ff9a4a', 3, 40); }
         if (b.kor) { burnEnemy(e, BURN.t, b.dmg * b.kor); sparks(b.x, b.y, '#ff9a4a', 3, 40); }
         if (hasPerk('termalSok') && e.burnT > 0 && e.slowT > 0 && rnd() < 0.2) thermal(e, b.dmg * 4);
@@ -333,7 +345,9 @@ export function updateStructures(dt) {
     if (s.type === 'direk') {
       for (const p of G.players) {
         if (p.dead || p.hp >= p.maxHp || p.healF === G.frame || Math.hypot(p.x - s.x, p.y - (s.y - 6)) > b.range) continue;
-        p.healF = G.frame; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * b.heal * toolPow('direk') * dt); s.on = 1;
+        // tavanlı: geliştirilse de saniyede en çok azami canın %3'ü; boss uyanıkken yarısı
+        const rate = Math.min(b.healMax, b.heal * toolPow('direk')) * (G.enemies.some(o => o.d.boss && !o.dead) ? b.bossMul : 1);
+        p.healF = G.frame; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * rate * dt); s.on = 1;
         if (rnd() < dt * 5) particle(p.x + (rnd() - 0.5) * 8, p.y + 4, 0, -18 - rnd() * 10, 0.5, '#5fe0b8', 1, 1, 0);
       }
     } else if (s.type === 'sondaj') drillStep(s, b, dt);

@@ -191,12 +191,12 @@ export const PICK_KEYS = ['drill', 'sharp', 'swing'];
 export const MODS = {
   split:    { name: 'Çatal Namlu',  icon: 'split',    cost: { iron: 14 },               desc: 'Her atışta iki yan mermi (yarım hasar).' },
   ricochet: { name: 'Sekme',        icon: 'ricochet', cost: { iron: 10, water: 4 },     desc: 'Mermiler duvardan iki kez seker.' },
-  frost:    { name: 'Buz Ucu',      icon: 'frost',    cost: { water: 12 },              desc: 'İsabet düşmanı 1.5 sn yavaşlatır.' },
+  frost:    { name: 'Buz Ucu',      icon: 'frost',    cost: { water: 12 },              t: 1.5, cd: 2.5, desc: 'İsabet düşmanı 1.5 sn yavaşlatır; aynı düşman 2.5 sn’de bir donar (boss hariç).' },
   rapid:    { name: 'Hızlı Ateş',   icon: 'rapid',    cost: { iron: 24, water: 10 },    desc: 'Atış hızı %30 artar.' },
   fire:     { name: 'Yakıcı',       icon: 'flame',    cost: { iron: 30, cobalt: 10 },   desc: 'İsabet 3 sn boyunca yakar (saniyede 4).' },
   homing:   { name: 'Güdümlü',      icon: 'magnet',   cost: { water: 24, cobalt: 14 },  desc: 'Mermiler yakındaki düşmana kıvrılır; ıskalamak zorlaşır.' },
   chain:    { name: 'Yıldırım',     icon: 'chain',    cost: { cobalt: 20, gold: 8 },    desc: 'İsabet yakındaki bir düşmana sıçrar (yarım hasar).' },
-  stun:     { name: 'Sersemletici', icon: 'shock',    cost: { iron: 40, gold: 12 },     v: 0.5, desc: 'İsabet alan düşman 0.5 sn saldıramaz (boss hariç).' },
+  stun:     { name: 'Sersemletici', icon: 'shock',    cost: { iron: 40, gold: 12 },     v: 0.5, cd: 2.5, desc: 'İsabet alan düşman 0.5 sn saldıramaz; aynı düşman 2.5 sn’de bir sersemler (boss hariç, elit yarı süre).' },
   leech:    { name: 'Can Çalan',    icon: 'heart',    cost: { water: 40, gold: 14 },    v: 0.01, cd: 2, desc: 'Silahla öldürdüğün düşman azami canının %1’ini yeniler (2 saniyede en çok bir kez).' },
   boom:     { name: 'Patlayıcı',    icon: 'boom',     cost: { crystal: 14, gold: 16 },  desc: 'Mermiler küçük bir alanda patlar.' },
   nova:     { name: 'Saçılma',      icon: 'nova',     cost: { crystal: 20, gold: 22 },  n: 6, v: 0.5, desc: 'Silahla öldürdüğün düşmandan 6 mermi saçılır (yarım hasar).' },
@@ -204,13 +204,15 @@ export const MODS = {
 };
 export const MOD_KEYS = Object.keys(MODS);
 export const START_MODS = ['split', 'ricochet', 'frost'];
+// öldürmeyle can yenileme (Yaşam Özü, Kan Paktı, Kan Avcısı): madenci başına saniyede en çok azami canın bu kadarı
+export const KILL_HEAL = { cap: 0.015 };
 export const BURN = { dps: 4, t: 3 };
 
 // schematic: true => Kalıntı sandığından çıkan şema ile açılır (kalıcı)
 // Taşınabilir aletler: durduğun yere kurulur (tünel içi dahil), dokunup geri alınır. Aynı anda en fazla DEPLOY_MAX tane.
 // once: tek kullanımlık (geri alınmaz, kurulum sınırına sayılmaz, aynı anda bir tane). scale: fiyatın biyom başına artışı (yoksa ITEM_SCALE)
 export const BUILDS = {
-  direk:  { name: 'Şifa Direği', icon: 'heal', cost: { iron: 8, water: 6 }, max: 2, hp: 90, range: 44, heal: 0.02, desc: 'Yakınındaki madencilerin canını yavaşça yeniler (saniyede azami canın %2’si).' },
+  direk:  { name: 'Şifa Direği', icon: 'heal', cost: { iron: 8, water: 6 }, max: 2, hp: 90, range: 44, heal: 0.02, healMax: 0.03, bossMul: 0.5, desc: 'Yakınındaki madencilerin canını yavaşça yeniler (saniyede azami canın %2’si, geliştirilince en çok %3; boss uyanıkken yarısı).' },
   sondaj: { name: 'Sondaj Matkabı', icon: 'rig', cost: { iron: 60, cobalt: 30, gold: 20 }, scale: 0.2, max: 1, once: true, hp: 120, blocks: 20, rate: 1.6, noise: 0.5,
     desc: 'Kurduğun yerden aşağı kendi kendine deler, cevheri düşürür; 20 blok açınca durur ve tükenir. Gürültülüdür, geri alınmaz.' },
 };
@@ -369,13 +371,13 @@ export const AFFIX = {
 };
 export const AFFIX_KEYS = Object.keys(AFFIX);
 
-// Derinlik ölçeği: düşman canı biyom başına ×1.13 (boss ×1.1), hasarı +%8; uyanış seviyesi canı +%10
-export const SCALE = { hp: 1.13, bossHp: 1.1, dmg: 0.08, lv: 0.1 };
+// Derinlik ölçeği: düşman canı biyom başına ×1.13 (boss ×1.1), hasarı +%12; uyanış seviyesi canı +%10
+export const SCALE = { hp: 1.13, bossHp: 1.1, dmg: 0.12, lv: 0.1 };
 export function enemyHpMul(st, lv, boss) { return Math.pow(boss ? SCALE.bossHp : SCALE.hp, Math.max(0, st)) * (1 + SCALE.lv * Math.max(0, lv)); }
 export function enemyDmgMul(st) { return 1 + SCALE.dmg * Math.max(0, st); }
 // Güç yönetmeni (power.js): ilk 'from' biyomda karışmaz; sonra ekibin hasar/sn'si beklenenin 'free' katını aşarsa düşman canı (oran^exp) katına çıkar, en çok max.
 // Elit ve boss canı en az 'ekip hasar/sn × ttk' olur. lvPerBiome: beklenen Silah Gücü ilerleyişi; cardPerBiome/cardMax: silah kartlarının beklenen katkısı
-export const POWER = { exp: 0.5, max: 3, from: 2, free: 1.5, eliteTtk: 2.6, bossTtk: 14.5, lvPerBiome: 0.5, cardPerBiome: 0.12, cardMax: 2.5 };
+export const POWER = { exp: 0.85, max: 10, from: 2, free: 1.25, eliteTtk: 2.6, bossTtk: 14.5, lvPerBiome: 0.5, cardPerBiome: 0.12, cardMax: 2.5 };
 
 // Yönetmen: tek ortak bütçe, karışık gruplar, duyurulan dalgalar ve sonrasında nefes arası
 export const DIRECTOR = {
@@ -498,7 +500,7 @@ export const KADEME = [
   { name: 'Kademe 5', desc: '+ Yuvalar iki kat hızlı üretir' },
 ];
 export function kademeMods(k = 0) {
-  return { dmg: 1, hp: k >= 1 ? 1.2 : 1, noise: k >= 2 ? 1.25 : 1, hazard: k >= 3 ? 2 : 1, slowRegen: k >= 4, nestRate: k >= 5 ? 2 : 1, oz: 1 + 0.25 * k };
+  return { dmg: 1 + 0.15 * k, hp: 1 + 0.25 * k, noise: k >= 2 ? 1.25 : 1, hazard: k >= 3 ? 2 : 1, slowRegen: k >= 4, nestRate: k >= 5 ? 2 : 1, oz: 1 + 0.25 * k };
 }
 
 // Sefer kontratları: her seferde 2 tane, tamamlanınca bonus Öz

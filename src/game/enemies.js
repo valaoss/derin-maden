@@ -6,7 +6,7 @@ import { TILE, GROUND_Y, GROUND_ROW, stratumOfRow } from '../config.js';
 import { T, TD } from '../data/tiles.js';
 import { directorHp, ttkFloor } from './power.js';
 import { gainXp } from './weaponlevel.js';
-import { ENEMIES, BARRICADE, BUILDS, ELITE, BURN, AFFIX, AFFIX_KEYS, KNOCK, enemyHpMul, enemyDmgMul } from '../data/balance.js';
+import { ENEMIES, BARRICADE, BUILDS, ELITE, BURN, AFFIX, AFFIX_KEYS, KNOCK, KILL_HEAL, enemyHpMul, enemyDmgMul } from '../data/balance.js';
 import { G } from './state.js';
 import { tileAt, solidAt, damageTile, idx, matOf } from '../world/map.js';
 import { FIELD, flowAt, nextStep, FLOW_INF } from '../world/flow.js';
@@ -126,7 +126,7 @@ export function damageEnemy(e, dmg, dx = 0, dy = 0, knock = 1, silent = false, c
   if (e.hp > 0 && !e.d.boss && !e.illusion && e.slowT > 0 && resonance('buz') && e.hp < e.maxHp * 0.25) { e.hp = 0; sparks(e.x, e.y, '#dff6ff', 12, 110); ring(e.x, e.y, '#bff4ff', 14); }
   if (e.hp <= 0) {
     // Kan Avcısı: tek vuruşta ölen düşman can verir
-    if (full && hasPerk('kanAvcisi')) for (const p of G.players) if (!p.dead && Math.hypot(p.x - e.x, p.y - e.y) < 200) p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.04);
+    if (full && hasPerk('kanAvcisi')) for (const p of G.players) if (!p.dead && Math.hypot(p.x - e.x, p.y - e.y) < 200) killHeal(p, 0.04);
     killEnemy(e); return;
   }
   // Kristal Kirpi: vurulunca çevresine diken fırlatır
@@ -171,6 +171,12 @@ function dmgNum(e, v, crit) {
   N.push(e.num = { x: e.x + (Math.random() - 0.5) * 8, y: e.y - e.r - 3, v, crit, t: 0 });
 }
 
+// öldürmeyle can: saniyede en çok azami canın KILL_HEAL.cap kadarı (sürü öldürmek tam can olmasın)
+function killHeal(p, f) {
+  if (!(p.khAt > G.time - 1)) { p.khAt = G.time; p.khN = 0; }
+  const g = Math.min(f, KILL_HEAL.cap - p.khN); if (g <= 0) return;
+  p.khN += g; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * g);
+}
 export function killEnemy(e) {
   if (e.dead) return;
   if (e.illusion) { e.hp = 0; e.dead = true; e.dieT = 0.2; sparks(e.x, e.y, '#d8f8ff', 8, 80); return; } // cam kopya: ganimet yok, sayılmaz
@@ -210,7 +216,7 @@ export function killEnemy(e) {
   else if (e.type === 'glarer' && rnd() < 0.6) spawnOrb(e.x, e.y, 'crystal', true);
   else if (rnd() < 0.35) spawnOrb(e.x, e.y, rnd() < 0.75 ? 'iron' : 'water', true);
   const heal = pv('yasamOzu') + (hasPerk('kanPakti') ? 0.04 : 0);
-  if (heal) for (const p of G.players) if (!p.dead) p.hp = Math.min(p.maxHp, p.hp + p.maxHp * heal);
+  if (heal) for (const p of G.players) if (!p.dead) killHeal(p, heal);
   if (hasPerk('altinDokunus')) spawnOrb(e.x, e.y, 'gold', true);
   if (hasPerk('ofke')) { G.rage = Math.min(6, (G.rageT > 0 ? G.rage | 0 : 0) + 1); G.rageT = 4; }
   if (e.type === 'mimic') mimicDown(e);

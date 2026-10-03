@@ -40,7 +40,8 @@ import { WEAPON_KEYS, PICK_TYPE_KEYS, SHIELD, AUGER, DIRECTOR, AFFIX, enemyHpMul
 import { playerSpeed } from '../src/game/player.js';
 import { STRATA } from '../src/data/palette.js';
 import { COLS, ROWS, GROUND_ROW, GROUND_Y, STRATUM_ROWS, STRATA_COUNT, TILE, PLAY_MIN_COL, PLAY_MAX_COL, CENTER_COL, sealRowOf } from '../src/config.js';
-import { SEAL } from '../src/data/balance.js';
+import { SEAL, KILL_HEAL, kademeMods as kademeModsT } from '../src/data/balance.js';
+import { stunEnemy as stunEnemyT, frostEnemy as frostEnemyT } from '../src/game/combat.js';
 import { on } from '../src/core/events.js';
 import { maxLv } from '../src/data/relics.js';
 import { BOSS_BANDS } from '../src/data/balance.js';
@@ -1500,6 +1501,32 @@ section('Mühürler ve bekçiler');
     const e = spawnEnemy('karakok', 8 * TILE + 8, (GROUND_ROW + 12) * TILE + 8, 4); e.emergeT = 0; e.hp = e.maxHp = 1e6;
     ok('boss uyanıkken Dönüş Fişeği yanmaz', !useItem('recall', p) && G.items.recall === 1); }
   ok('mühürler deterministik', (() => { const h = []; for (let i = 0; i < 2; i++) { zone(2107, false); run(4); h.push(hash()); } return h[0] === h[1]; })());
+}
+
+section('Geç oyun dengesi');
+{
+  fresh(2201); const p = G.player;
+  for (let r = GROUND_ROW + 2; r <= GROUND_ROW + 10; r++) for (let c = 3; c <= 13; c++) setTile(c, r, T.AIR);
+  p.x = p.px = 8 * TILE + 8; p.y = p.py = (GROUND_ROW + 9) * TILE + 8;
+  const e = spawnEnemy('brute', 8 * TILE + 8, (GROUND_ROW + 5) * TILE + 8, 1); e.emergeT = 0;
+  e.atkCd = 0; stunEnemyT(e, 0.5); const a1 = e.atkCd; e.atkCd = 0; run(0.5); stunEnemyT(e, 0.5);
+  ok('Sersemletici aynı düşmanı aralıkla sersemletir', a1 >= 0.49 && e.atkCd < 0.1, `${a1} ${e.atkCd}`);
+  ok('Buz Ucu aynı düşmanı aralıkla dondurur, boss donmaz', frostEnemyT(e) === true && frostEnemyT(e) === false && (() => { const b = spawnEnemy('karakok', 6 * TILE + 8, (GROUND_ROW + 5) * TILE + 8, 1); return frostEnemyT(b) === false; })());
+  // öldürmeyle can tavanı
+  G.perks = ['yasamOzu']; G.perkLv = { yasamOzu: 3 }; p.hp = p.maxHp * 0.5; const h0 = p.hp;
+  for (let i = 0; i < 12; i++) { const o = spawnEnemy('rodent', 8 * TILE + 8, (GROUND_ROW + 6) * TILE + 8, 0); o.emergeT = 0; killEnemy(o); }
+  ok('sürü öldürmek saniyede %1.5’ten fazla can vermez', p.hp - h0 <= p.maxHp * KILL_HEAL.cap + 0.01, `${p.hp - h0}`);
+  // Şifa Direği tavanı
+  G.perks = ['aletUstasi']; G.perkLv = { aletUstasi: 1 }; G.gear.tLvl = { direk: 5 }; G.items.direk = 1; p.hp = p.maxHp * 0.3;
+  G.structures.push(makeStructure('direk', Math.floor(p.x / TILE), Math.floor(p.y / TILE))); G.structures[G.structures.length - 1].buildT = 0;
+  const h1 = p.hp; run(1); ok('Şifa Direği saniyede %3’ü geçmez', p.hp - h1 <= p.maxHp * BUILDS.direk.healMax + 0.5, `${(p.hp - h1) / p.maxHp}`);
+  // kademe gerçekten zorlaşır
+  ok('kademe canı ve hasarı birikerek artar', kademeModsT(5).hp > kademeModsT(1).hp + 0.9 && kademeModsT(5).dmg > 1.6);
+  // güç yönetmeni: beklenenin çok üstündeki yapı düşmanı da güçlendirir, gizli çarpanlar sayılır
+  fresh(2202); G.lvl.blaster = UPGRADES.blaster.dmg.length - 1; G.gear.cards = { dmg: CARDS.dmg.max, hiz: CARDS.hiz.max }; recompute();
+  ok('çok güçlü yapıya düşman canı 3 katı geçer', directorHp(10) > 3.5, `${directorHp(10)}`);
+  const base = gunDps(G.player); G.perks = ['cellat', 'lesBombasi']; G.perkLv = { cellat: 3, lesBombasi: 3 };
+  ok('Cellat ve Leş Bombası güç ölçümüne girer', gunDps(G.player) > base * 1.6 && gunDps(G.player, true) === base * 1 || gunDps(G.player, true) <= base * 1.01, `${gunDps(G.player) / base}`);
 }
 
 console.log(`\n${checks - fails}/${checks} kontrol geçti${fails ? `, ${fails} HATA` : ''}`);
