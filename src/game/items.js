@@ -1,8 +1,8 @@
-// Kemer eşyaları: dinamit, tamir kiti, kalkan, sonar, sessizlik çanı, yem zili, burgu şarjı, dönüş fişeği, adrenalin.
+// Kemer eşyaları: fener yağı, dinamit, tamir kiti, kalkan, sessizlik çanı, yem zili, dönüş fişeği, adrenalin.
 import { rnd } from '../core/rng.js';
 import { TILE, GROUND_Y, GROUND_ROW, BASE_X, COLS } from '../config.js';
 import { T, TD, isMineable } from '../data/tiles.js';
-import { DYNAMITE, MEDKIT, RECALL, ITEMS, BUILDS, THREAT, SONAR, HUSH, SHIELD, AUGER, ADREN, BELL } from '../data/balance.js';
+import { DYNAMITE, MEDKIT, RECALL, ITEMS, BUILDS, THREAT, HUSH, SHIELD, ADREN, BELL } from '../data/balance.js';
 import { addNoise } from './threat.js';
 import { bossLock } from './seals.js';
 import { G } from './state.js';
@@ -17,7 +17,7 @@ import { sparks, ring, shake, hitstop, flashLight, dust, particle } from './fx.j
 import { sfx, haptic } from '../audio/audio.js';
 import { emit } from '../core/events.js';
 
-// burgu şarjı: ayağının altındaki blok delinebilir mi
+// sondaj matkabı: ayağının altındaki blok delinebilir mi
 function augerOk(p) {
   const c = Math.floor(p.x / TILE), r = Math.floor(p.y / TILE) + 1, t = tileAt(c, r), d = TD[t];
   return r >= GROUND_ROW && isMineable(t) && !d.chest && !d.heart && !d.relic && !d.gate;
@@ -35,11 +35,9 @@ export function itemUsable(k, p = G.player) {
     case 'dynamite': return under && G.bombs.length < 3;
     case 'medkit': return p.hp < p.maxHp;
     case 'recall': return under && !p.carrying && !p.ride && p.recallT <= 0 && !bossLock();
-    case 'sonar': return under;
     case 'can': return under;
     case 'zil': return under && G.bells.length < 2;
     case 'kalkan': return !(p.barrierT > 0);
-    case 'burgu': return augerOk(p);
     case 'adren': return !(p.adrenT > 0);
     case 'yag': return G.oil < oilMax() * 0.9;
   }
@@ -61,20 +59,6 @@ export function useItem(k, p = G.player) {
   } else if (k === 'medkit') {
     p.hp = Math.min(p.maxHp, p.hp + Math.max(MEDKIT.heal, p.maxHp * MEDKIT.frac));
     if (hear(p)) sfx.heal(); ring(p.x, p.y, '#5fe0b8', 16); sparks(p.x, p.y, '#5fe0b8', 10, 50);
-  } else if (k === 'sonar') {
-    // çevredeki gömülü cevher/yuva belirir, sandıklar görünür olur
-    const R = SONAR.radius;
-    for (let dr = -R; dr <= R; dr++) for (let dc = -R; dc <= R; dc++) {
-      const cc = c + dc, rr = r + dr;
-      if (cc < 0 || cc >= COLS || rr < GROUND_ROW || dc * dc + dr * dr > R * R) continue;
-      const i = rr * COLS + cc, d = TD[G.map[i]];
-      if (!d) continue;
-      if (G.buried[i]) unbury(cc, rr, p);
-      if (d.chest || d.ore || d.nest) G.rev[i] = 1;
-    }
-    G.mapVersion++;
-    ring(p.x, p.y, '#9fe8ff', R * TILE); ring(p.x, p.y, '#ffffff', R * TILE * 0.5); flashLight(p.x, p.y, 5, 0.4);
-    if (hear(p)) sfx.recall();
   } else if (k === 'can') {
     G.threat.noise = Math.max(0, G.threat.noise - HUSH.drop); G.evt.hushT = Math.max(G.evt.hushT, HUSH.t);
     ring(p.x, p.y, '#d8d8e8', 40); ring(p.x, p.y, '#ffffff', 24); dust(p.x, p.y, 3, 'rgba(220,220,235,0.5)');
@@ -90,15 +74,6 @@ export function useItem(k, p = G.player) {
     p.barrier = SHIELD.hp; p.barrierT = SHIELD.t;
     ring(p.x, p.y, '#6fd0ff', 18); sparks(p.x, p.y, '#bff4ff', 12, 70);
     if (hear(p)) sfx.heal();
-  } else if (k === 'burgu') {
-    for (let rr = r + 1; rr <= r + AUGER.depth; rr++) {
-      const t = tileAt(c, rr), d = TD[t];
-      if (!isMineable(t) || d.chest || d.heart || d.relic || d.gate) break;
-      breakTile(c, rr, p); sparks(c * TILE + 8, rr * TILE + 8, '#ffd48a', 4, 70);
-    }
-    addNoise(THREAT.noise.boom * 0.5, p.x, p.y);
-    sfx.explode(); shake(0.3); hitstop(0.04); flashLight(p.x, p.y + 20, 5, 0.3);
-    if (local) haptic(40);
   } else if (k === 'yag') {
     refillOil(); ring(p.x, p.y, '#ffd890', 26); sparks(p.x, p.y - 6, '#ffe79a', 10, 80); flashLight(p.x, p.y, 6, 0.4); if (hear(p)) sfx.heal();
   } else if (k === 'adren') {

@@ -130,10 +130,43 @@ function rise(S) {
   sfx.alarm(); bossSfx(S.by, 'spawn'); haptic([40, 60, 40, 60, 80]);
 }
 
+// mühre yaklaşma baskısı (0..1): bekçi bölgesinin press.rows satır üstünde başlar, bölgeye girince 1 olur.
+// Saf hesap: haritadan ve madencilerin konumundan çıkar, kayda gerek yoktur (iki tarafta da aynı)
+export function sealPress() {
+  const L = G && !G.tutorial && G.seals; if (!L) return 0;
+  const P = SEAL.press; let k = 0;
+  for (const S of L) {
+    if (S.st !== 'wait' || S.temple) continue;
+    const a = S.top - P.rows;
+    for (const p of G.players) {
+      if (p.dead || p.gone || p.y < GROUND_Y) continue;
+      const r = Math.floor(p.y / TILE);
+      if (r >= a && r <= S.bot) k = Math.max(k, Math.min(1, (r - a) / P.rows));
+    }
+  }
+  return k;
+}
+// yaklaşmanın havası (yalnız görüntü ve ses): kalp atışı gibi gümbürtü, tavandan dökülen toz, kenarda pembe nabız
+let beatT = 0, wasK = 0;
+const warned = new Set();
+function pressMood(dt) {
+  const k = sealPress(), me = G.player;
+  if (k <= 0) { if (wasK > 0) emit('sealBeat', 0); wasK = 0; return; }
+  if (wasK <= 0) { const S = G.seals.find(o => o.st === 'wait' && !o.temple && me && Math.floor(me.y / TILE) <= o.bot && Math.floor(me.y / TILE) >= o.top - SEAL.press.rows); if (S && !warned.has(G.seed + ':' + S.s)) { warned.add(G.seed + ':' + S.s); emit('sealNear', { by: S.by, heart: !!S.heart }); } }
+  wasK = k;
+  if ((beatT -= dt) > 0) return;
+  beatT = 1.6 - 0.95 * k;
+  sfx.drum(0.22 + 0.45 * k);
+  if (k > 0.45 && Math.random() < 0.3) sfx.creak();
+  shake(0.03 + 0.1 * k);
+  if (me && !me.dead) for (let i = 0; i < 2 + 4 * k; i++) particle(me.x + (Math.random() - 0.5) * 140, me.y - 70 - Math.random() * 30, (Math.random() - 0.5) * 8, 10, 1.4, 'rgba(200,180,160,0.55)', 1 + (Math.random() < 0.3), 2, 160);
+  emit('sealBeat', k);
+}
 const inZone = (S, q) => { const r = Math.floor(q.y / TILE); return r >= S.top && r <= S.bot; };
 
 export function updateSeals(dt) {
   const L = G.seals; if (!L || !L.length || G.tutorial) return;
+  pressMood(dt);
   // ölçerle uyanıp yenilen boss: kendi bölümünün bekçisiyse o bölümün mührü kırılır
   for (const e of G.enemies) {
     if (!e.d.boss || !e.dead || e.sealSeen || e.dieT <= 0.5) continue;

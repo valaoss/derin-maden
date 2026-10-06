@@ -27,7 +27,7 @@ export const MAT_DROP = { chance: 0.2, elite: [2, 1], boss: [5, 3] };
 // w: every atışta bir Dolu Atış (mul kat hasar, pierce düşman deler); echo: Yankı patlamasının hasar payı ve yarıçapı
 // p: vein = kademeye göre birlikte kırılan komşu cevher sayısı. a: thorn = Diken (azami canın payı), skin = İkinci Deri
 export const FORGE = {
-  costs: [{ kabuk: 5, iron: 20 }, { kabuk: 12, cekirdek: 2, cobalt: 30 }, { kabuk: 24, cekirdek: 6, crystal: 60 }],
+  costs: [{ kabuk: 5 }, { kabuk: 12, cekirdek: 2 }, { kabuk: 24, cekirdek: 6 }],
   w: { name: 'Silah', icon: 'blaster', dmg: 1.15, every: 6, mul: 3, pierce: 2, echo: 0.5, echoR: 26, steps: [
     ['Büyük Kalibre', 'Silah hasarı +%15; mermiler irileşir.'],
     ['Dolu Atış', 'Her 6. atış üç kat vurur, 2 düşmanı deler ve savurur.'],
@@ -84,9 +84,12 @@ export const PICK_TIERS = [
   { name: 'Kara Elmas Kazma', dmg: 68, interval: 0.12, head: '#1a1a24', headL: '#b0b8d0', handle: '#2a2030', spark: '#e0e8ff', glow: 'rgba(200,210,255,0.7)' },
   { name: 'Ezel Kazması',     dmg: 100, interval: 0.11, head: '#c0701a', headL: '#ffd890', handle: '#4a2a10', spark: '#ffc060', glow: 'rgba(255,170,60,0.85)' },
 ];
-// katlanan fiyatlar: her kademe bir öncekinin ~1.6 katı; derin kademeler bandın derin cevherini ister
-const PICK_COSTS = [{ iron: 8 }, { iron: 20, water: 6 }, { iron: 30, gold: 10 }, { cobalt: 30, gold: 14, yesim: 3 }, { crystal: 30, cobalt: 40, opal: 3 }, { crystal: 60, gold: 50, opal: 5 },
-  { crystal: 100, cobalt: 90, inci: 5 }, { crystal: 160, gold: 130, akik: 6 }, { crystal: 240, gold: 200, yildiz: 6 }, { crystal: 340, gold: 280, elmas: 7 }, { crystal: 480, gold: 400, kehribar: 8 }];
+// kademe fiyatları: keskinlik ve vuruş hızı da kademeyle birlikte gelir. Her fiyat en çok iki sıradan cevher ister
+const PICK_COSTS = [{ iron: 14 }, { iron: 32, water: 10 }, { iron: 50, gold: 14 }, { cobalt: 60, gold: 24 }, { cobalt: 80, crystal: 40 }, { crystal: 90, gold: 70 },
+  { crystal: 150, cobalt: 130 }, { crystal: 230, gold: 190 }, { crystal: 340, gold: 290 }, { crystal: 480, gold: 400 }, { crystal: 680, gold: 560 }];
+// kademeyle birlikte gelen keskinlik (kazı gücü çarpanı) ve vuruş aralığı çarpanı; kademe sayısına yayılır
+export const PICK_SHARP = [1, 1.15, 1.3, 1.5, 1.75, 2, 2.3, 2.6, 3];
+export const PICK_SWING = [1, 0.9, 0.82, 0.74, 0.68, 0.63, 0.58];
 
 // Kazma türleri: kademeden bağımsız kafa (Atölye > KAZMA). Ekip bir kez alır, her madenci kendi türünü takar.
 // dmg/int: kademe gücü ve vuruş aralığı çarpanı; derin cevherli olanlar ilgili bandın cevheriyle açılır
@@ -95,10 +98,10 @@ export const PICK_TYPES = {
   matkap: { name: 'Matkap', icon: 'bit', dmg: 0.62, int: 0.5, noise: 1.3, cost: { iron: 40, water: 20 }, desc: 'Çok hızlı vurur (%24 daha hızlı kazı) ama daha gürültülü.' },
   genis:  { name: 'Geniş Kazma', icon: 'sharp', dmg: 0.85, int: 1, wide: true, cost: { iron: 40, cobalt: 24 }, desc: 'Her vuruş yandaki iki bloğa da işler: üç blok geniş tünel.' },
   kadife: { name: 'Kadife Uç', icon: 'hush', dmg: 0.9, int: 1, noise: 0.35, cost: { water: 40, crystal: 12 }, desc: 'Kazı gürültüsü üçte bire iner.' },
-  balyoz: { name: 'Balyoz', icon: 'sledge', dmg: 2.2, int: 1.7, bash: 30, cost: { yesim: 5, iron: 60 }, desc: 'Ağır ve yavaş (%30 daha güçlü kazı); önündeki düşmanı 30 hasarla savurur.' },
-  burgu:  { name: 'Burgu', icon: 'auger', dmg: 1, int: 1, deep: 0.7, cost: { opal: 5, cobalt: 60 }, desc: 'Her vuruş arkadaki bloğa da %70 işler: tünel iki kat hızlı ilerler.' },
-  hazine: { name: 'Hazine Kazması', icon: 'gem', dmg: 0.9, int: 1, ore: 1, sense: 4, cost: { inci: 5, gold: 80 }, desc: 'Her cevher +1 düşer; gömülü cevher ve yuvayı 4 blok öteden sezer.' },
-  akik:   { name: 'Kan Akiği', icon: 'heart', dmg: 1.15, int: 0.9, leech: 1, cost: { akik: 5, crystal: 120 }, desc: '%28 daha güçlü kazı; kırdığın her blok 1 can yeniler.' },
+  balyoz: { name: 'Balyoz', icon: 'sledge', dmg: 2.2, int: 1.7, bash: 30, cost: { iron: 80, cobalt: 20 }, desc: 'Ağır ve yavaş (%30 daha güçlü kazı); önündeki düşmanı 30 hasarla savurur.' },
+  burgu:  { name: 'Burgu', icon: 'auger', dmg: 1, int: 1, deep: 0.7, cost: { cobalt: 80, gold: 20 }, desc: 'Her vuruş arkadaki bloğa da %70 işler: tünel iki kat hızlı ilerler.' },
+  hazine: { name: 'Hazine Kazması', icon: 'gem', dmg: 0.9, int: 1, ore: 1, sense: 4, cost: { gold: 100, crystal: 20 }, desc: 'Her cevher +1 düşer; gömülü cevher ve yuvayı 4 blok öteden sezer.' },
+  akik:   { name: 'Kan Akiği', icon: 'heart', dmg: 1.15, int: 0.9, leech: 1, cost: { crystal: 150, gold: 40 }, desc: '%28 daha güçlü kazı; kırdığın her blok 1 can yeniler.' },
 };
 export const PICK_TYPE_KEYS = Object.keys(PICK_TYPES);
 
@@ -117,16 +120,16 @@ export const WEAPONS = {
   alev:     { name: 'Alev Püskürtücü', icon: 'flame', flame: true, dmg: 0.2, cd: 0.1, range: 0.6, cost: { cobalt: 40, gold: 20 }, desc: 'Kısa menzil koni: içindeki herkesi yakar. Gazı tutuşturur!', evo: [
     { name: 'Mavi Alev', desc: 'Hasar %50, menzil %25 artar.', dmg: 0.3, range: 0.75 },
     { name: 'Yangın Hortumu', desc: 'Koni iki kat geniş; yanık silah hasarıyla birlikte büyür.', cone: 1, burnMul: 2 }] },
-  tufek:    { name: 'Delici Tüfek', icon: 'rifle', dmg: 2.8, cd: 2.2, range: 1.55, speed: 480, pierce: 4, cost: { yesim: 5, crystal: 30 }, desc: 'Uzak menzil; mermi sıradaki 4 düşmanı deler.', evo: [
+  tufek:    { name: 'Delici Tüfek', icon: 'rifle', dmg: 2.8, cd: 2.2, range: 1.55, speed: 480, pierce: 4, cost: { crystal: 40, iron: 60 }, desc: 'Uzak menzil; mermi sıradaki 4 düşmanı deler.', evo: [
     { name: 'Keskin Nişancı', desc: 'Hasar %35, menzil %15 artar; kritik şansı iki katına çıkar.', dmg: 3.8, range: 1.8, crit: 2 },
     { name: 'Patlayan Mermi', desc: 'Deldiği her düşmanda küçük bir patlama.', blast: 16, quiet: true }] },
-  simsek:   { name: 'Şimşek Tabancası', icon: 'chain', zap: 3, dmg: 0.95, cd: 1.1, range: 0.9, cost: { opal: 5, cobalt: 60 }, desc: 'Anında çarpar ve 3 düşmana daha sekerek geçer.', evo: [
+  simsek:   { name: 'Şimşek Tabancası', icon: 'chain', zap: 3, dmg: 0.95, cd: 1.1, range: 0.9, cost: { cobalt: 80, gold: 20 }, desc: 'Anında çarpar ve 3 düşmana daha sekerek geçer.', evo: [
     { name: 'Fırtına Zinciri', desc: '7 düşmana sekerek geçer.', zap: 7 },
     { name: 'Aşırı Voltaj', desc: 'Hasar %50 artar; çarptığı düşman 0.6 sn saldıramaz.', dmg: 1.43, stun: 0.6 }] },
-  roket:    { name: 'Roketatar', icon: 'rocket', dmg: 2.6, cd: 2.6, range: 1.3, speed: 170, blast: 28, cost: { inci: 5, gold: 80 }, desc: 'Yavaş roket: geniş alan patlaması. Gürültülüdür.', evo: [
+  roket:    { name: 'Roketatar', icon: 'rocket', dmg: 2.6, cd: 2.6, range: 1.3, speed: 170, blast: 28, cost: { gold: 100, crystal: 30 }, desc: 'Yavaş roket: geniş alan patlaması. Gürültülüdür.', evo: [
     { name: 'İkiz Roket', desc: 'Aynı anda 2 roket (her biri %65 hasar).', pellets: 2, spread: 0.22, dmg: 1.7 },
     { name: 'Dev Başlık', desc: 'Patlama alanı %45 büyür, hasar %20 artar.', blast: 41, dmg: 3.1 }] },
-  kirag:    { name: 'Kırağı Topu', icon: 'frost', dmg: 1.2, cd: 1.1, range: 1.1, speed: 200, blast: 18, freeze: 2.5, cost: { akik: 5, water: 120 }, desc: 'Buz güllesi: küçük alan hasarı, vurduklarını 2.5 sn yarı hıza düşürür.', evo: [
+  kirag:    { name: 'Kırağı Topu', icon: 'frost', dmg: 1.2, cd: 1.1, range: 1.1, speed: 200, blast: 18, freeze: 2.5, cost: { water: 140, crystal: 40 }, desc: 'Buz güllesi: küçük alan hasarı, vurduklarını 2.5 sn yarı hıza düşürür.', evo: [
     { name: 'Derin Don', desc: 'Yavaşlatma 5 sn sürer, alan %40 büyür.', freeze: 5, blast: 25 },
     { name: 'Dolu Fırtınası', desc: 'Atış hızı %45 artar.', cd: 0.76 }] },
 };
@@ -151,7 +154,8 @@ export const CARDS = {
 };
 export const CARD_KEYS = Object.keys(CARDS);
 // Alet seviyesi: Şifa Direği, Sondaj Matkabı; seviye başına güç +%30 (şifa hızı, delinen blok), dayanıklılık +%40
-export const TOOL_UP = { max: 5, pow: 0.3, hp: 0.4, costs: [{ iron: 24, cobalt: 6 }, { cobalt: 40, gold: 16 }, { crystal: 60, gold: 40, opal: 3 }, { crystal: 120, gold: 90, akik: 4 }, { crystal: 220, gold: 170, elmas: 5 }] };
+// alet seviyesi: kırılan her mühürde +1 (sandıktan da gelir); güç ve dayanıklılık seviye başına artar
+export const TOOL_UP = { max: 5, pow: 0.3, hp: 0.4 };
 
 // Seviye 0..max. effect[lvl] mevcut seviyedeki değer.
 const BLASTER_DMG = [10, 13, 16, 20, 24, 30, 38, 48, 60, 75, 92, 112, 136, 165, 200, 240];
@@ -164,28 +168,16 @@ export const UPGRADES = {
     costs: PICK_COSTS, lock: true,
     desc: l => `${PICK_TIERS[l].name} · güç ×${PICK_TIERS[l].dmg}`,
   },
-  sharp: {
-    name: 'Keskinlik', icon: 'sharp',
-    mult: [1, 1.15, 1.3, 1.5, 1.75, 2, 2.3, 2.6, 3], lock: true,
-    costs: [{ iron: 12 }, { iron: 24, gold: 6 }, { cobalt: 30, gold: 16 }, { crystal: 40, gold: 30, opal: 3 }, { crystal: 80, gold: 60, inci: 4 }, { crystal: 140, gold: 110, akik: 5 }, { crystal: 220, gold: 180, yildiz: 5 }, { crystal: 320, gold: 260, kehribar: 6 }],
-    desc: l => `Kazı gücü ×${[1, 1.15, 1.3, 1.5, 1.75, 2, 2.3, 2.6, 3][l]}`,
-  },
-  swing: {
-    name: 'Hızlı Sallama', icon: 'swing',
-    mult: [1, 0.9, 0.82, 0.74, 0.68, 0.63, 0.58], lock: true,
-    costs: [{ water: 10 }, { water: 24, gold: 8 }, { cobalt: 40, gold: 24, yesim: 3 }, { crystal: 70, gold: 50, inci: 4 }, { crystal: 150, gold: 120, yildiz: 5 }, { crystal: 260, gold: 220, elmas: 6 }],
-    desc: l => `Vuruş aralığı ×${[1, 0.9, 0.82, 0.74, 0.68, 0.63, 0.58][l]}`,
-  },
   bag: {
     name: 'Çanta', icon: 'bag',
     cap: BAG_CAPS, lock: true,
-    costs: [{ iron: 6 }, { iron: 14 }, { iron: 24, water: 8 }, { water: 20, cobalt: 10 }, { cobalt: 30, crystal: 8 }, { crystal: 30, gold: 24, yesim: 3 }, { crystal: 50, gold: 40, opal: 4 }, { cobalt: 120, crystal: 70, inci: 4 }, { crystal: 110, gold: 90, akik: 5 }, { crystal: 160, gold: 130, yildiz: 5 }, { crystal: 230, gold: 190, elmas: 6 }, { crystal: 320, gold: 260, kehribar: 6 }],
+    costs: [{ iron: 6 }, { iron: 14 }, { iron: 24, water: 8 }, { water: 20, cobalt: 10 }, { cobalt: 30, crystal: 8 }, { crystal: 30, gold: 24 }, { crystal: 50, gold: 40 }, { cobalt: 120, crystal: 70 }, { crystal: 110, gold: 90 }, { crystal: 160, gold: 130 }, { crystal: 230, gold: 190 }, { crystal: 320, gold: 260 }],
     desc: l => `Kapasite ${BAG_CAPS[l]}`,
   },
   armor: {
     name: 'Zırh', icon: 'armor',
     hp: [100, 130, 165, 205, 250, 310, 380, 460, 550, 650, 760, 880, 1000], lock: true,
-    costs: [{ water: 5 }, { water: 12, iron: 10 }, { water: 20, cobalt: 10 }, { cobalt: 30, crystal: 10 }, { crystal: 30, gold: 24, yesim: 3 }, { crystal: 50, gold: 40, opal: 4 }, { crystal: 80, gold: 65, inci: 4 }, { crystal: 120, gold: 100, akik: 5 }, { crystal: 170, gold: 140, yildiz: 5 }, { crystal: 230, gold: 190, elmas: 5 }, { crystal: 300, gold: 250, elmas: 7 }, { crystal: 400, gold: 330, kehribar: 8 }],
+    costs: [{ water: 5 }, { water: 12, iron: 10 }, { water: 20, cobalt: 10 }, { cobalt: 30, crystal: 10 }, { crystal: 30, gold: 24 }, { crystal: 50, gold: 40 }, { crystal: 80, gold: 65 }, { crystal: 120, gold: 100 }, { crystal: 170, gold: 140 }, { crystal: 230, gold: 190 }, { crystal: 300, gold: 250 }, { crystal: 400, gold: 330 }],
     desc: l => `Maks can ${[100, 130, 165, 205, 250, 310, 380, 460, 550, 650, 760, 880, 1000][l]}`,
   },
   blaster: {
@@ -193,26 +185,26 @@ export const UPGRADES = {
     dmg: BLASTER_DMG,
     cd: [0.45, 0.42, 0.39, 0.36, 0.32, 0.28, 0.25, 0.22, 0.21, 0.2, 0.19, 0.18, 0.17, 0.16, 0.155, 0.15],
     range: [78, 84, 90, 96, 102, 110, 118, 126, 132, 138, 144, 148, 152, 156, 160, 164], lock: true,
-    costs: [{ iron: 8 }, { iron: 16, water: 5 }, { cobalt: 12 }, { cobalt: 24, water: 10 }, { cobalt: 36, crystal: 10, yesim: 3 }, { crystal: 30, gold: 24, opal: 3 }, { crystal: 50, gold: 40, opal: 5 }, { crystal: 75, gold: 60, inci: 4 },
-      { crystal: 105, gold: 85, inci: 6 }, { crystal: 140, gold: 115, akik: 5 }, { crystal: 180, gold: 150, akik: 7 }, { crystal: 230, gold: 190, yildiz: 6 }, { crystal: 290, gold: 240, elmas: 6 }, { crystal: 360, gold: 300, elmas: 8 }, { crystal: 450, gold: 380, kehribar: 8 }],
+    costs: [{ iron: 8 }, { iron: 16, water: 5 }, { cobalt: 12 }, { cobalt: 24, water: 10 }, { cobalt: 36, crystal: 10 }, { crystal: 30, gold: 24 }, { crystal: 50, gold: 40 }, { crystal: 75, gold: 60 },
+      { crystal: 105, gold: 85 }, { crystal: 140, gold: 115 }, { crystal: 180, gold: 150 }, { crystal: 230, gold: 190 }, { crystal: 290, gold: 240 }, { crystal: 360, gold: 300 }, { crystal: 450, gold: 380 }],
     desc: l => `Tüm silahlara işler: temel hasar ${BLASTER_DMG[l]}`,
   },
   lamp: {
     name: 'Fener', icon: 'lamp',
     radius: [7, 8.5, 10, 11.5, 13],
-    costs: [{ water: 6 }, { water: 16, cobalt: 6 }, { crystal: 20 }, { crystal: 40, gold: 30, inci: 3 }],
+    costs: [{ water: 6 }, { water: 16, cobalt: 6 }, { crystal: 20 }, { crystal: 40, gold: 30 }],
     desc: l => `Görüş ${[7, 8.5, 10, 11.5, 13][l]} blok`,
   },
 };
 // Usta İşi: derin cevherle alınan tek seferlik yükseltmeler (cevher bulununca Atölye'de görünür)
 Object.assign(UPGRADES, {
-  muska:          { name: 'Yeşim Muska', icon: 'yesim', costs: [{ yesim: 4, iron: 40 }], desc: () => 'Azami can +30.' },
-  opalNamlu:      { name: 'Opal Namlu', icon: 'opal', costs: [{ opal: 4, cobalt: 40 }], desc: () => 'Mermilerin yakar: 3 sn boyunca saniyede silah hasarının %25’i.' },
-  inciFener:      { name: 'İnci Fener', icon: 'inci', costs: [{ inci: 4, crystal: 40 }], desc: () => 'Görüş +3 blok; karartma fenerini kısamaz.' },
-  akikKalkan:     { name: 'Akik Kalkan', icon: 'akik', costs: [{ akik: 4, gold: 80 }], desc: () => '15 sn’de bir gelen darbeyi tamamen emer.' },
-  yildizCekirdek: { name: 'Yıldız Çekirdeği', icon: 'yildiz', costs: [{ yildiz: 5, crystal: 120 }], desc: () => 'Kazma ve silah hasarı ×1.4.' },
-  elmasDeri:      { name: 'Kara Elmas Deri', icon: 'elmas', costs: [{ elmas: 5, crystal: 160 }], desc: () => 'Aldığın tüm hasar %25 azalır.' },
-  kehribarKalp:   { name: 'Kehribar Kalp', icon: 'kehribar', costs: [{ kehribar: 5, gold: 200 }], desc: () => 'Her 20 sn’de 80 hasar emen bir kehribar kalkanı dolar.' },
+  muska:          { name: 'Yeşim Muska', icon: 'yesim', costs: [{ yesim: 4 }], desc: () => 'Azami can +30.' },
+  opalNamlu:      { name: 'Opal Namlu', icon: 'opal', costs: [{ opal: 4 }], desc: () => 'Mermilerin yakar: 3 sn boyunca saniyede silah hasarının %25’i.' },
+  inciFener:      { name: 'İnci Fener', icon: 'inci', costs: [{ inci: 4 }], desc: () => 'Görüş +3 blok; karartma fenerini kısamaz.' },
+  akikKalkan:     { name: 'Akik Kalkan', icon: 'akik', costs: [{ akik: 4 }], desc: () => '15 sn’de bir gelen darbeyi tamamen emer.' },
+  yildizCekirdek: { name: 'Yıldız Çekirdeği', icon: 'yildiz', costs: [{ yildiz: 5 }], desc: () => 'Kazma ve silah hasarı ×1.4.' },
+  elmasDeri:      { name: 'Kara Elmas Deri', icon: 'elmas', costs: [{ elmas: 5 }], desc: () => 'Aldığın tüm hasar %25 azalır.' },
+  kehribarKalp:   { name: 'Kehribar Kalp', icon: 'kehribar', costs: [{ kehribar: 5 }], desc: () => 'Her 20 sn’de 80 hasar emen bir kehribar kalkanı dolar.' },
 });
 export const MASTER_KEYS = ['muska', 'opalNamlu', 'inciFener', 'akikKalkan', 'yildizCekirdek', 'elmasDeri', 'kehribarKalp'];
 export const KEHRIBAR = { hp: 80, cd: 20 };
@@ -223,23 +215,23 @@ export function beaconReq(key, l) {
   const n = u.costs.length; return l < 3 ? 0 : Math.round(BEACON_MAX * Math.pow((l - 2) / (n - 3), 1.2));
 }
 export const UPGRADE_KEYS = ['bag', 'blaster', 'armor', 'lamp'];
-export const PICK_KEYS = ['drill', 'sharp', 'swing'];
+export const PICK_KEYS = ['drill'];
 
 // Silah eklentileri: Atölye > SİLAH'tan bir kez alınır, alındığı andan itibaren hep çalışır (yuva, takma-çıkarma yok).
-// İlk dördü yalnız demir ve suyla alınır; sefer başında START_MODS'tan biri bedava seçilir.
+// Mağazada satılmaz: sefer başında START_MODS'tan biri seçilir, gerisi silah seviyesi kartlarıyla, sandık ve tüccardan gelir.
 export const MODS = {
-  split:    { name: 'Çatal Namlu',  icon: 'split',    cost: { iron: 14 },               desc: 'Her atışta iki yan mermi (yarım hasar).' },
-  ricochet: { name: 'Sekme',        icon: 'ricochet', cost: { iron: 10, water: 4 },     desc: 'Mermiler duvardan iki kez seker.' },
-  frost:    { name: 'Buz Ucu',      icon: 'frost',    cost: { water: 12 },              t: 1.5, cd: 2.5, desc: 'İsabet düşmanı 1.5 sn yavaşlatır; aynı düşman 2.5 sn’de bir donar (boss hariç).' },
-  rapid:    { name: 'Hızlı Ateş',   icon: 'rapid',    cost: { iron: 24, water: 10 },    desc: 'Atış hızı %30 artar.' },
-  fire:     { name: 'Yakıcı',       icon: 'flame',    cost: { iron: 30, cobalt: 10 },   desc: 'İsabet 3 sn boyunca yakar (saniyede 4).' },
-  homing:   { name: 'Güdümlü',      icon: 'magnet',   cost: { water: 24, cobalt: 14 },  desc: 'Mermiler yakındaki düşmana kıvrılır; ıskalamak zorlaşır.' },
-  chain:    { name: 'Yıldırım',     icon: 'chain',    cost: { cobalt: 20, gold: 8 },    desc: 'İsabet yakındaki bir düşmana sıçrar (yarım hasar).' },
-  stun:     { name: 'Sersemletici', icon: 'shock',    cost: { iron: 40, gold: 12 },     v: 0.5, cd: 2.5, desc: 'İsabet alan düşman 0.5 sn saldıramaz; aynı düşman 2.5 sn’de bir sersemler (boss hariç, elit yarı süre).' },
-  leech:    { name: 'Can Çalan',    icon: 'heart',    cost: { water: 40, gold: 14 },    v: 0.01, cd: 2, desc: 'Silahla öldürdüğün düşman azami canının %1’ini yeniler (2 saniyede en çok bir kez).' },
-  boom:     { name: 'Patlayıcı',    icon: 'boom',     cost: { crystal: 14, gold: 16 },  desc: 'Mermiler küçük bir alanda patlar.' },
-  nova:     { name: 'Saçılma',      icon: 'nova',     cost: { crystal: 20, gold: 22 },  n: 6, v: 0.5, desc: 'Silahla öldürdüğün düşmandan 6 mermi saçılır (yarım hasar).' },
-  overdrive:{ name: 'Aşırı Yük',    icon: 'overdrive', cost: { crystal: 24, gold: 26 }, dur: 3, cd: 12, desc: 'Ateş ederken 12 sn’de bir kendiliğinden devreye girer: 3 sn üç kat atış hızı.' },
+  split:    { name: 'Çatal Namlu',  icon: 'split',    desc: 'Her atışta iki yan mermi (yarım hasar).' },
+  ricochet: { name: 'Sekme',        icon: 'ricochet', desc: 'Mermiler duvardan iki kez seker.' },
+  frost:    { name: 'Buz Ucu',      icon: 'frost',    t: 1.5, cd: 2.5, desc: 'İsabet düşmanı 1.5 sn yavaşlatır; aynı düşman 2.5 sn’de bir donar (boss hariç).' },
+  rapid:    { name: 'Hızlı Ateş',   icon: 'rapid',    desc: 'Atış hızı %30 artar.' },
+  fire:     { name: 'Yakıcı',       icon: 'flame',    desc: 'İsabet 3 sn boyunca yakar (saniyede 4).' },
+  homing:   { name: 'Güdümlü',      icon: 'magnet',   desc: 'Mermiler yakındaki düşmana kıvrılır; ıskalamak zorlaşır.' },
+  chain:    { name: 'Yıldırım',     icon: 'chain',    desc: 'İsabet yakındaki bir düşmana sıçrar (yarım hasar).' },
+  stun:     { name: 'Sersemletici', icon: 'shock',    v: 0.5, cd: 2.5, desc: 'İsabet alan düşman 0.5 sn saldıramaz; aynı düşman 2.5 sn’de bir sersemler (boss hariç, elit yarı süre).' },
+  leech:    { name: 'Can Çalan',    icon: 'heart',    v: 0.01, cd: 2, desc: 'Silahla öldürdüğün düşman azami canının %1’ini yeniler (2 saniyede en çok bir kez).' },
+  boom:     { name: 'Patlayıcı',    icon: 'boom',     desc: 'Mermiler küçük bir alanda patlar.' },
+  nova:     { name: 'Saçılma',      icon: 'nova',     n: 6, v: 0.5, desc: 'Silahla öldürdüğün düşmandan 6 mermi saçılır (yarım hasar).' },
+  overdrive:{ name: 'Aşırı Yük',    icon: 'overdrive', dur: 3, cd: 12, desc: 'Ateş ederken 12 sn’de bir kendiliğinden devreye girer: 3 sn üç kat atış hızı.' },
 };
 export const MOD_KEYS = Object.keys(MODS);
 export const START_MODS = ['split', 'ricochet', 'frost'];
@@ -264,17 +256,15 @@ export const ITEMS = {
   dynamite:  { name: 'Dinamit', icon: 'dynamite', cost: { iron: 3, water: 1 }, max: 5, desc: '2 sn sonra patlar: çevresindeki kayayı kırar, düşmanlara 60 hasar.' },
   medkit:    { name: 'Tamir Kiti', icon: 'medkit', cost: { water: 3 }, max: 3, desc: 'Anında canının %40’ını (en az 50) yeniler.' },
   recall:    { name: 'Dönüş Fişeği', icon: 'recall', cost: { water: 2, cobalt: 1 }, max: 2, schematic: true, desc: '1.5 sn sonra seni yüzeye ışınlar. Kalp Kristali ile çalışmaz.' },
-  sonar:     { name: 'Sonar', icon: 'sonar', cost: { iron: 4, cobalt: 2 }, max: 3, desc: '12 blok içindeki gömülü cevher, yuva ve sandıkları açığa çıkarır.' },
   can:       { name: 'Sessizlik Çanı', icon: 'hush', cost: { water: 4, crystal: 1 }, max: 3, desc: 'Gürültüyü 35 düşürür; 10 sn boyunca gürültü yarı hızda birikir.' },
   zil:       { name: 'Yem Zili', icon: 'bell', cost: { iron: 5, water: 2 }, max: 3, desc: 'Fırlatırsın; düştüğü yerde 5 sn çalar, sesini duyan düşmanlar seni bırakıp ona koşar. Sonunda patlar.' },
   kalkan:    { name: 'Kalkan Hücresi', icon: 'shield', cost: { cobalt: 3, water: 3 }, max: 3, desc: '12 sn boyunca gelen 80 hasarı emer.' },
-  burgu:     { name: 'Burgu Şarjı', icon: 'auger', cost: { iron: 6, gold: 1 }, max: 3, desc: 'Altındaki 8 bloğu anında deler; sandığa, kalbe ve kapıya dokunmaz.' },
   yag:       { name: 'Fener Yağı', icon: 'lamp', cost: { water: 3, iron: 2 }, max: 3, desc: 'Feneri doldurur. Yağ biterken kemerdeki şişe kendiliğinden açılır; şişe de yoksa karanlıkta kalırsın.' },
   adren:     { name: 'Adrenalin', icon: 'adren', cost: { crystal: 2, gold: 2 }, max: 2, schematic: true, desc: '8 sn: %40 hızlı koşarsın, kazman ve silahın iki kat vurur.' },
 };
 // aletler de kemer eşyasıdır: üret, durduğun yere kur
 for (const k of BUILD_KEYS) ITEMS[k] = { name: BUILDS[k].name, icon: BUILDS[k].icon, cost: BUILDS[k].cost, scale: BUILDS[k].scale, max: BUILDS[k].max, build: true, schematic: !!BUILDS[k].schematic, desc: BUILDS[k].desc + (BUILDS[k].once ? ' Kemerden kur.' : ' Kemerden kur, dokunup geri al.') };
-export const ITEM_KEYS = ['yag', 'dynamite', 'medkit', 'kalkan', 'sonar', 'can', 'zil', 'burgu', 'recall', 'adren', ...BUILD_KEYS];
+export const ITEM_KEYS = ['yag', 'dynamite', 'medkit', 'kalkan', 'can', 'zil', 'recall', 'adren', ...BUILD_KEYS];
 // üretim fiyatı ulaşılan derinlikle artar (biyom başına +%8): derinde de değerli kalır
 export const ITEM_SCALE = 0.08;
 // Yem Zili: range kadar uçar (ya da duvara çarpar), ring sn çalar; lure içindeki ve zili gören düşmanlar ona koşar. Patlama: dmg ya da azami canın frac'i (boss: dmg)
@@ -282,10 +272,8 @@ export const BELL = { range: 90, v: 190, ring: 5, lure: 200, noise: 2, boom: 30,
 export const DYNAMITE = { fuse: 2, radius: 2.2, dmg: 60, selfDmg: 14 };
 export const MEDKIT = { heal: 50, frac: 0.4 };
 export const RECALL = { channel: 1.5 };
-export const SONAR = { radius: 12 };
 export const HUSH = { drop: 35, t: 10 };
 export const SHIELD = { hp: 80, t: 12 };
-export const AUGER = { depth: 8 };
 export const ADREN = { t: 8, speed: 1.4, dmg: 2 };
 
 // Sandıklardan sırayla çıkan şemalar (bir kez bulunan kalıcıdır)
@@ -407,7 +395,10 @@ export const BOSS_BANDS = ['karakok', 'kavurgan', 'otegoz', 'kordesen', 'ezeli',
 // strata: mühürlü biyom konumları (bölüm sonları); zone: mührün kaç satır yukarısında bekçi uyanır; heartZone: kalbin kaç satır yukarısında.
 // rage: bu gürültünün üstünde gelene bekçi öfkeli uyanır (hasar/hız); ambush: sessiz gelenin ilk vuruşu kaç kat
 // far/hunt: kaçan madencinin peşinden kayayı yararak gelme eşiği (px) ve hızı (px/sn)
-export const SEAL = { strata: [3, 7, 11, 15, 19, 23, 27], zone: 9, heartZone: 11, omen: 2.6, rageNoise: 70, rage: { dmg: 1.2, sp: 1.15 }, ambush: 3, far: 135, hunt: 100, digMax: 6 };
+export const SEAL = { strata: [3, 7, 11, 15, 19, 23, 27], zone: 9, heartZone: 11, omen: 2.6, rageNoise: 70, rage: { dmg: 1.2, sp: 1.15 }, ambush: 3, far: 135, hunt: 100, digMax: 6,
+  // mühre yaklaşma baskısı: bekçi bölgesinin rows satır üstünden başlar, bölgeye girince tavan yapar.
+  // floor: gürültünün tırmandığı taban, climb: tırmanma hızı (sn), rate: yaratık akışı artışı, oil: fener yağı daha hızlı biter
+  press: { rows: 24, floor: 52, climb: 3, rate: 0.8, oil: 0.6 } };
 
 // Elit: Öfke seviyesinde yuvalardan şansla çıkar (can ×2.2, boyut ×1.25, altın düşürür); derinde özellik kazanır
 export const ELITE = { hp: 2.2, dmg: 1.6, scale: 1.25, gold: 3, fromWave: 3, affixAt: [6, 14, 22] };

@@ -7,13 +7,13 @@ import { updateEnemies, damageEnemy, spawnEnemy, killEnemy } from '../src/game/e
 import { updatePlayerGun, updateBullets, updateStructures } from '../src/game/combat.js';
 import { gunDps, gunDmg, gunCd, critChance, directorHp } from '../src/game/power.js';
 import { xpNeed, weaponMaxed, WOFFER } from '../src/game/weaponlevel.js';
-import { offerInfo, rerollOffer, offer } from '../src/game/chests.js';
-import { buyUpgrade, buyMod, upgradeCost, applyPerk, beaconLack, levelUp, itemCost } from '../src/game/economy.js';
+import { offerInfo, rerollOffer, offer, applyOffer } from '../src/game/chests.js';
+import { buyUpgrade, upgradeCost, applyPerk, beaconLack, itemCost } from '../src/game/economy.js';
 import { updateItems, useItem } from '../src/game/items.js';
 import { updateHazards } from '../src/game/hazards.js';
 import { updateThreat, addNoise, nestsInStratum, nestDestroyed, wakeDelay } from '../src/game/threat.js';
 import { updateEvents } from '../src/game/events.js';
-import { lampTiles, metaSnapshot, hasRelic, lastStand, resonance } from '../src/game/run.js';
+import { lampTiles, metaSnapshot, hasRelic, lastStand, resonance, toolLvl } from '../src/game/run.js';
 import { deployLimit } from '../src/game/economy.js';
 import { openStation, callElevator, atShaft, stationY, SHAFT_X } from '../src/game/elevator.js';
 import { DEPLOY_MAX, EVENTS, MERCHANT, BOSS_MELEE, POSEIDON } from '../src/data/balance.js';
@@ -26,7 +26,7 @@ import { updateBalrog } from '../src/game/balrog.js';
 import { updateSerpent, SEA_BIOME } from '../src/game/serpent.js';
 import { updateHoard, PALACE_BIOME } from '../src/game/dragon.js';
 import { updatePoseidon, inTemple } from '../src/game/poseidon.js';
-import { updateSeals, bossLock, makeSeals } from '../src/game/seals.js';
+import { updateSeals, bossLock, makeSeals, sealPress } from '../src/game/seals.js';
 import { updateLairs, LAIRS, LAIR_KEYS } from '../src/game/lairs.js';
 import { updateLantern, oilMax } from '../src/game/lantern.js';
 import { CRITTERS } from '../src/data/critters.js';
@@ -38,7 +38,7 @@ import { T, TD, HOST_TILE } from '../src/data/tiles.js';
 import { WEAPONS, CARDS, CARD_KEYS, START_MODS, WXP, CRIT, POWER } from '../src/data/balance.js';
 import { ENEMIES, MODS, MOD_KEYS, PICK_TIERS, UPGRADES, ELITE, RES_KEYS, THREAT, BUILDS, ITEMS, RELICS, RELIC_KEYS, PERKS, EVENT_KEYS, DEEP_ORES, ozForRun } from '../src/data/balance.js';
 import { placeBuild, pickupBuild, craftItem, gearPick, testFunds, TEST_FUNDS } from '../src/game/economy.js';
-import { WEAPON_KEYS, PICK_TYPE_KEYS, SHIELD, AUGER, DIRECTOR, AFFIX, enemyHpMul } from '../src/data/balance.js';
+import { WEAPON_KEYS, PICK_TYPE_KEYS, SHIELD, DIRECTOR, AFFIX, enemyHpMul, MASTER_KEYS, PICK_TYPES } from '../src/data/balance.js';
 import { playerSpeed } from '../src/game/player.js';
 import { STRATA } from '../src/data/palette.js';
 import { COLS, ROWS, GROUND_ROW, GROUND_Y, STRATUM_ROWS, STRATA_COUNT, TILE, PLAY_MIN_COL, PLAY_MAX_COL, CENTER_COL, sealRowOf } from '../src/config.js';
@@ -157,19 +157,19 @@ section('Ekonomi');
     const d2 = pickDmg(), i2 = pickInterval(); ok(`kazma ${l} daha güçlü`, d2 > dmg && i2 <= int + 1e-9, `${dmg}→${d2}, ${int}→${i2}`); dmg = d2; int = i2;
   }
   give(); ok('kazma maks sonrası alınmaz', !buyUpgrade('drill', p) && upgradeCost('drill') == null);
-  const d0 = pickDmg(); give(); ok('keskinlik alınır', buyUpgrade('sharp', p) && pickDmg() > d0);
-  const i0 = pickInterval(); give(); ok('hızlı sallama alınır', buyUpgrade('swing', p) && pickInterval() < i0);
+  ok('keskinlik ve sallama ayrı satılmaz, kademeyle gelir', !UPGRADES.sharp && !UPGRADES.swing);
+  { const costs = ['drill', 'bag', 'armor', 'blaster', 'lamp'].flatMap(k => UPGRADES[k].costs).concat(WEAPON_KEYS.map(k => WEAPONS[k].cost).filter(Boolean), PICK_TYPE_KEYS.map(k => PICK_TYPES[k].cost).filter(Boolean));
+    ok('derin cevher yalnız Usta İşi ister', costs.every(c => Object.keys(c).every(r => !DEEP_ORES.includes(r))) && MASTER_KEYS.every(k => UPGRADES[k].costs.every(c => Object.keys(c).length === 1)));
+    ok('her fiyat en çok iki cevher', costs.every(c => Object.keys(c).length <= 2)); }
   for (const k of ['bag', 'armor', 'blaster', 'lamp']) { give(); ok(`${k} alınır`, buyUpgrade(k, p) && G.lvl[k] === 1); }
   // fakirken alınmaz
-  for (const k of RES_KEYS) G.store[k] = 0; ok('parasız kazma alınmaz', !buyUpgrade('sharp', p));
+  for (const k of RES_KEYS) G.store[k] = 0; ok('parasız zırh alınmaz', !buyUpgrade('armor', p));
   // eklentiler
   fresh(8); const q = G.player;
-  for (const k of RES_KEYS) G.store[k] = 0; ok('parasız eklenti alınmaz', !buyMod('ricochet', q));
-  ok('ilk eklentiler yalnız demir ve suyla alınır', START_MODS.concat('rapid').every(k => Object.keys(MODS[k].cost).every(r => r === 'iron' || r === 'water')));
   ok('alınmayan eklenti çalışmaz', !hasMod('ricochet'));
   const dps0 = gunDps(q);
-  for (const k of MOD_KEYS) { for (const r of RES_KEYS) G.store[r] = 9999; ok(`eklenti ${k} alınır ve çalışır`, buyMod(k, q) && hasMod(k)); }
-  ok('tekrar alınmaz', !buyMod(MOD_KEYS[0], q));
+  for (const k of MOD_KEYS) ok(`eklenti ${k} kartla gelir ve çalışır`, applyOffer('m:' + k, q) && hasMod(k));
+  ok('tekrar gelmez', !applyOffer('m:' + MOD_KEYS[0], q));
   ok('eklentiler gücü artırır', gunDps(q) > dps0 * 2, `${dps0} → ${gunDps(q)}`);
   // Aşırı Yük: ateş ederken kendiliğinden devreye girer, biter, yeniden dolar
   shaft(8, GROUND_ROW + 14); q.x = 8 * TILE + 8; q.y = (GROUND_ROW + 4) * TILE + 8; q.px = q.x; q.py = q.y; forceFlow();
@@ -370,7 +370,7 @@ section('Determinizm');
 section('Kayıt');
 {
   fresh(9); const p = G.player; Object.assign(p.inp, { x: 0, y: 1, mag: 1 }); run(12);
-  for (const k of RES_KEYS) G.store[k] = 50; buyUpgrade('drill', p); buyMod('ricochet', p); buyMod('frost', p); G.structures.push(makeStructure('direk', 8, GROUND_ROW + 2));
+  for (const k of RES_KEYS) G.store[k] = 50; buyUpgrade('drill', p); G.gear.owned.push('ricochet', 'frost'); G.structures.push(makeStructure('direk', 8, GROUND_ROW + 2));
   const s1 = serialize(); const j1 = JSON.stringify(s1);
   deserialize(JSON.parse(j1)); const s2 = serialize();
   const strip = s => { const o = JSON.parse(JSON.stringify(s)); delete o.player; delete o.wave; return JSON.stringify(o); };
@@ -739,8 +739,8 @@ section('Silah seviyesi, kartlar, evrim');
   while (G.gear.lv < 1) kill();
   ok('seviye atlar, teklif sıraya girer', G.gear.lv === 1 && G.gear.pend.length === 1);
   step(); const off = G.perkOffer;
-  ok('kart teklifi: üç farklı kart', off && off.chest === 'lvl' && off.keys.length === 3 && new Set(off.keys).size === 3 && off.keys.every(k => k.startsWith('x:') && CARDS[k.slice(2)]), off && off.keys.join());
-  ok('teklif bilgisi (kart)', off.keys.every(k => { const o = offerInfo(k); return o.name && o.lv === 1 && o.max >= 2; }));
+  ok('kart teklifi: iki kart ve bir eklenti', off && off.chest === 'lvl' && off.keys.length === 3 && new Set(off.keys).size === 3 && off.keys.slice(0, 2).every(k => k.startsWith('x:') && CARDS[k.slice(2)]) && off.keys[2].startsWith('m:') && MODS[off.keys[2].slice(2)], off && off.keys.join());
+  ok('teklif bilgisi (kart)', off.keys.slice(0, 2).every(k => { const o = offerInfo(k); return o.name && o.lv === 1 && o.max >= 2; }) && offerInfo(off.keys[2]).tag === 'EKLENTİ');
   ok('kart teklifi yeniden çekilmez', WOFFER.lvl && !rerollOffer(q));
   const dmg0 = gunDmg(q), cd0 = gunCd(q), cc0 = critChance(q);
   ok('kart alınır', applyPerk(off.keys[0], q) && cardLv(off.keys[0].slice(2)) === 1 && !G.perkOffer);
@@ -774,8 +774,11 @@ section('Silah seviyesi, kartlar, evrim');
   ok('sandık teklifi öne geçer, kart sıraya döner', G.perkOffer.chest === 'wood' && G.gear.pend.length === 1);
   applyPerk('kor', z); step(); ok('kart teklifi geri gelir', G.perkOffer && G.perkOffer.chest === 'lvl');
   // tüm kartlar dolunca seviye durur
-  G.perkOffer = null; for (const k of CARD_KEYS) G.gear.cards[k] = CARDS[k].max; const lv0 = G.gear.lv, xp0 = G.gear.xp;
-  kill('brute'); ok('kartlar bitince seviye durur', weaponMaxed() && G.gear.lv === lv0 && G.gear.xp === xp0);
+  G.perkOffer = null; for (const k of CARD_KEYS) G.gear.cards[k] = CARDS[k].max;
+  G.gear.owned = MOD_KEYS.slice(0, 3); G.gear.pend.length = 0; G.gear.pend.push({ kind: 'lvl' }); step();
+  ok('kartlar bitince seviye eklenti sunar', G.perkOffer && G.perkOffer.chest === 'lvl' && G.perkOffer.keys.length === 3 && G.perkOffer.keys.every(k => k.startsWith('m:') && !G.gear.owned.includes(k.slice(2))), JSON.stringify(G.perkOffer && G.perkOffer.keys));
+  G.perkOffer = null; G.gear.pend.length = 0; G.gear.owned = MOD_KEYS.slice(); const lv0 = G.gear.lv, xp0 = G.gear.xp;
+  kill('brute'); ok('kartlar ve eklentiler bitince seviye durur', weaponMaxed() && G.gear.lv === lv0 && G.gear.xp === xp0);
   // kayıt: seviye, kartlar ve evrim korunur
   fresh(984); G.gear.lv = 4; G.gear.xp = 3; G.gear.cards = { dmg: 2, krit: 1 }; G.gear.evo = { blaster: 1 };
   const g2 = deserialize(JSON.parse(JSON.stringify(serialize())));
@@ -797,13 +800,8 @@ section('Yeni eşyalar ve köşe kayması');
   u.x = 8 * TILE + 8; u.y = (GROUND_ROW + 6) * TILE + 8; u.px = u.x; u.py = u.y;
   G.items.kalkan = 1; ok('kalkan hücresi takılır', useItem('kalkan', u) && u.barrier === SHIELD.hp);
   const hp0 = u.hp; damagePlayerX(u, 30); ok('kalkan darbeyi emer', u.hp === hp0 && u.barrier === SHIELD.hp - 30, `${u.hp} ${u.barrier}`);
-  for (let r = GROUND_ROW + 7; r <= GROUND_ROW + 6 + AUGER.depth; r++) setTile(8, r, T.DIRT);
-  G.items.burgu = 1; ok('burgu şarjı patlar', useItem('burgu', u));
-  let open = true; for (let r = GROUND_ROW + 7; r <= GROUND_ROW + 6 + AUGER.depth; r++) if (tileAt(8, r) !== T.AIR) open = false;
-  ok('burgu altındaki 8 bloğu deler', open);
   const sp0 = playerSpeed(u); G.items.adren = 1; ok('adrenalin', useItem('adren', u) && lastStand(u) === 2 && playerSpeed(u) > sp0 * 1.3);
-  const bi = (GROUND_ROW + 9) * COLS + 11; G.map[bi] = T.COBALT; G.buried[bi] = 1;
-  G.items.sonar = 1; ok('sonar gömülü cevheri açar', useItem('sonar', u) && G.buried[bi] === 0);
+  ok('sonar ve burgu şarjı kemerden kalktı', !ITEMS.sonar && !ITEMS.burgu);
   u.hp = 10; G.items.medkit = 1; ok('tamir kiti en az 50 yeniler', useItem('medkit', u) && u.hp >= 60);
   ok('eski eşyalar üretilemez', !craftItem('torch', u) && !craftItem('barricade', u) && !craftItem('lamp', u));
   // şaft ağzında aşağı basınca kazmaz, şafta kayar
@@ -865,7 +863,7 @@ section('Market');
   // alet seviyesi: kurulu aletin canı da artar
   shaft(8, GROUND_ROW + 6); p.x = 8 * TILE + 8; p.y = (GROUND_ROW + 4) * TILE + 8; p.px = p.x; p.py = p.y;
   G.items.direk = 1; placeBuild('direk', p); const s0 = G.structures[0], m0 = s0.maxHp;
-  ok('alet seviyesi', levelUp('direk', p) && G.gear.tLvl.direk === 1 && s0.maxHp > m0);
+  ok('alet seviyesi her kırılan mühürde artar', toolLvl('direk') === 0 && (G.stats.seals = 2, toolLvl('direk') === 2) && makeStructure('direk', 8, GROUND_ROW + 2).maxHp > m0); G.stats.seals = 0; G.gear.tLvl.direk = 1;
   // üretim fiyatı derinlikle artar
   const c0 = itemCost('medkit').water; G.maxStratum = 20; ok('üretim fiyatı derinde artar', itemCost('medkit').water > c0 * 2, `${c0} → ${itemCost('medkit').water}`);
   // kayıt: alet seviyesi korunur
@@ -1650,6 +1648,20 @@ section('Tezgâh');
   p.iframes = 0; p.barrier = 0; damagePlayer(p, 1, t1.x, t1.y); ok('zırh 3: bekleme süresinde yeniden açılmaz', !(p.barrier > 0));
   const d = JSON.parse(JSON.stringify(serialize())); deserialize(d);
   ok('kayıt: dövme kademeleri ve malzeme korunur', forgeLv('w') === 3 && forgeLv('p') === 3 && forgeLv('a') === 3 && G.store.kabuk > 0);
+}
+
+section('Mühre yaklaşma');
+{
+  fresh(3301); const p = G.player, S = G.seals[0], P = SEAL.press;
+  const put = r => { p.x = p.px = 8 * TILE + 8; p.y = p.py = r * TILE + 8; };
+  put(S.top - P.rows - 3); ok('mühürden uzakta baskı yok', sealPress() === 0);
+  put(S.top - 3); const k = sealPress(); ok('mühre yaklaştıkça baskı artar', k > 0.8 && k < 1, `${k}`);
+  put(S.top - P.rows / 2); ok('baskı yolun yarısında yarıdır', Math.abs(sealPress() - 0.5) < 0.05);
+  put(S.top - 3); G.threat.noise = 0; for (let i = 0; i < 60 * 25; i++) updateThreat(STEP);
+  ok('gürültü kendiliğinden tabana tırmanır ve orada kalır', Math.abs(G.threat.noise - P.floor * k) < 1 && G.threat.noise < SEAL.rageNoise, `${G.threat.noise}`);
+  G.oil = 100; updateLantern(1); ok('fener yağı daha hızlı biter', Math.abs(100 - G.oil - (1 + P.oil * k)) < 1e-6, `${100 - G.oil}`);
+  S.st = 'done'; ok('mühür kırılınca baskı biter', sealPress() === 0);
+  put(S.top - 3); p.y = p.py = GROUND_Y - 10; S.st = 'wait'; ok('kampta baskı yok', sealPress() === 0);
 }
 
 section('Fener yağı, kuşatma, mahsur madenci');

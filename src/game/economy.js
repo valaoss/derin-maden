@@ -3,10 +3,10 @@ import { rnd } from '../core/rng.js';
 import { TILE, GROUND_ROW } from '../config.js';
 import { T, TD } from '../data/tiles.js';
 import { applyOffer, itemMax } from './chests.js';
-import { UPGRADES, BUILDS, PERKS, ITEMS, MODS, DEPLOY_MAX, WEAPONS, PICK_TYPES, RES_KEYS, MAT_KEYS, FORGE, SCHEMATICS, TOOL_UP, ITEM_SCALE, beaconReq, ITEM_KEYS } from '../data/balance.js';
+import { UPGRADES, BUILDS, PERKS, ITEMS, DEPLOY_MAX, WEAPONS, PICK_TYPES, RES_KEYS, MAT_KEYS, FORGE, SCHEMATICS, ITEM_SCALE, beaconReq, ITEM_KEYS } from '../data/balance.js';
 import { G, App } from './state.js';
 import { tileAt } from '../world/map.js';
-import { makeStructure, recompute, hasPerk, isUnlocked, isLocal, toolLvl, perkLv, resonance, forgeLv } from './run.js';
+import { makeStructure, recompute, hasPerk, isUnlocked, isLocal, perkLv, resonance, forgeLv } from './run.js';
 import { maxLv } from '../data/relics.js';
 import { sparks, ring, dust, flashLight } from './fx.js';
 import { sfx, haptic } from '../audio/audio.js';
@@ -29,31 +29,6 @@ export function buyUpgrade(key, p = G.player) {
   ring(p.x, p.y, '#f2c14e', 18); sparks(p.x, p.y, '#ffe79a', 10, 70);
   if (key === 'drill') emit('pickTier', G.lvl.drill);
   emit('upgraded', key);
-  return true;
-}
-
-// Silah eklentileri: bir kez alınır, alındığı andan itibaren çalışır
-export function buyMod(k, p = G.player) {
-  const m = MODS[k];
-  if (!m || G.gear.owned.includes(k) || !canAfford(m.cost)) { if (isLocal(p)) sfx.deny(); return false; }
-  pay(m.cost); G.gear.owned.push(k);
-  sfx.buy(); if (isLocal(p)) haptic(15);
-  ring(p.x, p.y, '#9fe8ff', 18); sparks(p.x, p.y, '#bff4ff', 10, 70);
-  emit('modChanged', k);
-  return true;
-}
-
-// Kazma/silah türü: sahip değilse satın al (ekip), sonra komutu veren madenciye tak
-// alet seviyesi: ekip ortak, her alet kendi seviyesini alır
-export function toolUpCost(k) { const l = toolLvl(k); return BUILDS[k] && isUnlocked(k) && l < TOOL_UP.max ? TOOL_UP.costs[l] : null; }
-export function levelUp(k, p = G.player) {
-  const c = toolUpCost(k);
-  if (!c || !canAfford(c)) { if (isLocal(p)) sfx.deny(); return false; }
-  pay(c); G.gear.tLvl[k] = (G.gear.tLvl[k] | 0) + 1;
-  for (const s of G.structures) if (s.type === k) { const m = makeStructure(k, s.c, s.r).maxHp; s.hp += m - s.maxHp; s.maxHp = m; }
-  sfx.buy(); if (isLocal(p)) haptic(15);
-  ring(p.x, p.y, '#ffd24a', 20); sparks(p.x, p.y, '#ffe79a', 12, 80);
-  emit('gearChanged', { kind: 'tl', k, pi: p.i });
   return true;
 }
 

@@ -6,7 +6,7 @@
 import { rnd } from '../core/rng.js';
 import { TILE, COLS, ROWS, GROUND_ROW, GROUND_Y, PLAY_MIN_COL, PLAY_MAX_COL, stratumOfRow } from '../config.js';
 import { T, TD } from '../data/tiles.js';
-import { THREAT, ENEMIES, WAVES, DIRECTOR, SURROUND } from '../data/balance.js';
+import { THREAT, ENEMIES, WAVES, DIRECTOR, SURROUND, SEAL } from '../data/balance.js';
 import { G, biomeOf } from './state.js';
 import { STRATA } from '../data/palette.js';
 import { tileAt, setTile } from '../world/map.js';
@@ -19,6 +19,7 @@ import { bossSfx } from '../audio/samples.js';
 import { emit } from '../core/events.js';
 import { markJourney } from './journey.js';
 import { seaFloor } from './biomes.js';
+import { sealPress } from './seals.js';
 
 export const LEVEL_NAMES = ['SESSİZ', 'KIPIRTI', 'UYANIŞ', 'ÖFKE', 'AV'];
 
@@ -250,8 +251,11 @@ export function updateThreat(dt) {
   if (th.quietT < THREAT.quietAfter) decay *= 0.35;
   if (anyUnder && G.players.every(p => p.dead || !p.moving)) decay *= 1.6;
   const dp = deepestUnder(), dst = dp ? Math.max(0, stratumOfRow(Math.floor(dp.y / TILE))) : 0;
-  const floor = Math.min(THREAT.floorMax, dst * THREAT.floorPerStratum);
+  // mühre yaklaştıkça maden kıpırdanır: gürültü bu tabana tırmanır ve altına sönmez
+  const press = sealPress(), pf = SEAL.press.floor * press;
+  const floor = Math.max(pf, Math.min(THREAT.floorMax, dst * THREAT.floorPerStratum));
   if (!bossAlive) th.noise = Math.max(Math.min(th.noise, floor), th.noise - decay * dt);
+  if (pf > th.noise && !bossAlive) { th.noise = Math.min(pf, th.noise + SEAL.press.climb * dt); if (th.noise > th.peak) th.peak = th.noise; }
   // Sessiz Deniz: ölçer sönmez, zamanla dolar
   th.noise = Math.max(th.noise, seaFloor());
   // boss öldü: ölçer sakinleşir
@@ -303,7 +307,7 @@ export function updateThreat(dt) {
   }
   if (!anyUnder || !dp) { D.bank = Math.max(0, D.bank - dt * 2); if (D.phase === 'warn' || D.phase === 'wave') { D.phase = 'build'; D.src = null; D.at = null; } return; }
   const L = Math.min(3, lv), alive = aliveEnemies(), cap = D.cap;
-  const rateMul = (1 + dst * DIRECTOR.depthRate) * (G.mp ? DIRECTOR.mpRate : 1) * (G.mods.nestRate || 1) * (dst === 0 ? 0.7 : 1);
+  const rateMul = (1 + dst * DIRECTOR.depthRate) * (G.mp ? DIRECTOR.mpRate : 1) * (G.mods.nestRate || 1) * (dst === 0 ? 0.7 : 1) * (1 + SEAL.press.rate * press);
   if (D.phase === 'build') {
     D.bank = Math.min(DIRECTOR.bankMax, D.bank + DIRECTOR.rate[L] * rateMul * dt);
     D.gapT -= dt;

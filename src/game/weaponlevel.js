@@ -1,7 +1,7 @@
 // Silah seviyesi: öldürdükçe dolan çubuk, her seviyede bir kart; evoAt'ta elindeki silah evrilir.
 // Teklifler (başlangıç eklentisi, kart, evrim) sırayla G.perkOffer'a düşer; sandık teklifiyle aynı ekranda seçilir.
 import { rnd } from '../core/rng.js';
-import { WXP, CARDS, CARD_KEYS, WEAPONS, START_MODS } from '../data/balance.js';
+import { WXP, CARDS, CARD_KEYS, WEAPONS, START_MODS, MOD_KEYS } from '../data/balance.js';
 import { G } from './state.js';
 import { hasPerk, cardLv, weaponOf } from './run.js';
 import { ring, sparks } from './fx.js';
@@ -10,11 +10,11 @@ import { emit } from '../core/events.js';
 // teklif türleri (G.perkOffer.chest): sandık değil, silah teklifi
 export const WOFFER = { start: 1, lvl: 1, evo: 1 };
 export const xpNeed = lv => WXP.base + WXP.step * lv;
-export const weaponMaxed = () => CARD_KEYS.every(k => cardLv(k) >= CARDS[k].max);
+export const weaponMaxed = () => CARD_KEYS.every(k => cardLv(k) >= CARDS[k].max) && MOD_KEYS.every(k => G.gear.owned.includes(k));
 
 function cardPool(p) {
   const W = weaponOf(p);
-  return CARD_KEYS.filter(k => cardLv(k) < CARDS[k].max && !(CARDS[k].shot && (W.flame || W.zap)) && !(CARDS[k].noFlame && W.flame));
+  return CARD_KEYS.filter(k => cardLv(k) < CARDS[k].max && !(CARDS[k].shot && (W.flame || W.zap)) && !(CARDS[k].noFlame && W.flame)).map(k => 'x:' + k);
 }
 const evoDue = p => G.gear.lv >= WXP.evoAt && !!WEAPONS[p.wpn] && G.gear.evo[p.wpn] == null;
 
@@ -48,8 +48,12 @@ export function updateWeaponOffers() {
     p = o.pi !== undefined && G.players[o.pi] && !G.players[o.pi].gone ? G.players[o.pi] : live[(g.turn = (g.turn | 0) + 1) % live.length];
     if (evoDue(p)) { kind = 'evo'; keys = [0, 1].map(i => 'e:' + p.wpn + ':' + i); }
     else {
-      const pool = cardPool(p); keys = []; kind = 'lvl';
-      while (keys.length < 3 && pool.length) keys.push('x:' + pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
+      // eklentiler mağazada satılmaz, seviye atladıkça gelir: her teklifte iki kart ve bir eklenti (biri bitince öteki doldurur)
+      const cards = cardPool(p), mods = MOD_KEYS.filter(k => !g.owned.includes(k)).map(k => 'm:' + k), take = a => a.splice(Math.floor(rnd() * a.length), 1)[0];
+      const mod = mods.length ? [take(mods)] : []; keys = []; kind = 'lvl';
+      while (keys.length < 3 - mod.length && cards.length) keys.push(take(cards));
+      while (keys.length < 3 - mod.length && mods.length) keys.push(take(mods));
+      keys = keys.concat(mod);
     }
   }
   if (!keys.length) return;

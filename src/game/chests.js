@@ -85,7 +85,7 @@ export function offerInfo(k) {
   if (a === 'xl') return { name: 'Silah Seviyesi +1', desc: 'Silahın hemen seviye atlar: bir kart seçersin.', icon: 'blaster', t: 2, tag: 'SİLAH SEVİYESİ', col: '#ffd24a' };
   if (a === 'x' && CARDS[b]) { const l = cardLv(b); return { name: CARDS[b].name, desc: CARDS[b].desc, icon: CARDS[b].icon, t: 1, tag: 'KART', col: '#ffd24a', lv: l + 1, max: CARDS[b].max }; }
   if (a === 'e' && WEAPONS[b]) { const E = WEAPONS[b].evo[+k.split(':')[2]]; return { name: E.name, desc: E.desc, icon: WEAPONS[b].icon, t: 3, tag: 'EVRİM · ' + WEAPONS[b].name.toLocaleUpperCase('tr'), col: '#ff9a3a', kind: 'leg' }; }
-  if (a === 'm') return { name: MODS[b].name, desc: MODS[b].desc, icon: MODS[b].icon, t: 1, tag: 'BEDAVA EKLENTİ', col: '#9fe8ff' };
+  if (a === 'm') return { name: MODS[b].name, desc: MODS[b].desc, icon: MODS[b].icon, t: 1, tag: 'EKLENTİ', col: '#9fe8ff' };
   if (a === 'tl') return { name: BUILDS[b].name + ' +2', desc: `Alet iki seviye artar (güç +%${TOOL_UP.pow * 200}, dayanıklılık +%${TOOL_UP.hp * 200}).`, icon: BUILDS[b].icon, t: 2, tag: 'ALET', col: '#9fe8ff' };
   return { name: k, desc: '', icon: 'chest', t: 1, tag: '' };
 }
@@ -133,7 +133,7 @@ export function openChest(p, type, x, y, c, r) {
   if (C.gold) for (let i = 0; i < C.gold + (st >> 1); i++) spawnOrb(x, y, 'gold');
   if (C.supply) {
     // Erzak: kemeri doldurur, ekibi iyileştirir
-    for (const k of ['medkit', 'dynamite', 'kalkan', 'sonar']) if (isUnlocked(k)) G.items[k] = Math.max(G.items[k] | 0, Math.min(itemMax(k), (G.items[k] | 0) + 2));
+    for (const k of ['medkit', 'dynamite', 'kalkan', 'yag']) if (isUnlocked(k)) G.items[k] = Math.max(G.items[k] | 0, Math.min(itemMax(k), (G.items[k] | 0) + 2));
     for (const q of G.players) if (!q.dead) q.hp = Math.min(q.maxHp, q.hp + q.maxHp * 0.5);
     ring(x, y, '#5fe0b8', 30); sparks(x, y, '#a8f5dc', 14, 90);
     if (local) emit('toast', { text: 'Erzak: kemer doldu, can yenilendi', icon: 'medkit' });

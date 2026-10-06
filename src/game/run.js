@@ -9,7 +9,7 @@ import { makeLairs, lairsDone, loadLairs } from './lairs.js';
 import { CRITTERS } from '../data/critters.js';
 import { COLS, ROWS, TILE, GROUND_ROW, BASE_X, BASE_Y, CENTER_COL, STRATUM_ROWS, stratumOfRow, PLAY_MIN_COL, PLAY_MAX_COL } from '../config.js';
 import { PERKS, RESONANCE } from '../data/relics.js';
-import { MERCHANT, SHROOM, UPGRADES, PLAYER, BUILDS, ITEMS, ITEM_KEYS, SCHEMATICS, CONTRACTS, kademeMods, PICK_TIERS, RES_KEYS, MAT_KEYS, FORGE, FORGE_KEYS, OIL, MASTER_KEYS, PICK_TYPES, WEAPONS, EVOLVED, CARDS, CARD_KEYS, MODS, ADREN, TOOL_UP, BUILD_KEYS } from '../data/balance.js';
+import { MERCHANT, SHROOM, UPGRADES, PLAYER, BUILDS, ITEMS, ITEM_KEYS, SCHEMATICS, CONTRACTS, kademeMods, PICK_TIERS, RES_KEYS, MAT_KEYS, FORGE, FORGE_KEYS, OIL, MASTER_KEYS, PICK_SHARP, PICK_SWING, PICK_TYPES, WEAPONS, EVOLVED, CARDS, CARD_KEYS, MODS, ADREN, TOOL_UP, BUILD_KEYS } from '../data/balance.js';
 import { T, TD } from '../data/tiles.js';
 import { makeThreat, scanNests } from './threat.js';
 import { makeEvents } from './events.js';
@@ -90,7 +90,7 @@ export function newRun({ tutorial = false, seed = (Math.random() * 1e9) | 0, kad
     player: null, players: [],
     base: { x: BASE_X, y: BASE_Y, hp: 0, maxHp: 0, hurtT: 0 },
     store: Object.assign(emptyRes(), Object.fromEntries(MAT_KEYS.map(k => [k, 0]))), collected: emptyRes(),
-    lvl: { drill: Math.min(2, ml.keskinUc | 0), sharp: 0, swing: 0, bag: 0, armor: 0, blaster: Math.min(2, ml.ayarliBl | 0), lamp: 0, ...Object.fromEntries(MASTER_KEYS.map(k => [k, 0])) },
+    lvl: { drill: Math.min(2, ml.keskinUc | 0), bag: 0, armor: 0, blaster: Math.min(2, ml.ayarliBl | 0), lamp: 0, ...Object.fromEntries(MASTER_KEYS.map(k => [k, 0])) },
     perks: [], perkLv: {}, rerolls: 0, items: emptyItems(), perkOffer: null, merchant: null, merchT: MERCHANT.first, wish: null, wishes: 0, balrog: null, serpent: null, hoard: null, temple: null,
     // owned: alınan eklentiler (hepsi çalışır); lv/xp/cards/evo: silah seviyesi, kartlar ve evrimler; pend: sıradaki kart teklifleri
     gear: { owned: [], cd: {}, active: {}, wOwn: ['blaster'], pOwn: ['std'], tLvl: {}, lv: 0, xp: 0, cards: {}, evo: {}, pend: [], forge: { w: 0, p: 0, a: 0 } },
@@ -188,7 +188,8 @@ export function weaponOf(p = G.player) { const k = p && WEAPONS[p.wpn] ? p.wpn :
 export function cardLv(k) { return Math.min(CARDS[k].max, G.gear.cards[k] | 0); }
 // Tezgâh kademesi (0..3): w silah, p kazma, a zırh
 export function forgeLv(k) { return Math.min(FORGE.costs.length, (G.gear.forge && G.gear.forge[k]) | 0); }
-export function toolLvl(k) { return Math.min(TOOL_UP.max, (G.gear.tLvl && G.gear.tLvl[k]) | 0); }
+// alet seviyesi: kırılan her mühürde bir artar (sandıktan gelen seviyeler de eklenir)
+export function toolLvl(k) { return Math.min(TOOL_UP.max, Math.max((G.gear.tLvl && G.gear.tLvl[k]) | 0, (G.stats && G.stats.seals) | 0)); }
 // alet gücü (şifa hızı, delinen blok): kendi seviyesi + Alet Ustası
 export function toolPow(k) { return (1 + TOOL_UP.pow * toolLvl(k)) * (hasPerk('aletUstasi') ? 1.5 : 1); }
 
@@ -205,9 +206,12 @@ export function recompute(fill = false) {
   G.base.maxHp = 1; G.base.hp = 1; // kamp: can yok, güvenli bölge
 }
 
-// kazma: kademe + tür + keskinlik + hızlı sallama
-export function pickDmg(p = G.player) { return (forgeLv('p') ? FORGE.p.dmg : 1) * PICK_TIERS[G.lvl.drill].dmg * pickType(p).dmg * UPGRADES.sharp.mult[G.lvl.sharp] * (hasRelic('kivilcim') ? 2 : 1) * (G.lvl.yildizCekirdek ? 1.4 : 1) * (hasRelic('sifirTasi') ? 1.4 : 1) * (resonance('toprak') ? 1.5 : 1) * (hasPerk('camTop') ? 1.8 : 1) * (hasPerk('acKazma') ? 2.2 : 1) * (p && p.shroom && p.shroom.k === 'dev' ? SHROOM.bigPick : 1); }
-export function pickInterval(p = G.player) { return PICK_TIERS[G.lvl.drill].interval * pickType(p).int * UPGRADES.swing.mult[G.lvl.swing]; }
+// kazma: kademe (keskinlik ve vuruş hızı kademeyle gelir) + tür
+const pickStep = (A, l = G.lvl.drill) => A[Math.round(l * (A.length - 1) / (PICK_TIERS.length - 1))];
+// kademenin kazı gücü (vuruş başına güç / vuruş aralığı); Atölye'de gösterilir
+export const pickPow = l => PICK_TIERS[l].dmg * pickStep(PICK_SHARP, l) / pickStep(PICK_SWING, l);
+export function pickDmg(p = G.player) { return (forgeLv('p') ? FORGE.p.dmg : 1) * PICK_TIERS[G.lvl.drill].dmg * pickType(p).dmg * pickStep(PICK_SHARP) * (hasRelic('kivilcim') ? 2 : 1) * (G.lvl.yildizCekirdek ? 1.4 : 1) * (hasRelic('sifirTasi') ? 1.4 : 1) * (resonance('toprak') ? 1.5 : 1) * (hasPerk('camTop') ? 1.8 : 1) * (hasPerk('acKazma') ? 2.2 : 1) * (p && p.shroom && p.shroom.k === 'dev' ? SHROOM.bigPick : 1); }
+export function pickInterval(p = G.player) { return PICK_TIERS[G.lvl.drill].interval * pickType(p).int * pickStep(PICK_SWING); }
 // kazı/kırma gürültü çarpanı: Sessiz Adım, Gölge rezonansı, Gürültü Tanrısı
 export function perkNoise() { return (1 - pv('sessizAdim')) * (resonance('golge') ? 0.65 : 1) * (hasPerk('gurultuTanrisi') ? 1.6 : 1) * (G.meta.rescued && G.meta.rescued.includes('ilkim') ? 0.9 : 1); }
 export function hasMod(k) { return G.gear.owned.includes(k); }

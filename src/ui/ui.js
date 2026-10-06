@@ -4,15 +4,13 @@ import { critterURL } from '../render/critters.js';
 import { nearWell, wellCost } from '../game/well.js';
 import { lakeAt } from '../game/wonders.js';
 import { TILE, GROUND_Y, stratumOfRow, STRATUM_ROWS } from '../config.js';
-import { UPGRADES, UPGRADE_KEYS, PICK_KEYS, MODS, MOD_KEYS, BUILDS, BUILD_KEYS, PERKS, META, META_KEYS, RES_KEYS, ENEMIES, ITEMS, ITEM_KEYS, CONTRACTS, RES, BASE_RES, MASTER_KEYS, KADEME, DEPLOY_MAX, EVENTS, RELICS, RELIC_KEYS, WEAPONS, WEAPON_KEYS, PICK_TYPES, PICK_TYPE_KEYS, FORGE, MATS, MAT_KEYS, MINERS, OIL } from '../data/balance.js';
+import { UPGRADES, UPGRADE_KEYS, PICK_KEYS, BUILDS, BUILD_KEYS, PERKS, META, META_KEYS, RES_KEYS, ENEMIES, ITEMS, ITEM_KEYS, CONTRACTS, RES, BASE_RES, MASTER_KEYS, KADEME, DEPLOY_MAX, EVENTS, RELICS, RELIC_KEYS, WEAPONS, WEAPON_KEYS, PICK_TYPES, PICK_TYPE_KEYS, FORGE, MATS, MAT_KEYS, MINERS, OIL } from '../data/balance.js';
 import { STRATA } from '../data/palette.js';
 import { G, App, biomeOf } from '../game/state.js';
 import { iconURL, HELMETS } from '../render/sprites.js';
 import { on, emit } from '../core/events.js';
 import { bagCount, hasPerk, isUnlocked, contractProgress, pickDmg, pickInterval, soyCount, weaponOf } from '../game/run.js';
-import { canAfford, upgradeCost, craftState, beaconLack, toolUpCost, itemCost } from '../game/economy.js';
-import { TOOL_UP, beaconReq } from '../data/balance.js';
-import { toolLvl } from '../game/run.js';
+import { canAfford, upgradeCost, craftState, beaconLack, itemCost } from '../game/economy.js';
 import { WOFFER, xpNeed, weaponMaxed } from '../game/weaponlevel.js';
 import { offerInfo, rerollCost, ROMAN } from '../game/chests.js';
 import { SOY, SOY_KEYS, RESONANCE } from '../data/relics.js';
@@ -222,6 +220,8 @@ export function initUI(root, h) {
   on('resonance', d => { const S = SOY[d.soy]; banner('REZONANS', S.name, 'gold'); setTimeout(() => toast(S.res, S.icon), 2400); });
   on('perkTaken', d => { if (d.pi !== G.localIdx) { const o = offerInfo(d.k); toast('Partner seçti: ' + o.name, o.icon); } });
   on('blind', () => { const f = $('#flash'); f.classList.remove('on'); void f.offsetWidth; f.classList.add('on'); });
+  on('sealNear', d => toast((d.heart ? 'Kalbe yaklaşıyorsun' : 'Mühür yakın') + ': maden kıpırdanıyor. Sessiz inersen bekçiyi pusuda yakalarsın.', 'skull', true));
+  on('sealBeat', k => { const v = $('#vignette'); v.style.setProperty('--sk', k); v.classList.toggle('seal', k > 0); if (k > 0) { v.classList.remove('beat'); void v.offsetWidth; v.classList.add('beat'); } });
   on('fear', () => { const v = $('#vignette'); v.classList.add('fear'); setTimeout(() => v.classList.remove('fear'), 2400); });
   on('heart', () => banner('KALP KRİSTALİ', 'YÜZEYE TAŞI!', true));
   on('playerDown', d => toast(d.autoUp ? 'Bayıldın — ikinci nefes!' : G.mp ? 'Bayıldın — partnerin seni kaldırabilir' : 'Bayıldın', 'skull', true));
@@ -387,7 +387,6 @@ export function refreshHUD(force = false) {
 function fmt(t) { t = Math.max(0, Math.ceil(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); }
 function anyAffordable() {
   for (const k of UPGRADE_KEYS.concat(PICK_KEYS, MASTER_KEYS)) { const c = upgradeCost(k); if (c && canAfford(c) && !beaconLack(k)) return true; }
-  for (const k of MOD_KEYS) if (!G.gear.owned.includes(k) && canAfford(MODS[k].cost)) return true;
   for (const k of WEAPON_KEYS) if (!G.gear.wOwn.includes(k) && canAfford(WEAPONS[k].cost)) return true;
   for (const k of PICK_TYPE_KEYS) if (!G.gear.pOwn.includes(k) && canAfford(PICK_TYPES[k].cost)) return true;
   return false;
@@ -484,13 +483,13 @@ function pips(l, max) { let s = '<span class="pips">'; for (let i = 0; i < max; 
 
 // test düğmesi: geliştirmede ya da adreste ?test varken görünür
 const TEST_MODE = import.meta.env.DEV || /[?&]test/.test(location.search);
-let sheetTab = 'pick';
+let sheetTab = 'up';
 function refreshSheet(justKey) {
   if (!G) return;
   $('#sheetStore').innerHTML = RES_KEYS.concat(MAT_KEYS).filter(k => BASE_RES.includes(k) || G.store[k] > 0).map(k => `<span class="chip">${ic(k, 's')}<span>${G.store[k]}</span></span>`).join('');
   $('#sheetStats').innerHTML = statsHTML(ic);
   const n = tabCounts();
-  if (sheetTab === 'merch' && !G.merchant) sheetTab = 'pick';
+  if (sheetTab === 'merch' && !G.merchant) sheetTab = 'up';
   $('#sheet .tab[data-tab="merch"]').classList.toggle('hide', !G.merchant);
   document.querySelectorAll('#sheet .tab').forEach(t => { t.classList.toggle('on', t.dataset.tab === sheetTab); t.querySelector('.cnt').textContent = n[t.dataset.tab] || ''; });
   renderShop($('#sheetBody'), sheetTab, justKey, {
@@ -521,6 +520,13 @@ function contractsHTML() {
     return `<div class="plate row contract ${c.done ? 'done' : ''}">${ic(c.done ? 'check' : d.icon, 'l')}<div class="main"><div class="name">${d.text(c.n)}</div>
       <div class="eff">${c.done ? 'Tamamlandı' : v + ' / ' + c.n} · <span class="ozline">${ic('oz', 's')}+${Math.round(d.oz * G.mods.oz)}</span></div></div></div>`;
   }).join('');
+}
+// bu seferin kalıntıları ve rezonansları (duraklatma ekranında tek satır)
+function perksLine() {
+  if (!G.perks.length) return '';
+  const lv = k => (G.perkLv && G.perkLv[k]) || 1;
+  const res = SOY_KEYS.filter(s => soyCount(s) >= RESONANCE).map(s => SOY[s].name + ' rezonansı');
+  return `<div class="sub perks">${G.perks.map(k => ic(PERKS[k].icon, 's') + PERKS[k].name + (lv(k) > 1 ? ' ' + ROMAN[lv(k)] : '')).join(' · ')}${res.length ? '<br><b>' + res.join(' · ') + '</b>' : ''}</div>`;
 }
 export function showContractsToast() {
   if (!G || !G.contracts.length) return;
@@ -743,6 +749,7 @@ export function showPause() {
   s.innerHTML = `<div class="plate rivets panel"><h2>DURAKLATILDI</h2>
     <div class="sub">Derinlik ${G.stats.maxDepth}m · Yuva ${G.stats.nests} · Fener ${G.beacons.length}${G.kademe ? ' · Kademe ' + G.kademe : ''}${G.daily ? ' · Günün Madeni' : ''}${G.mp ? ' · Birlikte (oyun duraklamaz)' : ''}</div>
     ${G.contracts.length ? '<div class="clist">' + contractsHTML() + '</div>' : ''}
+    ${perksLine()}
     <button class="btn big" id="pRes">DEVAM</button>
     <button class="btn dark" id="pSet">AYARLAR</button>
     ${isNative ? '' : `<button class="btn dark" id="pPhoto">${ic('daily')} FOTOĞRAF ÇEK</button>`}

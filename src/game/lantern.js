@@ -3,7 +3,8 @@
 // Yağ da şişe de bitince karanlık: görüş tek bloğa iner, düşman daha sert vurur, maden seni duymaya başlar.
 import { TILE, COLS, ROWS, GROUND_ROW, GROUND_Y, stratumOfRow } from '../config.js';
 import { T } from '../data/tiles.js';
-import { OIL, MINERS } from '../data/balance.js';
+import { OIL, MINERS, SEAL } from '../data/balance.js';
+import { sealPress } from './seals.js';
 import { G, App } from './state.js';
 import { addNoise } from './threat.js';
 import { ring, sparks, flashLight } from './fx.js';
@@ -23,7 +24,7 @@ export function updateLantern(dt) {
   if (live.some(p => p.y < GROUND_Y) && G.oil < max) { G.oil = Math.min(max, G.oil + max * dt / OIL.campFill); if (G.oil > max * OIL.low) G.oilWarn = false; G.dark = false; }
   const down = live.filter(p => p.y >= GROUND_Y + TILE);
   if (down.length) {
-    G.oil = Math.max(0, G.oil - dt);
+    G.oil = Math.max(0, G.oil - dt * (1 + SEAL.press.oil * sealPress()));
     if (G.oil <= max * OIL.low && !G.oilWarn) { G.oilWarn = true; emit('oilLow', G.items.yag | 0); }
     if (G.oil <= 0) {
       if ((G.items.yag | 0) > 0) {

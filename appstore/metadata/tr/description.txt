@@ -13,7 +13,7 @@ DONANIMINI KUR
 - 12 kazma kademesi ve 8 kazma türü
 - 8 silah: Blaster, Saçmalı, Makineli, Alev Püskürtücü, Delici Tüfek, Şimşek Tabancası, Roketatar, Kırağı Topu
 - Eklentiler, kalıntılar ve seviye kartlarıyla her seferde farklı bir yapı
-- Dinamit, Sonar, Şifa Direği, Sondaj Matkabı, Yem Zili gibi aletler
+- Dinamit, Fener Yağı, Şifa Direği, Sondaj Matkabı, Yem Zili gibi aletler
 
 DAHA FAZLASI
 - Yuvaları yık, fener dik, asansörle biyomlar arasında in-çık
