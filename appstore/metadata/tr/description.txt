@@ -9,6 +9,9 @@ Toprak Katmanı'ndan Sıfır Noktası'na kadar her biyomun kendi kayası, yarat�
 DEV BOSSLAR
 Karakök, Kavurgan, Ötegöz, Kördeşen, Ezelî, Aynasız Hükümdar, Kehribar Ana, Madenin Kalbi ve efsanevi biyomların bekçileri. Her bossun kendine özgü beş yeteneği ve ikinci bir öfke evresi var.
 
+BİRLİKTE KAZ
+Bir arkadaşınla aynı madene in. Hızlı Eşleş ile bekleyen bir madenci bul ya da oda kurup davet linki gönder; linke dokunan doğrudan odana düşer. İki madenci, tek hedef ve 1,5 kat Öz.
+
 DONANIMINI KUR
 - 12 kazma kademesi ve 8 kazma türü
 - 8 silah: Blaster, Saçmalı, Makineli, Alev Püskürtücü, Delici Tüfek, Şimşek Tabancası, Roketatar, Kırağı Topu
@@ -20,4 +23,4 @@ DAHA FAZLASI
 - Sandıklar, kontratlar, Günün Madeni ve zorluk kademeleri
 - Kalıcı kamp yükseltmeleri ve efsanevi eserler
 
-Hesap yok, reklam yok, veri toplama yok, internet gerekmez.
+Hesap yok, reklam yok, veri toplama yok. Tek oyunculu mod internetsiz oynanır; Birlikte Kaz için internet gerekir.
