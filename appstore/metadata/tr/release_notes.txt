@@ -1,1 +1,8 @@
-İlk sürüm.
+Büyük güncelleme:
+• Hikâye: Kandilli ve Yedinci Ekip. Her biyomda Selvi'nin defterinden bir sayfa, kamptan okunur.
+• Mühürler ve bekçiler: her dört biyomun dibinde bir bekçi, dört yeni boss.
+• Tezgâh: düşmandan düşen Kabuk ve Çekirdek ile silah, kazma ve zırh dövülür.
+• Fener yağı, mahsur madenciler ve elit kuşatmaları.
+• 34 yaratığa yeni 3B modeller, boss sesleri, konfeti ve jeodlar.
+• Birlikte Kaz: bir arkadaşınla aynı madende kaz.
+• Denge ve ekonomi iyileştirmeleri.

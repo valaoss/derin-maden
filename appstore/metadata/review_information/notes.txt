@@ -1,5 +1,7 @@
-FALL is a single-player mining roguelite. No account or login is required, and no network connection is needed.
+FALL is a mining roguelite. No account or login is required. Single-player works fully offline.
 
 How to play: drag the on-screen joystick to move; the miner digs in the direction of movement and fires automatically at nearby enemies. Tap ATÖLYE (Workshop) at the surface camp to buy upgrades with collected ore.
+
+Optional co-op ("Birlikte Kaz" / Dig Together) in the main menu: one player creates a room and shares a link or room code; the other joins. The connection is peer-to-peer (WebRTC) and needs internet only while playing co-op. No personal data is exchanged or stored.
 
 The app collects no data, contains no ads, no analytics and no in-app purchases. The in-game language is Turkish.

@@ -1,1 +1,8 @@
-First release.
+Big update:
+• Story: Kandilli and the Seventh Crew. A page from Selvi's journal in every biome, readable at camp.
+• Seals and wardens: a warden at the bottom of every fourth biome, four new bosses.
+• Workbench: forge weapon, pickaxe and armor tiers from Shells and Cores dropped by enemies.
+• Lantern oil, trapped miners and elite sieges.
+• New 3D models for 34 creatures, boss sounds, confetti and geodes.
+• Dig Together: mine the same cave with a friend.
+• Balance and economy improvements.
