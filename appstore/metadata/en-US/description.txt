@@ -12,7 +12,7 @@ GIANT BOSSES
 Each boss has five skills of its own and a second rage phase.
 
 DIG TOGETHER
-Take a friend down the same mine. Use Quick Match to find a waiting miner, or open a room and send an invite link that drops your friend straight in. Two miners, one goal and 1.5x permanent rewards.
+Take a friend down the same mine. Use Quick Match to find a waiting miner, or open a room and send your friend the 4-letter room code to enter under Join Room. Two miners, one goal and 1.5x permanent rewards.
 
 BUILD YOUR GEAR
 - 12 pickaxe tiers and 8 pickaxe types
