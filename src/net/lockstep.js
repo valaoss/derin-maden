@@ -17,8 +17,8 @@ export const net = {
   on: false, idx: 0, frame: 0, delay: 5,
   local: new Map(), remote: new Map(), cmds: [], lastSched: -1, peerAck: -1, have: -1,
   hashes: new Map(), desync: false, stallT: 0, stalls: 0,
-  remoteFrame: 0, remoteAt: 0, lead: 0, rtt: 0, rtts: [], pingT: 0, resendT: 0,
-  slackMin: 99, adaptT: 0, calmT: 0, stallCd: 0, quality: 'iyi',
+  remoteFrame: 0, remoteAt: 0, recvTop: -1, lead: 0, rtt: 0, rtts: [], pingT: 0, resendT: 0,
+  slackMin: 99, slackPeer: 99, adaptT: 0, calmT: 0, stallCd: 0, quality: 'iyi',
   log: [], lost: false, bye: false,
 };
 const LOG = 600;           // yeniden bağlanmada karşıya verilen yerel girdi geçmişi (kare)
@@ -27,8 +27,8 @@ export function startLockstep(localIdx) {
   net.on = true; net.idx = localIdx; net.frame = 0; net.delay = 5;
   net.local.clear(); net.remote.clear(); net.hashes.clear();
   net.cmds = []; net.lastSched = -1; net.desync = false; net.stallT = 0; net.stalls = 0;
-  net.remoteFrame = 0; net.remoteAt = performance.now(); net.lead = 0; net.rtt = 0; net.rtts = []; net.pingT = 0; net.resendT = 0;
-  net.slackMin = 99; net.adaptT = 0; net.calmT = 0; net.stallCd = 0; net.quality = 'iyi';
+  net.remoteFrame = 0; net.remoteAt = performance.now(); net.recvTop = -1; net.lead = 0; net.rtt = 0; net.rtts = []; net.pingT = 0; net.resendT = 0;
+  net.slackMin = 99; net.slackPeer = 99; net.adaptT = 0; net.calmT = 0; net.stallCd = 0; net.quality = 'iyi';
   net.log = []; net.lost = false; net.bye = false;
   setCommandQueue(cmd => net.cmds.push(cmd));
   // ilk DELAY kare boş girdi: iki taraf da hemen başlayabilsin
@@ -115,10 +115,12 @@ export function netTick(dt, stalled) {
   // saniyede bir: gelen girdilerin payına bak (iki tarafın gözlemi birleştirilir)
   if (net.adaptT >= 1) {
     net.adaptT = 0;
-    if (net.slackMin <= 0) { net.calmT = 0; bump(+1); }
-    else if (net.slackMin >= 4) { if (++net.calmT >= 3) { net.calmT = 0; bump(-1); } }
+    // iki tarafın gözlemi: kendi ölçtüğümüz pay + karşının bildirdiği kendi payı
+    const slack = Math.min(net.slackMin, net.slackPeer);
+    if (slack <= 0) { net.calmT = 0; bump(+1); }
+    else if (slack >= 4) { if (++net.calmT >= 3) { net.calmT = 0; bump(-1); } }
     else net.calmT = 0;
-    net.slackMin = 99;
+    net.slackMin = net.slackPeer = 99;
   }
   // hız eşitleme: karşı tarafın tahmini karesiyle farkımız. Paket yolda geçen süre kadar eskidir (ölçülen en düşük ping'in yarısı);
   // bu eklenmezse iki taraf da kendini önde sanıp birlikte yavaşlar.
@@ -136,7 +138,8 @@ function onMessage(d) {
   if (!Array.isArray(d)) { if (d && d.t) emit('netMsg', d); return; }
   const k = d[0];
   if (k === 'i') {
-    net.remoteFrame = d[1]; net.remoteAt = performance.now();
+    // geç gelen (sırası bozulmuş) paket karşı tarafın karesini geri almasın
+    if (d[1] >= net.remoteFrame) { net.remoteFrame = d[1]; net.remoteAt = performance.now(); }
     if (d[3] > net.peerAck) net.peerAck = d[3];
     const list = d[2] || [];
     let newest = -1;
@@ -146,15 +149,19 @@ function onMessage(d) {
       if (f < net.frame || net.remote.has(f)) continue;
       net.remote.set(f, { x: e[1], y: e[2], m: e[3], c: e[4] || [] });
     }
-    if (newest >= 0) { const slack = newest - net.frame; if (slack < net.slackMin) net.slackMin = slack; }
+    // pay yalnızca ilk kez gelen karelerle ölçülür: yeniden gönderilen ya da geç kalmış kopyalar zaten elimizdeki
+    // kareleri taşır, onları saymak sahte "yetişmiyor" sinyali verip gecikmeyi tavana iter
+    if (newest > net.recvTop) { net.recvTop = newest; const slack = newest - net.frame; if (slack < net.slackMin) net.slackMin = slack; }
   } else if (k === 'p') {
-    if (typeof d[2] === 'number' && d[2] < net.slackMin) net.slackMin = d[2];
+    // yalnızca kendi ölçümümüz gider; birleşik değeri geri yollamak bir kez görülen sıfırı iki taraf arasında
+    // sonsuza dek yankılatıp gecikmeyi her saniye bir kare artırıyordu
+    if (typeof d[2] === 'number' && d[2] < net.slackPeer) net.slackPeer = d[2];
     send(['q', d[1], net.slackMin], true);
   } else if (k === 'q') {
     const r = performance.now() - d[1];
     net.rtt = net.rtt ? net.rtt * 0.7 + r * 0.3 : r;
     net.rtts.push(r); if (net.rtts.length > 8) net.rtts.shift();
-    if (typeof d[2] === 'number' && d[2] < net.slackMin) net.slackMin = d[2];
+    if (typeof d[2] === 'number' && d[2] < net.slackPeer) net.slackPeer = d[2];
   } else if (k === 'h') {
     const f = d[1], h = d[2];
     const mine = net.hashes.get(f);
