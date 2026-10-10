@@ -15,6 +15,17 @@ export function makeCode() {
   return s;
 }
 export function normCode(s) { return (s || '').toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 4); }
+// Kod alanına yazılan ya da yapıştırılan metinden oda kodu: paylaşılan mesajın tamamı yapıştırılırsa
+// ("… Oda kodu: K7PX …") içindeki 4 haneli kod alınır; elle yazımda yalnızca koddaki harfler kalır.
+export function codeFromText(s) {
+  const up = (s || '').toLocaleUpperCase('tr-TR').replace(/İ/g, 'I');
+  const after = up.match(/KODU?\W*([A-Z0-9]{4})(?![A-Z0-9])/);
+  if (after && [...after[1]].every(ch => ALPHABET.includes(ch))) return after[1];
+  const tokens = up.match(/[A-Z0-9]+/g) || [];
+  const exact = tokens.filter(t => t.length === 4 && [...t].every(ch => ALPHABET.includes(ch)));
+  if (tokens.length > 1 && exact.length) return exact[exact.length - 1];
+  return [...up].filter(ch => ALPHABET.includes(ch)).join('').slice(0, 4);
+}
 
 function peerOpts() {
   const env = import.meta.env;
@@ -146,10 +157,30 @@ export function quickMatch(onState) {
       if (done) return;
       if (slot >= LOBBY_SLOTS) { reject(new Error('lobi dolu')); return; }
       link.host = true; link.code = 'L' + slot; link.quick = true;
-      const peer = makePeer(LOBBY + slot, () => { onState && onState('host'); finish(true); }, reject, () => { try { peer.destroy(); } catch (e) { /* yok */ } becomeHost(slot + 1); });
+      const peer = makePeer(LOBBY + slot, () => { onState && onState('host'); finish(true); probeLower(peer, slot); }, reject, () => { try { peer.destroy(); } catch (e) { /* yok */ } becomeHost(slot + 1); });
       acceptIncoming(peer);
     }
   });
+}
+
+// Aynı anda Hızlı Eşleş'e basan iki oyuncu aramayı birlikte yapar; ikisi de kimseyi bulamayıp ayrı yuvalarda ev sahibi
+// olur ve sonsuza dek birbirini bekler. Bunu önlemek için bekleyen ev sahibi kendinden küçük yuvaları aralıkla yoklar,
+// orada bekleyen biri varsa ona misafir olarak katılır. Hep büyük yuvadaki taraf gider: iki taraf aynı anda yer değiştirmez.
+function probeLower(peer, slot) {
+  if (slot <= 0) return;
+  const timer = setInterval(() => {
+    if (link.open || link.peer !== peer || !link.quick) { clearInterval(timer); return; }
+    for (let j = 0; j < slot; j++) {
+      const c = peer.connect(LOBBY + j, CHAN);
+      c.on('open', () => {
+        if (link.open || link.peer !== peer) { try { c.close(); } catch (e) { /* yok */ } return; }
+        clearInterval(timer);
+        link.host = false; link.code = 'L' + j;
+        bindConn(c); link.open = true;
+        link.onOpen && link.onOpen();
+      });
+    }
+  }, 2500);
 }
 
 function shuffled(n) {
@@ -168,11 +199,18 @@ export function codeFromURL() {
   if (c) history.replaceState(null, '', location.pathname);
   return c.length === 4 ? c : '';
 }
+// Davet içeriği. Uygulamada link yok: web adresi görünmez, davet edilen web sürümüne değil uygulamaya,
+// BİRLİKTE → ODAYA KATIL'dan kodla girer. Web'de link, tıklayanı doğrudan odaya düşürür.
+export function invitePayload(code, native = isNative) {
+  const text = 'FALL’da birlikte kazalım! Oda kodu: ' + code;
+  if (native) return { title: 'FALL', text: text + '\nBİRLİKTE → ODAYA KATIL’a dokun, kodu yaz.' };
+  return { title: 'FALL', text, url: inviteURL(code) };
+}
 export async function shareInvite(code) {
-  const url = inviteURL(code);
-  if (isNative) { try { await nativeShare({ title: 'FALL', text: 'Birlikte kazalım! Oda: ' + code, url }); return 'shared'; } catch (e) { return 'cancel'; } }
-  if (navigator.share) { try { await navigator.share({ title: 'FALL', text: 'Birlikte kazalım! Oda: ' + code, url }); return 'shared'; } catch (e) { if (e && e.name === 'AbortError') return 'cancel'; } }
-  try { await navigator.clipboard.writeText(url); return 'copied'; } catch (e) { return 'fail'; }
+  const p = invitePayload(code);
+  if (isNative) { try { await nativeShare(p); return 'shared'; } catch (e) { return 'cancel'; } }
+  if (navigator.share) { try { await navigator.share(p); return 'shared'; } catch (e) { if (e && e.name === 'AbortError') return 'cancel'; } }
+  try { await navigator.clipboard.writeText(p.url); return 'copied'; } catch (e) { return 'fail'; }
 }
 
 // Sefer içi yeniden bağlanma: iki taraf da tohumdan aynı kimliği türetir; ev sahibi bu kimlikle yeniden kayıt olur, misafir ona bağlanır.

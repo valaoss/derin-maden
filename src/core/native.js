@@ -1,7 +1,8 @@
 // iOS (Capacitor) köprüsü: web'de hiçbir şey yapmaz, eklentiler yalnızca uygulamada yüklenir.
 import { Capacitor } from '@capacitor/core';
 
-export const isNative = Capacitor.isNativePlatform();
+// geliştirmede ?native ile uygulama davranışı denenir (arayüz testleri iki yolu da sınar)
+export const isNative = Capacitor.isNativePlatform() || !!(import.meta.env?.DEV && typeof location !== 'undefined' && new URLSearchParams(location.search).has('native'));
 export const WEB_URL = 'https://valaoss.github.io/derin-maden/';
 
 // Kayıtlar: localStorage hızlı önbellek, Preferences (UserDefaults) kalıcı kopya; iOS depolamayı temizlerse geri yüklenir

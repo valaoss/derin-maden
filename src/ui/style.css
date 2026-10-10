@@ -279,10 +279,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .helm i { position: absolute; left: 30%; top: 55%; width: 40%; height: 22%; background: var(--ink); }
 .helm.big { width: 40px; height: 40px; }
 .helm.ghost { background: var(--plateD); box-shadow: inset 0 0 0 2px var(--plateL); }
-.lmore { width: 100%; }
-.lmore summary { font-size: 13px; color: var(--dim); text-align: center; cursor: pointer; padding: 6px; letter-spacing: 1px; list-style: none; }
-.lmore summary::after { content: ' ▾'; }
-.lmore[open] summary::after { content: ' ▴'; }
+.lcard.join:active { transform: none; }
 .lrow { display: flex; gap: 8px; margin-top: 6px; }
 .codein.small { font-size: 22px; letter-spacing: 6px; min-height: 48px; flex: 1; }
 .namein { width: 100%; font: inherit; font-size: 20px; color: var(--text); background: var(--ink); border: 0; padding: 8px 10px; clip-path: var(--cut2); box-shadow: inset 0 0 0 2px var(--plateL); outline: none; }

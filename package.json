@@ -11,7 +11,8 @@
     "sim": "node scripts/balance-sim.mjs",
     "ios": "vite build && cap sync ios",
     "shots": "node scripts/store-shots.mjs appstore/screenshots",
-    "sfx": "node --env-file-if-exists=.env scripts/boss-sfx.mjs"
+    "sfx": "node --env-file-if-exists=.env scripts/boss-sfx.mjs",
+    "test:ui": "node tests/ui.e2e.mjs"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.2",

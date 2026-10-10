@@ -31,6 +31,7 @@ import { saveMeta, saveSettings } from '../core/save.js';
 import { mountJourney, glyphURL, MARK_NAMES } from './journey.js';
 import { cancelStick, setStickMode } from '../input/input.js';
 import { isNative, WEB_URL } from '../core/native.js';
+import { codeFromText } from '../net/peer.js';
 import { SHOP_TABS, renderShop, statsHTML, tabCounts } from './shop.js';
 import { goalLines, showJournal, showCodex, epilogueFor } from './story.js';
 
@@ -620,10 +621,9 @@ export function showCoop(back) {
     <div class="lhead"><div class="k">BİRLİKTE KAZ</div><div class="n">İki madenci · aynı maden · Öz ×1.5</div></div>
     <button class="plate lcard me" id="rMe">${helmDot(S.helm, true)}<div class="main"><div class="name">${esc(S.name)}</div><div class="eff">Adını ve kaskını değiştir</div></div><span class="chev">›</span></button>
     <button class="plate lcard primary" id="rQuick">${ic('hand', 'xl')}<div class="main"><div class="name">HIZLI EŞLEŞ</div><div class="eff">Bekleyen bir madenci bul. Yoksa sen bekle, biri gelir.</div></div></button>
-    <button class="plate lcard" id="rHost">${ic('base', 'xl')}<div class="main"><div class="name">ODA KUR</div><div class="eff">Arkadaşına davet linki gönder. Tıklayan doğrudan odaya düşer.</div></div></button>
-    <details class="lmore"><summary>Kodla katıl</summary>
-      <div class="lrow"><input class="codein small" id="rCode" maxlength="4" placeholder="KOD" autocomplete="off" autocapitalize="characters" spellcheck="false"><button class="btn" id="rJoin">KATIL</button></div>
-    </details>
+    <button class="plate lcard" id="rHost">${ic('base', 'xl')}<div class="main"><div class="name">ODA KUR</div><div class="eff">${isNative ? 'Oda kodunu arkadaşına gönder, o da Odaya Katıl’dan girsin.' : 'Arkadaşına davet linki gönder. Tıklayan doğrudan odaya düşer.'}</div></div></button>
+    <div class="plate lcard join" id="rJoinCard"><div class="main"><div class="name">ODAYA KATIL</div><div class="eff">Arkadaşının verdiği 4 haneli kodu yaz.</div>
+      <div class="lrow"><input class="codein small" id="rCode" placeholder="KOD" autocomplete="off" autocapitalize="characters" spellcheck="false"><button class="btn" id="rJoin">KATIL</button></div></div></div>
     <button class="btn dark" id="rBack">GERİ</button></div>`;
   hideScreens(); s.classList.add('on');
   tap($('#rMe'), () => showProfile(() => showCoop(back)));
@@ -631,7 +631,8 @@ export function showCoop(back) {
   tap($('#rHost'), () => hooks.hostRoom());
   const inp = $('#rCode');
   inp.addEventListener('pointerdown', e => e.stopPropagation());
-  inp.addEventListener('input', () => { inp.value = inp.value.toUpperCase().replace(/[^A-Z2-9]/g, '').slice(0, 4); });
+  // yapıştırılan davet mesajının tamamından da kod çıkar (sınır yok: 4 harfe kırpılsaydı mesajın başı kalırdı)
+  inp.addEventListener('input', () => { inp.value = codeFromText(inp.value); });
   inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter' && inp.value.length === 4) hooks.joinRoom(inp.value); });
   tap($('#rJoin'), () => { if (inp.value.length === 4) hooks.joinRoom(inp.value); else toast('4 haneli oda kodu gir', 'skull', true); });
   tap($('#rBack'), () => { s.classList.remove('on'); back(); });
@@ -670,9 +671,9 @@ export function showRoom(L) {
   else if (st === 'connecting') { head = [L.host ? 'ODA KURULUYOR' : 'ODAYA GİRİLİYOR', L.code ? 'Kod ' + L.code : 'Sinyal sunucusuna bağlanılıyor']; actions = '<button class="btn dark" id="rLeave">İPTAL</button>'; }
   else if (L.starting) { head = ['SEFER BAŞLIYOR', 'Kazmalar hazır']; }
   else if (st === 'waiting') {
-    head = L.quick ? ['SIRA SENDE', 'Odayı sen açtın, ilk gelen madenci yanına oturur'] : ['ODA HAZIR', 'Partnerini davet et'];
+    head = L.quick ? ['SIRA SENDE', 'Odayı sen açtın, ilk gelen madenci yanına oturur'] : ['ODA HAZIR', isNative ? 'Kodu arkadaşına gönder, Odaya Katıl’dan girsin' : 'Partnerini davet et'];
     hint = L.quick ? '' : `<div class="codeline">KOD <b>${L.code}</b></div>`;
-    actions = `${L.quick ? '' : '<button class="btn big" id="rShare">' + ic('hand') + ' DAVET LİNKİ PAYLAŞ</button>'}<button class="btn dark" id="rLeave">İPTAL</button>`;
+    actions = `${L.quick ? '' : '<button class="btn big" id="rShare">' + ic('hand') + (isNative ? ' KODU PAYLAŞ' : ' DAVET LİNKİ PAYLAŞ') + '</button>'}<button class="btn dark" id="rLeave">İPTAL</button>`;
   } else {
     const both = L.me.ready && L.mate && L.mate.ready;
     head = ['EKİP TAMAM', both ? 'Başlıyor…' : L.me.ready ? 'Partnerin hazır olunca başlar' : 'Hazır olduğunda dokun'];
